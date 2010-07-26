@@ -126,6 +126,7 @@ struct eblob_disk_control {
 } __attribute__ ((packed));
 
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
+#define BLOB_DISK_CTL_NOCSUM	(1<<1)
 
 static inline void blob_convert_disk_control(struct eblob_disk_control *ctl)
 {
@@ -200,7 +201,7 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 struct eblob_disk_footer {
 	unsigned char			csum[EBLOB_ID_SIZE];
 	uint64_t			offset;
-};
+} __attribute__ ((packed));
 
 static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
 {

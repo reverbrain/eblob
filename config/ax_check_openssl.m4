@@ -53,6 +53,7 @@ AC_DEFUN([AX_CHECK_OPENSSL],
 			AC_SUBST(OPENSSL_LDFLAGS)
 		else
 			ifelse([$3], , :, [$3])
+			AC_MSG_ERROR(["OpenSSL was not found. Checksum code requires it."])
 		fi	
 	fi
 	AM_CONDITIONAL(HAVE_OPENSSL, [test "f$ac_ssl_found" = "fyes"])

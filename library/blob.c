@@ -29,8 +29,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+
 #include "eblob/blob.h"
 #include "hash.h"
+#include "lock.h"
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		1024*1024*10
@@ -38,6 +42,10 @@
 
 struct eblob_backend {
 	struct eblob_config	cfg;
+
+	struct eblob_lock	csum_lock;
+	EVP_MD_CTX 		mdctx;
+	const EVP_MD		*evp_md;
 
 	pthread_mutex_t		lock;
 
@@ -470,7 +478,49 @@ err_out_unlock:
 	return 0;
 }
 
-static int eblob_write_commit_ll(unsigned char *csum, unsigned int csize,
+static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
+		struct eblob_write_control *wc)
+{
+	long page_size = sysconf(_SC_PAGE_SIZE);
+	off_t off = wc->ctl_offset + sizeof(struct eblob_disk_control);
+	off_t offset = off & ~(page_size - 1);
+	size_t mapped_size = wc->size + off - offset;
+	unsigned char md_value[EVP_MAX_MD_SIZE];
+	unsigned int size = sizeof(md_value);
+	void *data, *ptr;
+	int err;
+	
+	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, wc->fd, offset);
+	if (data == MAP_FAILED) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob %d: failed to mmap file to csum: "
+				"size: %zu, offset: %llu, aligned: %llu: %s.\n",
+				wc->io_index, mapped_size, off, offset, strerror(errno));
+		goto err_out_exit;
+	}
+	ptr = data + off - offset;
+
+	eblob_lock_lock(&b->csum_lock);
+	EVP_DigestInit_ex(&b->mdctx, b->evp_md, NULL);
+	EVP_DigestUpdate(&b->mdctx, ptr, size);
+	EVP_DigestFinal_ex(&b->mdctx, md_value, &size);
+	eblob_lock_unlock(&b->csum_lock);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %d: size: %zu, offset: %llu, "
+			"aligned: %llu: csum: %s, size: %u.\n",
+			wc->io_index, mapped_size, off, offset,
+			eblob_dump_id_len(md_value, size), size);
+
+	memcpy(dst, md_value, dsize < size ? dsize : size);
+	err = 0;
+
+	munmap(data, mapped_size);
+
+err_out_exit:
+	return err;
+}
+
+static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc)
 {
 	off_t offset = wc->ctl_offset + wc->total_size - sizeof(struct eblob_disk_footer);
@@ -479,8 +529,15 @@ static int eblob_write_commit_ll(unsigned char *csum, unsigned int csize,
 
 	memset(&f, 0, sizeof(f));
 
-	if (csum)
-		memcpy(f.csum, csum, (csize < EBLOB_ID_SIZE) ? csize : EBLOB_ID_SIZE);
+	if (!(wc->flags & BLOB_DISK_CTL_NOCSUM)) {
+		if (csum) {
+			memcpy(f.csum, csum, (csize < EBLOB_ID_SIZE) ? csize : EBLOB_ID_SIZE);
+		} else {
+			err = eblob_csum(b, f.csum, sizeof(f.csum), wc);
+			if (err)
+				goto err_out_exit;
+		}
+	}
 
 	f.offset = wc->ctl_offset;
 
@@ -506,7 +563,7 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 	struct eblob_backend_io *io;
 	int err, have_old = 0;
 
-	err = eblob_write_commit_ll(csum, csize, wc);
+	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to write footer: %s.\n",
 				eblob_dump_id(key), strerror(-err));
@@ -698,6 +755,7 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_hash_exit(b->hash);
 	eblob_blob_close_files_all(b);
 	pthread_mutex_destroy(&b->lock);
+	EVP_MD_CTX_cleanup(&b->mdctx);
 	free(b);
 }
 
@@ -713,6 +771,25 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 
 	memset(b, 0, sizeof(struct eblob_backend));
+
+ 	OpenSSL_add_all_digests();
+
+	b->evp_md = EVP_get_digestbyname("sha256");
+	if (!b->evp_md) {
+		err = -errno;
+		if (!err)
+			err = -ENOENT;
+
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to initialize sha256 "
+				"checksum hash: %d.\n", err);
+		goto err_out_free;
+	}
+
+	EVP_MD_CTX_init(&b->mdctx);
+
+	err = eblob_lock_init(&b->csum_lock);
+	if (err)
+		goto err_out_cleanup;
 
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
@@ -730,7 +807,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	b->cfg.file = strdup(c->file);
 	if (!b->cfg.file) {
 		err = -ENOMEM;
-		goto err_out_free;
+		goto err_out_csum_lock_destroy;
 	}
 
 	err = eblob_blob_allocate_io(b);
@@ -765,6 +842,10 @@ err_out_close:
 	eblob_blob_close_files_all(b);
 err_out_free_file:
 	free(b->cfg.file);
+err_out_csum_lock_destroy:
+	eblob_lock_destroy(&b->csum_lock);
+err_out_cleanup:
+	EVP_MD_CTX_cleanup(&b->mdctx);
 err_out_free:
 	free(b);
 err_out_exit:
