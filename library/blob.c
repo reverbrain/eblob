@@ -378,57 +378,52 @@ err_out_exit:
 	return err;
 }
 
-static unsigned char blob_empty_buf[40960];
-
-static ssize_t blob_write_data(struct eblob_backend *b, struct eblob_backend_io *io, unsigned char *key, unsigned int ksize,
-		void *data, uint64_t offset __eblob_unused, uint64_t size, uint64_t flags)
+static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t size)
 {
+	uint64_t total_size = size + sizeof(struct eblob_disk_control) + sizeof(struct eblob_disk_footer);
+
+	if (b->cfg.bsize)
+		total_size = ALIGN(total_size, b->cfg.bsize);
+
+	return total_size;
+}
+
+static int blob_write_prepare_ll(struct eblob_backend *b,
+		unsigned char *key, unsigned int ksize, struct eblob_write_control *wc)
+{
+	static unsigned char blob_empty_buf[40960];
 	struct eblob_disk_control disk_ctl;
-	struct blob_ram_control ctl, old;
-	unsigned int dsize = sizeof(old);
-	off_t local_offset;
-	size_t disk_size;
 	ssize_t err;
-	int have_old = 0, bsize = b->cfg.bsize;
 
 	memset(&disk_ctl, 0, sizeof(disk_ctl));
 
-	ctl.offset = io->offset;
-	ctl.index_pos = io->index_pos;
-	ctl.file_index = io->file_index;
-
-	disk_ctl.flags = flags;
-	disk_ctl.position = ctl.offset;
-	disk_ctl.data_size = size;
-	disk_ctl.disk_size = size + sizeof(struct eblob_disk_control);
-	if (bsize)
-		disk_ctl.disk_size = ALIGN(disk_ctl.disk_size, bsize);
+	disk_ctl.flags = wc->flags;
+	disk_ctl.position = wc->ctl_offset;
+	disk_ctl.data_size = wc->size;
+	disk_ctl.disk_size = eblob_calculate_size(b, wc->size);
 
 	memcpy(disk_ctl.id, key, (ksize < EBLOB_ID_SIZE) ? ksize : EBLOB_ID_SIZE);
 
 	blob_convert_disk_control(&disk_ctl);
 
-	local_offset = ctl.offset;
-	err = blob_write_low_level(io->fd, &disk_ctl, sizeof(struct eblob_disk_control), local_offset);
+	err = blob_write_low_level(wc->fd, &disk_ctl, sizeof(struct eblob_disk_control),
+			wc->ctl_offset);
 	if (err)
 		goto err_out_exit;
-	local_offset += sizeof(struct eblob_disk_control);
 
-	err = blob_write_low_level(io->fd, data, size, local_offset);
-	if (err)
-		goto err_out_exit;
-	local_offset += size;
+	if (b->cfg.bsize) {
+		uint64_t local_offset = wc->offset + wc->size;
+		unsigned int alignment = wc->total_size - wc->size -
+			sizeof(struct eblob_disk_control) -
+			sizeof(struct eblob_disk_footer);
 
-	if (bsize) {
-		int alignment = bsize - ((local_offset - ctl.offset) % bsize);
-
-		while (alignment && alignment < bsize) {
+		while (alignment && alignment < b->cfg.bsize) {
 			unsigned int sz = alignment;
 
 			if (sz > sizeof(blob_empty_buf))
 				sz = sizeof(blob_empty_buf);
 
-			err = blob_write_low_level(io->fd, blob_empty_buf, sz, local_offset);
+			err = blob_write_low_level(wc->fd, blob_empty_buf, sz, local_offset);
 			if (err)
 				goto err_out_exit;
 
@@ -436,39 +431,13 @@ static ssize_t blob_write_data(struct eblob_backend *b, struct eblob_backend_io 
 			local_offset += sz;
 		}
 	}
-	disk_size = local_offset - ctl.offset;
-	ctl.size = size;
-
-	err = eblob_hash_lookup(b->hash, key, ksize, &old, &dsize);
-	if (!err)
-		have_old = 1;
-
-	err = eblob_hash_replace(b->hash, key, ksize, &ctl, sizeof(ctl));
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to add hash entry: %s [%d].\n",
-				eblob_dump_id(key), strerror(-err), err);
-		goto err_out_exit;
-	}
-
-	io->offset += disk_size;
-
-	err = blob_update_index(b, io, key, ksize, &ctl, have_old ? &old : NULL);
-	if (err)
-		goto err_out_exit;
-
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: written data at position: %zu, size: %llu, on-disk-size: %zu.\n",
-			eblob_dump_id(key), ctl.offset, (unsigned long long)size, disk_size);
-
-	return 0;
 
 err_out_exit:
-	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to write %llu bytes into (fd: %d) datafile: %s.\n",
-			eblob_dump_id(key), err, (unsigned long long)size, io->fd, strerror(-err));
 	return err;
 }
 
-int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
-		void *data, uint64_t offset, uint64_t size, uint64_t flags)
+int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		struct eblob_write_control *wc)
 {
 	ssize_t err;
 	struct eblob_backend_io *io;
@@ -477,9 +446,17 @@ int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int k
 
 	io = &b->data[b->index];
 
-	err = blob_write_data(b, io, key, ksize, data, offset, size, flags);
+	wc->total_size = eblob_calculate_size(b, wc->size);
+	wc->ctl_offset = io->offset;
+	wc->offset = io->offset + sizeof(struct eblob_disk_control);
+	wc->io_index = b->index;
+	wc->fd = io->fd;
+
+	err = blob_write_prepare_ll(b, key, ksize, wc);
 	if (err)
 		goto err_out_unlock;
+
+	io->offset += wc->total_size;
 
 	if (io->offset >= (off_t)b->cfg.blob_size) {
 		err = eblob_blob_allocate_io(b);
@@ -489,6 +466,130 @@ int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int k
 
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
+
+	return 0;
+}
+
+static int eblob_write_commit_ll(unsigned char *csum, unsigned int csize,
+		struct eblob_write_control *wc)
+{
+	off_t offset = wc->ctl_offset + wc->total_size - sizeof(struct eblob_disk_footer);
+	struct eblob_disk_footer f;
+	ssize_t err;
+
+	memset(&f, 0, sizeof(f));
+
+	if (csum)
+		memcpy(f.csum, csum, (csize < EBLOB_ID_SIZE) ? csize : EBLOB_ID_SIZE);
+
+	f.offset = wc->ctl_offset;
+
+	eblob_convert_disk_footer(&f);
+
+	err = pwrite(wc->fd, &f, sizeof(f), offset);
+	if (err != (int)sizeof(f)) {
+		err = -errno;
+		goto err_out_exit;
+	}
+	err = 0;
+
+err_out_exit:
+	return err;
+}
+
+int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		unsigned char *csum, unsigned int csize,
+		struct eblob_write_control *wc)
+{
+	struct blob_ram_control ctl, old;
+	unsigned int dsize = sizeof(old);
+	struct eblob_backend_io *io;
+	int err, have_old = 0;
+
+	err = eblob_write_commit_ll(csum, csize, wc);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to write footer: %s.\n",
+				eblob_dump_id(key), strerror(-err));
+		goto err_out_exit;
+	}
+
+	pthread_mutex_lock(&b->lock);
+
+	io = &b->data[wc->io_index];
+
+	ctl.size = wc->size;
+	ctl.offset = wc->ctl_offset;
+	ctl.index_pos = io->index_pos;
+	ctl.file_index = io->file_index;
+
+	err = eblob_hash_lookup(b->hash, key, ksize, &old, &dsize);
+	if (!err)
+		have_old = 1;
+
+	err = eblob_hash_replace(b->hash, key, ksize, &ctl, sizeof(ctl));
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to add "
+				"hash entry: %s [%d].\n",
+				eblob_dump_id(key), strerror(-err), err);
+		goto err_out_unlock;
+	}
+
+	err = blob_update_index(b, io, key, ksize, &ctl, have_old ? &old : NULL);
+	if (err)
+		goto err_out_unlock;
+
+	pthread_mutex_unlock(&b->lock);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: written data at position: %llu "
+			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d.\n",
+			eblob_dump_id(key),
+			(unsigned long long)wc->ctl_offset, (unsigned long long)wc->offset,
+			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
+			wc->fd);
+
+	return 0;
+
+err_out_unlock:
+	pthread_mutex_unlock(&b->lock);
+
+err_out_exit:
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to commit %llu "
+			"bytes into (fd: %d) datafile: %s.\n",
+			eblob_dump_id(key), err, (unsigned long long)wc->size,
+			wc->fd, strerror(-err));
+	return err;
+}
+
+int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		void *data, uint64_t size, uint64_t flags)
+{
+	struct eblob_write_control wc;
+	ssize_t err;
+
+	memset(&wc, 0, sizeof(wc));
+
+	wc.size = size;
+	wc.flags = flags;
+
+	err = eblob_write_prepare(b, key, ksize, &wc);
+	if (err)
+		goto err_out_exit;
+
+	err = pwrite(wc.fd, data, size, wc.offset);
+	if (err != (ssize_t)size) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to pwrite %llu "
+				"bytes into (fd: %d) datafile: %s.\n",
+				eblob_dump_id(key), err, (unsigned long long)size,
+				wc.fd, strerror(-err));
+		goto err_out_exit;
+	}
+
+	err = eblob_write_commit(b, key, ksize, NULL, 0, &wc);
+	if (err)
+		goto err_out_exit;
+
+err_out_exit:
 	return err;
 }
 

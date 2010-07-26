@@ -159,20 +159,52 @@ struct eblob_config {
 struct eblob_backend *eblob_init(struct eblob_config *c);
 void eblob_cleanup(struct eblob_backend *b);
 
-int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eblob_log *l, int check_index,
-		int (* callback)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
+int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size,
+		struct eblob_log *l, int check_index,
+		int (* callback)(struct eblob_disk_control *dc, int file_index,
+			void *data, off_t position, void *priv),
 		void *priv);
 
 int eblob_blob_iterate(struct eblob_backend *b, int check_index,
-	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
+	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data,
+		off_t position, void *priv),
 	void *priv);
 
 struct eblob_backend;
 
 int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize);
-int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
-		void *data, uint64_t offset, uint64_t size, uint64_t flags);
 int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		int *fd, uint64_t *size, uint64_t *offset);
+
+int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		void *data, uint64_t size, uint64_t flags);
+
+struct eblob_write_control {
+	uint64_t			size;
+	uint64_t			flags;
+
+	int				fd;
+	int				io_index;
+
+	uint64_t			offset;
+
+	uint64_t			ctl_offset;
+	uint64_t			total_size;
+};
+int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		struct eblob_write_control *wc);
+int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		unsigned char *csum, unsigned int csize,
+		struct eblob_write_control *wc);
+
+struct eblob_disk_footer {
+	unsigned char			csum[EBLOB_ID_SIZE];
+	uint64_t			offset;
+};
+
+static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
+{
+	f->offset = eblob_bswap64(f->offset);
+}
 
 #endif /* __ELLIPTICS_BLOB_H */
