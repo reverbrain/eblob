@@ -34,6 +34,7 @@
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		1024*1024*10
+#define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -613,7 +614,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	memset(b, 0, sizeof(struct eblob_backend));
 
 	if (!c->blob_size)
-		c->blob_size = 50*1024*1024*1024ULL;
+		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
 
 	if (!c->iterate_threads)
 		c->iterate_threads = 1;
