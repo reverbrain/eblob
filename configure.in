@@ -1,0 +1,36 @@
+AC_INIT([eblob], [0.0.1], [zbr@ioremap.net])
+AM_INIT_AUTOMAKE(1.9)
+
+AC_GNU_SOURCE
+AC_CONFIG_HEADERS(config/config.h)
+
+AC_PROG_CC
+AC_PROG_LIBTOOL
+
+AC_LANG([C])
+AM_MAINTAINER_MODE
+
+ACX_PTHREAD
+AC_SYS_LARGEFILE
+
+AX_CHECK_OPENSSL
+AX_PREFIX_CONFIG_H(config/acsetup.h)
+AX_CREATE_STDINT_H(include/eblob/typedefs.h)
+
+for i in -W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing; do
+	AX_CHECK_COMPILER_FLAGS([$i], [CFLAGS="$CFLAGS $i"], [])
+done
+
+AC_C_BIGENDIAN_CROSS
+AC_CHECK_LARGEFILE
+AC_ID_SIZE
+
+AC_CHECK_ATOMIC
+
+AC_CHECK_HEADER(dlfcn.h)
+AC_CHECK_LIB(dl,dlopen)
+
+AC_CONFIG_FILES([Makefile include/Makefile include/eblob/Makefile
+		 library/Makefile debian/Makefile])
+
+AC_OUTPUT

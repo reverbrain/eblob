@@ -1,0 +1,19 @@
+Source: eblob
+Section: net
+Priority: optional
+Maintainer: Evgeniy Polyakov <zbr@ioremap.net>
+Build-Depends: debhelper (>= 7), autotools-dev, libssl-dev
+Standards-Version: 3.8.0
+Homepage: http://www.ioremap.net/projects/eblob
+
+Package: eblob
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: BLOB data container
+  EBLOB is append data storage with fast indexes and comprehensive API
+
+Package: eblob-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: BLOB data container
+  EBLOB is append data storage with fast indexes and comprehensive API
