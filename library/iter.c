@@ -33,7 +33,7 @@
 
 #include "eblob/blob.h"
 
-int eblob_iterate(struct eblob_backend_io *io, off_t pos, size_t num, struct eblob_log *l,
+int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eblob_log *l, int check_index,
 		int (* callback)(struct eblob_disk_control *dc, int file_idx, void *data, off_t position, void *priv),
 		void *priv)
 
@@ -42,10 +42,10 @@ int eblob_iterate(struct eblob_backend_io *io, off_t pos, size_t num, struct ebl
 	struct eblob_disk_control dc;
 	struct eblob_log log;
 	void *data, *ptr;
-	off_t position, offset, off;
-	size_t size, mapped_size;
+	off_t position, offset;
+	size_t mapped_size;
 	struct stat st;
-	int err;
+	int err, fd = check_index ? io->index : io->fd;
 
 	if (!l) {
 		log.log = eblob_log_raw_formatted;
@@ -55,7 +55,7 @@ int eblob_iterate(struct eblob_backend_io *io, off_t pos, size_t num, struct ebl
 		l = &log;
 	}
 
-	err = fstat(io->index, &st);
+	err = fstat(fd, &st);
 	if (err) {
 		err = -errno;
 		eblob_log(l, EBLOB_LOG_ERROR, "blob %d: failed to stat file: %s.\n", io->file_index, strerror(errno));
@@ -65,8 +65,6 @@ int eblob_iterate(struct eblob_backend_io *io, off_t pos, size_t num, struct ebl
 	if (!size)
 		size = st.st_size;
 
-	size = num * sizeof(struct eblob_disk_control);
-	off = pos * sizeof(struct eblob_disk_control);
 	offset = off & ~(page_size - 1);
 
 	if (!size || offset >= st.st_size) {
@@ -78,7 +76,7 @@ int eblob_iterate(struct eblob_backend_io *io, off_t pos, size_t num, struct ebl
 
 	mapped_size = size + off - offset;
 
-	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, io->index, offset);
+	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, fd, offset);
 	if (data == MAP_FAILED) {
 		err = -errno;
 		eblob_log(l, EBLOB_LOG_ERROR, "blob %d: failed to mmap file, size: %zu: %s.\n", io->file_index, mapped_size, strerror(errno));

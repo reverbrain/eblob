@@ -159,11 +159,11 @@ struct eblob_config {
 struct eblob_backend *eblob_init(struct eblob_config *c);
 void eblob_cleanup(struct eblob_backend *b);
 
-int eblob_iterate(struct eblob_backend_io *io, off_t offset, size_t size, struct eblob_log *l,
+int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eblob_log *l, int check_index,
 		int (* callback)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
 		void *priv);
 
-int eblob_blob_iterate(struct eblob_backend *b,
+int eblob_blob_iterate(struct eblob_backend *b, int check_index,
 	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
 	void *priv);
 

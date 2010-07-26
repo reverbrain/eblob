@@ -60,12 +60,14 @@ struct eblob_blob_iterator_data {
 	struct eblob_backend	*b;
 	struct eblob_backend_io	*io;
 
-	size_t			num;
-	off_t			pos;
+	size_t			size;
+	off_t			off;
 
 	int			(* iterator)(struct eblob_disk_control *dc, int file_index,
 					void *data, off_t position, void *priv);
 	void			*priv;
+
+	int			check_index;
 
 	int			err;
 };
@@ -74,14 +76,14 @@ static void *eblob_blob_iterator(void *data)
 {
 	struct eblob_blob_iterator_data *p = data;
 
-	p->err = eblob_iterate(p->io, p->pos, p->num, p->b->cfg.log, p->iterator, p->priv);
+	p->err = eblob_iterate(p->io, p->off, p->size, p->b->cfg.log, p->check_index, p->iterator, p->priv);
 	if (p->err)
 		eblob_log(p->b->cfg.log, EBLOB_LOG_ERROR, "blob: data iteration failed: %d.\n", p->err);
 
 	return &p->err;
 };
 
-int eblob_blob_iterate(struct eblob_backend *b,
+int eblob_blob_iterate(struct eblob_backend *b, int check_index,
 	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
 	void *priv)
 {
@@ -95,30 +97,32 @@ int eblob_blob_iterate(struct eblob_backend *b,
 		if (!io->index_pos)
 			break;
 
-		if ((uint64_t)io->index_pos < iterate_threads + b->cfg.blob_size / sizeof(struct eblob_disk_control))
+		if (!check_index || (uint64_t)io->index_pos < iterate_threads + b->cfg.blob_size / sizeof(struct eblob_disk_control))
 			iterate_threads = 1;
 
 		{
 			int i, err;
 			int thread_num = iterate_threads - 1;
 			struct eblob_blob_iterator_data p[thread_num + 1];
-			off_t pos = 0, num = io->index_pos / iterate_threads;
-			off_t rest = io->index_pos;
+			off_t off = 0;
+			size_t size = check_index ? io->index_pos * sizeof(struct eblob_disk_control) / iterate_threads : io->offset;
+			off_t rest = check_index ? io->index_pos * sizeof(struct eblob_disk_control) : io->offset;
 
 			memset(p, 0, sizeof(p));
 
 			for (i=0; i<thread_num + 1; ++i) {
-				p[i].pos = pos;
-				p[i].num = num;
+				p[i].check_index = check_index;
+				p[i].size = size;
+				p[i].off = off;
 				p[i].b = b;
 				p[i].io = io;
 				p[i].iterator = iterator;
 				p[i].priv = priv;
 
-				pos += num;
-				rest -= num;
+				off += size;
+				rest -= size;
 			}
-			p[thread_num].num = rest + num;
+			p[thread_num].size = rest + size;
 
 			for (i=0; i<thread_num; ++i) {
 				err = pthread_create(&p[i].id, NULL, eblob_blob_iterator, &p[i]);
@@ -643,7 +647,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_lock_destroy;
 	}
 	
-	err = eblob_blob_iterate(b, eblob_blob_iter, b);
+	err = eblob_blob_iterate(b, 1, eblob_blob_iter, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
 		goto err_out_hash_destroy;

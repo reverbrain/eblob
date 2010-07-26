@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 		io.index = io.fd;
 
 		printf("%s\n", file);
-		err = eblob_iterate(&io, 0, 0, NULL, blob_check_iterator, NULL);
+		err = eblob_iterate(&io, 0, 0, NULL, 1, blob_check_iterator, NULL);
 	}
 
 	return 0;
