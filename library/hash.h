@@ -16,8 +16,6 @@
 #ifndef __EBLOB_HASH_H
 #define __EBLOB_HASH_H
 
-#define EBLOB_HASH_MLOCK		(1<<0)
-
 struct eblob_hash_head;
 struct eblob_hash {
 	unsigned int		num;

@@ -117,16 +117,30 @@ static inline char *eblob_dump_id(const unsigned char *id)
 	return eblob_dump_id_len(id, 6);
 }
 
-struct eblob_disk_control {
-	unsigned char		id[EBLOB_ID_SIZE];
-	uint64_t		flags;
-	uint64_t		data_size;
-	uint64_t		disk_size;
-	uint64_t		position;
-} __attribute__ ((packed));
-
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
+
+struct eblob_disk_control {
+	/* key data */
+	unsigned char		id[EBLOB_ID_SIZE];
+
+	/* flags above */
+	uint64_t		flags;
+
+	/* data size without alignment and header/footer blocks,
+	 * i.e. effectively size of the data client wrote
+	 */
+	uint64_t		data_size;
+
+	/* total size this record occupies on disk.
+	 * It includes alignment and header/footer sizes.
+	 * This structure is header.
+	 */
+	uint64_t		disk_size;
+
+	/* This structure position in the blob file */
+	uint64_t		position;
+} __attribute__ ((packed));
 
 static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 {
@@ -143,29 +157,64 @@ struct eblob_backend_io {
 	off_t			index_pos;
 };
 
+#define EBLOB_HASH_MLOCK		(1<<0)
+
 struct eblob_config {
+	/* hash table size in entries */
 	unsigned int		hash_size;
+
+	/* hash table flags above */
 	unsigned int		hash_flags;
+
+	/* sync interval in seconds */
 	int			sync;
+
+	/* alignment block size*/
 	unsigned int		bsize;
 
+	/* logger */
 	struct eblob_log	*log;
+
+	/* copy of the base blob file name
+	 * library will add .0 .1 and so on
+	 * to this name when new files are created
+	 *
+	 * it will add .index to store on-disk index
+	 */
 	char			*file;
 
+	/* number of threads which will iterate over
+	 * each blob file at startup
+	 */
 	int			iterate_threads;
 
+	/* maximum blob size (supported modifiers: G, M, K)
+	 * when blob file size becomes bigger than this value
+	 * library will create new file
+	 */
 	uint64_t		blob_size;
 };
 
 struct eblob_backend *eblob_init(struct eblob_config *c);
 void eblob_cleanup(struct eblob_backend *b);
 
+/*
+ * Iterate over single blob file (struct eblob_backend_io) from offset @off
+ * total of @size bytes. If @size is 0, function will iterate over whole blob file.
+ * @check_index specifies whether @io->fd or @io->index file descriptor will be used
+ * (check_index being true means @io->index).
+ *
+ * Callback will receive provided as @priv private data, per-entry disk control structure,
+ * file index (i.e. $num in blob pathname '/tmp/blob/data.$num' and data pointer
+ * (obtained via iterating over mapped area, so it can not be modified)
+ */
 int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size,
 		struct eblob_log *l, int check_index,
 		int (* callback)(struct eblob_disk_control *dc, int file_index,
 			void *data, off_t position, void *priv),
 		void *priv);
 
+/* Iterate over all blob files */
 int eblob_blob_iterate(struct eblob_backend *b, int check_index,
 	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data,
 		off_t position, void *priv),
@@ -173,13 +222,46 @@ int eblob_blob_iterate(struct eblob_backend *b, int check_index,
 
 struct eblob_backend;
 
+/* Remove entry by given key.
+ * Entry is marked as deleted and defragmentation tool can later drop it.
+ */
 int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize);
-int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
-		int *fd, uint64_t *size, uint64_t *offset);
 
+/* Read data by given key.
+ * @fd is a file descriptor to read data from. It is not allowed to close it.
+ * @offset and @size will be filled with written metadata: offset of the entry
+ * and its data size.
+ */
+int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		int *fd, uint64_t *offset, uint64_t *size);
+
+/*
+ * Sync write: we will put data into some blob and index it by provided @key.
+ * Flags can specify whether entry is removed and whether library will perform
+ * data checksumming.
+ * Flags are BLOB_DISK_CTL_* constants above.
+ */
 int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		void *data, uint64_t size, uint64_t flags);
 
+/* Async write.
+ *
+ * There are two stages: prepare and commit.
+ *
+ * Prepare stage receives @eblob_write_control structure and wants
+ * @size and @flags parameters. The former is used to reserve enough space
+ * in blob file, the latter will be put into entry flags and will determine
+ * whether given entry was removed and do we need to perform checksumming on commit.
+ *
+ * @eblob_write_prepare() will fill the rest of the parameters.
+ * @fd specifies file descriptor to (re)write data to.
+ * @io_index is a blob file index.
+ * @offset specifies position where client is allowed to write to no more than @size bytes.
+ *
+ * @ctl_offset is start of the control data on disk for given entry.
+ * @total_size is equal to aligned sum of user specified @size and sizes of header/footer 
+ * structures.
+ */
 struct eblob_write_control {
 	uint64_t			size;
 	uint64_t			flags;
@@ -194,6 +276,9 @@ struct eblob_write_control {
 };
 int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		struct eblob_write_control *wc);
+
+/* Client may provide checksum himself, otherwise it will be calculated (if opposite
+ * was not requested in control flags) */
 int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc);
