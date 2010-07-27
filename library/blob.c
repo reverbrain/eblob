@@ -53,6 +53,9 @@ struct eblob_backend {
 	struct eblob_backend_io	*data;
 
 	struct eblob_hash	*hash;
+
+	int			sync_need_exit;
+	pthread_t		sync_tid;
 };
 
 struct blob_ram_control {
@@ -750,8 +753,34 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 	return 0;
 }
 
+static void *eblob_sync(void *data)
+{
+	struct eblob_backend *b = data;
+	int sleep_time = b->cfg.sync;
+	int i;
+
+	while (!b->sync_need_exit) {
+		if (--sleep_time != 0) {
+			sleep(1);
+			continue;
+		}
+
+		for (i=0; i<b->index; ++i) {
+			fsync(b->data[i].fd);
+			fsync(b->data[i].index);
+		}
+
+		sleep_time = b->cfg.sync;
+	}
+
+	return NULL;
+}
+
 void eblob_cleanup(struct eblob_backend *b)
 {
+	b->sync_need_exit = 1;
+	pthread_join(b->sync_tid, NULL);
+
 	eblob_hash_exit(b->hash);
 	eblob_blob_close_files_all(b);
 	pthread_mutex_destroy(&b->lock);
@@ -827,6 +856,12 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 	
 	err = eblob_blob_iterate(b, 1, eblob_blob_iter, b);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
+		goto err_out_hash_destroy;
+	}
+
+	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
 		goto err_out_hash_destroy;
