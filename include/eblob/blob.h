@@ -128,7 +128,7 @@ struct eblob_disk_control {
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 
-static inline void blob_convert_disk_control(struct eblob_disk_control *ctl)
+static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 {
 	ctl->flags = eblob_bswap64(ctl->flags);
 	ctl->data_size = eblob_bswap64(ctl->data_size);

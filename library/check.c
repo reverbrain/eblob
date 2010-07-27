@@ -112,7 +112,7 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 	if (chk->defrag && !err && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		struct eblob_disk_control out_dc = *dc;
 
-		blob_convert_disk_control(&out_dc);
+		eblob_convert_disk_control(&out_dc);
 
 		eblob_lock_lock(&chk->csum_lock);
 

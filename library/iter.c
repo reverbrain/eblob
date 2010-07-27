@@ -95,7 +95,7 @@ int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eb
 		}
 
 		dc = *(struct eblob_disk_control *)ptr;
-		blob_convert_disk_control(&dc);
+		eblob_convert_disk_control(&dc);
 
 		position = ptr - data;
 

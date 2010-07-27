@@ -330,7 +330,7 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *i
 			(unsigned long long)data_ctl->offset, (unsigned long long)data_ctl->offset,
 			data_ctl->size);
 
-	blob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&dc);
 
 	err = pwrite(io->index, &dc, sizeof(dc), (*offset)*sizeof(dc));
 	if (err != (int)sizeof(dc)) {
@@ -415,7 +415,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	memcpy(disk_ctl.id, key, (ksize < EBLOB_ID_SIZE) ? ksize : EBLOB_ID_SIZE);
 
-	blob_convert_disk_control(&disk_ctl);
+	eblob_convert_disk_control(&disk_ctl);
 
 	err = blob_write_low_level(wc->fd, &disk_ctl, sizeof(struct eblob_disk_control),
 			wc->ctl_offset);
@@ -680,9 +680,9 @@ int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize
 		goto err_out_exit;
 	}
 
-	blob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&dc);
 	dc.flags |= BLOB_DISK_CTL_REMOVE;
-	blob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&dc);
 
 	err = pwrite(fd, &dc, sizeof(struct eblob_disk_control), ctl.offset);
 	if (err != (int)sizeof(dc)) {
