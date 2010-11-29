@@ -1,3 +1,9 @@
+eblob (0.1.0) unstable; urgency=low
+
+  * Switched to sha512 and 64-byte IDs
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 29 Nov 2010 23:43:56 +0300
+
 eblob (0.0.1) unstable; urgency=low
 
   * libeblob is a low-level IO library which stores data in huge blob files appending records one after another.

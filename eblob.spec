@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.0.1
+Version:	0.1.0
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -87,5 +87,8 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Mon Nov 29 2010 Evgeniy Polyakov <zbr@ioremap.net> - 0.1.0-1
+- Switched to sha512 and 64-byte IDs
+
 * Sun Jul 28 2010 Evgeniy Polyakov <zbr@ioremap.net> - 0.0.1-1
 - Initial build for Fedora.
