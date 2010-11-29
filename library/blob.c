@@ -803,13 +803,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
  	OpenSSL_add_all_digests();
 
-	b->evp_md = EVP_get_digestbyname("sha256");
+	b->evp_md = EVP_get_digestbyname("sha512");
 	if (!b->evp_md) {
 		err = -errno;
 		if (!err)
 			err = -ENOENT;
 
-		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to initialize sha256 "
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to initialize sha512 "
 				"checksum hash: %d.\n", err);
 		goto err_out_free;
 	}

@@ -25,7 +25,7 @@
 #ifdef CONFIG_ID_SIZE
 #define EBLOB_ID_SIZE		CONFIG_ID_SIZE
 #else
-#define EBLOB_ID_SIZE		20
+#define EBLOB_ID_SIZE		64
 #endif
 
 #ifdef WORDS_BIGENDIAN
