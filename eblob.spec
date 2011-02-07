@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.1.2
+Version:	0.1.3
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -87,6 +87,9 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Tue Feb 8 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.1.2-1
+- Do not lock entries in eblob_hash_insert_raw() since they should be locked via mlockall().
+
 * Tue Feb 8 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.1.2-1
 - Set memory locking limits to infinity if EBLOB_HASH_MLOCK is set in config.
 
