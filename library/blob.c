@@ -781,6 +781,9 @@ void eblob_cleanup(struct eblob_backend *b)
 	b->sync_need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 
+	if (b->cfg.hash_flags & EBLOB_HASH_MLOCK)
+		munlockall();
+
 	eblob_hash_exit(b->hash);
 	eblob_blob_close_files_all(b);
 	pthread_mutex_destroy(&b->lock);
@@ -861,14 +864,29 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_hash_destroy;
 	}
 
+	if (c->hash_flags & EBLOB_HASH_MLOCK) {
+		err = mlockall(MCL_CURRENT | MCL_FUTURE);
+		if (err) {
+			err = -errno;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to lock all current and future allocations: %s [%d].\n",
+					strerror(errno), err);
+			goto err_out_hash_destroy;
+		}
+
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: successfully locked all current and future allocations.\n");
+	}
+
 	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
-		goto err_out_hash_destroy;
+		goto err_out_hash_unlock;
 	}
 
 	return b;
 
+err_out_hash_unlock:
+	if (c->hash_flags & EBLOB_HASH_MLOCK)
+		munlockall();
 err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
