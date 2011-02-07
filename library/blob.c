@@ -802,6 +802,19 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_exit;
 	}
 
+	if (c->hash_flags & EBLOB_HASH_MLOCK) {
+		struct rlimit rl;
+
+		rl.rlim_cur = rl.rlim_max = RLIM_INFINITY;
+		err = setrlimit(RLIMIT_MEMLOCK, &rl);
+		if (err) {
+			err = -errno;
+			eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to set infinite memory limits: %s [%d]\n",
+					strerror(errno), errno);
+			goto err_out_free;
+		}
+	}
+
 	memset(b, 0, sizeof(struct eblob_backend));
 
  	OpenSSL_add_all_digests();
