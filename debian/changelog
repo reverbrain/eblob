@@ -1,3 +1,10 @@
+eblob (0.1.2) unstable; urgency=low
+
+  * Set memory locking limits to infinity if EBLOB_HASH_MLOCK is set in
+    config.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 08 Feb 2011 02:31:33 +0300
+
 eblob (0.1.1) unstable; urgency=low
 
   * Use mlockall(MCL_CURRENT | MCL_FUTURE) to lock all current and future
