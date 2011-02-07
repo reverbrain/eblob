@@ -200,7 +200,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 
 	e->cleanup = NULL;
 	atomic_set(&e->refcnt, 1);
-
+#if 0
 	if (h->flags & EBLOB_HASH_MLOCK) {
 		err = mlock(e, size);
 		if (err) {
@@ -208,7 +208,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 			goto err_out_free;
 		}
 	}
-
+#endif
 	idx = eblob_hash_data(key, ksize, h->num);
 	head = &h->heads[idx];
 
