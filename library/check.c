@@ -41,6 +41,7 @@ struct eblob_check {
 	EVP_MD_CTX 			mdctx;
 	const EVP_MD			*evp_md;
 
+	int				index_fd;
 	int				out_fd;
 	uint64_t			out_offset;
 };
@@ -112,9 +113,10 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 	if (chk->defrag && !err && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		struct eblob_disk_control out_dc = *dc;
 
-		eblob_convert_disk_control(&out_dc);
-
 		eblob_lock_lock(&chk->csum_lock);
+
+		out_dc.position = chk->out_offset;
+		eblob_convert_disk_control(&out_dc);
 
 		err = write(chk->out_fd, &out_dc, sizeof(out_dc));
 		if (err != sizeof(out_dc)) {
@@ -131,10 +133,15 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 			goto err_out_unlock;
 		}
 
+		err = write(chk->index_fd, &out_dc, sizeof(out_dc));
+		if (err != sizeof(out_dc)) {
+			err = -errno;
+			fprintf(chk->log.log_private, ": failed to write index entry: %s", strerror(errno));
+			goto err_out_unlock;
+		}
+
 		fprintf(chk->log.log_private, ", stored at %llu", chk->out_offset);
 		chk->out_offset += dc->disk_size;
-
-		eblob_lock_unlock(&chk->csum_lock);
 
 		err = 0;
 
@@ -146,8 +153,8 @@ err_out_unlock:
 				fprintf(chk->log.log_private, ": failed to truncate defrag file to %llu bytes: %s",
 					chk->out_offset, strerror(errno));
 			}
-			eblob_lock_unlock(&chk->csum_lock);
 		}
+		eblob_lock_unlock(&chk->csum_lock);
 
 	}
 
@@ -282,6 +289,14 @@ int main(int argc, char *argv[])
 			else
 				ptr++;
 
+			if (strstr(ptr, ".index")) {
+				err = -EINVAL;
+				eblob_log(&chk.log, EBLOB_LOG_ERROR, "Will not defragment index file '%s', "
+						"it will be generated automatically during data file defragmentation.\n",
+						ptr);
+				goto err_out_close_io;
+			}
+
 			snprintf(tmp, sizeof(tmp), "%s/%s", defrag_dir, ptr);
 
 			chk.out_fd = open(tmp, O_RDWR | O_TRUNC | O_CREAT, 0644);
@@ -291,7 +306,17 @@ int main(int argc, char *argv[])
 						tmp, strerror(errno));
 				goto err_out_close_io;
 			}
+
 			eblob_log(&chk.log, EBLOB_LOG_INFO, "tmp: %s\n", tmp);
+
+			snprintf(tmp, sizeof(tmp), "%s/%s.index", defrag_dir, ptr);
+			chk.index_fd = open(tmp, O_RDWR | O_TRUNC | O_CREAT, 0644);
+			if (chk.index_fd < 0) {
+				err = -errno;
+				eblob_log(&chk.log, EBLOB_LOG_ERROR, "Failed to open index defrag file '%s': %s.\n",
+						tmp, strerror(errno));
+				goto err_out_close_out;
+			}
 		}
 
 		eblob_log(&chk.log, EBLOB_LOG_INFO, "file: %s\n", file);
@@ -314,6 +339,7 @@ int main(int argc, char *argv[])
 err_out_close_out:
 		if (chk.defrag) {
 			close(chk.out_fd);
+			close(chk.index_fd);
 			chk.out_offset = 0;
 		}
 err_out_close_io:
