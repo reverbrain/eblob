@@ -237,7 +237,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 
 err_out_unlock:
 	eblob_lock_unlock(&head->lock);
-err_out_free:
+//err_out_free:
 	eblob_hash_entry_free(h, e);
 err_out_exit:
 	return err;
