@@ -133,6 +133,10 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 			goto err_out_unlock;
 		}
 
+		eblob_convert_disk_control(&out_dc);
+		out_dc.disk_size = sizeof(struct eblob_disk_control);
+		eblob_convert_disk_control(&out_dc);
+
 		err = write(chk->index_fd, &out_dc, sizeof(out_dc));
 		if (err != sizeof(out_dc)) {
 			err = -errno;
