@@ -267,7 +267,8 @@ int main(int argc, char *argv[])
 	defrag_dir_len = strlen(defrag_dir);
 
 	for (i=0; i<argc; ++i) {
-		char tmp[strlen(argv[i]) + defrag_dir_len + 2 /* '/' + 0-byte */];
+#define INDEX_SUFFIX ".index"
+		char tmp[strlen(argv[i]) + defrag_dir_len + 2 + sizeof(INDEX_SUFFIX) /* '/' + 0-byte */];
 
 		file = argv[i];
 
@@ -309,7 +310,7 @@ int main(int argc, char *argv[])
 
 			eblob_log(&chk.log, EBLOB_LOG_INFO, "tmp: %s\n", tmp);
 
-			snprintf(tmp, sizeof(tmp), "%s/%s.index", defrag_dir, ptr);
+			snprintf(tmp, sizeof(tmp), "%s/%s%s", defrag_dir, ptr, INDEX_SUFFIX);
 			chk.index_fd = open(tmp, O_RDWR | O_TRUNC | O_CREAT, 0644);
 			if (chk.index_fd < 0) {
 				err = -errno;
