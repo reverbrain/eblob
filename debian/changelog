@@ -1,3 +1,9 @@
+eblob (0.1.6) unstable; urgency=low
+
+  * Correctly set index's disk_size to sizeof(struct eblob_disk_control)
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 28 Feb 2011 23:49:38 +0300
+
 eblob (0.1.5) unstable; urgency=low
 
   * Allocate a bit more space for filename to include .index suffix.
