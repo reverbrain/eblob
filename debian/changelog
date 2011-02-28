@@ -1,3 +1,9 @@
+eblob (0.1.5) unstable; urgency=low
+
+  * Allocate a bit more space for filename to include .index suffix.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 28 Feb 2011 23:09:19 +0300
+
 eblob (0.1.4) unstable; urgency=low
 
   * Implemented run-time index generation and fixed defragmented offsets.
