@@ -600,7 +600,7 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 
 	pthread_mutex_unlock(&b->lock);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: written data at position: %llu "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d.\n",
 			eblob_dump_id(key),
 			(unsigned long long)wc->ctl_offset, (unsigned long long)wc->offset,
@@ -669,7 +669,7 @@ int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize
 
 	fd = b->data[ctl.file_index].fd;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "%s: removing block at: %llu, size: %llu.\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: removing block at: %llu, size: %llu.\n",
 		eblob_dump_id(key), (unsigned long long)ctl.offset, (unsigned long long)ctl.size);
 
 	err = pread(fd, &dc, sizeof(dc), ctl.offset);
@@ -729,7 +729,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 	char id[EBLOB_ID_SIZE*2+1];
 	int err;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: file index: %d, index position: %llu (0x%llx), "
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: file index: %d, index position: %llu (0x%llx), "
 			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
 			eblob_dump_id_len_raw(dc->id, EBLOB_ID_SIZE, id), file_index,
 			(unsigned long long)position, (unsigned long long)position,

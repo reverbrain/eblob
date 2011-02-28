@@ -73,9 +73,10 @@
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
 
-#define EBLOB_LOG_ERROR		(1<<0)
-#define EBLOB_LOG_INFO		(1<<1)
-#define EBLOB_LOG_NOTICE	(1<<2)
+#define EBLOB_LOG_NOTICE		(1<<0)
+#define EBLOB_LOG_INFO			(1<<1)
+#define EBLOB_LOG_ERROR			(1<<3)
+#define EBLOB_LOG_DSA			(1<<4)
 
 struct eblob_log {
 	uint32_t		log_mask;
