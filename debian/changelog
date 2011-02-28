@@ -1,3 +1,9 @@
+eblob (0.1.7) unstable; urgency=low
+
+  * Log level cleanups
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 01 Mar 2011 00:03:53 +0300
+
 eblob (0.1.6) unstable; urgency=low
 
   * Correctly set index's disk_size to sizeof(struct eblob_disk_control)
