@@ -236,6 +236,9 @@ int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize
 int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		int *fd, uint64_t *offset, uint64_t *size);
 
+int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		int *fd, uint64_t *offset, uint64_t *size, int *file_index);
+
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
  * Flags can specify whether entry is removed and whether library will perform

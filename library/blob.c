@@ -720,6 +720,28 @@ err_out_exit:
 	return err;
 }
 
+int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize, int *fd, uint64_t *offset, uint64_t *size, int *file_index)
+{
+	unsigned int dsize = sizeof(struct blob_ram_control);
+	struct blob_ram_control ctl;
+	int err;
+
+	err = eblob_hash_lookup(b->hash, key, ksize, &ctl, &dsize);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data: %d.\n",
+				eblob_dump_id(key), err);
+		goto err_out_exit;
+	}
+
+	*fd = b->data[ctl.file_index].fd;
+	*size = ctl.size;
+	*offset = ctl.offset;
+	*file_index = ctl.file_index;
+
+err_out_exit:
+	return err;
+}
+
 static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 		void *data __eblob_unused, off_t position __eblob_unused, void *priv)
 {
