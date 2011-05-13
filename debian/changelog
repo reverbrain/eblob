@@ -1,3 +1,10 @@
+eblob (0.2.0) unstable; urgency=low
+
+  * Export eblob_read_file_index() which returns blob index as well as fd,
+    size and offset for given record.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 14 May 2011 00:38:31 +0400
+
 eblob (0.1.7) unstable; urgency=low
 
   * Log level cleanups
