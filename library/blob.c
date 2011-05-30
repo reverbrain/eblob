@@ -309,11 +309,11 @@ static int blob_mark_index_removed(int fd, off_t offset)
 	return 0;
 }
 
-static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *io, unsigned char *key, unsigned int ksize,
+static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *io, uint64_t index_pos,
+		unsigned char *key, unsigned int ksize,
 		struct blob_ram_control *data_ctl, struct blob_ram_control *old)
 {
 	struct eblob_disk_control dc;
-	off_t *offset = &io->index_pos;
 	int err;
 
 	memset(&dc, 0, sizeof(struct eblob_disk_control));
@@ -326,26 +326,28 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *i
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: updated index at position %llu (0x%llx), data position: %llu (0x%llx), data size: %llu.\n",
 			eblob_dump_id(key),
-			(unsigned long long)(*offset)*sizeof(dc), (unsigned long long)(*offset)*sizeof(dc),
+			(unsigned long long)index_pos*sizeof(dc), (unsigned long long)index_pos*sizeof(dc),
 			(unsigned long long)data_ctl->offset, (unsigned long long)data_ctl->offset,
 			data_ctl->size);
 
 	eblob_convert_disk_control(&dc);
 
-	err = pwrite(io->index, &dc, sizeof(dc), (*offset)*sizeof(dc));
+	err = pwrite(io->index, &dc, sizeof(dc), index_pos*sizeof(dc));
 	if (err != (int)sizeof(dc)) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to write index data at %llu: %s.\n",
-			eblob_dump_id(key), (unsigned long long)(*offset)*sizeof(dc), strerror(errno));
+			eblob_dump_id(key), (unsigned long long)index_pos*sizeof(dc), strerror(errno));
 		goto err_out_exit;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: wrote %u bytes at %llu into %d\n",
-			eblob_dump_id(key), sizeof(dc), (*offset)*sizeof(dc), io->index);
+			eblob_dump_id(key), sizeof(dc), index_pos*sizeof(dc), io->index);
 
-	*offset = *offset + 1;
 	err = 0;
 
+	/*
+	 * No need to protect old->index_pos, since @old is a copy taken under lock
+	 */
 	if (old) {
 		io = &b->data[old->file_index];
 
@@ -411,7 +413,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 	disk_ctl.flags = wc->flags;
 	disk_ctl.position = wc->ctl_offset;
 	disk_ctl.data_size = wc->size;
-	disk_ctl.disk_size = eblob_calculate_size(b, wc->size);
+	disk_ctl.disk_size = wc->total_size;
 
 	memcpy(disk_ctl.id, key, (ksize < EBLOB_ID_SIZE) ? ksize : EBLOB_ID_SIZE);
 
@@ -450,7 +452,7 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
 		struct eblob_write_control *wc)
 {
-	ssize_t err;
+	ssize_t err = 0;
 	struct eblob_backend_io *io;
 
 	pthread_mutex_lock(&b->lock);
@@ -463,22 +465,22 @@ int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned in
 	wc->io_index = b->index;
 	wc->fd = io->fd;
 
-	err = blob_write_prepare_ll(b, key, ksize, wc);
-	if (err)
-		goto err_out_unlock;
-
 	io->offset += wc->total_size;
 
 	if (io->offset >= (off_t)b->cfg.blob_size) {
 		err = eblob_blob_allocate_io(b);
-		if (err)
-			goto err_out_unlock;
 	}
-
-err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
 
-	return 0;
+	if (err)
+		goto err_out_exit;
+
+	err = blob_write_prepare_ll(b, key, ksize, wc);
+	if (err)
+		goto err_out_exit;
+
+err_out_exit:
+	return err;
 }
 
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
@@ -565,6 +567,7 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 	unsigned int dsize = sizeof(old);
 	struct eblob_backend_io *io;
 	int err, have_old = 0;
+	uint64_t index_pos;
 
 	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
@@ -594,11 +597,14 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 		goto err_out_unlock;
 	}
 
-	err = blob_update_index(b, io, key, ksize, &ctl, have_old ? &old : NULL);
-	if (err)
-		goto err_out_unlock;
+	index_pos = io->index_pos;
+	io->index_pos++;
 
 	pthread_mutex_unlock(&b->lock);
+
+	err = blob_update_index(b, io, index_pos, key, ksize, &ctl, have_old ? &old : NULL);
+	if (err)
+		goto err_out_unlock;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d.\n",
@@ -613,10 +619,8 @@ err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
 
 err_out_exit:
-	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to commit %llu "
-			"bytes into (fd: %d) datafile: %s.\n",
-			eblob_dump_id(key), err, (unsigned long long)wc->size,
-			wc->fd, strerror(-err));
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: commit failed: size: %llu, fd: %d: %d: %s\n",
+			eblob_dump_id(key), (unsigned long long)wc->size, wc->fd, err, strerror(-err));
 	return err;
 }
 
