@@ -22,6 +22,10 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef CONFIG_ID_SIZE
 #define EBLOB_ID_SIZE		CONFIG_ID_SIZE
 #else
@@ -296,5 +300,9 @@ static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
 {
 	f->offset = eblob_bswap64(f->offset);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __ELLIPTICS_BLOB_H */
