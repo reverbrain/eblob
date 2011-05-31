@@ -1,3 +1,12 @@
+eblob (0.3.0) unstable; urgency=low
+
+  * Use mmapped file as a base for all hash entries allocations
+  * Added version into debian's dh_makeshlibs
+  * Moved from linked lists into arrays in eblob hash table
+  * Made eblob prepare/commit more thread friendly
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 31 May 2011 09:41:19 +0400
+
 eblob (0.2.0) unstable; urgency=low
 
   * Export eblob_read_file_index() which returns blob index as well as fd,
