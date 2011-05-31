@@ -804,6 +804,8 @@ static void *eblob_sync(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
+	char mmap_file[256];
+
 	b->sync_need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 
@@ -815,12 +817,18 @@ void eblob_cleanup(struct eblob_backend *b)
 	pthread_mutex_destroy(&b->lock);
 	EVP_MD_CTX_cleanup(&b->mdctx);
 	free(b);
+
+	snprintf(mmap_file, sizeof(mmap_file), "/tmp/eblob-mmap-file.%d", getpid());
+	unlink(mmap_file);
 }
 
 struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
+	char mmap_file[256];
 	int err;
+
+	snprintf(mmap_file, sizeof(mmap_file), "/tmp/eblob-mmap-file.%d", getpid());
 
 	b = malloc(sizeof(struct eblob_backend));
 	if (!b) {
@@ -871,6 +879,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->hash_size)
 		c->hash_size = EBLOB_BLOB_DEFAULT_HASH_SIZE;
 
+	if (!c->mmap_file)
+		c->mmap_file = mmap_file;
+
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
 	b->index = -1;
@@ -891,9 +902,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_close;
 	}
 
-	b->hash = eblob_hash_init(c->hash_size, c->hash_flags);
+	b->hash = eblob_hash_init(c->hash_size, c->hash_flags, c->mmap_file, &err);
 	if (!b->hash) {
-		err = -EINVAL;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %d.\n", err);
 		goto err_out_lock_destroy;
 	}
 	

@@ -188,6 +188,12 @@ struct eblob_config {
 	 */
 	char			*file;
 
+	/*
+	 * File used to map all memory allocation
+	 * for lookup hash table elements
+	 */
+	char			*mmap_file;
+
 	/* number of threads which will iterate over
 	 * each blob file at startup
 	 */

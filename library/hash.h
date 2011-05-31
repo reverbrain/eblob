@@ -21,9 +21,15 @@ struct eblob_hash {
 	unsigned int		num;
 	unsigned int		flags;
 	struct eblob_hash_head	*heads;
+
+	pthread_mutex_t		map_lock;
+	void			*map_base;
+	uint64_t		map_size, map_used;
+	int			map_fd;
+	uint64_t		file_size;
 };
 
-struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags);
+struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp);
 void eblob_hash_exit(struct eblob_hash *h);
 int eblob_hash_insert(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize);
 int eblob_hash_replace(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize);
