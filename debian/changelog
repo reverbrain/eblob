@@ -1,3 +1,9 @@
+eblob (0.3.1) unstable; urgency=low
+
+  * Fixed shlibs generation
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 31 May 2011 13:02:16 +0400
+
 eblob (0.3.0) unstable; urgency=low
 
   * Use mmapped file as a base for all hash entries allocations
