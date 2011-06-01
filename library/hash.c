@@ -231,11 +231,13 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 			hash->file_size = new_size;
 		}
 
-		new_base = mremap(hash->map_base, hash->map_size, new_size, 0);
+		new_base = mmap(hash->map_base, hash->file_size, PROT_WRITE | PROT_READ, MAP_SHARED, hash->map_fd, 0);
 		if (new_base == MAP_FAILED) {
 			err = -ENOMEM;
 			goto err_out_unlock;
 		}
+
+		munmap(hash->map_base, hash->map_size);
 
 		hash->map_size = new_size;
 		hash->map_base = new_base;
