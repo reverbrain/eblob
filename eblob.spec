@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.3.2
+Version:	0.3.3
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,9 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Wed Jun 1 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.3
+- Added cpp binding
+
 * Tue May 31 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.2
 - Moved in-memory index into memory mapped file
 - Fair number of other changes
