@@ -1,11 +1,15 @@
-AC_INIT([eblob], [0.3.0], [zbr@ioremap.net])
+AC_INIT([eblob], [0.3.3], [zbr@ioremap.net])
 AM_INIT_AUTOMAKE(1.9)
 
 AC_GNU_SOURCE
 AC_CONFIG_HEADERS(config/config.h)
 
 AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_CPP
 AC_PROG_LIBTOOL
+
+AC_CONFIG_MACRO_DIR([config])
 
 AC_LANG([C])
 AM_MAINTAINER_MODE
@@ -20,7 +24,7 @@ AX_CREATE_STDINT_H(include/eblob/typedefs.h)
 AX_SET_VERSION_INFO
 
 for i in -W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing; do
-	AX_CHECK_COMPILER_FLAGS([$i], [CFLAGS="$CFLAGS $i"], [])
+	AX_CHECK_COMPILER_FLAGS([$i], [CFLAGS="$CFLAGS $i"; CXXFLAGS="$CXXFLAGS $i"], [])
 done
 
 AC_C_BIGENDIAN_CROSS
@@ -33,6 +37,7 @@ AC_CHECK_HEADER(dlfcn.h)
 AC_CHECK_LIB(dl,dlopen)
 
 AC_CONFIG_FILES([Makefile include/Makefile include/eblob/Makefile
-		 library/Makefile debian/Makefile])
+		 library/Makefile debian/Makefile bindings/Makefile
+		 bindings/cpp/Makefile])
 
 AC_OUTPUT

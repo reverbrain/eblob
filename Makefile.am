@@ -1,4 +1,4 @@
-SUBDIRS = include library debian
+SUBDIRS = include library debian bindings
 
 ACLOCAL_AMFLAGS = -I config
 AUTOMAKE_OPTIONS = 1.9 foreign
