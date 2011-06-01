@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <eblob/cppdef.hpp>
+#include <eblob/eblob.hpp>
 
 eblob_iterator::eblob_iterator(const std::string &input_base) : input_base_(input_base)
 {
