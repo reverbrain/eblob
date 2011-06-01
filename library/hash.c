@@ -140,6 +140,7 @@ static void eblob_hash_entry_remove(struct eblob_hash_head *head, struct eblob_h
 static void eblob_map_cleanup(struct eblob_hash *hash)
 {
 	//munmap(hash->map_base, hash->file_size);
+	int __unused err = ftruncate(hash->map_fd, 0);
 	close(hash->map_fd);
 	pthread_mutex_destroy(&hash->map_lock);
 }
