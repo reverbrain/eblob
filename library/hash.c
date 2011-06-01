@@ -139,7 +139,7 @@ static void eblob_hash_entry_remove(struct eblob_hash_head *head, struct eblob_h
 
 static void eblob_map_cleanup(struct eblob_hash *hash)
 {
-	munmap(hash->map_base, hash->map_size);
+	//munmap(hash->map_base, hash->file_size);
 	close(hash->map_fd);
 	pthread_mutex_destroy(&hash->map_lock);
 }
@@ -190,8 +190,8 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 		goto err_out_close;
 	}
 
-	hash->map_size = hash->file_size;
 	hash->map_used = 0;
+	hash->map_used_total = 0;
 
 	return 0;
 
@@ -211,9 +211,9 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 
 	pthread_mutex_lock(&hash->map_lock);
 
-	if (hash->map_used + req_size >= hash->map_size) {
+	if (hash->map_used_total + req_size > hash->file_size) {
 		void *new_base;
-		uint64_t new_size = hash->map_size * 2;
+		uint64_t new_size = hash->file_size * 2, append_size;
 		int pagesize = sysconf(_SC_PAGE_SIZE);
 
 		if (new_size < req_size)
@@ -227,25 +227,26 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 				err = -errno;
 				goto err_out_unlock;
 			}
-
-			hash->file_size = new_size;
 		}
 
-		new_base = mmap(hash->map_base, new_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_FIXED, hash->map_fd, 0);
-		if (new_base == MAP_FAILED) {
-			hash->map_size = 0;
-			hash->map_base = NULL;
+		append_size = new_size - hash->file_size;
 
+		new_base = mmap(NULL, append_size, PROT_WRITE | PROT_READ, MAP_SHARED, hash->map_fd, hash->file_size);
+		if (new_base == MAP_FAILED) {
 			err = -errno;
 			goto err_out_unlock;
 		}
 
-		hash->map_size = new_size;
 		hash->map_base = new_base;
+		hash->map_used = 0;
+		hash->map_used_total = hash->file_size;
+
+		hash->file_size = new_size;
 	}
 
 	arr = hash->map_base + hash->map_used;
 	hash->map_used += req_size;
+	hash->map_used_total += req_size;
 
 	pthread_mutex_unlock(&hash->map_lock);
 

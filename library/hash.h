@@ -24,7 +24,7 @@ struct eblob_hash {
 
 	pthread_mutex_t		map_lock;
 	void			*map_base;
-	uint64_t		map_size, map_used;
+	uint64_t		map_used_total, map_used;
 	int			map_fd;
 	uint64_t		file_size;
 };
