@@ -129,7 +129,8 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 		if (err != (ssize_t)(dc->disk_size - sizeof(struct eblob_disk_control))) {
 			err = -errno;
 			fprintf(chk->log.log_private, ": failed to write %llu bytes: %s",
-					dc->disk_size - sizeof(struct eblob_disk_control), strerror(errno));
+					(unsigned long long)dc->disk_size - sizeof(struct eblob_disk_control),
+					strerror(errno));
 			goto err_out_unlock;
 		}
 
@@ -144,7 +145,7 @@ static int eblob_check_iterator(struct eblob_disk_control *dc, int file_index, v
 			goto err_out_unlock;
 		}
 
-		fprintf(chk->log.log_private, ", stored at %llu", chk->out_offset);
+		fprintf(chk->log.log_private, ", stored at %llu", (unsigned long long)chk->out_offset);
 		chk->out_offset += dc->disk_size;
 
 		err = 0;
@@ -155,7 +156,7 @@ err_out_unlock:
 			if (err < 0) {
 				err = -errno;
 				fprintf(chk->log.log_private, ": failed to truncate defrag file to %llu bytes: %s",
-					chk->out_offset, strerror(errno));
+					(unsigned long long)chk->out_offset, strerror(errno));
 			}
 		}
 		eblob_lock_unlock(&chk->csum_lock);
