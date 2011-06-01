@@ -281,7 +281,7 @@ static int eblob_blob_allocate_io(struct eblob_backend *b)
 		tmp.file_index = i;
 
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "file: %s, file_index: %d, size: %llu, indexed %llu entries, fds: %d, %d.\n",
-			file, tmp.file_index, tmp.offset, tmp.index_pos, tmp.fd, tmp.index);
+			file, tmp.file_index, (unsigned long long)tmp.offset, (unsigned long long)tmp.index_pos, tmp.fd, tmp.index);
 
 		err = eblob_blob_extend_io(b, &tmp, i + 1);
 		if (err)
@@ -328,7 +328,7 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *i
 			eblob_dump_id(key),
 			(unsigned long long)index_pos*sizeof(dc), (unsigned long long)index_pos*sizeof(dc),
 			(unsigned long long)data_ctl->offset, (unsigned long long)data_ctl->offset,
-			data_ctl->size);
+			(unsigned long long)data_ctl->size);
 
 	eblob_convert_disk_control(&dc);
 
@@ -340,8 +340,8 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *i
 		goto err_out_exit;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: wrote %u bytes at %llu into %d\n",
-			eblob_dump_id(key), sizeof(dc), index_pos*sizeof(dc), io->index);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: wrote %zu bytes at %llu into %d\n",
+			eblob_dump_id(key), sizeof(dc), (unsigned long long)index_pos*sizeof(dc), io->index);
 
 	err = 0;
 
@@ -500,7 +500,8 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob %d: failed to mmap file to csum: "
 				"size: %zu, offset: %llu, aligned: %llu: %s.\n",
-				wc->io_index, mapped_size, off, offset, strerror(errno));
+				wc->io_index, mapped_size, (unsigned long long)off, (unsigned long long)offset,
+				strerror(errno));
 		goto err_out_exit;
 	}
 	ptr = data + off - offset;
@@ -513,7 +514,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %d: size: %zu, offset: %llu, "
 			"aligned: %llu: csum: %s, size: %u.\n",
-			wc->io_index, mapped_size, off, offset,
+			wc->io_index, mapped_size, (unsigned long long)off, (unsigned long long)offset,
 			eblob_dump_id_len(md_value, size), size);
 
 	memcpy(dst, md_value, dsize < size ? dsize : size);
