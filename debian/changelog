@@ -1,3 +1,9 @@
+eblob (0.3.7) unstable; urgency=low
+
+  * Use mremap(MREMAP_FIXED | MREMAP_MAYMOVE)
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 01 Jun 2011 08:51:53 +0400
+
 eblob (0.3.6) unstable; urgency=low
 
   * Use munmap/mmap instead of mremap, sine the former may fail miserably
