@@ -67,5 +67,31 @@ class eblob {
 		struct eblob_backend	*eblob_;
 };
 
+class eblob_iterator_callback {
+	public:
+		virtual void callback(const struct eblob_disk_control *dc, const void *data) const = 0;
+};
+
+#include <boost/thread.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
+
+class eblob_iterator {
+		eblob_iterator(const std::string &input_base);
+		virtual ~eblob_iterator();
+
+		void iterate(const eblob_iterator_callback &cb, const int tnum = 16);
+
+	private:
+		boost::mutex data_lock_;
+		boost::iostreams::mapped_file file_;
+		int index_;
+		off_t position_;
+		std::string input_base_;
+		uint64_t data_num_;
+
+		void open_next();
+		void iter(const eblob_iterator_callback *cb);
+};
+
 #endif /* __EBLOB_CPPDEF_H */
 
