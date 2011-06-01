@@ -44,3 +44,13 @@ eblob::~eblob()
 {
 	eblob_cleanup(eblob_);
 }
+
+void eblob::write(const void *key, const int ksize, const void *data, const uint64_t dsize, uint32_t flags)
+{
+	int err = eblob_write_data(eblob_, (unsigned char *)key, ksize, (void *)data, dsize, flags);
+	if (err) {
+		std::ostringstream str;
+		str << "eblob write failed: ksize: " << ksize << ", dsize: " << dsize << ": " << strerror(-err);
+		throw std::runtime_error(str.str());
+	}
+}

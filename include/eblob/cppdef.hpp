@@ -62,6 +62,8 @@ class eblob {
 		eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path);
 		virtual ~eblob();
 
+		void write(const void *key, const int ksize, const void *data, const uint64_t dsize, uint32_t flags = 0);
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
