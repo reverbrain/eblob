@@ -1,3 +1,9 @@
+eblob (0.3.10) unstable; urgency=low
+
+  * Remap new portions of backend allocation file at different locations.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 01 Jun 2011 10:52:25 +0400
+
 eblob (0.3.9) unstable; urgency=low
 
   * Do not unmap map_base prior new map
