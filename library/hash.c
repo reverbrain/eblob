@@ -231,9 +231,6 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 			hash->file_size = new_size;
 		}
 
-		munmap(hash->map_base, hash->map_size);
-		hash->map_size = 0;
-
 		new_base = mmap(hash->map_base, new_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_FIXED, hash->map_fd, 0);
 		if (new_base == MAP_FAILED) {
 			hash->map_size = 0;
