@@ -23,7 +23,7 @@
 eblob::eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
 	logger_(log_file, log_mask)
 {
-	std::stringstream mstr;
+	std::ostringstream mstr;
 
 	mstr << eblob_path << ".mmap." << getpid();
 
