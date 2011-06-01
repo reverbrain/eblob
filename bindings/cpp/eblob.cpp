@@ -54,3 +54,57 @@ void eblob::write(const void *key, const int ksize, const void *data, const uint
 		throw std::runtime_error(str.str());
 	}
 }
+
+void eblob::read(const void *key, const int ksize, int *fd, uint64_t *offset, uint64_t *size)
+{
+	int err;
+
+	err = eblob_read(eblob_, (unsigned char *)key, ksize, fd, offset, size);
+	if (err) {
+		std::ostringstream str;
+		str << "eblob read failed: ksize: " << ksize << ": " << strerror(-err);
+		throw std::runtime_error(str.str());
+	}
+}
+
+std::string eblob::read(const void *key, const int ksize)
+{
+	int fd, err;
+	uint64_t offset, size, sz = 1024*1024;
+	char *buf;
+	std::string ret;
+
+	eblob::read(key, ksize, &fd, &offset, &size);
+
+	if (sz > size)
+		sz = size;
+
+	buf = new char[sz];
+
+	try {
+		while (size) {
+			if (sz > size)
+				sz = size;
+
+			err = pread(fd, buf, sz, offset);
+			if (err != (int)sz) {
+
+				std::ostringstream str;
+				str << "eblob read failed: ksize: " << ksize << "dsize rest: " <<
+					size << ", offset rest: " << offset << ": " << strerror(-err);
+				throw std::runtime_error(str.str());
+			}
+
+			ret.append(buf, sz);
+
+			offset += sz;
+			size -= sz;
+		}
+	} catch (const std::exception &e) {
+		delete [] buf;
+		throw;
+	}
+	delete [] buf;
+
+	return ret;
+}
