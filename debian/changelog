@@ -1,3 +1,9 @@
+eblob (0.3.6) unstable; urgency=low
+
+  * Use munmap/mmap instead of mremap, sine the former may fail miserably
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 01 Jun 2011 08:39:41 +0400
+
 eblob (0.3.5) unstable; urgency=low
 
   * Fixed ostringstream and its std::string dereference
