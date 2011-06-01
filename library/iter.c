@@ -69,7 +69,7 @@ int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eb
 
 	if (!size || offset >= st.st_size) {
 		eblob_log(l, EBLOB_LOG_ERROR, "blob %d: exiting iteration without error: size: %zu, offset: %llu, file size: %llu.\n",
-				io->file_index, size, offset, st.st_size);
+				io->file_index, size, (unsigned long long)offset, (unsigned long long)st.st_size);
 		err = 0;
 		goto err_out_exit;
 	}
@@ -115,7 +115,7 @@ int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size, struct eb
 		err = callback(&dc, io->file_index, ptr + sizeof(struct eblob_disk_control), position, priv);
 		if (err < 0) {
 			eblob_log(l, EBLOB_LOG_ERROR, "blob %d: iteration callback fails: data size: %llu, disk size: %llu, position: %llu, err: %d.\n",
-					io->file_index, (unsigned long long)dc.data_size, (unsigned long long)dc.disk_size, position, err);
+					io->file_index, (unsigned long long)dc.data_size, (unsigned long long)dc.disk_size, (unsigned long long)position, err);
 			goto err_out_unmap;
 		}
 
