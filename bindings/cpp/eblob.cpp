@@ -24,14 +24,15 @@ eblob::eblob(const char *log_file, const unsigned int log_mask, const std::strin
 	logger_(log_file, log_mask)
 {
 	std::ostringstream mstr;
-
 	mstr << eblob_path << ".mmap." << getpid();
+
+	std::string mmap_file = mstr.str();
 
 	struct eblob_config cfg;
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.file = (char *)eblob_path.c_str();
-	cfg.mmap_file = (char *)mstr.str().c_str();
+	cfg.mmap_file = (char *)mmap_file.c_str();
 	cfg.log = logger_.log();
 
 	eblob_ = eblob_init(&cfg);
