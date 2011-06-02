@@ -98,6 +98,7 @@ class eblob_iterator {
 
 		void open_next();
 		void iter(eblob_iterator_callback *cb);
+		void close_file();
 };
 
 #endif /* __EBLOB_CPPDEF_H */

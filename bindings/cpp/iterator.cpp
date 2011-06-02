@@ -28,8 +28,7 @@ eblob_iterator::eblob_iterator(const std::string &input_base) : input_base_(inpu
 
 eblob_iterator::~eblob_iterator()
 {
-	if (file_.is_open())
-		file_.close();
+	close_file();
 }
 
 void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
@@ -49,8 +48,7 @@ void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
 
 	cb.complete(data_num_, found_num_);
 
-	if (file_.is_open())
-		file_.close();
+	close_file();
 }
 
 void eblob_iterator::iter(eblob_iterator_callback *cb) {
@@ -97,10 +95,9 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 	found_num_ += found_num;
 }
 
-void eblob_iterator::open_next() {
-	if (file_.is_open()) {
-		file_.close();
-	}
+void eblob_iterator::open_next()
+{
+	close_file();
 
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
@@ -113,4 +110,10 @@ void eblob_iterator::open_next() {
 	std::cout << "Opened " << filename.str() << std::endl;
 }
 
+void eblob_iterator::close_file()
+{
+	if (file_.is_open()) {
+		file_.close();
+	}
 
+}
