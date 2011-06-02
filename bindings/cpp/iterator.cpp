@@ -28,7 +28,6 @@ eblob_iterator::eblob_iterator(const std::string &input_base) : input_base_(inpu
 
 eblob_iterator::~eblob_iterator()
 {
-	close_file();
 }
 
 void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
@@ -47,8 +46,6 @@ void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
 	threads.join_all();
 
 	cb.complete(data_num_, found_num_);
-
-	close_file();
 }
 
 void eblob_iterator::iter(eblob_iterator_callback *cb) {
@@ -58,26 +55,24 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 	try {
 		while (true) {
+			boost::shared_ptr<boost::iostreams::mapped_file> f;
+
 			{
 				boost::mutex::scoped_lock lock(data_lock_);
 
-				if (position_ + sizeof(dc) > file_.size()) {
+				if (position_ + sizeof(dc) > file_->size()) {
 					open_next();
 				}
 
-				data = file_.const_data() + position_;
+				f = file_;
+
+				data = f->const_data() + position_;
 
 				memcpy(&dc, data, sizeof(dc));
 				eblob_convert_disk_control(&dc);
 
 				position_ += dc.disk_size;
 			}
-
-			/*
-			 * Race lives here. Another thread can close file and
-			 * this @data pointer will be invalid likely ending up
-			 * with segfault
-			 */
 
 			data = (char *)data + sizeof(dc);
 			data_num++;
@@ -97,23 +92,15 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 void eblob_iterator::open_next()
 {
-	close_file();
-
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
-	file_.open(filename.str(), std::ios_base::in | std::ios_base::binary);
+	std::cout << "Going to open " << filename.str() << std::endl;
+
+	file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
 
 	++index_;
 	position_ = 0;
 
 	std::cout << "Opened " << filename.str() << std::endl;
-}
-
-void eblob_iterator::close_file()
-{
-	if (file_.is_open()) {
-		file_.close();
-	}
-
 }

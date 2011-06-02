@@ -79,6 +79,7 @@ class eblob_iterator_callback {
 };
 
 #include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
 class eblob_iterator {
@@ -90,7 +91,8 @@ class eblob_iterator {
 
 	private:
 		boost::mutex data_lock_;
-		boost::iostreams::mapped_file file_;
+		boost::shared_ptr<boost::iostreams::mapped_file> file_;
+
 		int index_;
 		off_t position_;
 		std::string input_base_;
@@ -98,7 +100,6 @@ class eblob_iterator {
 
 		void open_next();
 		void iter(eblob_iterator_callback *cb);
-		void close_file();
 };
 
 #endif /* __EBLOB_CPPDEF_H */
