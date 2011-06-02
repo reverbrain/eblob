@@ -74,17 +74,19 @@ class eblob {
 
 class eblob_iterator_callback {
 	public:
-		virtual void callback(const struct eblob_disk_control *dc, const void *data) const = 0;
+		virtual bool callback(const struct eblob_disk_control *dc, const void *data) = 0;
+		virtual void complete(const uint64_t total, const uint64_t found) = 0;
 };
 
 #include <boost/thread.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
 class eblob_iterator {
+	public:
 		eblob_iterator(const std::string &input_base);
 		virtual ~eblob_iterator();
 
-		void iterate(const eblob_iterator_callback &cb, const int tnum = 16);
+		void iterate(eblob_iterator_callback &cb, const int tnum = 16);
 
 	private:
 		boost::mutex data_lock_;
@@ -92,10 +94,10 @@ class eblob_iterator {
 		int index_;
 		off_t position_;
 		std::string input_base_;
-		uint64_t data_num_;
+		uint64_t data_num_, found_num_;
 
 		void open_next();
-		void iter(const eblob_iterator_callback *cb);
+		void iter(eblob_iterator_callback *cb);
 };
 
 #endif /* __EBLOB_CPPDEF_H */

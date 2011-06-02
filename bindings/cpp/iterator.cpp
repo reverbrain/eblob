@@ -32,11 +32,11 @@ eblob_iterator::~eblob_iterator()
 		file_.close();
 }
 
-void eblob_iterator::iterate(const eblob_iterator_callback &cb, const int tnum)
+void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
 {
 	position_ = 0;
 	index_ = 0;
-	data_num_ = 0;
+	data_num_ = found_num_ = 0;
 
 	open_next();
 
@@ -47,13 +47,15 @@ void eblob_iterator::iterate(const eblob_iterator_callback &cb, const int tnum)
 
 	threads.join_all();
 
+	cb.complete(data_num_, found_num_);
+
 	if (file_.is_open())
 		file_.close();
 }
 
-void eblob_iterator::iter(const eblob_iterator_callback *cb) {
+void eblob_iterator::iter(eblob_iterator_callback *cb) {
 	struct eblob_disk_control dc;
-	int data_num = 0;
+	uint64_t data_num = 0, found_num = 0;
 	const void *data;
 
 	try {
@@ -76,7 +78,8 @@ void eblob_iterator::iter(const eblob_iterator_callback *cb) {
 			data = (char *)data + sizeof(dc);
 			data_num++;
 
-			cb->callback((const struct eblob_disk_control *)&dc, data);
+			if (cb->callback((const struct eblob_disk_control *)&dc, data))
+				found_num++;
 		}
 	} catch (const std::exception &e) {
 		//std::cerr << "Iteration thread caught exception: " << e.what() << std::endl;
@@ -85,6 +88,7 @@ void eblob_iterator::iter(const eblob_iterator_callback *cb) {
 
 	boost::mutex::scoped_lock lock(data_lock_);
 	data_num_ += data_num;
+	found_num_ += found_num;
 }
 
 void eblob_iterator::open_next() {
