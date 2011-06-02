@@ -63,7 +63,7 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 			{
 				boost::mutex::scoped_lock lock(data_lock_);
 
-				if (position_ + sizeof(dc) >= file_.size()) {
+				if (position_ + sizeof(dc) > file_.size()) {
 					open_next();
 				}
 
@@ -74,6 +74,12 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 				position_ += dc.disk_size;
 			}
+
+			/*
+			 * Race lives here. Another thread can close file and
+			 * this @data pointer will be invalid likely ending up
+			 * with segfault
+			 */
 
 			data = (char *)data + sizeof(dc);
 			data_num++;
