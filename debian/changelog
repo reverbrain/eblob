@@ -1,3 +1,14 @@
+eblob (0.3.11) unstable; urgency=low
+
+  * Do not move entries around, since we are closing down whole mapping anyway
+  * Use posix_fallocate() to preallocate sufficiently large mmap files
+  * Added completion callback and matched callback counters into iterator
+  * Allocate/free mmap_file and use eblob file by default as a base path for
+    mmap file
+  * truncate map file to 0 at cleanup
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 02 Jun 2011 07:24:06 +0400
+
 eblob (0.3.10) unstable; urgency=low
 
   * Remap new portions of backend allocation file at different locations.
