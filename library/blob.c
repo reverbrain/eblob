@@ -805,8 +805,6 @@ static void *eblob_sync(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
-	char mmap_file[256];
-
 	b->sync_need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 
@@ -817,10 +815,13 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_blob_close_files_all(b);
 	pthread_mutex_destroy(&b->lock);
 	EVP_MD_CTX_cleanup(&b->mdctx);
-	free(b);
 
-	snprintf(mmap_file, sizeof(mmap_file), "/tmp/eblob-mmap-file.%d", getpid());
-	unlink(mmap_file);
+	unlink(b->cfg.mmap_file);
+
+	free(b->cfg.file);
+	free(b->cfg.mmap_file);
+
+	free(b);
 }
 
 struct eblob_backend *eblob_init(struct eblob_config *c)
@@ -829,7 +830,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	char mmap_file[256];
 	int err;
 
-	snprintf(mmap_file, sizeof(mmap_file), "/tmp/eblob-mmap-file.%d", getpid());
+	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap.%d", c->file, getpid());
 
 	b = malloc(sizeof(struct eblob_backend));
 	if (!b) {
@@ -893,9 +894,15 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_csum_lock_destroy;
 	}
 
+	b->cfg.mmap_file = strdup(c->mmap_file);
+	if (!b->cfg.mmap_file) {
+		err = -ENOMEM;
+		goto err_out_free_file;
+	}
+
 	err = eblob_blob_allocate_io(b);
 	if (err)
-		goto err_out_free_file;
+		goto err_out_free_mmap_file;
 
 	err = pthread_mutex_init(&b->lock, NULL);
 	if (err) {
@@ -944,6 +951,8 @@ err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
 err_out_close:
 	eblob_blob_close_files_all(b);
+err_out_free_mmap_file:
+	free(b->cfg.mmap_file);
 err_out_free_file:
 	free(b->cfg.file);
 err_out_csum_lock_destroy:
