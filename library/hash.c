@@ -346,6 +346,7 @@ void eblob_hash_exit(struct eblob_hash *h)
 	for (i=0; i<h->num; ++i) {
 		head = &h->heads[i];
 
+#if 0
 		e = NULL;
 		while (1) {
 			e = eblob_hash_entry_next(head, e);
@@ -355,7 +356,7 @@ void eblob_hash_exit(struct eblob_hash *h)
 			eblob_hash_entry_remove(head, e);
 			eblob_hash_entry_put(h, e);
 		}
-
+#endif
 		eblob_lock_destroy(&head->lock);
 	}
 
