@@ -145,9 +145,8 @@ static void eblob_map_cleanup(struct eblob_hash *hash)
 	pthread_mutex_destroy(&hash->map_lock);
 }
 
-static int eblob_map_init(struct eblob_hash *hash, const char *path)
+static int eblob_map_init(struct eblob_hash *hash, const char *path, int num)
 {
-	struct stat st;
 	int err;
 	int pagesize = sysconf(_SC_PAGE_SIZE);
 
@@ -163,26 +162,15 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 		goto err_out_mutex_destroy;
 	}
 
-	err = fstat(hash->map_fd, &st);
-	if (err) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	hash->file_size = st.st_size;
-	if (!hash->file_size)
-		hash->file_size = 1024*pagesize;
-
+	hash->file_size = num * (sizeof(struct eblob_hash_entry) + 100);
 	if  (hash->file_size % pagesize) {
 		hash->file_size = ALIGN(hash->file_size, pagesize);
 	}
 
-	if (hash->file_size != (uint64_t)st.st_size) {
-		err = ftruncate(hash->map_fd, hash->file_size);
-		if (err) {
-			err = -errno;
-			goto err_out_close;
-		}
+	err = posix_fallocate(hash->map_fd, 0, hash->file_size);
+	if (err) {
+		err = -errno;
+		goto err_out_close;
 	}
 
 	hash->map_base = mmap(NULL, hash->file_size, PROT_WRITE | PROT_READ, MAP_SHARED, hash->map_fd, 0);
@@ -198,12 +186,14 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 
 err_out_close:
 	close(hash->map_fd);
+	unlink(path);
 err_out_mutex_destroy:
 	pthread_mutex_destroy(&hash->map_lock);
 err_out_exit:
 	return err;
 }
 
+#if 1
 static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
 {
 	struct eblob_hash_entry *arr;
@@ -262,7 +252,7 @@ err_out_unlock:
 	return err;
 }
 
-#if 0
+#else
 static int eblob_realloc_entry_array(struct eblob_hash *hash __unused, struct eblob_hash_head *head, uint64_t esize)
 {
 	head->arr = realloc(head->arr, head->size + esize);
@@ -316,7 +306,7 @@ struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const c
 	h->flags = flags;
 	h->num = num;
 
-	err = eblob_map_init(h, mmap_path);
+	err = eblob_map_init(h, mmap_path, num * 10);
 	if (err)
 		goto err_out_free;
 
