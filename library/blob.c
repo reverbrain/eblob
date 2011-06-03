@@ -830,7 +830,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	char mmap_file[256];
 	int err;
 
-	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap.%d", c->file, getpid());
+	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap", c->file);
 
 	b = malloc(sizeof(struct eblob_backend));
 	if (!b) {
