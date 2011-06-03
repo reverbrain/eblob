@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.3.11
+Version:	0.3.12
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,10 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Fri Jun 3 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.12
+- Use the same mmap file for subsequent starts by default
+- Grow and start map file by 1 Gb
+
 * Thu Jun 2 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.11
 - Do not move entries around, since we are closing down whole mapping anyway
 - Use posix_fallocate() to preallocate sufficiently large mmap files
