@@ -145,7 +145,7 @@ static void eblob_map_cleanup(struct eblob_hash *hash)
 	pthread_mutex_destroy(&hash->map_lock);
 }
 
-static int eblob_map_init(struct eblob_hash *hash, const char *path, int num)
+static int eblob_map_init(struct eblob_hash *hash, const char *path)
 {
 	int err;
 	int pagesize = sysconf(_SC_PAGE_SIZE);
@@ -162,7 +162,7 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path, int num)
 		goto err_out_mutex_destroy;
 	}
 
-	hash->file_size = num * (sizeof(struct eblob_hash_entry) + 100);
+	hash->file_size = 1024 * 1024 * 1024;
 	if  (hash->file_size % pagesize) {
 		hash->file_size = ALIGN(hash->file_size, pagesize);
 	}
@@ -204,8 +204,10 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 
 	if (hash->map_used_total + req_size > hash->file_size) {
 		void *new_base;
-		uint64_t new_size = hash->file_size * 2, append_size;
+		uint64_t new_size, append_size;
 		int pagesize = sysconf(_SC_PAGE_SIZE);
+
+		new_size = hash->file_size + 1024 * 1024 * 1024;
 
 		if (new_size < req_size)
 			new_size = req_size * 2;
@@ -306,7 +308,7 @@ struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const c
 	h->flags = flags;
 	h->num = num;
 
-	err = eblob_map_init(h, mmap_path, num * 10);
+	err = eblob_map_init(h, mmap_path);
 	if (err)
 		goto err_out_free;
 
