@@ -1,3 +1,10 @@
+eblob (0.3.12) unstable; urgency=low
+
+  * Use the same mmap file for subsequent starts by default
+  * Grow and start map file by 1 Gb
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 03 Jun 2011 07:27:19 +0400
+
 eblob (0.3.11) unstable; urgency=low
 
   * Do not move entries around, since we are closing down whole mapping anyway
