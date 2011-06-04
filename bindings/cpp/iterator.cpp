@@ -22,7 +22,7 @@
 
 #include <eblob/eblob.hpp>
 
-eblob_iterator::eblob_iterator(const std::string &input_base) : input_base_(input_base)
+eblob_iterator::eblob_iterator(const std::string &input_base, const bool index) : input_base_(input_base), use_index_iter_(index)
 {
 }
 
@@ -55,26 +55,28 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 	try {
 		while (true) {
-			boost::shared_ptr<boost::iostreams::mapped_file> f;
+			boost::shared_ptr<boost::iostreams::mapped_file> index_file, data_file;
 
 			{
 				boost::mutex::scoped_lock lock(data_lock_);
 
-				if (position_ + sizeof(dc) > file_->size()) {
+				if (position_ + sizeof(dc) > index_file_->size()) {
 					open_next();
 				}
 
-				f = file_;
+				index_file = index_file_;
+				data_file = data_file_;
 
-				data = f->const_data() + position_;
-
-				memcpy(&dc, data, sizeof(dc));
+				memcpy(&dc, index_file->const_data() + position_, sizeof(dc));
 				eblob_convert_disk_control(&dc);
 
-				position_ += dc.disk_size;
+				if (use_index_iter_)
+					position_ += sizeof(dc);
+				else
+					position_ += dc.disk_size;
 			}
 
-			data = (char *)data + sizeof(dc);
+			data = data_file->const_data() + dc.position + sizeof(dc);
 			data_num++;
 
 			if (cb->callback((const struct eblob_disk_control *)&dc, data))
@@ -95,9 +97,11 @@ void eblob_iterator::open_next()
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
-	std::cout << "Going to open " << filename.str() << std::endl;
+	data_file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
+	if (use_index_iter_)
+		filename << ".index";
 
-	file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
+	index_file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
 
 	++index_;
 	position_ = 0;

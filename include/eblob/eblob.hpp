@@ -84,19 +84,20 @@ class eblob_iterator_callback {
 
 class eblob_iterator {
 	public:
-		eblob_iterator(const std::string &input_base);
+		eblob_iterator(const std::string &input_base, const bool index = false);
 		virtual ~eblob_iterator();
 
 		void iterate(eblob_iterator_callback &cb, const int tnum = 16);
 
 	private:
 		boost::mutex data_lock_;
-		boost::shared_ptr<boost::iostreams::mapped_file> file_;
+		boost::shared_ptr<boost::iostreams::mapped_file> index_file_, data_file_;
 
 		int index_;
 		off_t position_;
 		std::string input_base_;
 		uint64_t data_num_, found_num_;
+		bool use_index_iter_;
 
 		void open_next();
 		void iter(eblob_iterator_callback *cb);
