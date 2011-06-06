@@ -226,10 +226,20 @@ int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size,
 		void *priv);
 
 /* Iterate over all blob files */
-int eblob_blob_iterate(struct eblob_backend *b, int check_index,
-	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data,
-		off_t position, void *priv),
-	void *priv);
+struct eblob_iterate_control {
+	struct eblob_log		*log;
+	const char			*base_path;
+
+	int				check_index;
+	int				thread_num;
+
+	int				(* iterator)(struct eblob_disk_control *dc,
+						int file_index, void *data, off_t position, void *priv);
+	void				*priv;
+};
+
+int eblob_blob_iterate(struct eblob_iterate_control *ctl);
+
 
 struct eblob_backend;
 

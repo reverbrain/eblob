@@ -66,104 +66,247 @@ struct blob_ram_control {
 	int			file_index;
 };
 
-struct eblob_blob_iterator_data {
-	pthread_t		id;
+struct eblob_iterator_data {
+	struct eblob_iterate_control	*ctl;
 
-	struct eblob_backend	*b;
-	struct eblob_backend_io	*io;
+	pthread_mutex_t			lock;
+	off_t				off;
+	int				data_fd, index_fd, file_index;
 
-	size_t			size;
-	off_t			off;
+	size_t				data_size;
+	void				*data;
 
-	int			(* iterator)(struct eblob_disk_control *dc, int file_index,
-					void *data, off_t position, void *priv);
-	void			*priv;
+	void				*move_ptr;
+	off_t				index_move_pos;
 
-	int			check_index;
-
-	int			err;
+	long long			num;
+	int				err;
 };
+
+static int eblob_open_next(struct eblob_iterator_data *p)
+{
+	static char eblob_iter_path[4096];
+	int oflags = O_RDWR;
+	struct stat st;
+	int err = 0;
+
+	if (p->index_fd >= 0) {
+		posix_fadvise(p->index_fd, 0, 0, POSIX_FADV_RANDOM | POSIX_FADV_DONTNEED);
+		posix_fadvise(p->data_fd, 0, 0, POSIX_FADV_RANDOM | POSIX_FADV_DONTNEED);
+
+		eblob_log(p->ctl->log, EBLOB_LOG_INFO, "blob: %d: iteration completed: num: %llu.\n",
+				p->file_index, p->num);
+
+		if (p->move_ptr) {
+			eblob_log(p->ctl->log, EBLOB_LOG_INFO, "blob: %d: truncating %zu -> %zu, index: %zu -> %llu.\n",
+					p->file_index, p->data_size, (size_t)(p->move_ptr - p->data),
+					(size_t)p->off, p->num * sizeof(struct eblob_disk_control));
+
+			err = ftruncate(p->data_fd, p->move_ptr - p->data);
+
+			if (p->ctl->check_index)
+				err = ftruncate(p->index_fd, p->num * sizeof(struct eblob_disk_control));
+		}
+
+		munmap(p->data, p->data_size);
+
+		close(p->data_fd);
+		close(p->index_fd);
+
+		p->index_fd = p->data_fd = -1;
+	}
+
+	snprintf(eblob_iter_path, sizeof(eblob_iter_path), "%s.%d.index", p->ctl->base_path, p->file_index);
+	p->index_fd = open(eblob_iter_path, oflags);
+	if (p->index_fd < 0) {
+		err = -errno;
+		goto err_out_exit;
+	}
+
+	snprintf(eblob_iter_path, sizeof(eblob_iter_path), "%s.%d", p->ctl->base_path, p->file_index);
+	p->data_fd = open(eblob_iter_path, oflags);
+	if (p->data_fd < 0) {
+		err = -errno;
+		goto err_out_close_index;
+	}
+
+	err = fstat(p->data_fd, &st);
+	if (err) {
+		err = -errno;
+		goto err_out_close_data;
+	}
+
+	p->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, p->data_fd, 0);
+	if (p->data == MAP_FAILED) {
+		err = -errno;
+		goto err_out_close_data;
+	}
+
+	p->data_size = st.st_size;
+
+	p->off = 0;
+	p->num = 0;
+
+	p->file_index++;
+
+	posix_fadvise(p->index_fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_WILLNEED);
+
+	return 0;
+
+err_out_close_data:
+	close(p->data_fd);
+err_out_close_index:
+	close(p->index_fd);
+err_out_exit:
+	p->index_fd = p->data_fd = -1;
+	return err;
+}
 
 static void *eblob_blob_iterator(void *data)
 {
-	struct eblob_blob_iterator_data *p = data;
+	struct eblob_iterator_data *p = data;
+	struct eblob_disk_control dc;
+	off_t position;
+	int err;
 
-	p->err = eblob_iterate(p->io, p->off, p->size, p->b->cfg.log, p->check_index, p->iterator, p->priv);
-	if (p->err)
-		eblob_log(p->b->cfg.log, EBLOB_LOG_ERROR, "blob: data iteration failed: %d.\n", p->err);
+	while (1) {
+		pthread_mutex_lock(&p->lock);
+again:
+		if (p->ctl->check_index)
+			err = pread(p->index_fd, &dc, sizeof(dc), p->off);
+		else
+			err = pread(p->data_fd, &dc, sizeof(dc), p->off);
 
-	return &p->err;
-};
-
-int eblob_blob_iterate(struct eblob_backend *b, int check_index,
-	int (* iterator)(struct eblob_disk_control *dc, int file_index, void *data, off_t position, void *priv),
-	void *priv)
-{
-	int iterate_threads = b->cfg.iterate_threads;
-	int j, index_num = b->index;
-	int error = 0;
-
-	for (j=0; j<index_num + 1; ++j) {
-		struct eblob_backend_io *io = &b->data[j];
-
-		if (!io->index_pos)
-			break;
-
-		if (!check_index || (uint64_t)io->index_pos < iterate_threads + b->cfg.blob_size / sizeof(struct eblob_disk_control))
-			iterate_threads = 1;
-
-		{
-			int i, err;
-			int thread_num = iterate_threads - 1;
-			struct eblob_blob_iterator_data p[thread_num + 1];
-			off_t off = 0;
-			size_t size = check_index ? io->index_pos * sizeof(struct eblob_disk_control) / iterate_threads : io->offset;
-			off_t rest = check_index ? io->index_pos * sizeof(struct eblob_disk_control) : io->offset;
-
-			memset(p, 0, sizeof(p));
-
-			for (i=0; i<thread_num + 1; ++i) {
-				p[i].check_index = check_index;
-				p[i].size = size;
-				p[i].off = off;
-				p[i].b = b;
-				p[i].io = io;
-				p[i].iterator = iterator;
-				p[i].priv = priv;
-
-				off += size;
-				rest -= size;
+		if (err != sizeof(dc)) {
+			if (err != 0) {
+				err = -errno;
+			} else {
+				err = eblob_open_next(p);
+				if (!err)
+					goto again;
 			}
-			p[thread_num].size = rest + size;
-
-			for (i=0; i<thread_num; ++i) {
-				err = pthread_create(&p[i].id, NULL, eblob_blob_iterator, &p[i]);
-				if (err) {
-					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to create iterator thread: %d.\n", err);
-					break;
-				}
-			}
-
-			eblob_blob_iterator(&p[thread_num]);
-
-			error = p[thread_num].err;
-
-			for (i=0; i<thread_num; ++i) {
-				pthread_join(p[i].id, NULL);
-
-				if (p[i].err)
-					error = p[i].err;
-			}
-
-			posix_fadvise(io->fd, 0, io->offset, POSIX_FADV_RANDOM);
-
-			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %d/%d: iteration completed: num: %llu, threads: %u, status: %d.\n",
-					j, index_num, (unsigned long long)io->index_pos, iterate_threads, error);
+			goto err_out_unlock;
 		}
 
+		position = p->off;
+		eblob_convert_disk_control(&dc);
+
+		if (p->ctl->check_index)
+			p->off += sizeof(dc);
+		else
+			p->off = dc.disk_size;
+
+		eblob_log(p->ctl->log, EBLOB_LOG_INFO, "pos: %llu, removed: %d\n", dc.position, !!(dc.flags & BLOB_DISK_CTL_REMOVE));
+		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
+			if (!p->move_ptr) {
+				p->move_ptr = p->data + dc.position;
+				p->index_move_pos = dc.position;
+			}
+		} else if (p->move_ptr) {
+			struct eblob_disk_control *n = p->data + dc.position;
+			uint64_t disk_size;
+
+			eblob_convert_disk_control(n);
+
+			n->position = p->move_ptr - p->data;
+			disk_size = n->disk_size;
+
+			eblob_log(p->ctl->log, EBLOB_LOG_INFO, "moving %llu bytes from %llu: %p -> %p\n", n->disk_size, n->position, p->data + dc.position, p->move_ptr);
+
+			eblob_convert_disk_control(n);
+
+			memmove(p->move_ptr, p->data + dc.position, disk_size);
+
+			dc.position = p->move_ptr - p->data;
+			p->move_ptr += disk_size;
+
+			if (p->ctl->check_index) {
+				struct eblob_disk_control ic;
+
+				memcpy(&ic, &dc, sizeof(dc));
+				eblob_convert_disk_control(&ic);
+
+				err = pwrite(p->index_fd, &ic, sizeof(ic), p->index_move_pos);
+				if (err != sizeof(ic)) {
+					err = -errno;
+					eblob_log(p->ctl->log, EBLOB_LOG_ERROR, "failed to update index for: "
+							"moving %llu bytes from %llu: %p -> %p: %s %d\n",
+							n->disk_size, n->position, p->data + dc.position, p->move_ptr,
+							strerror(-err), err);
+					goto err_out_unlock;
+				}
+
+				p->index_move_pos += dc.disk_size;
+			}
+		}
+		pthread_mutex_unlock(&p->lock);
+
+		if (dc.flags & BLOB_DISK_CTL_REMOVE)
+			continue;
+
+		err = p->ctl->iterator(&dc, p->file_index - 1, p->data + dc.position, position, p->ctl->priv);
+		p->num++;
 	}
 
-	return error;
+err_out_unlock:
+	if (err)
+		p->err = err;
+	pthread_mutex_unlock(&p->lock);
+
+	return NULL;
+};
+
+int eblob_blob_iterate(struct eblob_iterate_control *ctl)
+{
+	int i, err;
+	pthread_t tid[ctl->thread_num];
+	struct eblob_iterator_data p;
+
+	memset(&p, 0, sizeof(p));
+
+	err = pthread_mutex_init(&p.lock, NULL);
+	if (err) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+	p.ctl = ctl;
+	p.index_fd = p.data_fd = -1;
+
+	err = eblob_open_next(&p);
+	if (err) {
+		if (err == -ENOENT)
+			err = 0;
+
+		goto err_out_destroy;
+	}
+
+	for (i=0; i<ctl->thread_num; ++i) {
+		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, &p);
+		if (err) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to create iterator thread: %d.\n", err);
+			break;
+		}
+	}
+
+	for (i=0; i<ctl->thread_num; ++i) {
+		pthread_join(tid[i], NULL);
+	}
+
+	munmap(p.data, p.data_size);
+
+	close(p.index_fd);
+	close(p.data_fd);
+
+	if ((p.err == -ENOENT) && p.num)
+		p.err = 0;
+
+	err = p.err;
+
+err_out_destroy:
+	pthread_mutex_destroy(&p.lock);
+err_out_exit:
+	return err;
 }
 
 static int eblob_blob_open_file(char *file, off_t *off_ptr)
@@ -748,7 +891,8 @@ err_out_exit:
 }
 
 static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
-		void *data __eblob_unused, off_t position __eblob_unused, void *priv)
+		void *data __eblob_unused, off_t position __eblob_unused,
+		void *priv)
 {
 	struct eblob_backend *b = priv;
 	struct blob_ram_control ctl;
@@ -756,16 +900,12 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 	char id[EBLOB_ID_SIZE*2+1];
 	int err;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: file index: %d, index position: %llu (0x%llx), "
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: file index: %d, "
 			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
 			eblob_dump_id_len_raw(dc->id, EBLOB_ID_SIZE, id), file_index,
-			(unsigned long long)position, (unsigned long long)position,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
-
-	if (dc->flags & BLOB_DISK_CTL_REMOVE)
-		return 0;
 
 	memcpy(key, dc->id, EBLOB_ID_SIZE);
 	ctl.index_pos = position / sizeof(struct eblob_disk_control);
@@ -778,6 +918,22 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 		return err;
 
 	return 0;
+}
+
+static int eblob_iterate_start(struct eblob_backend *b)
+{
+	struct eblob_iterate_control ctl;
+
+	memset(&ctl, 0, sizeof(ctl));
+
+	ctl.log = b->cfg.log;
+	ctl.base_path = b->cfg.file;
+	ctl.check_index = 1;
+	ctl.thread_num = b->cfg.iterate_threads;
+	ctl.iterator = eblob_blob_iter;
+	ctl.priv = b;
+
+	return eblob_blob_iterate(&ctl);
 }
 
 static void *eblob_sync(void *data)
@@ -900,14 +1056,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_free_file;
 	}
 
-	err = eblob_blob_allocate_io(b);
-	if (err)
-		goto err_out_free_mmap_file;
-
 	err = pthread_mutex_init(&b->lock, NULL);
 	if (err) {
 		err = -errno;
-		goto err_out_close;
+		goto err_out_free_mmap_file;
 	}
 
 	b->hash = eblob_hash_init(c->hash_size, c->hash_flags, c->mmap_file, &err);
@@ -915,12 +1067,16 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %d.\n", err);
 		goto err_out_lock_destroy;
 	}
-	
-	err = eblob_blob_iterate(b, 1, eblob_blob_iter, b);
+
+	err = eblob_iterate_start(b);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index iteration failed: %d.\n", err);
 		goto err_out_hash_destroy;
 	}
+
+	err = eblob_blob_allocate_io(b);
+	if (err)
+		goto err_out_hash_destroy;
 
 	if (c->hash_flags & EBLOB_HASH_MLOCK) {
 		err = mlockall(MCL_CURRENT | MCL_FUTURE);
@@ -928,7 +1084,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 			err = -errno;
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to lock all current and future allocations: %s [%d].\n",
 					strerror(errno), err);
-			goto err_out_hash_destroy;
+			goto err_out_close;
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: successfully locked all current and future allocations.\n");
@@ -937,20 +1093,20 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
-		goto err_out_hash_unlock;
+		goto err_out_munlock;
 	}
 
 	return b;
 
-err_out_hash_unlock:
+err_out_munlock:
 	if (c->hash_flags & EBLOB_HASH_MLOCK)
 		munlockall();
+err_out_close:
+	eblob_blob_close_files_all(b);
 err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
-err_out_close:
-	eblob_blob_close_files_all(b);
 err_out_free_mmap_file:
 	free(b->cfg.mmap_file);
 err_out_free_file:

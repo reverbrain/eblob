@@ -343,12 +343,12 @@ void eblob_hash_exit(struct eblob_hash *h)
 {
 	unsigned int i;
 	struct eblob_hash_head *head;
-	struct eblob_hash_entry *e;
 
 	for (i=0; i<h->num; ++i) {
 		head = &h->heads[i];
 
 #if 0
+		struct eblob_hash_entry *e;
 		e = NULL;
 		while (1) {
 			e = eblob_hash_entry_next(head, e);
