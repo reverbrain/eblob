@@ -52,36 +52,23 @@ struct eblob_hash_entry {
 };
 
 struct eblob_hash_head {
-	uint64_t			size;
+	uint64_t			size, allocated;
 	struct eblob_hash_entry		*arr;
 	struct eblob_lock		lock;
 };
 
 static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsigned int limit)
 {
-	unsigned int hval = 1313131313;
-	unsigned int i;
+	uint64_t hash;
 
-	while (size >= 4) {
-		uint32_t *p = data;
-
-		hval ^= *p;
-		hval += 0x80808080;
-
-		size -= 4;
-		data += 4;
+	if (size < 8) {
+		hash = 0;
+		memcpy(&hash, data, size);
+	} else {
+		hash = *(uint64_t *)data;
 	}
 
-	for (i=0; i<size; ++i) {
-		unsigned char *p = data;
-
-		hval ^= *p;
-		hval += 0x80808080;
-
-		hval += hval << size;
-	}
-
-	return hval % limit;
+	return hash % limit;
 }
 
 static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e __unused)
@@ -197,7 +184,7 @@ err_out_exit:
 static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
 {
 	struct eblob_hash_entry *arr;
-	uint64_t req_size = head->size + esize;
+	uint64_t req_size = 2 * (head->size + esize);
 	int err;
 
 	pthread_mutex_lock(&hash->map_lock);
@@ -246,6 +233,7 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 	if (head->arr && head->size)
 		memcpy(arr, head->arr, head->size);
 	head->arr = arr;
+	head->allocated = req_size;
 
 	return 0;
 
@@ -271,9 +259,11 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head 
 	struct eblob_hash_entry *e;
 	int err;
 
-	err = eblob_realloc_entry_array(hash, head, esize);
-	if (err)
-		return err;
+	if (head->size + esize > head->allocated) {
+		err = eblob_realloc_entry_array(hash, head, esize);
+		if (err)
+			return err;
+	}
 
 	e = (void *)head->arr + head->size;
 	e->cleanup = NULL;
@@ -326,6 +316,7 @@ struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const c
 		eblob_lock_init(&head->lock);
 		head->arr = NULL;
 		head->size = 0;
+		head->allocated = 0;
 	}
 
 	return h;
