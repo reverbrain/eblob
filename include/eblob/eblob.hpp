@@ -74,7 +74,7 @@ class eblob {
 
 class eblob_iterator_callback {
 	public:
-		virtual bool callback(const struct eblob_disk_control *dc, const void *data) = 0;
+		virtual bool callback(const struct eblob_disk_control *dc, const void *data, const int index = 0) = 0;
 		virtual void complete(const uint64_t total, const uint64_t found) = 0;
 };
 

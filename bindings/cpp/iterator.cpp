@@ -52,6 +52,7 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 	struct eblob_disk_control dc;
 	uint64_t data_num = 0, found_num = 0;
 	const void *data;
+	int index;
 
 	try {
 		while (true) {
@@ -74,12 +75,14 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 					position_ += sizeof(dc);
 				else
 					position_ += dc.disk_size;
+
+				index = index_ - 1;
 			}
 
 			data = data_file->const_data() + dc.position + sizeof(dc);
 			data_num++;
 
-			if (cb->callback((const struct eblob_disk_control *)&dc, data))
+			if (cb->callback((const struct eblob_disk_control *)&dc, data, index))
 				found_num++;
 		}
 	} catch (const std::exception &e) {
