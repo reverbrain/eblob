@@ -78,6 +78,8 @@ class eblob_iterator_callback {
 		virtual void complete(const uint64_t total, const uint64_t found) = 0;
 };
 
+#include <vector>
+
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
@@ -93,7 +95,7 @@ class eblob_iterator {
 		boost::mutex data_lock_;
 		boost::shared_ptr<boost::iostreams::mapped_file> index_file_, data_file_;
 
-		std::vector<shared_ptr<boost::iostreams::mapped_file> > index_files_, data_files_;
+		std::vector<boost::shared_ptr<boost::iostreams::mapped_file> > index_files_, data_files_;
 
 		int index_;
 		off_t position_;
