@@ -100,6 +100,9 @@ void eblob_iterator::open_next()
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
+	data_files_.push_back(data_file_);
+	index_files_.push_back(index_file_);
+
 	data_file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
 	if (use_index_iter_)
 		filename << ".index";

@@ -93,6 +93,8 @@ class eblob_iterator {
 		boost::mutex data_lock_;
 		boost::shared_ptr<boost::iostreams::mapped_file> index_file_, data_file_;
 
+		std::vector<shared_ptr<boost::iostreams::mapped_file> > index_files_, data_files_;
+
 		int index_;
 		off_t position_;
 		std::string input_base_;
