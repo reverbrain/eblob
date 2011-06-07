@@ -196,7 +196,7 @@ again:
 		else
 			p->off = dc.disk_size;
 
-		eblob_log(p->ctl->log, EBLOB_LOG_DSA, "pos: %llu, removed: %d\n", dc.position, !!(dc.flags & BLOB_DISK_CTL_REMOVE));
+		eblob_log(p->ctl->log, EBLOB_LOG_DSA, "pos: %llu, removed: %d\n", (unsigned long long)dc.position, !!(dc.flags & BLOB_DISK_CTL_REMOVE));
 		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
 			if (!p->move_ptr) {
 				p->move_ptr = p->data + dc.position;
@@ -211,7 +211,9 @@ again:
 			n->position = p->move_ptr - p->data;
 			disk_size = n->disk_size;
 
-			eblob_log(p->ctl->log, EBLOB_LOG_DSA, "moving %llu bytes from %llu: %p -> %p\n", n->disk_size, n->position, p->data + dc.position, p->move_ptr);
+			eblob_log(p->ctl->log, EBLOB_LOG_DSA, "moving %llu bytes from %llu: %p -> %p\n",
+					(unsigned long long)n->disk_size, (unsigned long long)n->position,
+					p->data + dc.position, p->move_ptr);
 
 			eblob_convert_disk_control(n);
 
@@ -231,7 +233,8 @@ again:
 					err = -errno;
 					eblob_log(p->ctl->log, EBLOB_LOG_ERROR, "failed to update index for: "
 							"moving %llu bytes from %llu: %p -> %p: %s %d\n",
-							n->disk_size, n->position, p->data + dc.position, p->move_ptr,
+							(unsigned long long)n->disk_size, (unsigned long long)n->position,
+							p->data + dc.position, p->move_ptr,
 							strerror(-err), err);
 					goto err_out_unlock;
 				}
