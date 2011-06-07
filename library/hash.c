@@ -366,7 +366,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 	unsigned int idx;
 	struct eblob_hash_entry *e, *found = NULL;
 	struct eblob_hash_head *head;
-	int err;
+	int err, replaced = 0;
 
 	idx = eblob_hash_data(key, ksize, h->num);
 	head = &h->heads[idx];
@@ -380,8 +380,19 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 
 		if ((e->ksize == ksize) && !memcmp(e->key, key, ksize)) {
 			if (replace) {
-				found = e;
-				eblob_hash_entry_remove(head, e);
+				if (e->ksize + e->dsize == ksize + dsize) {
+					e->ksize = ksize;
+					e->dsize = dsize;
+
+					memcpy(e->key, key, ksize);
+					memcpy(e->key + ksize, data, dsize);
+
+					atomic_set(&e->refcnt, 1);
+					replaced = 1;
+				} else {
+					eblob_hash_entry_remove(head, e);
+					found = e;
+				}
 				break;
 			}
 			err = -EEXIST;
@@ -389,9 +400,11 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 		}
 	}
 
-	err = eblob_hash_entry_add(h, head, key, ksize, data, dsize);
-	if (err)
-		goto err_out_unlock;
+	if (!replaced) {
+		err = eblob_hash_entry_add(h, head, key, ksize, data, dsize);
+		if (err)
+			goto err_out_unlock;
+	}
 
 	eblob_lock_unlock(&head->lock);
 
