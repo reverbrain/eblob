@@ -1,3 +1,14 @@
+eblob (0.3.13) unstable; urgency=low
+
+  * Overwrite hash entry if we asked to replace it and sizes match
+  * Use (part of) provided key as hash table index
+  * Preallocate more space for hash entries in a bucket
+  * Save references to open data/index failes in iterator
+  * Initial implementation of startup defragmentation
+  * Extended eblob_iterator class to support index and data iterators
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 07 Jun 2011 12:03:49 +0400
+
 eblob (0.3.12) unstable; urgency=low
 
   * Use the same mmap file for subsequent starts by default

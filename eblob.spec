@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.3.12
+Version:	0.3.13
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,14 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Tue Jun 7 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.13
+- Overwrite hash entry if we asked to replace it and sizes match
+- Use (part of) provided key as hash table index
+- Preallocate more space for hash entries in a bucket
+- Save references to open data/index failes in iterator
+- Initial implementation of startup defragmentation
+- Extended eblob_iterator class to support index and data iterators
+
 * Fri Jun 3 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.12
 - Use the same mmap file for subsequent starts by default
 - Grow and start map file by 1 Gb
