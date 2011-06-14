@@ -24,7 +24,7 @@ eblob::eblob(const char *log_file, const unsigned int log_mask, const std::strin
 	logger_(log_file, log_mask)
 {
 	std::ostringstream mstr;
-	mstr << eblob_path << ".mmap." << getpid();
+	mstr << eblob_path << ".mmap";
 
 	std::string mmap_file = mstr.str();
 
@@ -34,8 +34,19 @@ eblob::eblob(const char *log_file, const unsigned int log_mask, const std::strin
 	cfg.file = (char *)eblob_path.c_str();
 	cfg.mmap_file = (char *)mmap_file.c_str();
 	cfg.log = logger_.log();
+	cfg.iterate_threads = 16;
+	cfg.hash_flags = EBLOB_START_DEFRAG;
 
 	eblob_ = eblob_init(&cfg);
+	if (!eblob_) {
+		throw std::runtime_error("Failed to initialize eblob");
+	}
+}
+
+eblob::eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg) :
+	logger_(log_file, log_mask)
+{
+	eblob_ = eblob_init(cfg);
 	if (!eblob_) {
 		throw std::runtime_error("Failed to initialize eblob");
 	}

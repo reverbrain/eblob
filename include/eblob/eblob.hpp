@@ -60,6 +60,7 @@ class eblob_logger {
 class eblob {
 	public:
 		eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path);
+		eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg);
 		virtual ~eblob();
 
 		void write(const void *key, const int ksize, const void *data, const uint64_t dsize, uint32_t flags = 0);
@@ -89,7 +90,7 @@ class eblob_iterator {
 		eblob_iterator(const std::string &input_base, const bool index = false);
 		virtual ~eblob_iterator();
 
-		void iterate(eblob_iterator_callback &cb, const int tnum = 16);
+		void iterate(eblob_iterator_callback &cb, const int tnum = 16, int index = 0, int index_max = INT_MAX);
 
 	private:
 		boost::mutex data_lock_;
@@ -97,7 +98,7 @@ class eblob_iterator {
 
 		std::vector<boost::shared_ptr<boost::iostreams::mapped_file> > index_files_, data_files_;
 
-		int index_;
+		int index_, index_max_;
 		off_t position_;
 		std::string input_base_;
 		uint64_t data_num_, found_num_;

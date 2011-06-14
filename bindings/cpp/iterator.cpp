@@ -22,7 +22,8 @@
 
 #include <eblob/eblob.hpp>
 
-eblob_iterator::eblob_iterator(const std::string &input_base, const bool index) : input_base_(input_base), use_index_iter_(index)
+eblob_iterator::eblob_iterator(const std::string &input_base, const bool index) :
+	input_base_(input_base), use_index_iter_(index)
 {
 }
 
@@ -30,10 +31,11 @@ eblob_iterator::~eblob_iterator()
 {
 }
 
-void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum)
+void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum, int index, int index_max)
 {
 	position_ = 0;
-	index_ = 0;
+	index_ = index;
+	index_max_ = index_max;
 	data_num_ = found_num_ = 0;
 
 	open_next();
@@ -97,6 +99,9 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 void eblob_iterator::open_next()
 {
+	if (index_ >= index_max_)
+		throw std::runtime_error("Completed");
+
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
