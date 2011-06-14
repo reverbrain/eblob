@@ -163,6 +163,7 @@ struct eblob_backend_io {
 };
 
 #define EBLOB_HASH_MLOCK		(1<<0)
+#define EBLOB_START_DEFRAG		(1<<1)
 
 struct eblob_config {
 	/* hash table size in entries */
@@ -232,6 +233,7 @@ struct eblob_iterate_control {
 
 	int				check_index;
 	int				thread_num;
+	int				defrag;
 
 	int				(* iterator)(struct eblob_disk_control *dc,
 						int file_index, void *data, off_t position, void *priv);

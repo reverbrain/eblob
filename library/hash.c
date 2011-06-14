@@ -80,7 +80,6 @@ static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_ha
 #endif
 }
 
-
 static inline void eblob_hash_entry_get(struct eblob_hash_entry *e)
 {
 	atomic_inc(&e->refcnt);
@@ -136,6 +135,7 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 {
 	int err;
 	int pagesize = sysconf(_SC_PAGE_SIZE);
+	struct stat st;
 
 	err = pthread_mutex_init(&hash->map_lock, NULL);
 	if (err) {
@@ -150,6 +150,13 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 	}
 
 	hash->file_size = 1024 * 1024 * 1024;
+
+	err = fstat(hash->map_fd, &st);
+	if (!err) {
+		if ((uint64_t)st.st_size > hash->file_size)
+			hash->file_size = st.st_size;
+	}
+
 	if  (hash->file_size % pagesize) {
 		hash->file_size = ALIGN(hash->file_size, pagesize);
 	}
@@ -160,7 +167,7 @@ static int eblob_map_init(struct eblob_hash *hash, const char *path)
 		goto err_out_close;
 	}
 
-	hash->map_base = mmap(NULL, hash->file_size, PROT_WRITE | PROT_READ, MAP_SHARED, hash->map_fd, 0);
+	hash->map_base = mmap(NULL, hash->file_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_NONBLOCK, hash->map_fd, 0);
 	if (hash->map_base == MAP_FAILED) {
 		err = -errno;
 		goto err_out_close;
@@ -184,7 +191,7 @@ err_out_exit:
 static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
 {
 	struct eblob_hash_entry *arr;
-	uint64_t req_size = 2 * (head->size + esize);
+	uint64_t req_size = head->size + 1 * esize;
 	int err;
 
 	pthread_mutex_lock(&hash->map_lock);
@@ -211,7 +218,7 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_
 
 		append_size = new_size - hash->file_size;
 
-		new_base = mmap(NULL, append_size, PROT_WRITE | PROT_READ, MAP_SHARED, hash->map_fd, hash->file_size);
+		new_base = mmap(NULL, append_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_NONBLOCK, hash->map_fd, hash->file_size);
 		if (new_base == MAP_FAILED) {
 			err = -errno;
 			goto err_out_unlock;

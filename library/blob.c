@@ -37,7 +37,7 @@
 #include "lock.h"
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
-#define EBLOB_BLOB_DEFAULT_HASH_SIZE		1024*1024*10
+#define EBLOB_BLOB_DEFAULT_HASH_SIZE		15485863
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
 
 struct eblob_backend {
@@ -76,10 +76,9 @@ struct eblob_iterator_data {
 	size_t				data_size;
 	void				*data;
 
-	void				*move_ptr;
-	off_t				index_move_pos;
+	uint64_t			defrag_position;
 
-	long long			num;
+	long long			num, removed;
 	int				err;
 };
 
@@ -94,19 +93,8 @@ static int eblob_open_next(struct eblob_iterator_data *p)
 		posix_fadvise(p->index_fd, 0, 0, POSIX_FADV_RANDOM | POSIX_FADV_DONTNEED);
 		posix_fadvise(p->data_fd, 0, 0, POSIX_FADV_RANDOM | POSIX_FADV_DONTNEED);
 
-		eblob_log(p->ctl->log, EBLOB_LOG_INFO, "blob: %d: iteration completed: num: %llu.\n",
-				p->file_index, p->num);
-
-		if (p->move_ptr) {
-			eblob_log(p->ctl->log, EBLOB_LOG_INFO, "blob: %d: truncating %zu -> %zu, index: %zu -> %llu.\n",
-					p->file_index, p->data_size, (size_t)(p->move_ptr - p->data),
-					(size_t)p->off, p->num * sizeof(struct eblob_disk_control));
-
-			err = ftruncate(p->data_fd, p->move_ptr - p->data);
-
-			if (p->ctl->check_index)
-				err = ftruncate(p->index_fd, p->num * sizeof(struct eblob_disk_control));
-		}
+		eblob_log(p->ctl->log, EBLOB_LOG_INFO, "blob: %d: iteration completed: num: %llu, removed: %llu.\n",
+				p->file_index - 1, p->num, p->removed);
 
 		munmap(p->data, p->data_size);
 
@@ -146,6 +134,7 @@ static int eblob_open_next(struct eblob_iterator_data *p)
 
 	p->off = 0;
 	p->num = 0;
+	p->removed = 0;
 
 	p->file_index++;
 
@@ -191,68 +180,46 @@ again:
 		position = p->off;
 		eblob_convert_disk_control(&dc);
 
+		if (dc.position + dc.disk_size > p->data_size) {
+			eblob_log(p->ctl->log, EBLOB_LOG_ERROR, "malformed entry: pos: %llu, disk_size: %llu, eblob_data_size: %zu\n",
+					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, p->data_size);
+			err = -ESPIPE;
+			goto err_out_unlock;
+		}
+
 		if (p->ctl->check_index)
 			p->off += sizeof(dc);
 		else
-			p->off = dc.disk_size;
+			p->off += dc.disk_size;
 
-		eblob_log(p->ctl->log, EBLOB_LOG_DSA, "pos: %llu, removed: %d\n", (unsigned long long)dc.position, !!(dc.flags & BLOB_DISK_CTL_REMOVE));
-		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
-			if (!p->move_ptr) {
-				p->move_ptr = p->data + dc.position;
-				p->index_move_pos = dc.position;
-			}
-		} else if (p->move_ptr) {
-			struct eblob_disk_control *n = p->data + dc.position;
-			uint64_t disk_size;
+		if (p->ctl->defrag) {
+			if (dc.flags & BLOB_DISK_CTL_REMOVE) {
+				struct eblob_disk_control *rem = p->data + dc.position;
 
-			eblob_convert_disk_control(n);
-
-			n->position = p->move_ptr - p->data;
-			disk_size = n->disk_size;
-
-			eblob_log(p->ctl->log, EBLOB_LOG_DSA, "moving %llu bytes from %llu: %p -> %p\n",
-					(unsigned long long)n->disk_size, (unsigned long long)n->position,
-					p->data + dc.position, p->move_ptr);
-
-			eblob_convert_disk_control(n);
-
-			memmove(p->move_ptr, p->data + dc.position, disk_size);
-
-			dc.position = p->move_ptr - p->data;
-			p->move_ptr += disk_size;
-
-			if (p->ctl->check_index) {
-				struct eblob_disk_control ic;
-
-				memcpy(&ic, &dc, sizeof(dc));
-				eblob_convert_disk_control(&ic);
-
-				err = pwrite(p->index_fd, &ic, sizeof(ic), p->index_move_pos);
-				if (err != sizeof(ic)) {
-					err = -errno;
-					eblob_log(p->ctl->log, EBLOB_LOG_ERROR, "failed to update index for: "
-							"moving %llu bytes from %llu: %p -> %p: %s %d\n",
-							(unsigned long long)n->disk_size, (unsigned long long)n->position,
-							p->data + dc.position, p->move_ptr,
-							strerror(-err), err);
-					goto err_out_unlock;
-				}
-
-				p->index_move_pos += dc.disk_size;
+				eblob_convert_disk_control(rem);
+				eblob_log(p->ctl->log, EBLOB_LOG_NOTICE, "removed entry: pos: %llu, disk_size: %llu\n",
+						(unsigned long long)dc.position, (unsigned long long)rem->disk_size);
+				p->defrag_position = dc.position;
+			} else if (p->defrag_position != ~0ULL) {
 			}
 		}
+
+		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
+			p->removed++;
+		} else {
+			p->num++;
+		}
+
 		pthread_mutex_unlock(&p->lock);
 
 		if (dc.flags & BLOB_DISK_CTL_REMOVE)
 			continue;
 
 		err = p->ctl->iterator(&dc, p->file_index - 1, p->data + dc.position, position, p->ctl->priv);
-		p->num++;
 	}
 
 err_out_unlock:
-	if (err)
+	if (err && !p->err)
 		p->err = err;
 	pthread_mutex_unlock(&p->lock);
 
@@ -275,6 +242,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 
 	p.ctl = ctl;
 	p.index_fd = p.data_fd = -1;
+	p.defrag_position = ~0ULL;
 
 	err = eblob_open_next(&p);
 	if (err) {
@@ -935,6 +903,7 @@ static int eblob_iterate_start(struct eblob_backend *b)
 	ctl.thread_num = b->cfg.iterate_threads;
 	ctl.iterator = eblob_blob_iter;
 	ctl.priv = b;
+	ctl.defrag = !!(b->cfg.hash_flags & EBLOB_START_DEFRAG);
 
 	return eblob_blob_iterate(&ctl);
 }
@@ -988,6 +957,8 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	struct eblob_backend *b;
 	char mmap_file[256];
 	int err;
+
+	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
 
 	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap", c->file);
 
