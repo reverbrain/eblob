@@ -29,58 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-
-#include "eblob/blob.h"
-#include "hash.h"
-#include "lock.h"
-
-#define EBLOB_BLOB_INDEX_SUFFIX			".index"
-#define EBLOB_BLOB_DEFAULT_HASH_SIZE		15485863
-#define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
-
-struct eblob_backend {
-	struct eblob_config	cfg;
-
-	struct eblob_lock	csum_lock;
-	EVP_MD_CTX 		mdctx;
-	const EVP_MD		*evp_md;
-
-	pthread_mutex_t		lock;
-
-	int			index;
-	struct eblob_backend_io	*data;
-
-	struct eblob_hash	*hash;
-
-	int			sync_need_exit;
-	pthread_t		sync_tid;
-};
-
-struct blob_ram_control {
-	size_t			offset;
-	off_t			index_pos;
-	uint64_t		size;
-
-	int			file_index;
-};
-
-struct eblob_iterator_data {
-	struct eblob_iterate_control	*ctl;
-
-	pthread_mutex_t			lock;
-	off_t				off;
-	int				data_fd, index_fd, file_index;
-
-	size_t				data_size;
-	void				*data;
-
-	uint64_t			defrag_position;
-
-	long long			num, removed;
-	int				err;
-};
+#include "blob.h"
 
 static int eblob_open_next(struct eblob_iterator_data *p)
 {
@@ -839,7 +788,8 @@ err_out_exit:
 	return err;
 }
 
-int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize, int *fd, uint64_t *offset, uint64_t *size, int *file_index)
+int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+		int *fd, uint64_t *offset, uint64_t *size, int *file_index)
 {
 	unsigned int dsize = sizeof(struct blob_ram_control);
 	struct blob_ram_control ctl;

@@ -33,43 +33,12 @@
 
 #include "eblob/blob.h"
 
-#include "atomic.h"
-#include "lock.h"
 #include "list.h"
 #include "hash.h"
 
 #ifndef __unused
 #define __unused	__attribute__ ((unused))
 #endif
-
-struct eblob_hash_entry {
-	unsigned int		dsize, ksize;
-
-	atomic_t		refcnt;
-	void			(* cleanup)(void *key, unsigned int ksize, void *data, unsigned int dsize);
-
-	unsigned char		key[0];
-};
-
-struct eblob_hash_head {
-	uint64_t			size, allocated;
-	struct eblob_hash_entry		*arr;
-	struct eblob_lock		lock;
-};
-
-static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsigned int limit)
-{
-	uint64_t hash;
-
-	if (size < 8) {
-		hash = 0;
-		memcpy(&hash, data, size);
-	} else {
-		hash = *(uint64_t *)data;
-	}
-
-	return hash % limit;
-}
 
 static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e __unused)
 {
@@ -95,13 +64,16 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	}
 }
 
-static struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e)
+struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e)
 {
 	void *ptr = e;
 
 	/* Return first element which in turn can also be NULL */
-	if (!e)
+	if (!ptr)
 		return head->arr;
+
+	if ((ptr < (void *)head->arr) || (ptr >= (void *)head->arr + head->size))
+		return NULL;
 
 	/* Otherwise return next after given element */
 	ptr += sizeof(struct eblob_hash_entry) + e->ksize + e->dsize;

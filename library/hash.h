@@ -16,6 +16,9 @@
 #ifndef __EBLOB_HASH_H
 #define __EBLOB_HASH_H
 
+#include "atomic.h"
+#include "lock.h"
+
 struct eblob_hash_head;
 struct eblob_hash {
 	unsigned int		num;
@@ -38,5 +41,37 @@ int eblob_hash_lookup(struct eblob_hash *h, void *key, unsigned int ksize, void 
 int hash_iterate_all(struct eblob_hash *h,
 	int (* callback)(void *key, unsigned int ksize, void *data, unsigned int dsize, void *priv),
 	void *priv);
+
+struct eblob_hash_entry {
+	unsigned int		dsize, ksize;
+
+	atomic_t		refcnt;
+	void			(* cleanup)(void *key, unsigned int ksize, void *data, unsigned int dsize);
+
+	unsigned char		key[0];
+};
+
+struct eblob_hash_head {
+	uint64_t			size, allocated;
+	struct eblob_hash_entry		*arr;
+	struct eblob_lock		lock;
+};
+
+static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsigned int limit)
+{
+	unsigned int i, hash = 0;
+	unsigned char *ptr = data;
+	unsigned char *h = (unsigned char *)&hash;
+
+	if (size > 4)
+		size = 4;
+
+	for (i=0; i<size; ++i)
+		h[size - i - 1] = ptr[i];
+
+	return hash % limit;
+}
+
+struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e);
 
 #endif /* __EBLOB_HASH_H */
