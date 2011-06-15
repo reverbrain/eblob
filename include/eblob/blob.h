@@ -319,6 +319,24 @@ static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
 	f->offset = eblob_bswap64(f->offset);
 }
 
+struct eblob_range_request {
+	unsigned char			start[EBLOB_ID_SIZE];
+	unsigned char			end[EBLOB_ID_SIZE];
+
+	uint64_t			requested_offset, requested_size;
+	uint64_t			requested_limit_start, requested_limit_num, current_pos;
+
+	unsigned char			record_key[EBLOB_ID_SIZE];
+	int				record_fd;
+	uint64_t			record_offset, record_size;
+
+	struct eblob_backend		*back;
+	int				(* callback)(struct eblob_range_request *);
+	void				*priv;
+} __attribute__ ((packed));
+
+int eblob_read_range(struct eblob_range_request *req);
+
 #ifdef __cplusplus
 }
 #endif
