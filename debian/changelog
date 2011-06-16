@@ -1,3 +1,11 @@
+eblob (0.3.14) unstable; urgency=low
+
+  * Added eblob range query
+  * Added remove() method
+  * Added c++ examples
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 16 Jun 2011 21:28:55 +0400
+
 eblob (0.3.13) unstable; urgency=low
 
   * Overwrite hash entry if we asked to replace it and sizes match
