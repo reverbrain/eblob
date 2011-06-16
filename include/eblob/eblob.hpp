@@ -23,6 +23,15 @@
 #include <sstream>
 #include <stdexcept>
 
+#include <vector>
+
+#include <boost/thread.hpp>
+#include <boost/shared_ptr.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
+
+
+namespace zbr {
+
 #include <eblob/blob.h>
 
 class eblob_logger {
@@ -82,12 +91,6 @@ class eblob_iterator_callback {
 		virtual void complete(const uint64_t total, const uint64_t found) = 0;
 };
 
-#include <vector>
-
-#include <boost/thread.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
-
 class eblob_iterator {
 	public:
 		eblob_iterator(const std::string &input_base, const bool index = false);
@@ -111,5 +114,6 @@ class eblob_iterator {
 		void iter(eblob_iterator_callback *cb);
 };
 
+}; /* namespace zbr */
 #endif /* __EBLOB_CPPDEF_H */
 

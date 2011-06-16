@@ -20,6 +20,8 @@
 
 #include <eblob/eblob.hpp>
 
+using namespace zbr;
+
 eblob::eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
 	logger_(log_file, log_mask)
 {
