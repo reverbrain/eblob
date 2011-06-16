@@ -1044,3 +1044,8 @@ err_out_free:
 err_out_exit:
 	return NULL;
 }
+
+unsigned long long eblob_total_elements(struct eblob_backend *b)
+{
+	return b->hash->total;
+}

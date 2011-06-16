@@ -70,6 +70,7 @@ class eblob {
 
 		void remove(const void *key, const int ksize);
 
+		unsigned long long elements(void);
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;

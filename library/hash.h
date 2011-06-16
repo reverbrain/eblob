@@ -30,6 +30,8 @@ struct eblob_hash {
 	uint64_t		map_used_total, map_used;
 	int			map_fd;
 	uint64_t		file_size;
+
+	unsigned long long	total;
 };
 
 struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp);

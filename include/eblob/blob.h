@@ -337,6 +337,8 @@ struct eblob_range_request {
 
 int eblob_read_range(struct eblob_range_request *req);
 
+unsigned long long eblob_total_elements(struct eblob_backend *b);
+
 #ifdef __cplusplus
 }
 #endif

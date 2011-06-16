@@ -256,6 +256,7 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head 
 	atomic_set(&e->refcnt, 1);
 
 	head->size += esize;
+	hash->total++;
 
 	return 0;
 }
@@ -327,6 +328,7 @@ void eblob_hash_exit(struct eblob_hash *h)
 
 			eblob_hash_entry_remove(head, e);
 			eblob_hash_entry_put(h, e);
+			h->total--;
 		}
 #endif
 		eblob_lock_destroy(&head->lock);
@@ -370,6 +372,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 					replaced = 1;
 				} else {
 					eblob_hash_entry_remove(head, e);
+					h->total--;
 					found = e;
 				}
 				break;
@@ -423,6 +426,7 @@ int eblob_hash_remove(struct eblob_hash *h, void *key, unsigned int ksize)
 
 		if ((e->ksize == ksize) && !memcmp(key, e->key, ksize)) {
 			eblob_hash_entry_remove(head, e);
+			h->total--;
 
 			found = e;
 			err = 0;

@@ -125,3 +125,8 @@ void eblob::remove(const void *key, const int ksize)
 {
 	eblob_remove(eblob_, (unsigned char *)key, ksize);
 }
+
+unsigned long long eblob::elements(void)
+{
+	return eblob_total_elements(eblob_);
+}
