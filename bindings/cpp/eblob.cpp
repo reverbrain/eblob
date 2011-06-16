@@ -123,5 +123,5 @@ std::string eblob::read(const void *key, const int ksize)
 
 void eblob::remove(const void *key, const int ksize)
 {
-	eblob_remove(eblob_, key, ksize);
+	eblob_remove(eblob_, (unsigned char *)key, ksize);
 }
