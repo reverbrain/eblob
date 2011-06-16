@@ -68,6 +68,8 @@ class eblob {
 		std::string read(const void *key, const int ksize);
 		void read(const void *key, const int ksize, int *fd, uint64_t *offset, uint64_t *size);
 
+		void remove(const void *key, const int ksize);
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;

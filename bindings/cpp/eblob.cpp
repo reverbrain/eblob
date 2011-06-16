@@ -120,3 +120,8 @@ std::string eblob::read(const void *key, const int ksize)
 
 	return ret;
 }
+
+void eblob::remove(const void *key, const int ksize)
+{
+	eblob_remove(eblob_, key, ksize);
+}
