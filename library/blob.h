@@ -24,7 +24,7 @@
 #include "lock.h"
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
-#define EBLOB_BLOB_DEFAULT_HASH_SIZE		15485863
+#define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
 
 struct eblob_backend {
