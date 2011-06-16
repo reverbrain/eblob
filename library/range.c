@@ -80,7 +80,7 @@ int eblob_read_range(struct eblob_range_request *req)
 	idx = eblob_hash_data(req->start, EBLOB_ID_SIZE, h->num);
 	last_idx = eblob_hash_data(req->end, EBLOB_ID_SIZE, h->num);
 
-	eblob_log(req->back->cfg.log, EBLOB_LOG_INFO, "idx: %x, last: %x\n", idx, last_idx);
+	eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "idx: %x, last: %x\n", idx, last_idx);
 
 	while (idx <= last_idx) {
 		struct blob_ram_control *ctl = NULL;
@@ -93,19 +93,16 @@ int eblob_read_range(struct eblob_range_request *req)
 			if (!e)
 				break;
 
-			eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "idx: %u, last: %u, key: %llx, in-range: %d\n",
-					idx, last_idx, *(unsigned long long *)e->key, eblob_id_in_range(e->key, req->start, req->end));
+			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "idx: %x, last: %x, key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
+					idx, last_idx, *(unsigned long long *)e->key, eblob_id_in_range(e->key, req->start, req->end),
+					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
+					(unsigned long long)req->requested_limit_num);
 
 
 			if ((e->ksize == EBLOB_ID_SIZE) && eblob_id_in_range(e->key, req->start, req->end)) {
 				if (req->current_pos < req->requested_limit_start) {
 					req->current_pos++;
 					continue;
-				}
-
-				if (req->current_pos >= req->requested_limit_start + req->requested_limit_num) {
-					idx = last_idx + 1;
-					break;
 				}
 
 				memcpy(req->record_key, e->key, EBLOB_ID_SIZE);
@@ -118,6 +115,12 @@ int eblob_read_range(struct eblob_range_request *req)
 				err = req->callback(req);
 				if (err)
 					break;
+
+				if (req->current_pos >= req->requested_limit_start + req->requested_limit_num) {
+					idx = last_idx + 1;
+					break;
+				}
+
 			}
 		}
 		eblob_lock_unlock(&head->lock);
