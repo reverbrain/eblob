@@ -73,6 +73,11 @@ static int eblob_open_next(struct eblob_iterator_data *p)
 		goto err_out_close_data;
 	}
 
+	if (!st.st_size) {
+		err = -ENOENT;
+		goto err_out_close_data;
+	}
+
 	p->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, p->data_fd, 0);
 	if (p->data == MAP_FAILED) {
 		err = -errno;
