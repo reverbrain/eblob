@@ -1,3 +1,9 @@
+eblob (0.4.1) unstable; urgency=low
+
+  * Switched to fixed-size eblob_key interface
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 18 Jun 2011 00:33:48 +0400
+
 eblob (0.4.0) unstable; urgency=low
 
   * Added examples
