@@ -378,22 +378,21 @@ static int blob_mark_index_removed(int fd, off_t offset)
 }
 
 static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *io, uint64_t index_pos,
-		unsigned char *key, unsigned int ksize,
-		struct blob_ram_control *data_ctl, struct blob_ram_control *old)
+		struct eblob_key *key, struct blob_ram_control *data_ctl, struct blob_ram_control *old)
 {
 	struct eblob_disk_control dc;
 	int err;
 
 	memset(&dc, 0, sizeof(struct eblob_disk_control));
 
-	memcpy(dc.id, key, (ksize < EBLOB_ID_SIZE) ? ksize : EBLOB_ID_SIZE);
+	memcpy(&dc.key, key, sizeof(struct eblob_key));
 	dc.flags = 0;
 	dc.data_size = data_ctl->size;
 	dc.disk_size = sizeof(struct eblob_disk_control);
 	dc.position = data_ctl->offset;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: updated index at position %llu (0x%llx), data position: %llu (0x%llx), data size: %llu.\n",
-			eblob_dump_id(key),
+			eblob_dump_id(key->id),
 			(unsigned long long)index_pos*sizeof(dc), (unsigned long long)index_pos*sizeof(dc),
 			(unsigned long long)data_ctl->offset, (unsigned long long)data_ctl->offset,
 			(unsigned long long)data_ctl->size);
@@ -404,12 +403,12 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_backend_io *i
 	if (err != (int)sizeof(dc)) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to write index data at %llu: %s.\n",
-			eblob_dump_id(key), (unsigned long long)index_pos*sizeof(dc), strerror(errno));
+			eblob_dump_id(key->id), (unsigned long long)index_pos*sizeof(dc), strerror(errno));
 		goto err_out_exit;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: wrote %zu bytes at %llu into %d\n",
-			eblob_dump_id(key), sizeof(dc), (unsigned long long)index_pos*sizeof(dc), io->index);
+			eblob_dump_id(key->id), sizeof(dc), (unsigned long long)index_pos*sizeof(dc), io->index);
 
 	err = 0;
 
@@ -470,7 +469,7 @@ static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t si
 }
 
 static int blob_write_prepare_ll(struct eblob_backend *b,
-		unsigned char *key, unsigned int ksize, struct eblob_write_control *wc)
+		struct eblob_key *key, struct eblob_write_control *wc)
 {
 	static unsigned char blob_empty_buf[40960];
 	struct eblob_disk_control disk_ctl;
@@ -483,7 +482,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 	disk_ctl.data_size = wc->size;
 	disk_ctl.disk_size = wc->total_size;
 
-	memcpy(disk_ctl.id, key, (ksize < EBLOB_ID_SIZE) ? ksize : EBLOB_ID_SIZE);
+	memcpy(&disk_ctl.key, key, sizeof(struct eblob_key));
 
 	eblob_convert_disk_control(&disk_ctl);
 
@@ -517,8 +516,7 @@ err_out_exit:
 	return err;
 }
 
-int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
-		struct eblob_write_control *wc)
+int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	ssize_t err = 0;
 	struct eblob_backend_io *io;
@@ -543,7 +541,7 @@ int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned in
 	if (err)
 		goto err_out_exit;
 
-	err = blob_write_prepare_ll(b, key, ksize, wc);
+	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
 
@@ -628,7 +626,7 @@ err_out_exit:
 	return err;
 }
 
-int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc)
 {
@@ -641,7 +639,7 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to write footer: %s.\n",
-				eblob_dump_id(key), strerror(-err));
+				eblob_dump_id(key->id), strerror(-err));
 		goto err_out_exit;
 	}
 
@@ -654,15 +652,15 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 	ctl.index_pos = io->index_pos;
 	ctl.file_index = io->file_index;
 
-	err = eblob_hash_lookup(b->hash, key, ksize, &old, &dsize);
+	err = eblob_hash_lookup(b->hash, key, &old, &dsize);
 	if (!err)
 		have_old = 1;
 
-	err = eblob_hash_replace(b->hash, key, ksize, &ctl, sizeof(ctl));
+	err = eblob_hash_replace(b->hash, key, &ctl, sizeof(ctl));
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to add "
 				"hash entry: %s [%d].\n",
-				eblob_dump_id(key), strerror(-err), err);
+				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_unlock;
 	}
 
@@ -671,13 +669,13 @@ int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int
 
 	pthread_mutex_unlock(&b->lock);
 
-	err = blob_update_index(b, io, index_pos, key, ksize, &ctl, have_old ? &old : NULL);
+	err = blob_update_index(b, io, index_pos, key, &ctl, have_old ? &old : NULL);
 	if (err)
 		goto err_out_unlock;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d.\n",
-			eblob_dump_id(key),
+			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_offset, (unsigned long long)wc->offset,
 			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
 			wc->fd);
@@ -689,11 +687,11 @@ err_out_unlock:
 
 err_out_exit:
 	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: commit failed: size: %llu, fd: %d: %d: %s\n",
-			eblob_dump_id(key), (unsigned long long)wc->size, wc->fd, err, strerror(-err));
+			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->fd, err, strerror(-err));
 	return err;
 }
 
-int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_write_data(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags)
 {
 	struct eblob_write_control wc;
@@ -704,7 +702,7 @@ int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int k
 	wc.size = size;
 	wc.flags = flags;
 
-	err = eblob_write_prepare(b, key, ksize, &wc);
+	err = eblob_write_prepare(b, key, &wc);
 	if (err)
 		goto err_out_exit;
 
@@ -713,12 +711,12 @@ int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int k
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to pwrite %llu "
 				"bytes into (fd: %d) datafile: %s.\n",
-				eblob_dump_id(key), err, (unsigned long long)size,
+				eblob_dump_id(key->id), err, (unsigned long long)size,
 				wc.fd, strerror(-err));
 		goto err_out_exit;
 	}
 
-	err = eblob_write_commit(b, key, ksize, NULL, 0, &wc);
+	err = eblob_write_commit(b, key, NULL, 0, &wc);
 	if (err)
 		goto err_out_exit;
 
@@ -726,30 +724,30 @@ err_out_exit:
 	return err;
 }
 
-int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize)
+int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct blob_ram_control ctl;
 	unsigned int dsize = sizeof(struct blob_ram_control);
 	struct eblob_disk_control dc;
 	int err, fd;
 
-	err = eblob_hash_lookup(b->hash, key, ksize, &ctl, &dsize);
+	err = eblob_hash_lookup(b->hash, key, &ctl, &dsize);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data to be removed: %d.\n",
-				eblob_dump_id(key), err);
+				eblob_dump_id(key->id), err);
 		goto err_out_exit;
 	}
 
 	fd = b->data[ctl.file_index].fd;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: removing block at: %llu, size: %llu.\n",
-		eblob_dump_id(key), (unsigned long long)ctl.offset, (unsigned long long)ctl.size);
+		eblob_dump_id(key->id), (unsigned long long)ctl.offset, (unsigned long long)ctl.size);
 
 	err = pread(fd, &dc, sizeof(dc), ctl.offset);
 	if (err != (int)sizeof(dc)) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to read disk control structure from history at %llu: %s.\n",
-			eblob_dump_id(key), (unsigned long long)ctl.offset, strerror(errno));
+			eblob_dump_id(key->id), (unsigned long long)ctl.offset, strerror(errno));
 		goto err_out_exit;
 	}
 
@@ -761,7 +759,7 @@ int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize
 	if (err != (int)sizeof(dc)) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to erase (mark) entry at %llu: %s.\n",
-			eblob_dump_id(key), (unsigned long long)ctl.offset, strerror(errno));
+			eblob_dump_id(key->id), (unsigned long long)ctl.offset, strerror(errno));
 		goto err_out_exit;
 	}
 	err = 0;
@@ -772,16 +770,16 @@ err_out_exit:
 	return err;
 }
 
-int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize, int *fd, uint64_t *offset, uint64_t *size)
+int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size)
 {
 	unsigned int dsize = sizeof(struct blob_ram_control);
 	struct blob_ram_control ctl;
 	int err;
 
-	err = eblob_hash_lookup(b->hash, key, ksize, &ctl, &dsize);
+	err = eblob_hash_lookup(b->hash, key, &ctl, &dsize);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data: %d.\n",
-				eblob_dump_id(key), err);
+				eblob_dump_id(key->id), err);
 		goto err_out_exit;
 	}
 
@@ -793,17 +791,17 @@ err_out_exit:
 	return err;
 }
 
-int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_read_file_index(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int *file_index)
 {
 	unsigned int dsize = sizeof(struct blob_ram_control);
 	struct blob_ram_control ctl;
 	int err;
 
-	err = eblob_hash_lookup(b->hash, key, ksize, &ctl, &dsize);
+	err = eblob_hash_lookup(b->hash, key, &ctl, &dsize);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data: %d.\n",
-				eblob_dump_id(key), err);
+				eblob_dump_id(key->id), err);
 		goto err_out_exit;
 	}
 
@@ -822,24 +820,24 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, int file_index,
 {
 	struct eblob_backend *b = priv;
 	struct blob_ram_control ctl;
-	unsigned char key[EBLOB_ID_SIZE];
+	struct eblob_key key;
 	char id[EBLOB_ID_SIZE*2+1];
 	int err;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: file index: %d, "
 			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
-			eblob_dump_id_len_raw(dc->id, EBLOB_ID_SIZE, id), file_index,
+			eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id), file_index,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
-	memcpy(key, dc->id, EBLOB_ID_SIZE);
+	memcpy(&key, &dc->key, sizeof(struct eblob_key));
 	ctl.index_pos = position / sizeof(struct eblob_disk_control);
 	ctl.offset = dc->position;
 	ctl.size = dc->data_size;
 	ctl.file_index = file_index;
 
-	err = eblob_hash_replace(b->hash, key, sizeof(key), &ctl, sizeof(ctl));
+	err = eblob_hash_replace(b->hash, &key, &ctl, sizeof(ctl));
 	if (err)
 		return err;
 

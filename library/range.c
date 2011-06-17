@@ -94,20 +94,20 @@ int eblob_read_range(struct eblob_range_request *req)
 				break;
 
 			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "idx: %x, last: %x, key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
-					idx, last_idx, *(unsigned long long *)e->key, eblob_id_in_range(e->key, req->start, req->end),
+					idx, last_idx, *(unsigned long long *)e->key.id, eblob_id_in_range(e->key.id, req->start, req->end),
 					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
 					(unsigned long long)req->requested_limit_num);
 
 
-			if ((e->ksize == EBLOB_ID_SIZE) && eblob_id_in_range(e->key, req->start, req->end)) {
+			if (eblob_id_in_range(e->key.id, req->start, req->end)) {
 				if (req->current_pos < req->requested_limit_start) {
 					req->current_pos++;
 					continue;
 				}
 
-				memcpy(req->record_key, e->key, EBLOB_ID_SIZE);
+				memcpy(req->record_key, e->key.id, EBLOB_ID_SIZE);
 
-				ctl = (struct blob_ram_control *)(e->key + e->ksize);
+				ctl = (struct blob_ram_control *)e->data;
 				req->record_fd = req->back->data[ctl->file_index].fd;
 				req->record_size = ctl->size;
 				req->record_offset = ctl->offset;

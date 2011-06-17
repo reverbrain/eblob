@@ -36,21 +36,22 @@ struct eblob_hash {
 
 struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp);
 void eblob_hash_exit(struct eblob_hash *h);
-int eblob_hash_insert(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize);
-int eblob_hash_replace(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize);
-int eblob_hash_remove(struct eblob_hash *h, void *key, unsigned int ksize);
-int eblob_hash_lookup(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int *dsize);
+int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
+int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
+int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
+int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int *dsize);
 int hash_iterate_all(struct eblob_hash *h,
-	int (* callback)(void *key, unsigned int ksize, void *data, unsigned int dsize, void *priv),
+	int (* callback)(struct eblob_key *key, void *data, unsigned int dsize, void *priv),
 	void *priv);
 
 struct eblob_hash_entry {
-	unsigned int		dsize, ksize;
+	unsigned int		dsize;
 
 	atomic_t		refcnt;
-	void			(* cleanup)(void *key, unsigned int ksize, void *data, unsigned int dsize);
+	void			(* cleanup)(struct eblob_key *key, void *data, unsigned int dsize);
 
-	unsigned char		key[0];
+	struct eblob_key	key;
+	unsigned char		data[0];
 };
 
 struct eblob_hash_head {

@@ -59,38 +59,43 @@ eblob::~eblob()
 	eblob_cleanup(eblob_);
 }
 
-void eblob::write(const void *key, const int ksize, const void *data, const uint64_t dsize, uint32_t flags)
+void eblob::write(const struct eblob_key &key, const void *data, const uint64_t dsize, uint32_t flags)
 {
-	int err = eblob_write_data(eblob_, (unsigned char *)key, ksize, (void *)data, dsize, flags);
+	int err = eblob_write_data(eblob_, (struct eblob_key *)&key, (void *)data, dsize, flags);
 	if (err) {
 		std::ostringstream str;
-		str << "eblob write failed: ksize: " << ksize << ", dsize: " << dsize << ": " << strerror(-err);
+		str << "eblob write failed: dsize: " << dsize << ": " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }
 
-void eblob::read(const void *key, const int ksize, int *fd, uint64_t *offset, uint64_t *size)
+void eblob::write(const struct eblob_key &key, const std::string &data, uint32_t flags)
+{
+	write(key, data.data(), data.size(), flags);
+}
+
+void eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size)
 {
 	int err;
 
-	err = eblob_read(eblob_, (unsigned char *)key, ksize, fd, offset, size);
+	err = eblob_read(eblob_, (struct eblob_key *)&key, fd, offset, size);
 	if (err) {
 		std::ostringstream str;
-		str << "eblob read failed: ksize: " << ksize << ": " << strerror(-err);
+		str << "eblob read failed: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 
 	*offset = *offset + sizeof(struct eblob_disk_control);
 }
 
-std::string eblob::read(const void *key, const int ksize)
+std::string eblob::read(const struct eblob_key &key)
 {
 	int fd, err;
 	uint64_t offset, size, sz = 1024*1024;
 	char *buf;
 	std::string ret;
 
-	eblob::read(key, ksize, &fd, &offset, &size);
+	eblob::read(key, &fd, &offset, &size);
 
 	if (sz > size)
 		sz = size;
@@ -106,7 +111,7 @@ std::string eblob::read(const void *key, const int ksize)
 			if (err != (int)sz) {
 
 				std::ostringstream str;
-				str << "eblob read failed: ksize: " << ksize << "dsize rest: " <<
+				str << "eblob read failed: dsize rest: " <<
 					size << ", offset rest: " << offset << ": " << strerror(-err);
 				throw std::runtime_error(str.str());
 			}
@@ -125,9 +130,9 @@ std::string eblob::read(const void *key, const int ksize)
 	return ret;
 }
 
-void eblob::remove(const void *key, const int ksize)
+void eblob::remove(const struct eblob_key &key)
 {
-	eblob_remove(eblob_, (unsigned char *)key, ksize);
+	eblob_remove(eblob_, (struct eblob_key *)&key);
 }
 
 unsigned long long eblob::elements(void)

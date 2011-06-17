@@ -122,12 +122,16 @@ static inline char *eblob_dump_id(const unsigned char *id)
 	return eblob_dump_id_len(id, 6);
 }
 
+struct eblob_key {
+	unsigned char		id[EBLOB_ID_SIZE];
+};
+
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 
 struct eblob_disk_control {
 	/* key data */
-	unsigned char		id[EBLOB_ID_SIZE];
+	struct eblob_key	key;
 
 	/* flags above */
 	uint64_t		flags;
@@ -248,17 +252,17 @@ struct eblob_backend;
 /* Remove entry by given key.
  * Entry is marked as deleted and defragmentation tool can later drop it.
  */
-int eblob_remove(struct eblob_backend *b, unsigned char *key, unsigned int ksize);
+int eblob_remove(struct eblob_backend *b, struct eblob_key *key);
 
 /* Read data by given key.
  * @fd is a file descriptor to read data from. It is not allowed to close it.
  * @offset and @size will be filled with written metadata: offset of the entry
  * and its data size.
  */
-int eblob_read(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_read(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size);
 
-int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_read_file_index(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int *file_index);
 
 /*
@@ -267,7 +271,7 @@ int eblob_read_file_index(struct eblob_backend *b, unsigned char *key, unsigned 
  * data checksumming.
  * Flags are BLOB_DISK_CTL_* constants above.
  */
-int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_write_data(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags);
 
 /* Async write.
@@ -300,12 +304,12 @@ struct eblob_write_control {
 	uint64_t			ctl_offset;
 	uint64_t			total_size;
 };
-int eblob_write_prepare(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);
 
 /* Client may provide checksum himself, otherwise it will be calculated (if opposite
  * was not requested in control flags) */
-int eblob_write_commit(struct eblob_backend *b, unsigned char *key, unsigned int ksize,
+int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc);
 

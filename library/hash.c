@@ -44,7 +44,7 @@ static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_ha
 {
 #if 0
 	if (h->flags & EBLOB_HASH_MLOCK)
-		munlock(e, e->dsize + e->ksize + sizeof(struct eblob_hash_entry));
+		munlock(e, e->dsize + EBLOB_ID_SIZE + sizeof(struct eblob_hash_entry));
 	free(e);
 #endif
 }
@@ -58,7 +58,7 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 {
 	if (atomic_dec_and_test(&e->refcnt)) {
 		if (e->cleanup)
-			e->cleanup(e->key, e->ksize, e->key + e->ksize, e->dsize);
+			e->cleanup(&e->key, e->data, e->dsize);
 
 		eblob_hash_entry_free(h, e);
 	}
@@ -76,7 +76,7 @@ struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, str
 		return NULL;
 
 	/* Otherwise return next after given element */
-	ptr += sizeof(struct eblob_hash_entry) + e->ksize + e->dsize;
+	ptr += sizeof(struct eblob_hash_entry) + e->dsize;
 
 	if (ptr >= (void *)head->arr + head->size)
 		ptr = NULL;
@@ -92,7 +92,7 @@ static void eblob_hash_entry_remove(struct eblob_hash_head *head, struct eblob_h
 		memmove(e, next, head->size - (next - head->arr));
 	}
 
-	head->size -= sizeof(struct eblob_hash_entry) + e->dsize + e->ksize;
+	head->size -= sizeof(struct eblob_hash_entry) + e->dsize;
 }
 
 static void eblob_map_cleanup(struct eblob_hash *hash)
@@ -232,9 +232,9 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash __unused, struct eb
 }
 #endif
 
-static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head *head, void *key, uint64_t ksize, void *data, uint64_t dsize)
+static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head *head, struct eblob_key *key, void *data, uint64_t dsize)
 {
-	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize + ksize;
+	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize + EBLOB_ID_SIZE;
 	struct eblob_hash_entry *e;
 	int err;
 
@@ -247,11 +247,10 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head 
 	e = (void *)head->arr + head->size;
 	e->cleanup = NULL;
 
-	e->ksize = ksize;
 	e->dsize = dsize;
 
-	memcpy(e->key, key, ksize);
-	memcpy(e->key + ksize, data, dsize);
+	memcpy(&e->key, key, sizeof(struct eblob_key));
+	memcpy(e->data, data, dsize);
 
 	atomic_set(&e->refcnt, 1);
 
@@ -342,14 +341,14 @@ void eblob_hash_exit(struct eblob_hash *h)
 	free(h);
 }
 
-static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize, int replace)
+static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int replace)
 {
 	unsigned int idx;
 	struct eblob_hash_entry *e, *found = NULL;
 	struct eblob_hash_head *head;
 	int err, replaced = 0;
 
-	idx = eblob_hash_data(key, ksize, h->num);
+	idx = eblob_hash_data(key, sizeof(struct eblob_key), h->num);
 	head = &h->heads[idx];
 
 	eblob_lock_lock(&head->lock);
@@ -359,14 +358,13 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 		if (!e)
 			break;
 
-		if ((e->ksize == ksize) && !memcmp(e->key, key, ksize)) {
+		if (!memcmp(&e->key, key, sizeof(struct eblob_key))) {
 			if (replace) {
-				if (e->ksize + e->dsize == ksize + dsize) {
-					e->ksize = ksize;
+				if (e->dsize == dsize) {
 					e->dsize = dsize;
 
-					memcpy(e->key, key, ksize);
-					memcpy(e->key + ksize, data, dsize);
+					memcpy(&e->key, key, sizeof(struct eblob_key));
+					memcpy(e->data, data, dsize);
 
 					atomic_set(&e->refcnt, 1);
 					replaced = 1;
@@ -383,7 +381,7 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, void *key, unsigned int k
 	}
 
 	if (!replaced) {
-		err = eblob_hash_entry_add(h, head, key, ksize, data, dsize);
+		err = eblob_hash_entry_add(h, head, key, data, dsize);
 		if (err)
 			goto err_out_unlock;
 	}
@@ -400,19 +398,19 @@ err_out_unlock:
 	return err;
 }
 
-int eblob_hash_insert(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize)
+int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
 {
-	return eblob_hash_insert_raw(h, key, ksize, data, dsize, 0);
+	return eblob_hash_insert_raw(h, key, data, dsize, 0);
 }
 
-int eblob_hash_replace(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int dsize)
+int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
 {
-	return eblob_hash_insert_raw(h, key, ksize, data, dsize, 1);
+	return eblob_hash_insert_raw(h, key, data, dsize, 1);
 }
 
-int eblob_hash_remove(struct eblob_hash *h, void *key, unsigned int ksize)
+int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 {
-	unsigned int idx = eblob_hash_data(key, ksize, h->num);
+	unsigned int idx = eblob_hash_data(key, sizeof(struct eblob_key), h->num);
 	struct eblob_hash_head *head = &h->heads[idx];
 	struct eblob_hash_entry *e, *tmp, *found = NULL;
 	int err = -ENOENT;
@@ -424,7 +422,7 @@ int eblob_hash_remove(struct eblob_hash *h, void *key, unsigned int ksize)
 		if (!e)
 			break;
 
-		if ((e->ksize == ksize) && !memcmp(key, e->key, ksize)) {
+		if (!memcmp(key, &e->key, sizeof(struct eblob_key))) {
 			eblob_hash_entry_remove(head, e);
 			h->total--;
 
@@ -442,9 +440,9 @@ int eblob_hash_remove(struct eblob_hash *h, void *key, unsigned int ksize)
 	return err;
 }
 
-int eblob_hash_lookup(struct eblob_hash *h, void *key, unsigned int ksize, void *data, unsigned int *dsize)
+int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int *dsize)
 {
-	unsigned int idx = eblob_hash_data(key, ksize, h->num);
+	unsigned int idx = eblob_hash_data(key, sizeof(struct eblob_key), h->num);
 	struct eblob_hash_head *head = &h->heads[idx];
 	struct eblob_hash_entry *e = NULL;
 	int err = -ENOENT;
@@ -455,13 +453,13 @@ int eblob_hash_lookup(struct eblob_hash *h, void *key, unsigned int ksize, void 
 		if (!e)
 			break;
 
-		if ((e->ksize == ksize) && !memcmp(key, e->key, ksize)) {
+		if (!memcmp(key, &e->key, sizeof(struct eblob_key))) {
 			unsigned int size = *dsize;
 
 			if (size > e->dsize)
 				size = e->dsize;
 
-			memcpy(data, e->key + e->ksize, size);
+			memcpy(data, e->data, size);
 			*dsize = size;
 			err = 0;
 			break;
