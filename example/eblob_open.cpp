@@ -31,22 +31,26 @@ int main(int argc, char *argv[])
 	if (argc > 2)
 		log_file = argv[2];
 
-	int log_mask = EBLOB_LOG_INFO | EBLOB_LOG_ERROR | EBLOB_LOG_NOTICE | 0xff;
+	int log_mask = EBLOB_LOG_INFO | EBLOB_LOG_ERROR | EBLOB_LOG_NOTICE;
 	if (argc > 3)
 		log_mask = ::strtoul(argv[3], NULL, 0);
 
 	try {
 		eblob eblob(log_file, log_mask, input_blob_name);
 
-		struct eblob_key key;
-		memset(&key, 0, sizeof(key));
-		snprintf((char *)key.id, sizeof(key.id), "test_key");
+		struct eblob_key ekey;
+		memset(&ekey, 0, sizeof(ekey));
+		snprintf((char *)ekey.id, sizeof(ekey.id), "test_key");
 
 		std::string data = "0123456789";
 
-		eblob.write(key, data);
+		eblob.write(ekey, data);
+		std::cout << eblob.read(ekey, 0, 0) << std::endl;
 
-		std::cout << eblob.read(key) << std::endl;
+		std::string key = "to-be-hashed-test-key";
+
+		eblob.write_hashed(key, data);
+		std::cout << eblob.read_hashed(key, 0, 0) << std::endl;
 
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;
