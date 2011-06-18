@@ -1,3 +1,10 @@
+eblob (0.4.2) unstable; urgency=low
+
+  * Added hashed keys
+  * Renames write methods
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 19 Jun 2011 01:52:10 +0400
+
 eblob (0.4.1) unstable; urgency=low
 
   * Switched to fixed-size eblob_key interface
