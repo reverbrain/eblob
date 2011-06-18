@@ -49,19 +49,9 @@ static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_ha
 #endif
 }
 
-static inline void eblob_hash_entry_get(struct eblob_hash_entry *e)
-{
-	atomic_inc(&e->refcnt);
-}
-
 static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_entry *e)
 {
-	if (atomic_dec_and_test(&e->refcnt)) {
-		if (e->cleanup)
-			e->cleanup(&e->key, e->data, e->dsize);
-
-		eblob_hash_entry_free(h, e);
-	}
+	eblob_hash_entry_free(h, e);
 }
 
 struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e)
@@ -245,14 +235,11 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head 
 	}
 
 	e = (void *)head->arr + head->size;
-	e->cleanup = NULL;
 
 	e->dsize = dsize;
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
 	memcpy(e->data, data, dsize);
-
-	atomic_set(&e->refcnt, 1);
 
 	head->size += esize;
 	hash->total++;
@@ -366,7 +353,6 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, vo
 					memcpy(&e->key, key, sizeof(struct eblob_key));
 					memcpy(e->data, data, dsize);
 
-					atomic_set(&e->refcnt, 1);
 					replaced = 1;
 				} else {
 					eblob_hash_entry_remove(head, e);

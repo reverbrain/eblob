@@ -47,9 +47,6 @@ int hash_iterate_all(struct eblob_hash *h,
 struct eblob_hash_entry {
 	unsigned int		dsize;
 
-	atomic_t		refcnt;
-	void			(* cleanup)(struct eblob_key *key, void *data, unsigned int dsize);
-
 	struct eblob_key	key;
 	unsigned char		data[0];
 };
