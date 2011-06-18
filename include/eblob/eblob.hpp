@@ -72,11 +72,14 @@ class eblob {
 		eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg);
 		virtual ~eblob();
 
-		void write(const struct eblob_key &key, const void *data, const uint64_t dsize, uint32_t flags = 0);
-		void write(const struct eblob_key &key, const std::string &data, uint32_t flags = 0);
+		void write(const struct eblob_key &key, const void *data, const uint64_t dsize, uint64_t flags = 0);
+		void write(const struct eblob_key &key, const std::string &data, uint64_t flags = 0);
+		void write_hashed(const std::string &key, const std::string &data, uint64_t flags = 0);
 
-		std::string read(const struct eblob_key &key);
-		void read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size);
+		std::string read(const struct eblob_key &key, const uint64_t offset, const uint64_t size);
+		void read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size, int *file_index);
+		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size, int *file_index);
+		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size);
 
 		void remove(const struct eblob_key &key);
 

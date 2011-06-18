@@ -271,8 +271,17 @@ int eblob_read_file_index(struct eblob_backend *b, struct eblob_key *key,
  * data checksumming.
  * Flags are BLOB_DISK_CTL_* constants above.
  */
-int eblob_write_data(struct eblob_backend *b, struct eblob_key *key,
+int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags);
+
+/*
+ * The same as above, but these functions take key/ksize pair to hash using sha512 to
+ * generate key ID.
+ */
+int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
+		const void *data, const uint64_t dsize, const uint64_t flags);
+int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
+		int *fd, uint64_t *offset, uint64_t *size, int *file_index);
 
 /* Async write.
  *
@@ -342,6 +351,8 @@ struct eblob_range_request {
 int eblob_read_range(struct eblob_range_request *req);
 
 unsigned long long eblob_total_elements(struct eblob_backend *b);
+
+int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
 
 #ifdef __cplusplus
 }

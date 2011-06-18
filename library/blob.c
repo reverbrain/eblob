@@ -549,6 +549,25 @@ err_out_exit:
 	return err;
 }
 
+int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size)
+{
+	unsigned char md_value[EVP_MAX_MD_SIZE];
+	unsigned int hsize = sizeof(md_value);
+
+	eblob_lock_lock(&b->csum_lock);
+	EVP_DigestInit_ex(&b->mdctx, b->evp_md, NULL);
+	EVP_DigestUpdate(&b->mdctx, src, size);
+	EVP_DigestFinal_ex(&b->mdctx, md_value, &hsize);
+	eblob_lock_unlock(&b->csum_lock);
+
+	if (hsize > dsize)
+		hsize = dsize;
+
+	memcpy(dst, md_value, hsize);
+
+	return 0;
+}
+
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		struct eblob_write_control *wc)
 {
@@ -556,8 +575,6 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	off_t off = wc->ctl_offset + sizeof(struct eblob_disk_control);
 	off_t offset = off & ~(page_size - 1);
 	size_t mapped_size = wc->size + off - offset;
-	unsigned char md_value[EVP_MAX_MD_SIZE];
-	unsigned int size = sizeof(md_value);
 	void *data, *ptr;
 	int err;
 	
@@ -572,18 +589,13 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	}
 	ptr = data + off - offset;
 
-	eblob_lock_lock(&b->csum_lock);
-	EVP_DigestInit_ex(&b->mdctx, b->evp_md, NULL);
-	EVP_DigestUpdate(&b->mdctx, ptr, size);
-	EVP_DigestFinal_ex(&b->mdctx, md_value, &size);
-	eblob_lock_unlock(&b->csum_lock);
+	eblob_hash(b, dst, dsize, ptr, wc->size);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %d: size: %zu, offset: %llu, "
-			"aligned: %llu: csum: %s, size: %u.\n",
-			wc->io_index, mapped_size, (unsigned long long)off, (unsigned long long)offset,
-			eblob_dump_id_len(md_value, size), size);
+			"aligned: %llu: csum: %s.\n",
+			wc->io_index, wc->size, (unsigned long long)off, (unsigned long long)offset,
+			eblob_dump_id_len(dst, dsize));
 
-	memcpy(dst, md_value, dsize < size ? dsize : size);
 	err = 0;
 
 	munmap(data, mapped_size);
@@ -691,7 +703,7 @@ err_out_exit:
 	return err;
 }
 
-int eblob_write_data(struct eblob_backend *b, struct eblob_key *key,
+int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags)
 {
 	struct eblob_write_control wc;
@@ -1051,4 +1063,24 @@ err_out_exit:
 unsigned long long eblob_total_elements(struct eblob_backend *b)
 {
 	return b->hash->total;
+}
+
+int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
+		const void *data, const uint64_t dsize, const uint64_t flags)
+{
+	struct eblob_key ekey;
+
+	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
+
+	return eblob_write(b, &ekey, (void *)data, dsize, flags);
+}
+
+int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
+		int *fd, uint64_t *offset, uint64_t *size, int *file_index)
+{
+	struct eblob_key ekey;
+
+	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
+
+	return eblob_read_file_index(b, &ekey, fd, offset, size, file_index);
 }
