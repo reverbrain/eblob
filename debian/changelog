@@ -1,3 +1,10 @@
+eblob (0.4.3) unstable; urgency=low
+
+  * Return real data offset, do not force clients to mess with sizeof(struct
+    eblob_disk_control)
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 21 Jun 2011 02:45:45 +0400
+
 eblob (0.4.2) unstable; urgency=low
 
   * Added hashed keys
