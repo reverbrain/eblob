@@ -84,8 +84,6 @@ void eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_
 		str << "eblob read failed: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
-
-	*offset = *offset + sizeof(struct eblob_disk_control);
 }
 
 std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset, const uint64_t req_size)

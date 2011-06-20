@@ -110,7 +110,7 @@ int eblob_read_range(struct eblob_range_request *req)
 				ctl = (struct blob_ram_control *)e->data;
 				req->record_fd = req->back->data[ctl->file_index].fd;
 				req->record_size = ctl->size;
-				req->record_offset = ctl->offset;
+				req->record_offset = ctl->offset + sizeof(struct eblob_disk_control);
 
 				err = req->callback(req);
 				if (err)

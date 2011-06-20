@@ -797,7 +797,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 
 	*fd = b->data[ctl.file_index].fd;
 	*size = ctl.size;
-	*offset = ctl.offset;
+	*offset = ctl.offset + sizeof(struct eblob_disk_control);
 
 err_out_exit:
 	return err;
@@ -819,7 +819,7 @@ int eblob_read_file_index(struct eblob_backend *b, struct eblob_key *key,
 
 	*fd = b->data[ctl.file_index].fd;
 	*size = ctl.size;
-	*offset = ctl.offset;
+	*offset = ctl.offset + sizeof(struct eblob_disk_control);
 	*file_index = ctl.file_index;
 
 err_out_exit:
