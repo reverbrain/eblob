@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.3.13
+Version:	0.4.3
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,17 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Tue Jun 21 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.3
+- Return real data offset, do not force clients to mess with sizeof(struct
+	eblob_disk_control)
+- Added hashed keys
+- Renames write methods
+- Switched to fixed-size eblob_key interface
+- Added namespace zbr
+- Added eblob range query
+- Added remove() method
+- Added c++ examples
+
 * Tue Jun 7 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.3.13
 - Overwrite hash entry if we asked to replace it and sizes match
 - Use (part of) provided key as hash table index
