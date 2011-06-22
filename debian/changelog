@@ -1,3 +1,9 @@
+eblob (0.4.4) unstable; urgency=low
+
+  * Added eblob_remove_hashed() and eblob::remove_hashed()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 22 Jun 2011 20:27:12 +0400
+
 eblob (0.4.3) unstable; urgency=low
 
   * Return real data offset, do not force clients to mess with sizeof(struct
