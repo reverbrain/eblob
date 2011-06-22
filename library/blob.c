@@ -1084,3 +1084,12 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
 
 	return eblob_read_file_index(b, &ekey, fd, offset, size, file_index);
 }
+
+int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize)
+{
+	struct eblob_key ekey;
+
+	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
+
+	return eblob_remove(b, &ekey);
+}

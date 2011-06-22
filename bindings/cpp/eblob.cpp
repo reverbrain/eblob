@@ -171,3 +171,8 @@ unsigned long long eblob::elements(void)
 {
 	return eblob_total_elements(eblob_);
 }
+
+void eblob::remove_hashed(const std::string &key)
+{
+	eblob_remove_hashed(eblob_, key.data(), key.size());
+}

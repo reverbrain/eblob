@@ -82,6 +82,7 @@ class eblob {
 		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size);
 
 		void remove(const struct eblob_key &key);
+		void remove_hashed(const std::string &key);
 
 		unsigned long long elements(void);
 	private:

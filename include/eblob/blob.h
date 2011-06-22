@@ -253,6 +253,7 @@ struct eblob_backend;
  * Entry is marked as deleted and defragmentation tool can later drop it.
  */
 int eblob_remove(struct eblob_backend *b, struct eblob_key *key);
+int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize);
 
 /* Read data by given key.
  * @fd is a file descriptor to read data from. It is not allowed to close it.
