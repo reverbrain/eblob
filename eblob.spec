@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.4.3
+Version:	0.4.4
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,9 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Tue Jun 22 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.4
+- Added eblob_remove_hashed() and eblob::remove_hashed()
+
 * Tue Jun 21 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.3
 - Return real data offset, do not force clients to mess with sizeof(struct
 	eblob_disk_control)
