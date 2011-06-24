@@ -22,10 +22,33 @@
 #include "eblob/blob.h"
 #include "hash.h"
 #include "lock.h"
+#include "list.h"
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
+
+struct eblob_base_type {
+	int			type, index;
+	struct list_head	bases;
+};
+
+struct eblob_base_ctl {
+	struct list_head	base_entry;
+
+	int			type, index;
+
+	pthread_mutex_t		lock;
+	int			data_fd, index_fd;
+	off_t			data_offset, index_offset;
+
+	void			*data;
+	long long		data_size;
+
+	long long		num, removed;
+
+	char			name[0];
+};
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -36,8 +59,8 @@ struct eblob_backend {
 
 	pthread_mutex_t		lock;
 
-	int			index;
-	struct eblob_backend_io	*data;
+	int			max_type;
+	struct eblob_base_type	*types;
 
 	struct eblob_hash	*hash;
 
@@ -45,29 +68,11 @@ struct eblob_backend {
 	pthread_t		sync_tid;
 };
 
-struct blob_ram_control {
-	size_t			offset;
-	off_t			index_pos;
-	uint64_t		size;
+int eblob_add_new_base(struct eblob_backend *b, int type);
+int eblob_load_data(struct eblob_backend *b);
+void eblob_base_types_cleanup(struct eblob_backend *b);
 
-	int			file_index;
-};
-
-struct eblob_iterator_data {
-	struct eblob_iterate_control	*ctl;
-
-	pthread_mutex_t			lock;
-	off_t				off;
-	int				data_fd, index_fd, file_index;
-
-	size_t				data_size;
-	void				*data;
-
-	uint64_t			defrag_position;
-
-	long long			num, removed;
-	int				err;
-};
-
+int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res);
+int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl);
 
 #endif /* __EBLOB_BLOB_H */

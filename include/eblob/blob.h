@@ -126,6 +126,11 @@ struct eblob_key {
 	unsigned char		id[EBLOB_ID_SIZE];
 };
 
+enum eblob_base_types {
+	EBLOB_TYPE_DATA = 0,
+	EBLOB_TYPE_META,
+};
+
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 
@@ -158,13 +163,6 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 	ctl->disk_size = eblob_bswap64(ctl->disk_size);
 	ctl->position = eblob_bswap64(ctl->position);
 }
-
-struct eblob_backend_io {
-	int			fd, index;
-	int			file_index;
-	off_t			offset;
-	off_t			index_pos;
-};
 
 #define EBLOB_HASH_MLOCK		(1<<0)
 #define EBLOB_START_DEFRAG		(1<<1)
@@ -211,36 +209,30 @@ struct eblob_config {
 	uint64_t		blob_size;
 };
 
+struct eblob_ram_control {
+	int			data_fd, index_fd;
+	uint64_t		data_offset, index_offset;
+	uint64_t		size;
+
+	short			index, type;
+};
+
 struct eblob_backend *eblob_init(struct eblob_config *c);
 void eblob_cleanup(struct eblob_backend *b);
-
-/*
- * Iterate over single blob file (struct eblob_backend_io) from offset @off
- * total of @size bytes. If @size is 0, function will iterate over whole blob file.
- * @check_index specifies whether @io->fd or @io->index file descriptor will be used
- * (check_index being true means @io->index).
- *
- * Callback will receive provided as @priv private data, per-entry disk control structure,
- * file index (i.e. $num in blob pathname '/tmp/blob/data.$num' and data pointer
- * (obtained via iterating over mapped area, so it can not be modified)
- */
-int eblob_iterate(struct eblob_backend_io *io, off_t off, size_t size,
-		struct eblob_log *l, int check_index,
-		int (* callback)(struct eblob_disk_control *dc, int file_index,
-			void *data, off_t position, void *priv),
-		void *priv);
 
 /* Iterate over all blob files */
 struct eblob_iterate_control {
 	struct eblob_log		*log;
-	const char			*base_path;
+
+	struct eblob_base_ctl		*base;
 
 	int				check_index;
 	int				thread_num;
-	int				defrag;
+	int				err;
 
 	int				(* iterator)(struct eblob_disk_control *dc,
-						int file_index, void *data, off_t position, void *priv);
+						struct eblob_ram_control *ctl,
+						void *data, void *priv);
 	void				*priv;
 };
 
@@ -251,38 +243,39 @@ struct eblob_backend;
 
 /* Remove entry by given key.
  * Entry is marked as deleted and defragmentation tool can later drop it.
+ * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
-int eblob_remove(struct eblob_backend *b, struct eblob_key *key);
-int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize);
+int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type);
+int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize, int type);
+int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key);
 
 /* Read data by given key.
  * @fd is a file descriptor to read data from. It is not allowed to close it.
  * @offset and @size will be filled with written metadata: offset of the entry
  * and its data size.
+ * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
-		int *fd, uint64_t *offset, uint64_t *size);
-
-int eblob_read_file_index(struct eblob_backend *b, struct eblob_key *key,
-		int *fd, uint64_t *offset, uint64_t *size, int *file_index);
+		int *fd, uint64_t *offset, uint64_t *size, int type);
 
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
  * Flags can specify whether entry is removed and whether library will perform
  * data checksumming.
  * Flags are BLOB_DISK_CTL_* constants above.
+ * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t size, uint64_t flags);
+		void *data, uint64_t size, uint64_t flags, int type);
 
 /*
  * The same as above, but these functions take key/ksize pair to hash using sha512 to
  * generate key ID.
  */
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		const void *data, const uint64_t dsize, const uint64_t flags);
+		const void *data, const uint64_t dsize, const uint64_t flags, int type);
 int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		int *fd, uint64_t *offset, uint64_t *size, int *file_index);
+		int *fd, uint64_t *offset, uint64_t *size, int type);
 
 /* Async write.
  *
@@ -292,26 +285,29 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
  * @size and @flags parameters. The former is used to reserve enough space
  * in blob file, the latter will be put into entry flags and will determine
  * whether given entry was removed and do we need to perform checksumming on commit.
+ * @specifies type of the column we are about to write
  *
  * @eblob_write_prepare() will fill the rest of the parameters.
- * @fd specifies file descriptor to (re)write data to.
- * @io_index is a blob file index.
- * @offset specifies position where client is allowed to write to no more than @size bytes.
+ * @data_fd/@index_fd specifies file descriptor to (re)write data to.
+ * @data_offset specifies position where client is allowed to write to no more than @size bytes.
+ * @index is set to index of the blob we wrote data into
  *
- * @ctl_offset is start of the control data on disk for given entry.
+ * @ctl_data_offset is start of the control data on disk for given entry.
+ * @ctl_index_offset shows where index entry has to be placed
  * @total_size is equal to aligned sum of user specified @size and sizes of header/footer 
  * structures.
  */
 struct eblob_write_control {
 	uint64_t			size;
 	uint64_t			flags;
+	int				type;
 
-	int				fd;
-	int				io_index;
+	int				index;
+	int				data_fd, index_fd;
 
-	uint64_t			offset;
+	uint64_t			data_offset;
 
-	uint64_t			ctl_offset;
+	uint64_t			ctl_data_offset, ctl_index_offset;
 	uint64_t			total_size;
 };
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
@@ -339,6 +335,7 @@ struct eblob_range_request {
 
 	uint64_t			requested_offset, requested_size;
 	uint64_t			requested_limit_start, requested_limit_num, current_pos;
+	int				requested_type;
 
 	unsigned char			record_key[EBLOB_ID_SIZE];
 	int				record_fd;

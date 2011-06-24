@@ -44,7 +44,7 @@ static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_ha
 {
 #if 0
 	if (h->flags & EBLOB_HASH_MLOCK)
-		munlock(e, e->dsize + EBLOB_ID_SIZE + sizeof(struct eblob_hash_entry));
+		munlock(e, e->dsize + sizeof(struct eblob_hash_entry));
 	free(e);
 #endif
 }
@@ -153,7 +153,7 @@ err_out_exit:
 static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
 {
 	struct eblob_hash_entry *arr;
-	uint64_t req_size = head->size + 1 * esize;
+	uint64_t req_size = head->size + esize;
 	int err;
 
 	pthread_mutex_lock(&hash->map_lock);
@@ -224,7 +224,7 @@ static int eblob_realloc_entry_array(struct eblob_hash *hash __unused, struct eb
 
 static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head *head, struct eblob_key *key, void *data, uint64_t dsize)
 {
-	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize + EBLOB_ID_SIZE;
+	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize;
 	struct eblob_hash_entry *e;
 	int err;
 
@@ -426,12 +426,16 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	return err;
 }
 
-int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int *dsize)
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep)
 {
 	unsigned int idx = eblob_hash_data(key, sizeof(struct eblob_key), h->num);
 	struct eblob_hash_head *head = &h->heads[idx];
 	struct eblob_hash_entry *e = NULL;
+	void *data;
 	int err = -ENOENT;
+
+	*datap = NULL;
+	*dsizep = 0;
 
 	eblob_lock_lock(&head->lock);
 	while (1) {
@@ -440,13 +444,16 @@ int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data, u
 			break;
 
 		if (!memcmp(key, &e->key, sizeof(struct eblob_key))) {
-			unsigned int size = *dsize;
+			data = malloc(e->dsize);
+			if (!data) {
+				err = -ENOMEM;
+				break;
+			}
 
-			if (size > e->dsize)
-				size = e->dsize;
+			memcpy(data, e->data, e->dsize);
+			*dsizep = e->dsize;
+			*datap = data;
 
-			memcpy(data, e->data, size);
-			*dsize = size;
 			err = 0;
 			break;
 		}

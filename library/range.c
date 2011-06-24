@@ -83,7 +83,7 @@ int eblob_read_range(struct eblob_range_request *req)
 	eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "idx: %x, last: %x\n", idx, last_idx);
 
 	while (idx <= last_idx) {
-		struct blob_ram_control *ctl = NULL;
+		struct eblob_ram_control *ctl = NULL;
 		struct eblob_hash_head *head = &h->heads[idx];
 
 		err = 0;
@@ -107,10 +107,11 @@ int eblob_read_range(struct eblob_range_request *req)
 
 				memcpy(req->record_key, e->key.id, EBLOB_ID_SIZE);
 
-				ctl = (struct blob_ram_control *)e->data;
-				req->record_fd = req->back->data[ctl->file_index].fd;
+				ctl = (struct eblob_ram_control *)e->data;
+
+				req->record_fd = ctl->data_fd;
 				req->record_size = ctl->size;
-				req->record_offset = ctl->offset + sizeof(struct eblob_disk_control);
+				req->record_offset = ctl->data_offset + sizeof(struct eblob_disk_control);
 
 				err = req->callback(req);
 				if (err)

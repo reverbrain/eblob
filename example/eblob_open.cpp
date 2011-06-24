@@ -43,14 +43,22 @@ int main(int argc, char *argv[])
 		snprintf((char *)ekey.id, sizeof(ekey.id), "test_key");
 
 		std::string data = "0123456789";
-
 		eblob.write(ekey, data);
+
 		std::cout << eblob.read(ekey, 0, 0) << std::endl;
 
 		std::string key = "to-be-hashed-test-key";
 
 		eblob.write_hashed(key, data);
 		std::cout << eblob.read_hashed(key, 0, 0) << std::endl;
+
+		memset(&ekey, 0, sizeof(ekey));
+		snprintf((char *)ekey.id, sizeof(ekey.id), "test_key1");
+
+		data = "xxxxx";
+		eblob.write(ekey, data);
+
+		std::cout << eblob.read(ekey, 0, 0) << std::endl;
 
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;

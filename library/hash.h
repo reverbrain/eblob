@@ -39,10 +39,7 @@ void eblob_hash_exit(struct eblob_hash *h);
 int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
-int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int *dsize);
-int hash_iterate_all(struct eblob_hash *h,
-	int (* callback)(struct eblob_key *key, void *data, unsigned int dsize, void *priv),
-	void *priv);
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
 
 struct eblob_hash_entry {
 	unsigned int		dsize;

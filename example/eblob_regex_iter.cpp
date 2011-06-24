@@ -26,7 +26,7 @@ class eblob_regex_callback : public eblob_iterator_callback {
 		virtual ~eblob_regex_callback() {
 		}
 
-		virtual bool callback(const struct eblob_disk_control *dco, const void *data) {
+		virtual bool callback(const struct eblob_disk_control *dco, const void *data, int index) {
 			std::string key((const char *)data, dco->data_size);
 
 			++total_;
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 		eblob_iterator eblob(input_blob_name, use_index);
 		eblob.iterate(cb, tnum);
 	} catch (const std::exception &e) {
-		std::cerr << e.what() << std::endl;
+		std::cerr << "caught: " << e.what() << std::endl;
 	}
 
 	return 0;
