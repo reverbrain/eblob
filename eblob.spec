@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.4.4
+Version:	0.5.0
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,9 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Sat Jun 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.5.0
+- Added multiple columns support
+
 * Tue Jun 22 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.4
 - Added eblob_remove_hashed() and eblob::remove_hashed()
 

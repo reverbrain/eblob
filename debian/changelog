@@ -1,3 +1,9 @@
+eblob (0.5.0) unstable; urgency=low
+
+  * Added multiple columns support
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 25 Jun 2011 03:05:16 +0400
+
 eblob (0.4.4) unstable; urgency=low
 
   * Added eblob_remove_hashed() and eblob::remove_hashed()
