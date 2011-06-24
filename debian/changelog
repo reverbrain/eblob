@@ -1,3 +1,9 @@
+eblob (0.5.1) unstable; urgency=low
+
+  * Create new files, if eblob dir is empty
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 25 Jun 2011 03:38:43 +0400
+
 eblob (0.5.0) unstable; urgency=low
 
   * Added multiple columns support

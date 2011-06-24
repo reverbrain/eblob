@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.5.0
+Version:	0.5.1
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,9 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Sat Jun 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.5.1
+- Create new files, if eblob dir is empty
+
 * Sat Jun 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.5.0
 - Added multiple columns support
 
