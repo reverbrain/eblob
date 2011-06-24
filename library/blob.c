@@ -280,6 +280,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 			goto err_out_unlock;
 	}
 
+	if (list_empty(&b->types[wc->type].bases)) {
+		err = eblob_add_new_base(b, wc->type);
+		if (err)
+			goto err_out_unlock;
+	}
+
 	ctl = list_first_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
 
 	wc->data_fd = ctl->data_fd;
@@ -648,6 +654,8 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 
 	memset(b, 0, sizeof(struct eblob_backend));
+
+	b->max_type = -1;
 
  	OpenSSL_add_all_digests();
 

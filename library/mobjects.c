@@ -63,7 +63,7 @@ static int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base,
 	}
 
 	sprintf(full, "%s/%s", dir_base, name);
-	ctl->data_fd = open(full, O_RDWR);
+	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0600);
 	if (ctl->data_fd < 0) {
 		err = -errno;
 		goto err_out_destroy_lock;
@@ -86,7 +86,7 @@ static int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base,
 	}
 
 	sprintf(full, "%s/%s.index", dir_base, name);
-	ctl->index_fd = open(full, O_RDWR);
+	ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
 	if (ctl->index_fd < 0) {
 		err = -errno;
 		goto err_out_unmap;
