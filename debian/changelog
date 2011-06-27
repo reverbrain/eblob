@@ -1,3 +1,9 @@
+eblob (0.5.2) unstable; urgency=low
+
+  * Added start/max types into iterator. Exoport nice interface outside.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 28 Jun 2011 01:32:38 +0400
+
 eblob (0.5.1) unstable; urgency=low
 
   * Create new files, if eblob dir is empty
