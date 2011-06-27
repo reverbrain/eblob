@@ -25,7 +25,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdio.h>
+#include <limits.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -435,11 +436,14 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 	return eblob_insert_type(b, &dc->key, ctl);
 }
 
-int eblob_load_data(struct eblob_backend *b)
+int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,
+		struct eblob_base_type **typesp, int *max_typep)
 {
 	struct eblob_base_type *types = NULL;
-	struct eblob_iterate_control ctl;
 	int err, i, max_type = -1;
+
+	ctl->log = b->cfg.log;
+	ctl->thread_num = b->cfg.iterate_threads;
 
 	err = eblob_scan_base(b->cfg.file, b->cfg.mmap_file, &types, &max_type);
 	if (err) {
@@ -448,8 +452,49 @@ int eblob_load_data(struct eblob_backend *b)
 		goto err_out_exit;
 	}
 
-	b->types = types;
-	b->max_type = max_type;
+	if (max_type > ctl->max_type)
+		max_type = ctl->max_type;
+
+	for (i = ctl->start_type; i <= max_type; ++i) {
+		struct eblob_base_type *t = &types[i];
+		struct eblob_base_ctl *bctl;
+
+		list_for_each_entry(bctl, &t->bases, base_entry) {
+			ctl->base = bctl;
+			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, data_size: %llu\n",
+					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->data_size);
+			err = eblob_blob_iterate(ctl);
+			if (err)
+				goto err_out_exit;
+		}
+	}
+
+	*typesp = types;
+	*max_typep = max_type;
+
+	return 0;
+
+err_out_exit:
+	eblob_base_types_free(types, max_type);
+	return err;
+}
+
+int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl)
+{
+	struct eblob_base_type *types = NULL;
+	int max_type = -1;
+	int err;
+
+	err = eblob_iterate_existing(b, ctl, &types, &max_type);
+	if (!err)
+		eblob_base_types_free(types, max_type);
+
+	return err;
+}
+
+int eblob_load_data(struct eblob_backend *b)
+{
+	struct eblob_iterate_control ctl;
 
 	memset(&ctl, 0, sizeof(ctl));
 
@@ -458,25 +503,10 @@ int eblob_load_data(struct eblob_backend *b)
 	ctl.thread_num = b->cfg.iterate_threads;
 	ctl.priv = b;
 	ctl.iterator = eblob_blob_iter;
+	ctl.start_type = 0;
+	ctl.max_type = INT_MAX;
 
-	for (i = 0; i <= max_type; ++i) {
-		struct eblob_base_type *t = &types[i];
-		struct eblob_base_ctl *bctl;
-
-		list_for_each_entry(bctl, &t->bases, base_entry) {
-			ctl.base = bctl;
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, data_size: %llu\n",
-					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->data_size);
-			err = eblob_blob_iterate(&ctl);
-			if (err)
-				goto err_out_exit;
-		}
-	}
-
-	return 0;
-
-err_out_exit:
-	return err;
+	return eblob_iterate_existing(b, &ctl, &b->types, &b->max_type);
 }
 
 int eblob_add_new_base(struct eblob_backend *b, int type)

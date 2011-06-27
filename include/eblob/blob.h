@@ -230,14 +230,15 @@ struct eblob_iterate_control {
 	int				thread_num;
 	int				err;
 
+	int				start_type, max_type;
+
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
 						void *data, void *priv);
 	void				*priv;
 };
 
-int eblob_blob_iterate(struct eblob_iterate_control *ctl);
-
+int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl);
 
 struct eblob_backend;
 

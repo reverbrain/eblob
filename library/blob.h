@@ -75,4 +75,6 @@ void eblob_base_types_cleanup(struct eblob_backend *b);
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res);
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl);
 
+int eblob_blob_iterate(struct eblob_iterate_control *ctl);
+
 #endif /* __EBLOB_BLOB_H */
