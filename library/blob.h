@@ -77,4 +77,17 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 
+struct eblob_map_fd {
+	int			fd;
+	uint64_t		offset, size;
+	
+	void			*data;
+
+	uint64_t		mapped_size;
+	void			*mapped_data;
+};
+
+int eblob_data_map(struct eblob_map_fd *map);
+void eblob_data_unmap(struct eblob_map_fd *map);
+
 #endif /* __EBLOB_BLOB_H */

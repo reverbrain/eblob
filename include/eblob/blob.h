@@ -133,6 +133,7 @@ enum eblob_base_types {
 
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
+#define BLOB_DISK_CTL_COMPRESS	(1<<2)
 
 struct eblob_disk_control {
 	/* key data */
@@ -255,9 +256,20 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key);
  * @offset and @size will be filled with written metadata: offset of the entry
  * and its data size.
  * @type is column ID, EBLOB_TYPE_DATA is for data by default
+ *
+ * Returns negative error value or zero on success.
+ * Positive return value means data on given offset is compressed.
  */
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
+
+/*
+ * Allocates buffer and reads data there.
+ * Automatically handles compressed data.
+ * @size will contain number of bytes read (0 means 
+ */
+int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t offset, char **dst, uint64_t *size, int type);
 
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
@@ -352,6 +364,9 @@ int eblob_read_range(struct eblob_range_request *req);
 unsigned long long eblob_total_elements(struct eblob_backend *b);
 
 int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
+
+int eblob_compress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
+int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
 
 #ifdef __cplusplus
 }

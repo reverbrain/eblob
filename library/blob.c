@@ -454,11 +454,11 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_unlock;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
-			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d.\n",
+			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
 			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
-			wc->data_fd);
+			wc->data_fd, (unsigned long long)wc->flags, wc->type);
 
 	return 0;
 
@@ -475,9 +475,21 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags, int type)
 {
 	struct eblob_write_control wc;
+	int compress_err = -1;
 	ssize_t err;
 
 	memset(&wc, 0, sizeof(wc));
+
+	wc.size = size;
+	if (flags & BLOB_DISK_CTL_COMPRESS) {
+		compress_err = eblob_compress(data, size, (char **)&data, &size);
+		if (compress_err)
+			flags &= ~BLOB_DISK_CTL_COMPRESS;
+
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: write compress: %llu -> %llu: %d\n",
+				eblob_dump_id(key->id),
+				(unsigned long long)wc.size, (unsigned long long)size, compress_err);
+	}
 
 	wc.size = size;
 	wc.flags = flags;
@@ -502,6 +514,9 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 
 err_out_exit:
+	if (!compress_err)
+		free(data);
+
 	return err;
 }
 
@@ -556,6 +571,7 @@ err_out_exit:
 int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
 {
 	struct eblob_ram_control ctl;
+	struct eblob_disk_control dc;
 	int err;
 
 	ctl.type = type;
@@ -566,10 +582,110 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 		goto err_out_exit;
 	}
 
+	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+	if (err != sizeof(dc)) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not read data header: %d.\n",
+				eblob_dump_id(key->id), err);
+		goto err_out_exit;
+	}
+
+	eblob_convert_disk_control(&dc);
+
+	err = 0;
+	if (dc.flags & BLOB_DISK_CTL_COMPRESS)
+		err = 1;
+
 	*fd = ctl.data_fd;
 	*size = ctl.size;
 	*offset = ctl.data_offset + sizeof(struct eblob_disk_control);
 
+err_out_exit:
+	return err;
+}
+
+int eblob_data_map(struct eblob_map_fd *map)
+{
+	uint64_t off;
+	long page_size = sysconf(_SC_PAGE_SIZE);
+	int err = 0;
+
+	off = map->offset & ~(page_size - 1);
+	map->mapped_size = ALIGN(map->size + map->offset - off, page_size);
+
+	map->mapped_data = mmap(NULL, map->mapped_size, PROT_READ, MAP_SHARED, map->fd, off);
+	if (map->mapped_data == MAP_FAILED) {
+		err = -errno;
+		goto err_out_exit;
+	}
+
+	map->data = map->mapped_data + map->offset - off;
+
+err_out_exit:
+	return err;
+}
+
+void eblob_data_unmap(struct eblob_map_fd *map)
+{
+	munmap(map->mapped_data, map->mapped_size);
+}
+
+int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+{
+	int err, compress = 0;
+	struct eblob_map_fd m;
+
+	memset(&m, 0, sizeof(m));
+
+	err = eblob_read(b, key, &m.fd, &m.offset, &m.size, type);
+	if (err < 0)
+		goto err_out_exit;
+
+	if (err > 0)
+		compress = 1;
+
+	if (offset >= m.size) {
+		err = -E2BIG;
+		goto err_out_exit;
+	}
+
+	m.offset += offset;
+	m.size -= offset;
+
+	if (*size && m.size > *size)
+		m.size = *size;
+	else
+		*size = m.size;
+	
+	err = eblob_data_map(&m);
+	if (err)
+		goto err_out_exit;
+
+	if (compress) {
+		err = eblob_decompress(m.data, m.size, dst, size);
+
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: read compress: %llu -> %llu: %d\n",
+				eblob_dump_id(key->id),
+				(unsigned long long)m.size, (unsigned long long)*size, err);
+
+		if (err)
+			goto err_out_unmap;
+	} else {
+		void *data;
+
+		data = malloc(m.size);
+		if (!data) {
+			err = -ENOMEM;
+			goto err_out_unmap;
+		}
+
+		memcpy(data, m.data, m.size);
+
+		*dst = data;
+	}
+
+err_out_unmap:
+	eblob_data_unmap(&m);
 err_out_exit:
 	return err;
 }

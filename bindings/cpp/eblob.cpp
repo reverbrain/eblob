@@ -74,65 +74,42 @@ void eblob::write(const struct eblob_key &key, const std::string &data, uint64_t
 	write(key, data.data(), data.size(), flags, type);
 }
 
-void eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size, int type)
+int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size, int type)
 {
 	int err;
 
 	err = eblob_read(eblob_, (struct eblob_key *)&key, fd, offset, size, type);
-	if (err) {
+	if (err < 0) {
 		std::ostringstream str;
 		str << "eblob read failed: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
+
+	return err;
 }
 
 std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset, const uint64_t req_size, int type)
 {
-	int fd, err;
-	uint64_t offset, size, sz = 1024*1024;
-	char *buf;
 	std::string ret;
 
-	eblob::read(key, &fd, &offset, &size, type);
+	int err;
+	char *data;
+	uint64_t dsize = req_size;
 
-	if (req_offset >= size)
-		return 0;
-
-	offset += req_offset;
-	size -= req_offset;
-
-	if (req_size && size > req_size)
-		size = req_size;
-
-	if (sz > size)
-		sz = size;
-
-	buf = new char[sz];
+	err = eblob_read_data(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize, type);
+	if (err < 0) {
+		std::ostringstream str;
+		str << "eblob read failed: " << strerror(-err);
+		throw std::runtime_error(str.str());
+	}
 
 	try {
-		while (size) {
-			if (sz > size)
-				sz = size;
-
-			err = pread(fd, buf, sz, offset);
-			if (err != (int)sz) {
-
-				std::ostringstream str;
-				str << "eblob read failed: dsize rest: " <<
-					size << ", offset rest: " << offset << ": " << strerror(-err);
-				throw std::runtime_error(str.str());
-			}
-
-			ret.append(buf, sz);
-
-			offset += sz;
-			size -= sz;
-		}
-	} catch (const std::exception &e) {
-		delete [] buf;
+		ret.assign(data, dsize);
+	} catch (...) {
+		free(data);
 		throw;
 	}
-	delete [] buf;
+	free(data);
 
 	return ret;
 }
