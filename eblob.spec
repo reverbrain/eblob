@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.5.1
+Version:	0.6.0
 Release:	1%{?dist}
 
 License:	GPLv2+
@@ -88,6 +88,10 @@ rm -rf %{buildroot}
 %{_libdir}/libeblob.so
 
 %changelog
+* Wed Jun 29 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.6.0
+- Added snappy compression support
+- Added start/max types into iterator. Exoport nice interface outside. (0.5.2)
+
 * Sat Jun 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.5.1
 - Create new files, if eblob dir is empty
 
