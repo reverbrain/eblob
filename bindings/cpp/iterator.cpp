@@ -118,6 +118,4 @@ void eblob_iterator::open_next()
 
 	++index_;
 	position_ = 0;
-
-	std::cout << "Opened " << filename.str() << std::endl;
 }
