@@ -100,6 +100,8 @@ int eblob_read_range(struct eblob_range_request *req)
 
 
 			if (eblob_id_in_range(e->key.id, req->start, req->end)) {
+				unsigned int i;
+
 				if (req->current_pos < req->requested_limit_start) {
 					req->current_pos++;
 					continue;
@@ -107,21 +109,25 @@ int eblob_read_range(struct eblob_range_request *req)
 
 				memcpy(req->record_key, e->key.id, EBLOB_ID_SIZE);
 
-				ctl = (struct eblob_ram_control *)e->data;
+				for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
+					ctl = &((struct eblob_ram_control *)e->data)[i];
 
-				req->record_fd = ctl->data_fd;
-				req->record_size = ctl->size;
-				req->record_offset = ctl->data_offset + sizeof(struct eblob_disk_control);
+					if (ctl->type != req->requested_type)
+						continue;
 
-				err = req->callback(req);
-				if (err)
-					break;
+					req->record_fd = ctl->data_fd;
+					req->record_size = ctl->size;
+					req->record_offset = ctl->data_offset + sizeof(struct eblob_disk_control);
 
-				if (req->current_pos >= req->requested_limit_start + req->requested_limit_num) {
-					idx = last_idx + 1;
-					break;
+					err = req->callback(req);
+					if (err)
+						break;
+
+					if (req->current_pos >= req->requested_limit_start + req->requested_limit_num) {
+						idx = last_idx + 1;
+						break;
+					}
 				}
-
 			}
 		}
 		eblob_lock_unlock(&head->lock);
