@@ -485,9 +485,17 @@ int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 	int max_type = -1;
 	int err;
 
+	ctl->thread_priv = (void**)malloc(sizeof(void *) * ctl->thread_num);
+	if (!ctl->thread_priv) {
+		return -ENOMEM;
+	}
+	memset(ctl->thread_priv, 0, sizeof(void *) * ctl->thread_num);
+
 	err = eblob_iterate_existing(b, ctl, &types, &max_type);
 	if (!err)
 		eblob_base_types_free(types, max_type);
+
+	free(ctl->thread_priv);
 
 	return err;
 }

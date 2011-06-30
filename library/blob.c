@@ -101,6 +101,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	pthread_t tid[ctl->thread_num];
 
 	for (i=0; i<ctl->thread_num; ++i) {
+		ctl->thread_index = i;
 		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, ctl);
 		if (err) {
 			ctl->err = err;

@@ -237,6 +237,13 @@ struct eblob_iterate_control {
 						struct eblob_ram_control *ctl,
 						void *data, void *priv);
 	void				*priv;
+
+	/* array of pointers to thread private data,
+	 * initial value is 0
+	 * index is thread_index
+	 */
+	int				thread_index;
+	void				**thread_priv;
 };
 
 int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl);
