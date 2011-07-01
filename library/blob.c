@@ -84,7 +84,7 @@ static void *eblob_blob_iterator(void *data)
 		if (dc.flags & BLOB_DISK_CTL_REMOVE)
 			continue;
 
-		err = ctl->iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control), ctl->priv);
+		err = ctl->iterator(&dc, &rc, ctl, bc->data + dc.position + sizeof(struct eblob_disk_control), ctl->priv);
 	}
 
 err_out_unlock:
@@ -102,6 +102,11 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 
 	for (i=0; i<ctl->thread_num; ++i) {
 		ctl->thread_index = i;
+		ctl->cb_action = BLOB_ITERATE_CTL_INIT;
+		ctl->iterator(NULL, NULL, ctl, NULL, ctl->priv);
+
+		ctl->cb_action = BLOB_ITERATE_CTL_MAIN;
+
 		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, ctl);
 		if (err) {
 			ctl->err = err;
@@ -112,6 +117,11 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 
 	for (i=0; i<ctl->thread_num; ++i) {
 		pthread_join(tid[i], NULL);
+	}
+
+	for (i=0; i<ctl->thread_num; ++i) {
+		ctl->cb_action = BLOB_ITERATE_CTL_FINISH;
+		ctl->iterator(NULL, NULL, ctl, NULL, ctl->priv);
 	}
 
 	if ((ctl->err == -ENOENT) && ctl->base->num)

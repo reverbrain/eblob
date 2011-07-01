@@ -221,6 +221,9 @@ struct eblob_ram_control {
 struct eblob_backend *eblob_init(struct eblob_config *c);
 void eblob_cleanup(struct eblob_backend *b);
 
+#define BLOB_ITERATE_CTL_INIT	(1<<0)
+#define BLOB_ITERATE_CTL_MAIN	(1<<1)
+#define BLOB_ITERATE_CTL_FINISH	(1<<2)
 /* Iterate over all blob files */
 struct eblob_iterate_control {
 	struct eblob_log		*log;
@@ -235,6 +238,7 @@ struct eblob_iterate_control {
 
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
+						struct eblob_iterate_control *iter_ctl,
 						void *data, void *priv);
 	void				*priv;
 
@@ -244,6 +248,8 @@ struct eblob_iterate_control {
 	 */
 	int				thread_index;
 	void				**thread_priv;
+
+	int				cb_action;
 };
 
 int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl);
