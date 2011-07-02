@@ -85,6 +85,7 @@ static void eblob_hash_entry_remove(struct eblob_hash_head *head, struct eblob_h
 	head->size -= sizeof(struct eblob_hash_entry) + e->dsize;
 }
 
+#ifdef EBLOB_USE_DISK_MMAP
 static void eblob_map_cleanup(struct eblob_hash *hash)
 {
 	//munmap(hash->map_base, hash->file_size);
@@ -148,8 +149,18 @@ err_out_mutex_destroy:
 err_out_exit:
 	return err;
 }
+#else
+static void eblob_map_cleanup(struct eblob_hash *hash __unused)
+{
+}
 
-#if 1
+static int eblob_map_init(struct eblob_hash *hash __unused, const char *path __unused)
+{
+	return 0;
+}
+#endif
+
+#ifdef EBLOB_USE_DISK_MMAP
 static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
 {
 	struct eblob_hash_entry *arr;
@@ -214,9 +225,13 @@ err_out_unlock:
 #else
 static int eblob_realloc_entry_array(struct eblob_hash *hash __unused, struct eblob_hash_head *head, uint64_t esize)
 {
-	head->arr = realloc(head->arr, head->size + esize);
+	uint64_t req_size = head->size + esize;
+
+	head->arr = realloc(head->arr, req_size);
 	if (!head->arr)
 		return -ENOMEM;
+
+	head->allocated = req_size;
 
 	return 0;
 }
