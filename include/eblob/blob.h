@@ -223,11 +223,24 @@ void eblob_cleanup(struct eblob_backend *b);
 
 struct eblob_iterate_control;
 struct eblob_iterate_callbacks {
+
+	/* Iterator callback. This function is called for each record in eblob.
+	 * priv is a private data pointer common for all threads.
+	 * thread_priv is a per-thread private data pointer.
+	 */
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
 						void *data, void *priv, void *thread_priv);
 
+	/* Initialization callback. This function is called in main thread before iterations.
+	 * Main purporse of this callback is thread_priv initialization.
+	 */
 	int				(* iterator_init)(struct eblob_iterate_control *ctl, void **thread_priv);
+
+	/* Deinitialization callback. This function is called in main thread
+	 * after all iteration threads are stopped.
+	 * Main purporse of this callback is to free data allocated in iterator_init.
+	 */
 	int				(* iterator_free)(struct eblob_iterate_control *ctl, void **thread_priv);
 
 };
