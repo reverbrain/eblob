@@ -31,9 +31,15 @@
 
 #include "blob.h"
 
+struct eblob_iterate_priv {
+	struct eblob_iterate_control *ctl;
+	void *thread_priv;
+};
+
 static void *eblob_blob_iterator(void *data)
 {
-	struct eblob_iterate_control *ctl = data;
+	struct eblob_iterate_priv *iter_priv = data;
+	struct eblob_iterate_control *ctl = iter_priv->ctl;
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control dc;
 	struct eblob_ram_control rc;
@@ -84,7 +90,7 @@ static void *eblob_blob_iterator(void *data)
 		if (dc.flags & BLOB_DISK_CTL_REMOVE)
 			continue;
 
-		err = ctl->iterator(&dc, &rc, ctl, bc->data + dc.position + sizeof(struct eblob_disk_control), ctl->priv);
+		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control), ctl->priv, iter_priv->thread_priv);
 	}
 
 err_out_unlock:
@@ -93,21 +99,28 @@ err_out_unlock:
 	pthread_mutex_unlock(&bc->lock);
 
 	return NULL;
-};
+}
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 {
 	int i, err;
 	pthread_t tid[ctl->thread_num];
+	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
 	for (i=0; i<ctl->thread_num; ++i) {
-		ctl->thread_index = i;
-		ctl->cb_action = BLOB_ITERATE_CTL_INIT;
-		ctl->iterator(NULL, NULL, ctl, NULL, ctl->priv);
+		iter_priv[i].ctl = ctl;
+		iter_priv[i].thread_priv = NULL;
 
-		ctl->cb_action = BLOB_ITERATE_CTL_MAIN;
+		if (ctl->iterator_cb.iterator_init) {
+			err = ctl->iterator_cb.iterator_init(ctl, &iter_priv[i].thread_priv);
+			if (err) {
+				ctl->err = err;
+				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to init iterator: %d.\n", err);
+				break;
+			}
+		}
 
-		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, ctl);
+		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, &iter_priv[i]);
 		if (err) {
 			ctl->err = err;
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to create iterator thread: %d.\n", err);
@@ -119,9 +132,8 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 		pthread_join(tid[i], NULL);
 	}
 
-	for (i=0; i<ctl->thread_num; ++i) {
-		ctl->cb_action = BLOB_ITERATE_CTL_FINISH;
-		ctl->iterator(NULL, NULL, ctl, NULL, ctl->priv);
+	for (i=0; ctl->iterator_cb.iterator_free && i<ctl->thread_num; ++i) {
+		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
 	}
 
 	if ((ctl->err == -ENOENT) && ctl->base->num)
