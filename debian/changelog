@@ -1,3 +1,9 @@
+eblob (0.6.1) unstable; urgency=low
+
+  * Disable memory index in mmap file
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 03 Jul 2011 02:03:48 +0400
+
 eblob (0.6.0) unstable; urgency=low
 
   * Added snappy compression support.
