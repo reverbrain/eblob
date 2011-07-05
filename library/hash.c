@@ -42,11 +42,9 @@
 
 static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e __unused)
 {
-#if 0
 	if (h->flags & EBLOB_HASH_MLOCK)
 		munlock(e, e->dsize + sizeof(struct eblob_hash_entry));
 	free(e);
-#endif
 }
 
 static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_entry *e)
@@ -54,102 +52,6 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
-struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e)
-{
-	void *ptr = e;
-
-	/* Return first element which in turn can also be NULL */
-	if (!ptr)
-		return head->arr;
-
-	if ((ptr < (void *)head->arr) || (ptr >= (void *)head->arr + head->size))
-		return NULL;
-
-	/* Otherwise return next after given element */
-	ptr += sizeof(struct eblob_hash_entry) + e->dsize;
-
-	if (ptr >= (void *)head->arr + head->size)
-		ptr = NULL;
-
-	return ptr;
-}
-
-static void eblob_hash_entry_remove(struct eblob_hash_head *head, struct eblob_hash_entry *e)
-{
-	struct eblob_hash_entry *next = eblob_hash_entry_next(head, e);
-
-	if (next) {
-		memmove(e, next, head->size - (next - head->arr));
-	}
-
-	head->size -= sizeof(struct eblob_hash_entry) + e->dsize;
-}
-
-#ifdef EBLOB_USE_DISK_MMAP
-static void eblob_map_cleanup(struct eblob_hash *hash)
-{
-	//munmap(hash->map_base, hash->file_size);
-	int __unused err = ftruncate(hash->map_fd, 0);
-	close(hash->map_fd);
-	pthread_mutex_destroy(&hash->map_lock);
-}
-
-static int eblob_map_init(struct eblob_hash *hash, const char *path)
-{
-	int err;
-	int pagesize = sysconf(_SC_PAGE_SIZE);
-	struct stat st;
-
-	err = pthread_mutex_init(&hash->map_lock, NULL);
-	if (err) {
-		err = -err;
-		goto err_out_exit;
-	}
-
-	hash->map_fd = open(path, O_RDWR | O_CREAT, 0644);
-	if (hash->map_fd < 0) {
-		err = -errno;
-		goto err_out_mutex_destroy;
-	}
-
-	hash->file_size = 1024 * 1024 * 1024;
-
-	err = fstat(hash->map_fd, &st);
-	if (!err) {
-		if ((uint64_t)st.st_size > hash->file_size)
-			hash->file_size = st.st_size;
-	}
-
-	if  (hash->file_size % pagesize) {
-		hash->file_size = ALIGN(hash->file_size, pagesize);
-	}
-
-	err = posix_fallocate(hash->map_fd, 0, hash->file_size);
-	if (err) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	hash->map_base = mmap(NULL, hash->file_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_NONBLOCK, hash->map_fd, 0);
-	if (hash->map_base == MAP_FAILED) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	hash->map_used = 0;
-	hash->map_used_total = 0;
-
-	return 0;
-
-err_out_close:
-	close(hash->map_fd);
-	unlink(path);
-err_out_mutex_destroy:
-	pthread_mutex_destroy(&hash->map_lock);
-err_out_exit:
-	return err;
-}
-#else
 static void eblob_map_cleanup(struct eblob_hash *hash __unused)
 {
 }
@@ -158,108 +60,29 @@ static int eblob_map_init(struct eblob_hash *hash __unused, const char *path __u
 {
 	return 0;
 }
-#endif
 
-#ifdef EBLOB_USE_DISK_MMAP
-static int eblob_realloc_entry_array(struct eblob_hash *hash, struct eblob_hash_head *head, uint64_t esize)
-{
-	struct eblob_hash_entry *arr;
-	uint64_t req_size = head->size + esize;
-	int err;
-
-	pthread_mutex_lock(&hash->map_lock);
-
-	if (hash->map_used_total + req_size > hash->file_size) {
-		void *new_base;
-		uint64_t new_size, append_size;
-		int pagesize = sysconf(_SC_PAGE_SIZE);
-
-		new_size = hash->file_size + 1024 * 1024 * 1024;
-
-		if (new_size < req_size)
-			new_size = req_size * 2;
-
-		new_size = ALIGN(new_size, pagesize);
-
-		if (hash->file_size < new_size) {
-			err = ftruncate(hash->map_fd, new_size);
-			if (err) {
-				err = -errno;
-				goto err_out_unlock;
-			}
-		}
-
-		append_size = new_size - hash->file_size;
-
-		new_base = mmap(NULL, append_size, PROT_WRITE | PROT_READ, MAP_SHARED | MAP_NONBLOCK, hash->map_fd, hash->file_size);
-		if (new_base == MAP_FAILED) {
-			err = -errno;
-			goto err_out_unlock;
-		}
-
-		hash->map_base = new_base;
-		hash->map_used = 0;
-		hash->map_used_total = hash->file_size;
-
-		hash->file_size = new_size;
-	}
-
-	arr = hash->map_base + hash->map_used;
-	hash->map_used += req_size;
-	hash->map_used_total += req_size;
-
-	pthread_mutex_unlock(&hash->map_lock);
-
-	if (head->arr && head->size)
-		memcpy(arr, head->arr, head->size);
-	head->arr = arr;
-	head->allocated = req_size;
-
-	return 0;
-
-err_out_unlock:
-	pthread_mutex_unlock(&hash->map_lock);
-	return err;
-}
-
-#else
-static int eblob_realloc_entry_array(struct eblob_hash *hash __unused, struct eblob_hash_head *head, uint64_t esize)
-{
-	uint64_t req_size = head->size + esize;
-
-	head->arr = realloc(head->arr, req_size);
-	if (!head->arr)
-		return -ENOMEM;
-
-	head->allocated = req_size;
-
-	return 0;
-}
-#endif
-
-static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head *head, struct eblob_key *key, void *data, uint64_t dsize)
+static int eblob_hash_entry_add(struct eblob_hash *hash __unused, struct eblob_hash_head *head,
+		struct eblob_key *key, void *data, uint64_t dsize)
 {
 	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize;
 	struct eblob_hash_entry *e;
-	int err;
+	int err = 0;
 
-	if (head->size + esize > head->allocated) {
-		err = eblob_realloc_entry_array(hash, head, esize);
-		if (err)
-			return err;
+	e = malloc(esize);
+	if (!e) {
+		err = -ENOMEM;
+		goto err_out_exit;
 	}
-
-	e = (void *)head->arr + head->size;
 
 	e->dsize = dsize;
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
 	memcpy(e->data, data, dsize);
 
-	head->size += esize;
-	hash->total++;
+	list_add_tail(&e->hash_entry, &head->head);
 
-	return 0;
+err_out_exit:
+	return err;
 }
 
 struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp)
@@ -295,9 +118,7 @@ struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const c
 		struct eblob_hash_head *head = &h->heads[i];
 
 		eblob_lock_init(&head->lock);
-		head->arr = NULL;
-		head->size = 0;
-		head->allocated = 0;
+		INIT_LIST_HEAD(&head->head);
 	}
 
 	return h;
@@ -319,19 +140,6 @@ void eblob_hash_exit(struct eblob_hash *h)
 	for (i=0; i<h->num; ++i) {
 		head = &h->heads[i];
 
-#if 0
-		struct eblob_hash_entry *e;
-		e = NULL;
-		while (1) {
-			e = eblob_hash_entry_next(head, e);
-			if (!e)
-				break;
-
-			eblob_hash_entry_remove(head, e);
-			eblob_hash_entry_put(h, e);
-			h->total--;
-		}
-#endif
 		eblob_lock_destroy(&head->lock);
 	}
 
@@ -346,7 +154,7 @@ void eblob_hash_exit(struct eblob_hash *h)
 static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int replace)
 {
 	unsigned int idx;
-	struct eblob_hash_entry *e, *found = NULL;
+	struct eblob_hash_entry *e, *tmp, *found = NULL;
 	struct eblob_hash_head *head;
 	int err, replaced = 0;
 
@@ -354,15 +162,10 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, vo
 	head = &h->heads[idx];
 
 	eblob_lock_lock(&head->lock);
-	e = NULL;
-	while (1) {
-		e = eblob_hash_entry_next(head, e);
-		if (!e)
-			break;
-
+	list_for_each_entry_safe(e, tmp, &head->head, hash_entry) {
 		if (!memcmp(&e->key, key, sizeof(struct eblob_key))) {
 			if (replace) {
-				if (e->dsize == dsize) {
+				if (e->dsize >= dsize) {
 					e->dsize = dsize;
 
 					memcpy(&e->key, key, sizeof(struct eblob_key));
@@ -370,9 +173,10 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, vo
 
 					replaced = 1;
 				} else {
-					eblob_hash_entry_remove(head, e);
-					h->total--;
+					list_del_init(&e->hash_entry);
 					found = e;
+
+					h->total--;
 				}
 				break;
 			}
@@ -417,14 +221,9 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	int err = -ENOENT;
 
 	eblob_lock_lock(&head->lock);
-	tmp = NULL;
-	while (1) {
-		e = eblob_hash_entry_next(head, tmp);
-		if (!e)
-			break;
-
+	list_for_each_entry_safe(e, tmp, &head->head, hash_entry) {
 		if (!memcmp(key, &e->key, sizeof(struct eblob_key))) {
-			eblob_hash_entry_remove(head, e);
+			list_del_init(&e->hash_entry);
 			h->total--;
 
 			found = e;
@@ -453,11 +252,7 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 	*dsizep = 0;
 
 	eblob_lock_lock(&head->lock);
-	while (1) {
-		e = eblob_hash_entry_next(head, e);
-		if (!e)
-			break;
-
+	list_for_each_entry(e, &head->head, hash_entry) {
 		if (!memcmp(key, &e->key, sizeof(struct eblob_key))) {
 			data = malloc(e->dsize);
 			if (!data) {
