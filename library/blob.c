@@ -165,6 +165,11 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_c
 
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
+
+	if (!b->cfg.sync) {
+		fsync(old->data_fd);
+		fsync(old->index_fd);
+	}
 }
 
 static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
@@ -196,6 +201,8 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 			eblob_dump_id(key->id), (unsigned long long)wc->ctl_index_offset, strerror(errno));
 		goto err_out_exit;
 	}
+	if (!b->cfg.sync)
+		fsync(wc->index_fd);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: index: wrote %zu bytes at %llu into %d\n",
 			eblob_dump_id(key->id), sizeof(dc), (unsigned long long)wc->ctl_index_offset, wc->index_fd);
@@ -427,6 +434,8 @@ static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, u
 		err = -errno;
 		goto err_out_exit;
 	}
+	if (!b->cfg.sync)
+		fsync(wc->data_fd);
 	err = 0;
 
 err_out_exit:
