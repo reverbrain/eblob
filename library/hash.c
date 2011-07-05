@@ -40,6 +40,8 @@
 #define __unused	__attribute__ ((unused))
 #endif
 
+#define EBLOB_USE_DISK_MMAP
+
 static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e __unused)
 {
 	if (h->flags & EBLOB_HASH_MLOCK)
