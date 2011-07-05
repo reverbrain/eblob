@@ -1,3 +1,11 @@
+eblob (0.7.0) unstable; urgency=low
+
+  * Get rid of mapped file as in-memory index
+  * Extended iterator interface
+  * Added C++ cleanup_blobs() empty method
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 05 Jul 2011 22:01:29 +0400
+
 eblob (0.6.1) unstable; urgency=low
 
   * Disable memory index in mmap file
