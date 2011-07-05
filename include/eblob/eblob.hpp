@@ -89,6 +89,8 @@ class eblob {
 		void remove_hashed(const std::string &key, int type = EBLOB_TYPE_DATA);
 
 		unsigned long long elements(void);
+
+		void cleanup_blobs(void) {};
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
