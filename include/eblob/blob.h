@@ -166,7 +166,6 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 }
 
 #define EBLOB_HASH_MLOCK		(1<<0)
-#define EBLOB_START_DEFRAG		(1<<1)
 
 struct eblob_config {
 	/* hash table size in entries */
@@ -389,6 +388,8 @@ int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const voi
 
 int eblob_compress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
 int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
+
+void eblob_remove_blobs(struct eblob_backend *b);
 
 #ifdef __cplusplus
 }

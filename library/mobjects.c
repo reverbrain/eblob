@@ -593,3 +593,17 @@ err_out_free:
 err_out_exit:
 	return err;
 }
+
+void eblob_remove_blobs(struct eblob_backend *b)
+{
+	int i;
+
+	for (i = 0; i <= b->max_type; ++i) {
+		struct eblob_base_type *t = &b->types[i];
+		struct eblob_base_ctl *ctl, *tmp;
+
+		list_for_each_entry_safe(ctl, tmp, &t->bases, base_entry) {
+			eblob_base_remove(b, ctl);
+		}
+	}
+}

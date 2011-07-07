@@ -103,6 +103,7 @@ int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
 
 void *eblob_defrag(void *data);
+void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
 
 void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old);
 

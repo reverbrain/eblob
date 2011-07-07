@@ -74,7 +74,7 @@ err_out_exit:
 	return err;
 }
 
-static void eblob_defrag_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
+void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 {
 	char *dst;
 	int err;
@@ -180,7 +180,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed,
 					bctl->data_fd, bctl->index_fd);
 
-			eblob_defrag_remove(b, bctl);
+			eblob_base_remove(b, bctl);
 			list_del(&bctl->base_entry);
 			eblob_base_ctl_cleanup(bctl);
 			free(bctl);
