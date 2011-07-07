@@ -62,7 +62,17 @@ static void *eblob_blob_iterator(void *data)
 		eblob_convert_disk_control(&dc);
 
 		if (dc.position + dc.disk_size > (uint64_t)bc->data_size) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "malformed entry: pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "malformed entry: position + data size are out of bounds: "
+					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
+			err = -ESPIPE;
+			goto err_out_unlock;
+		}
+
+		if (dc.disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "malformed entry: disk size is less than eblob_disk_control (%zu): "
+					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+					sizeof(struct eblob_disk_control),
 					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
 			err = -ESPIPE;
 			goto err_out_unlock;
@@ -100,8 +110,17 @@ static void *eblob_blob_iterator(void *data)
 	}
 
 err_out_unlock:
-	if (err && !ctl->err)
+	if (err && !ctl->err) {
 		ctl->err = err;
+		eblob_log(ctl->log, EBLOB_LOG_ERROR, "truncating eblob to: data_fd: %d, index_fd: %d, "
+				"data_size(was): %llu, data_offset: %llu, index_offset: %llu, err: %d\n",
+				bc->data_fd, bc->index_fd, bc->data_size,
+				(unsigned long long)bc->data_offset, (unsigned long long)bc->index_offset, err);
+
+		err = ftruncate(bc->data_fd, bc->data_offset);
+		err = ftruncate(bc->index_fd, bc->index_offset);
+	}
+
 	pthread_mutex_unlock(&bc->lock);
 
 	return NULL;
