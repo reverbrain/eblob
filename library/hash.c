@@ -35,16 +35,14 @@
 
 #include "list.h"
 #include "hash.h"
+#include "blob.h"
 
-#ifndef __unused
-#define __unused	__attribute__ ((unused))
-#endif
-
-static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e __unused)
+static void eblob_hash_entry_free(struct eblob_hash *h, struct eblob_hash_entry *e __unused)
 {
 	if (h->flags & EBLOB_HASH_MLOCK)
 		munlock(e, e->dsize + sizeof(struct eblob_hash_entry));
 	free(e);
+	h->total--;
 }
 
 static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_entry *e)
@@ -61,7 +59,7 @@ static int eblob_map_init(struct eblob_hash *hash __unused, const char *path __u
 	return 0;
 }
 
-static int eblob_hash_entry_add(struct eblob_hash *hash __unused, struct eblob_hash_head *head,
+static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_hash_head *head,
 		struct eblob_key *key, void *data, uint64_t dsize)
 {
 	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize;
@@ -80,6 +78,7 @@ static int eblob_hash_entry_add(struct eblob_hash *hash __unused, struct eblob_h
 	memcpy(e->data, data, dsize);
 
 	list_add_tail(&e->hash_entry, &head->head);
+	hash->total++;
 
 err_out_exit:
 	return err;
@@ -175,8 +174,6 @@ static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, vo
 				} else {
 					list_del_init(&e->hash_entry);
 					found = e;
-
-					h->total--;
 				}
 				break;
 			}

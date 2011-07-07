@@ -79,6 +79,11 @@ static void *eblob_blob_iterator(void *data)
 		bc->index_offset += sizeof(dc);
 		bc->data_offset += dc.disk_size;
 
+		eblob_log(ctl->log, EBLOB_LOG_DSA, "%s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
+					eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
+					(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
+					(unsigned long long)dc.flags);
+
 		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
 			bc->removed++;
 		} else {
@@ -90,7 +95,8 @@ static void *eblob_blob_iterator(void *data)
 		if (dc.flags & BLOB_DISK_CTL_REMOVE)
 			continue;
 
-		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control), ctl->priv, iter_priv->thread_priv);
+		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control),
+				ctl->priv, iter_priv->thread_priv);
 	}
 
 err_out_unlock:
@@ -154,14 +160,35 @@ static int blob_mark_index_removed(int fd, off_t offset)
 	return 0;
 }
 
-static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old)
+static void eblob_find_base_decrement_or_remove(struct eblob_backend *b, int type, int index, int remove)
+{
+	struct eblob_base_ctl *ctl;
+
+	pthread_mutex_lock(&b->lock);
+	list_for_each_entry_reverse(ctl, &b->types[type].bases, base_entry) {
+		if (ctl->index == index) {
+			if (remove) {
+				ctl->removed++;
+				ctl->num--;
+			} else {
+				atomic_dec(&ctl->refcnt);
+			}
+			break;
+		}
+	}
+	pthread_mutex_unlock(&b->lock);
+}
+
+void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old)
 {
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "backend: marking index entry as removed: "
-		"position: %llu (0x%llx)/fd: %d, position: %llu (0x%llx)/fd: %d.\n",
+		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		(unsigned long long)old->index_offset,
 		(unsigned long long)old->index_offset, old->index_fd,
 		(unsigned long long)old->data_offset,
 		(unsigned long long)old->data_offset, old->data_fd);
+
+	eblob_find_base_decrement_or_remove(b, old->type, old->index, 1);
 
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
@@ -177,8 +204,6 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 {
 	struct eblob_disk_control dc;
 	int err;
-
-	memset(&dc, 0, sizeof(struct eblob_disk_control));
 
 	memcpy(&dc.key, key, sizeof(struct eblob_key));
 	dc.flags = 0;
@@ -301,7 +326,7 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	ssize_t err = 0;
-	struct eblob_base_ctl *ctl;
+	struct eblob_base_ctl *ctl = NULL;
 
 	pthread_mutex_lock(&b->lock);
 	if (wc->type > b->max_type) {
@@ -316,7 +341,17 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 			goto err_out_unlock;
 	}
 
-	ctl = list_first_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
+	ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
+	if (ctl->data_offset >= (off_t)b->cfg.blob_size) {
+		err = eblob_add_new_base(b, wc->type);
+		if (err)
+			goto err_out_unlock;
+		ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
+	}
+
+	atomic_inc(&ctl->refcnt);
+
+	ctl->num++;
 
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
@@ -332,11 +367,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 
-	if (ctl->data_offset >= (off_t)b->cfg.blob_size) {
-		err = eblob_add_new_base(b, wc->type);
-		if (err)
-			goto err_out_unlock;
-	}
 	pthread_mutex_unlock(&b->lock);
 
 	err = blob_write_prepare_ll(b, key, wc);
@@ -348,6 +378,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
 err_out_exit:
+	if (ctl)
+		atomic_dec(&ctl->refcnt);
 	return err;
 }
 
@@ -483,7 +515,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	err = blob_update_index(b, key, wc, have_old ? &old : NULL);
 	if (err)
-		goto err_out_unlock;
+		goto err_out_exit;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d.\n",
@@ -492,14 +524,20 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
 			wc->data_fd, (unsigned long long)wc->flags, wc->type);
 
-	return 0;
+	goto err_out_exit;
+
+
 
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
 
 err_out_exit:
-	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: commit failed: size: %llu, fd: %d: %d: %s\n",
+	if (err)
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: commit failed: size: %llu, fd: %d: %d: %s\n",
 			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->data_fd, err, strerror(-err));
+
+	eblob_find_base_decrement_or_remove(b, wc->type, wc->index, 0);
+
 	return err;
 }
 
@@ -728,7 +766,7 @@ static void *eblob_sync(void *data)
 	int sleep_time = b->cfg.sync;
 	int i;
 
-	while (!b->sync_need_exit) {
+	while (!b->need_exit) {
 		if (--sleep_time != 0) {
 			sleep(1);
 			continue;
@@ -752,8 +790,9 @@ static void *eblob_sync(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
-	b->sync_need_exit = 1;
+	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
+	pthread_join(b->defrag_tid, NULL);
 
 	if (b->cfg.hash_flags & EBLOB_HASH_MLOCK)
 		munlockall();
@@ -886,8 +925,17 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_munlock;
 	}
 
+	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
+		goto err_out_join_sync;
+	}
+
 	return b;
 
+err_out_join_sync:
+	b->need_exit = 1;
+	pthread_join(b->sync_tid, NULL);
 err_out_munlock:
 	if (c->hash_flags & EBLOB_HASH_MLOCK)
 		munlockall();
