@@ -41,9 +41,11 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
 	struct eblob_base_ctl *bc = ctl->base;
-	struct eblob_disk_control dc, data_dc;
+	struct eblob_disk_control dc;
 	struct eblob_ram_control rc;
 	int err;
+
+	memset(&rc, 0, sizeof(rc));
 
 	while (1) {
 		pthread_mutex_lock(&bc->lock);
@@ -87,11 +89,7 @@ static void *eblob_blob_iterator(void *data)
 		rc.type = bc->type;
 
 		bc->index_offset += sizeof(dc);
-
-		memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
-		eblob_convert_disk_control(&data_dc);
-
-		bc->data_offset = dc.position + data_dc.disk_size;
+		bc->data_offset += dc.disk_size;
 
 		eblob_log(ctl->log, EBLOB_LOG_DSA, "%s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
 					eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
@@ -113,16 +111,35 @@ static void *eblob_blob_iterator(void *data)
 				ctl->priv, iter_priv->thread_priv);
 	}
 
+	bc->data_offset = bc->data_size;
+
 err_out_unlock:
 	if (err && !ctl->err) {
-		ctl->err = err;
-		eblob_log(ctl->log, EBLOB_LOG_ERROR, "truncating eblob to: data_fd: %d, index_fd: %d, "
-				"data_size(was): %llu, data_offset: %llu, index_offset: %llu, err: %d\n",
-				bc->data_fd, bc->index_fd, bc->data_size,
-				(unsigned long long)bc->data_offset, (unsigned long long)bc->index_offset, err);
+		struct eblob_disk_control data_dc;
 
-		err = ftruncate(bc->data_fd, bc->data_offset);
-		err = ftruncate(bc->index_fd, bc->index_offset);
+		err = pread(bc->index_fd, &dc, sizeof(dc), bc->index_offset - sizeof(dc));
+		if (err == sizeof(dc)) {
+			eblob_convert_disk_control(&dc);
+
+			memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
+			eblob_convert_disk_control(&data_dc);
+
+			bc->data_offset = dc.position + data_dc.disk_size;
+
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "truncating eblob to: data_fd: %d, index_fd: %d, "
+					"data_size(was): %llu, data_offset: %llu, data_position: %llu, "
+					"index_offset: %llu\n",
+					bc->data_fd, bc->index_fd, bc->data_size,
+					(unsigned long long)bc->data_offset, (unsigned long long)dc.position,
+					(unsigned long long)bc->index_offset);
+
+#if 0
+			err = ftruncate(bc->data_fd, bc->data_offset);
+#endif
+			err = ftruncate(bc->index_fd, bc->index_offset);
+		} else {
+			ctl->err = err;
+		}
 	}
 
 	pthread_mutex_unlock(&bc->lock);
