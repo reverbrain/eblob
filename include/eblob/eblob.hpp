@@ -93,7 +93,7 @@ class eblob {
 
 		unsigned long long elements(void);
 
-		void cleanup_blobs(void) {};
+		void remove_blobs(void);
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;

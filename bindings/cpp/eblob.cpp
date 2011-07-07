@@ -156,3 +156,8 @@ void eblob::remove_hashed(const std::string &key, int type)
 {
 	eblob_remove_hashed(eblob_, key.data(), key.size(), type);
 }
+
+void eblob::remove_blobs(void)
+{
+	eblob_remove_blobs(eblob_);
+}
