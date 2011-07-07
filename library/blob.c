@@ -869,8 +869,22 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->iterate_threads)
 		c->iterate_threads = 1;
 
-	if (!c->hash_size)
+	if (!c->hash_size) {
 		c->hash_size = EBLOB_BLOB_DEFAULT_HASH_SIZE;
+	} else {
+#define __swap32(x) \
+     ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |		      \
+      (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))
+
+		unsigned int rev = __swap32(c->hash_size);
+		int bit = ffs(rev);
+
+		bit++;
+
+		c->hash_size = 1 << bit;
+	}
+
+	eblob_log(c->log, EBLOB_LOG_INFO, "blob: using probably increased hash size %d (0x%x).\n", c->hash_size, c->hash_size);
 
 	if (!c->mmap_file)
 		c->mmap_file = mmap_file;
