@@ -41,7 +41,7 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
 	struct eblob_base_ctl *bc = ctl->base;
-	struct eblob_disk_control dc;
+	struct eblob_disk_control dc, data_dc;
 	struct eblob_ram_control rc;
 	int err;
 
@@ -87,7 +87,11 @@ static void *eblob_blob_iterator(void *data)
 		rc.type = bc->type;
 
 		bc->index_offset += sizeof(dc);
-		bc->data_offset += dc.disk_size;
+
+		memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
+		eblob_convert_disk_control(&data_dc);
+
+		bc->data_offset = dc.position + data_dc.disk_size;
 
 		eblob_log(ctl->log, EBLOB_LOG_DSA, "%s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
 					eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
@@ -891,16 +895,15 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->hash_size) {
 		c->hash_size = EBLOB_BLOB_DEFAULT_HASH_SIZE;
 	} else {
-#define __swap32(x) \
-     ((((x) & 0xff000000) >> 24) | (((x) & 0x00ff0000) >>  8) |		      \
-      (((x) & 0x0000ff00) <<  8) | (((x) & 0x000000ff) << 24))
+		int i, bit = 0;
+		for (i = 31; i >= 0; --i) {
+			if (c->hash_size & (1 << i)) {
+				bit = i;
+				break;
+			}
+		}
 
-		unsigned int rev = __swap32(c->hash_size);
-		int bit = ffs(rev);
-
-		bit++;
-
-		c->hash_size = 1 << bit;
+		c->hash_size = 1 << (bit + 1);
 	}
 
 	eblob_log(c->log, EBLOB_LOG_INFO, "blob: using probably increased hash size %d (0x%x).\n", c->hash_size, c->hash_size);
