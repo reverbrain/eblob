@@ -491,6 +491,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->base = bctl;
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, data_size: %llu\n",
 					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->data_size);
+
 			err = eblob_blob_iterate(ctl);
 			if (err)
 				goto err_out_exit;
