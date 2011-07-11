@@ -1,3 +1,22 @@
+eblob (0.8.0) unstable; urgency=low
+
+  * Added more checks for malformed entries. Recover index if possible.
+  * Added eblob_remove_blobs(), which removes all blobs from disk. Root is
+    requred to get path through /ptoc/self/fd
+  * Allow eblob(struct eblob_config *cfg) constructor only, i.e. with logger
+    set by caller.
+  * Added automatic defragmentation
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 08 Jul 2011 03:05:26 +0400
+
+eblob (0.7.0) unstable; urgency=low
+
+  * Get rid of mapped file as in-memory index
+  * Extended iterator interface
+  * Added C++ cleanup_blobs() empty method
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 05 Jul 2011 22:01:29 +0400
+
 eblob (0.6.1) unstable; urgency=low
 
   * Disable memory index in mmap file

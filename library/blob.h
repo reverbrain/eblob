@@ -24,6 +24,10 @@
 #include "lock.h"
 #include "list.h"
 
+#ifndef __unused
+#define __unused	__attribute__ ((unused))
+#endif
+
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
@@ -45,10 +49,17 @@ struct eblob_base_ctl {
 	void			*data;
 	long long		data_size;
 
-	long long		num, removed;
+	atomic_t		refcnt;
+
+	unsigned long long	num, removed;
 
 	char			name[0];
 };
+
+void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
+int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len);
+
+int eblob_base_setup_data(struct eblob_base_ctl *ctl);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -64,7 +75,8 @@ struct eblob_backend {
 
 	struct eblob_hash	*hash;
 
-	int			sync_need_exit;
+	int			need_exit;
+	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
 };
 
@@ -89,5 +101,10 @@ struct eblob_map_fd {
 
 int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
+
+void *eblob_defrag(void *data);
+void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
+
+void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old);
 
 #endif /* __EBLOB_BLOB_H */

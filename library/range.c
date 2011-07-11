@@ -73,7 +73,7 @@ static int eblob_id_in_range(const unsigned char *id, const unsigned char *start
 int eblob_read_range(struct eblob_range_request *req)
 {
 	struct eblob_hash *h = req->back->hash;
-	struct eblob_hash_entry *e = NULL;
+	struct eblob_hash_entry *e;
 	unsigned int idx, last_idx;
 	int err = -ENOENT;
 
@@ -88,11 +88,7 @@ int eblob_read_range(struct eblob_range_request *req)
 
 		err = 0;
 		eblob_lock_lock(&head->lock);
-		while (head->size) {
-			e = eblob_hash_entry_next(head, e);
-			if (!e)
-				break;
-
+		list_for_each_entry(e, &head->head, hash_entry) {
 			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "idx: %x, last: %x, key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
 					idx, last_idx, *(unsigned long long *)e->key.id, eblob_id_in_range(e->key.id, req->start, req->end),
 					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,

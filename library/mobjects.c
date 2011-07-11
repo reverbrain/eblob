@@ -44,10 +44,47 @@ static const char *eblob_get_base(const char *blob_base)
 	return base;
 }
 
-static int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len)
+int eblob_base_setup_data(struct eblob_base_ctl *ctl)
+{
+	struct stat st;
+	int err;
+
+	err = fstat(ctl->data_fd, &st);
+	if (err) {
+		err = -errno;
+		goto err_out_exit;
+	}
+
+	if (st.st_size && (st.st_size != ctl->data_size)) {
+		if (ctl->data_size && ctl->data)
+			munmap(ctl->data, ctl->data_size);
+
+		ctl->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, ctl->data_fd, 0);
+		if (ctl->data == MAP_FAILED) {
+			err = -errno;
+			goto err_out_exit;
+		}
+
+		ctl->data_size = st.st_size;
+	}
+
+err_out_exit:
+	return err;
+}
+
+void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
+{
+	pthread_mutex_destroy(&ctl->lock);
+
+	munmap(ctl->data, ctl->data_size);
+
+	close(ctl->data_fd);
+	close(ctl->index_fd);
+}
+
+int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len)
 {
 	int err, full_len;
-	struct stat st;
 	char *full;
 
 	full_len = strlen(dir_base) + name_len + 2 + sizeof(".index"); /* including / and null-byte */
@@ -70,21 +107,9 @@ static int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base,
 		goto err_out_destroy_lock;
 	}
 
-	err = fstat(ctl->data_fd, &st);
-	if (err) {
-		err = -errno;
+	err = eblob_base_setup_data(ctl);
+	if (err)
 		goto err_out_close_data;
-	}
-
-	if (st.st_size) {
-		ctl->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, ctl->data_fd, 0);
-		if (ctl->data == MAP_FAILED) {
-			err = -errno;
-			goto err_out_close_data;
-		}
-
-		ctl->data_size = st.st_size;
-	}
 
 	sprintf(full, "%s/%s.index", dir_base, name);
 	ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
@@ -95,6 +120,9 @@ static int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base,
 
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
+
+	ctl->data_offset = 0;
+	ctl->index_offset = 0;
 
 	posix_fadvise(ctl->index_fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_WILLNEED);
 
@@ -156,6 +184,8 @@ found:
 		goto err_out_free_format;
 	}
 	memset(ctl, 0, sizeof(struct eblob_base_ctl));
+
+	atomic_set(&ctl->refcnt, 1);
 
 	err = eblob_base_ctl_open(ctl, dir_base, name, name_len);
 	if (err)
@@ -223,10 +253,7 @@ static void eblob_base_types_free(struct eblob_base_type *types, int max_type)
 		list_for_each_entry_safe(ctl, tmp, &t->bases, base_entry) {
 			list_del(&ctl->base_entry);
 
-			pthread_mutex_destroy(&ctl->lock);
-
-			close(ctl->data_fd);
-			close(ctl->index_fd);
+			eblob_base_ctl_cleanup(ctl);
 			free(ctl);
 		}
 	}
@@ -241,7 +268,7 @@ void eblob_base_types_cleanup(struct eblob_backend *b)
 
 static void eblob_add_new_base_ctl(struct eblob_base_type *n, struct eblob_base_ctl *ctl)
 {
-	list_add(&ctl->base_entry, &n->bases);
+	list_add_tail(&ctl->base_entry, &n->bases);
 	if (ctl->index > n->index)
 		n->index = ctl->index;
 }
@@ -443,7 +470,8 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	int err, i, max_type = -1;
 
 	ctl->log = b->cfg.log;
-	ctl->thread_num = b->cfg.iterate_threads;
+	if (!ctl->thread_num)
+		ctl->thread_num = b->cfg.iterate_threads;
 
 	err = eblob_scan_base(b->cfg.file, b->cfg.mmap_file, &types, &max_type);
 	if (err) {
@@ -463,6 +491,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->base = bctl;
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, data_size: %llu\n",
 					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->data_size);
+
 			err = eblob_blob_iterate(ctl);
 			if (err)
 				goto err_out_exit;
@@ -564,4 +593,18 @@ err_out_free:
 	free(dir_base);
 err_out_exit:
 	return err;
+}
+
+void eblob_remove_blobs(struct eblob_backend *b)
+{
+	int i;
+
+	for (i = 0; i <= b->max_type; ++i) {
+		struct eblob_base_type *t = &b->types[i];
+		struct eblob_base_ctl *ctl, *tmp;
+
+		list_for_each_entry_safe(ctl, tmp, &t->bases, base_entry) {
+			eblob_base_remove(b, ctl);
+		}
+	}
 }

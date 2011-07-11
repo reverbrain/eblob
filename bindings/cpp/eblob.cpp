@@ -37,7 +37,7 @@ eblob::eblob(const char *log_file, const unsigned int log_mask, const std::strin
 	cfg.mmap_file = (char *)mmap_file.c_str();
 	cfg.log = logger_.log();
 	cfg.iterate_threads = 16;
-	cfg.hash_flags = EBLOB_START_DEFRAG;
+	cfg.sync = 30;
 
 	eblob_ = eblob_init(&cfg);
 	if (!eblob_) {
@@ -45,8 +45,7 @@ eblob::eblob(const char *log_file, const unsigned int log_mask, const std::strin
 	}
 }
 
-eblob::eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg) :
-	logger_(log_file, log_mask)
+eblob::eblob(struct eblob_config *cfg) : logger_(NULL, 0)
 {
 	eblob_ = eblob_init(cfg);
 	if (!eblob_) {
@@ -156,4 +155,9 @@ unsigned long long eblob::elements(void)
 void eblob::remove_hashed(const std::string &key, int type)
 {
 	eblob_remove_hashed(eblob_, key.data(), key.size(), type);
+}
+
+void eblob::remove_blobs(void)
+{
+	eblob_remove_blobs(eblob_);
 }

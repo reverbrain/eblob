@@ -18,6 +18,7 @@
 
 #include "atomic.h"
 #include "lock.h"
+#include "list.h"
 
 struct eblob_hash_head;
 struct eblob_hash {
@@ -42,6 +43,8 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
 
 struct eblob_hash_entry {
+	struct list_head	hash_entry;
+
 	unsigned int		dsize;
 
 	struct eblob_key	key;
@@ -49,8 +52,7 @@ struct eblob_hash_entry {
 };
 
 struct eblob_hash_head {
-	uint64_t			size, allocated;
-	struct eblob_hash_entry		*arr;
+	struct list_head		head;
 	struct eblob_lock		lock;
 };
 
@@ -66,9 +68,9 @@ static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsign
 	for (i=0; i<size; ++i)
 		h[size - i - 1] = ptr[i];
 
-	hash >>= ffs(limit) - 1;
+	hash &= limit - 1;
 
-	return hash % limit;
+	return hash;
 }
 
 struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e);
