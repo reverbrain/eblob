@@ -41,7 +41,6 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 	if (err)
 		return err;
 
-	eblob_mark_entry_removed(b, ctl);
 	return 0;
 }
 
