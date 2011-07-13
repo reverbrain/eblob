@@ -51,7 +51,7 @@ struct eblob_base_ctl {
 
 	atomic_t		refcnt;
 
-	unsigned long long	num, removed;
+	long long		num, removed;
 
 	char			name[0];
 };
