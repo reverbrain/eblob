@@ -221,7 +221,7 @@ static void eblob_find_base_decrement_or_remove(struct eblob_backend *b, int typ
 
 void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old)
 {
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "backend: marking index entry as removed: "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		(unsigned long long)old->index_offset,
 		(unsigned long long)old->index_offset, old->index_fd,
@@ -251,7 +251,8 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 	dc.disk_size = wc->total_size;
 	dc.position = wc->ctl_data_offset;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: updated index at position %llu (0x%llx), data position: %llu (0x%llx), data size: %llu.\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: blob_update_index: index position %llu (0x%llx), "
+			"data position: %llu (0x%llx), data size: %llu.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_index_offset, (unsigned long long)wc->ctl_index_offset,
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->ctl_data_offset,
@@ -262,15 +263,16 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 	err = pwrite(wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
 	if (err != (int)sizeof(dc)) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: failed to write index data at %llu: %s.\n",
-			eblob_dump_id(key->id), (unsigned long long)wc->ctl_index_offset, strerror(errno));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: blob_update_index: pwrite: pos: %llu: %s %d\n",
+			eblob_dump_id(key->id), (unsigned long long)wc->ctl_index_offset,
+			strerror(-err), err);
 		goto err_out_exit;
 	}
 	if (!b->cfg.sync)
 		fsync(wc->index_fd);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: index: wrote %zu bytes at %llu into %d\n",
-			eblob_dump_id(key->id), sizeof(dc), (unsigned long long)wc->ctl_index_offset, wc->index_fd);
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: blob_update_index: pos: %llu: fd: %d\n",
+		eblob_dump_id(key->id), (unsigned long long)wc->ctl_index_offset, wc->index_fd);
 
 	err = 0;
 	if (old) {
@@ -455,19 +457,21 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, wc->data_fd, offset);
 	if (data == MAP_FAILED) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob %d: failed to mmap file to csum: "
-				"size: %zu, offset: %llu, aligned: %llu: %s.\n",
-				wc->index, mapped_size, (unsigned long long)off, (unsigned long long)offset,
-				strerror(errno));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob eblob_csum: mmap: index: %d, type: %d, "
+				"size: %zu, offset: %llu, aligned: %llu: %s %d\n",
+				wc->index, wc->type, mapped_size,
+				(unsigned long long)off, (unsigned long long)offset,
+				strerror(-err), err);
 		goto err_out_exit;
 	}
 	ptr = data + off - offset;
 
 	eblob_hash(b, dst, dsize, ptr, wc->size);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %d: size: %zu, offset: %llu, "
-			"aligned: %llu: csum: %s.\n",
-			wc->index, wc->size, (unsigned long long)off, (unsigned long long)offset,
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_csum: index: %d, type: %d, "
+			"size: %zu, offset: %llu, aligned: %llu: csum: %s\n",
+			wc->index, wc->type, wc->size,
+			(unsigned long long)off, (unsigned long long)offset,
 			eblob_dump_id_len(dst, dsize));
 
 	err = 0;
@@ -523,8 +527,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to write footer: %s.\n",
-				eblob_dump_id(key->id), strerror(-err));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_write_commit_ll: %s %d\n",
+				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_exit;
 	}
 
@@ -545,8 +549,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	err = eblob_insert_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed to add "
-				"hash entry: %s [%d].\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: "
+				"eblob_insert_type: %s %d.\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_unlock;
 	}
@@ -557,7 +561,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: written data at position: %llu "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit: written: position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
@@ -573,8 +577,8 @@ err_out_unlock:
 
 err_out_exit:
 	if (err)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: commit failed: size: %llu, fd: %d: %d: %s\n",
-			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->data_fd, err, strerror(-err));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: size: %llu, fd: %d: %s %d\n",
+			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->data_fd, strerror(-err), err);
 
 	eblob_find_base_decrement_or_remove(b, wc->type, wc->index, 0);
 
