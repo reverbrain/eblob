@@ -1,3 +1,10 @@
+eblob (0.8.2) unstable; urgency=low
+
+  * Use single defragmentation iterator
+  * More debug
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 13 Jul 2011 21:54:36 +0400
+
 eblob (0.8.1) unstable; urgency=low
 
   * If data was not compressed, but BLOB_DISK_CTL_COMPRESS flag was set,
