@@ -723,7 +723,7 @@ int eblob_data_map(struct eblob_map_fd *map)
 	off = map->offset & ~(page_size - 1);
 	map->mapped_size = ALIGN(map->size + map->offset - off, page_size);
 
-	map->mapped_data = mmap(NULL, map->mapped_size, PROT_READ, MAP_SHARED, map->fd, off);
+	map->mapped_data = mmap(NULL, map->mapped_size, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, off);
 	if (map->mapped_data == MAP_FAILED) {
 		err = -errno;
 		goto err_out_exit;
@@ -766,6 +766,13 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 		m.size = *size;
 	else
 		*size = m.size;
+
+	/*
+	 * we need this additional eblob_disk_control in case of compressed data,
+	 * which is not actually compressed, so we will update its control structure
+	 */
+	m.offset -= sizeof(struct eblob_disk_control);
+	m.size += sizeof(struct eblob_disk_control);
 	
 	err = eblob_data_map(&m);
 	if (err)
@@ -778,9 +785,30 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 				eblob_dump_id(key->id),
 				(unsigned long long)m.size, (unsigned long long)*size, err);
 
+		/*
+		 * If data was not compressed, but compression flag was set, clear it and
+		 * return data as is
+		 */
+		if (err == -ERANGE) {
+			struct eblob_disk_control dc;
+
+			memcpy(&dc, m.data, sizeof(struct eblob_disk_control));
+
+			eblob_convert_disk_control(&dc);
+			dc.flags &= ~BLOB_DISK_CTL_COMPRESS;
+			eblob_convert_disk_control(&dc);
+
+			memcpy(m.data, &dc, sizeof(struct eblob_disk_control));
+			compress = 0;
+			goto have_uncompressed_data;
+		}
+
 		if (err)
 			goto err_out_unmap;
-	} else {
+	}
+
+have_uncompressed_data:
+	if (!compress) {
 		void *data;
 
 		data = malloc(m.size);
@@ -789,7 +817,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 			goto err_out_unmap;
 		}
 
-		memcpy(data, m.data, m.size);
+		memcpy(data, m.data + sizeof(struct eblob_disk_control), m.size - sizeof(struct eblob_disk_control));
 
 		*dst = data;
 	}
