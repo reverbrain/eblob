@@ -596,7 +596,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		if (compress_err)
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: write compress: %llu -> %llu: %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
 				eblob_dump_id(key->id),
 				(unsigned long long)wc.size, (unsigned long long)size, compress_err);
 	}
@@ -612,10 +612,9 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	err = pwrite(wc.data_fd, data, size, wc.data_offset);
 	if (err != (ssize_t)size) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: failed (%zd) to pwrite %llu "
-				"bytes into (fd: %d) datafile: %s.\n",
-				eblob_dump_id(key->id), err, (unsigned long long)size,
-				wc.data_fd, strerror(-err));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write: pwrite: size: %llu, fd: %d: %s %zd\n",
+				eblob_dump_id(key->id), (unsigned long long)size,
+				wc.data_fd, strerror(-err), err);
 		goto err_out_exit;
 	}
 
@@ -638,7 +637,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data to be removed: %d.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_hash_lookup_alloc: all-types: %d.\n",
 				eblob_dump_id(key->id), err);
 		goto err_out_exit;
 	}
@@ -646,9 +645,10 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
 		eblob_mark_entry_removed(b, &ctl[i]);
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: removed block at: %llu, size: %llu.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
 	}
+	eblob_hash_remove(b->hash, key);
 
 	free(ctl);
 
@@ -664,14 +664,14 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 	ctl.type = type;
 	err = eblob_lookup_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data (type: %d) to be removed: %d.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove: eblob_lookup_type: type: %d: %d.\n",
 				eblob_dump_id(key->id), type, err);
 		goto err_out_exit;
 	}
 
 	eblob_mark_entry_removed(b, &ctl);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: removed block at: %llu, size: %llu, type: %d.\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
 err_out_exit:
@@ -687,16 +687,16 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 	ctl.type = type;
 	err = eblob_lookup_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not find data: %d.\n",
-				eblob_dump_id(key->id), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_lookup_type: type: %d: %d.\n",
+				eblob_dump_id(key->id), type, err);
 		goto err_out_exit;
 	}
 
 	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: could not read data header: %d.\n",
-				eblob_dump_id(key->id), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread: type: %d: %d.\n",
+				eblob_dump_id(key->id), type, err);
 		goto err_out_exit;
 	}
 
