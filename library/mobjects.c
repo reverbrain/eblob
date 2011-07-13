@@ -266,11 +266,25 @@ void eblob_base_types_cleanup(struct eblob_backend *b)
 	eblob_base_types_free(b->types, b->max_type);
 }
 
-static void eblob_add_new_base_ctl(struct eblob_base_type *n, struct eblob_base_ctl *ctl)
+static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_ctl *ctl)
 {
-	list_add_tail(&ctl->base_entry, &n->bases);
-	if (ctl->index > n->index)
-		n->index = ctl->index;
+	struct eblob_base_ctl *tmp;
+	int added = 0;
+
+	list_for_each_entry(tmp, &t->bases, base_entry) {
+		if (ctl->index < tmp->index) {
+			list_add_tail(&ctl->base_entry, &tmp->base_entry);
+			added = 1;
+			break;
+		}
+	}
+
+	if (!added) {
+		list_add_tail(&ctl->base_entry, &t->bases);
+	}
+
+	if (ctl->index > t->index)
+		t->index = ctl->index;
 }
 
 static int eblob_scan_base(const char *blob_base, const char *mmap_base,
@@ -487,12 +501,16 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		struct eblob_base_type *t = &types[i];
 		struct eblob_base_ctl *bctl;
 
+		eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: start iteration: type: %d\n", i);
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			ctl->base = bctl;
-			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, data_size: %llu\n",
-					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->data_size);
 
 			err = eblob_blob_iterate(ctl);
+
+			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, "
+					"data_size: %llu, data_offset: %llu, valid: %lld, removed: %lld, err: %d\n",
+					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
+					bctl->data_size, (unsigned long long)bctl->data_offset, bctl->num, bctl->removed, err);
 			if (err)
 				goto err_out_exit;
 		}
