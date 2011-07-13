@@ -209,6 +209,9 @@ void *eblob_defrag(void *data)
 	struct eblob_backend *b = data;
 	long i, sleep_timeout = 60 * 60;
 
+	if (!(b->cfg.hash_flags & EBLOB_RUN_DEFRAG))
+		goto err_out_exit;
+
 	while (!b->need_exit) {
 		for (i = 0; i < sleep_timeout; ++i) {
 			sleep(1);
