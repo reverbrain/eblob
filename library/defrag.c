@@ -103,7 +103,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.check_index = 1;
-	ctl.thread_num = b->cfg.iterate_threads;
+	ctl.thread_num = 1;
 	ctl.priv = b;
 	ctl.log = b->cfg.log;
 
