@@ -1,3 +1,10 @@
+eblob (0.8.3) unstable; urgency=low
+
+  * Only run automatic defrag if enabled. Disabled by default.
+  * Force ascending index sorting at blob loading time
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 14 Jul 2011 02:04:47 +0400
+
 eblob (0.8.2) unstable; urgency=low
 
   * Use single defragmentation iterator
