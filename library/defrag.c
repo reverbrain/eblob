@@ -38,10 +38,13 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 	int err;
 
 	err = eblob_write(b, &dc->key, data, dc->data_size, dc->flags, ctl->type);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: %s: size: %llu: position: %llu, flags: %llx, type: %d, err: %d\n",
+			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
+			(unsigned long long)dc->flags, ctl->type, err);
 	if (err)
 		return err;
 
-	eblob_mark_entry_removed(b, ctl);
 	return 0;
 }
 
@@ -104,7 +107,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.check_index = 1;
-	ctl.thread_num = b->cfg.iterate_threads;
+	ctl.thread_num = 1;
 	ctl.priv = b;
 	ctl.log = b->cfg.log;
 
@@ -128,7 +131,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			}
 
 			eblob_log(ctl.log, EBLOB_LOG_DSA, "defrag: type: %d, index: %d, "
-					"data_size: %llu, valid: %llu, removed: %llu\n",
+					"data_size: %llu, valid: %lld, removed: %lld\n",
 					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed);
 
 			/* do not process last entry, it can be in use for write */
@@ -138,13 +141,21 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (--num < 0)
 				break;
 
+			if ((bctl->removed < 0) || (bctl->num < 0)) {
+				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: EXITING: type: %d, index: %d, "
+						"data_size: %llu, valid: %lld, removed: %lld: waiting %d\n",
+						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, wait);
+				b->need_exit = 1;
+				break;
+			}
+
 			if (!bctl->removed || (bctl->removed < bctl->num / 2))
 				continue;
 
 			/*
 			 * Since we do not process last entry, it is guaranteed that all
 			 * new writes already go into that last (or even after that last) eblob,
-			 * so we only have to wait for pending writes, which increamented
+			 * so we only have to wait for pending writes, which incremented
 			 * refcnt but which are not yet completed.
 			 */
 			wait = 0;
@@ -153,12 +164,16 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					goto err_out_exit;
 
 				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: type: %d, index: %d, "
-						"data_size: %llu, valid: %llu, removed: %llu: waiting %d\n",
+						"data_size: %llu, valid: %lld, removed: %lld: waiting %d\n",
 						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, wait);
 
 				sleep(1);
 				wait++;
 			}
+
+			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: type: %d, index: %d, data_fd: %d, index_fd: %d, "
+					"valid: %lld, removed: %lld\n",
+					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->num, bctl->removed);
 
 			bctl->data_offset = bctl->index_offset = 0;
 			bctl->removed = bctl->num = 0;
@@ -168,15 +183,13 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				goto err_out_exit;
 
 			ctl.base = bctl;
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: type: %d, index: %d, data_size: %llu, data_fd: %d, index_fd: %d\n",
-					bctl->type, bctl->index, bctl->data_size, bctl->data_fd, bctl->index_fd);
 
 			err = eblob_blob_iterate(&ctl);
 			if (err)
 				goto err_out_exit;
 
 			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d, data_size: %llu, "
-					"valid: %llu, removed: %llu, data_fd: %d, index_fd: %d\n",
+					"valid: %lld, removed: %lld, data_fd: %d, index_fd: %d\n",
 					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed,
 					bctl->data_fd, bctl->index_fd);
 
@@ -195,6 +208,9 @@ void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
 	long i, sleep_timeout = 60 * 60;
+
+	if (!(b->cfg.hash_flags & EBLOB_RUN_DEFRAG))
+		goto err_out_exit;
 
 	while (!b->need_exit) {
 		for (i = 0; i < sleep_timeout; ++i) {

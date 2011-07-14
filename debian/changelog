@@ -1,3 +1,25 @@
+eblob (0.8.3) unstable; urgency=low
+
+  * Only run automatic defrag if enabled. Disabled by default.
+  * Force ascending index sorting at blob loading time
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 14 Jul 2011 02:04:47 +0400
+
+eblob (0.8.2) unstable; urgency=low
+
+  * Use single defragmentation iterator
+  * More debug
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 13 Jul 2011 21:54:36 +0400
+
+eblob (0.8.1) unstable; urgency=low
+
+  * If data was not compressed, but BLOB_DISK_CTL_COMPRESS flag was set,
+    return data as is and clear flag
+  * Do not mark the same entry as removed twice
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 13 Jul 2011 20:35:42 +0400
+
 eblob (0.8.0) unstable; urgency=low
 
   * Added more checks for malformed entries. Recover index if possible.
