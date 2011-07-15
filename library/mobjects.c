@@ -484,8 +484,12 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	int err, i, max_type = -1;
 
 	ctl->log = b->cfg.log;
+
 	if (!ctl->thread_num)
 		ctl->thread_num = b->cfg.iterate_threads;
+
+	if (ctl->iterator_cb.thread_num)
+		ctl->thread_num = ctl->iterator_cb.thread_num;
 
 	err = eblob_scan_base(b->cfg.file, b->cfg.mmap_file, &types, &max_type);
 	if (err) {

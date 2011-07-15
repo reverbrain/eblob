@@ -243,6 +243,9 @@ struct eblob_iterate_callbacks {
 	 */
 	int				(* iterator_free)(struct eblob_iterate_control *ctl, void **thread_priv);
 
+	/* Number of iterator threads. If this value is not 0 it will override default from config */
+	int				thread_num;
+
 };
 
 /* Iterate over all blob files */
