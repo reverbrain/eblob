@@ -26,7 +26,7 @@ class eblob_regex_callback : public eblob_iterator_callback {
 		virtual ~eblob_regex_callback() {
 		}
 
-		virtual bool callback(const struct eblob_disk_control *dco, const void *data, int index) {
+		virtual bool callback(const struct eblob_disk_control *dco, const void *data, int ) {
 			std::string key((const char *)data, dco->data_size);
 
 			++total_;
@@ -37,7 +37,12 @@ class eblob_regex_callback : public eblob_iterator_callback {
 					": " << performance(total_) << " rps" << std::endl;
 			}
 
-			return regex_match(key, re_);
+			int match = regex_match(key, re_);
+
+			char id_str[2 * EBLOB_ID_SIZE + 1];
+			std::cout << eblob_dump_id_len_raw(dco->key.id, EBLOB_ID_SIZE, id_str) << " : " << match << std::endl;
+
+			return match;
 		}
 
 		virtual void complete(const uint64_t total, const uint64_t found) {
@@ -48,9 +53,9 @@ class eblob_regex_callback : public eblob_iterator_callback {
 
 	private:
 		boost::mutex data_lock_;
+		uint64_t total_;
 		time_t start_, cur_;
 		const boost::regex re_;
-		uint64_t total_;
 
 		int performance(int num) {
 			return num / (cur_ - start_ + 1);
