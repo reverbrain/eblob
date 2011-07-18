@@ -127,6 +127,11 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: %s\n",
 					bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
 
+			/*
+			 * FIXME
+			 * There is a race between index lookup and defragmentation
+			 * There is another race between sorted index generation and object removal
+			 */
 			eblob_remove_type(b, &dc->key, bctl->type);
 		}
 	}
