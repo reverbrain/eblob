@@ -131,8 +131,18 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			}
 
 			eblob_log(ctl.log, EBLOB_LOG_DSA, "defrag: type: %d, index: %d, "
-					"data_size: %llu, valid: %lld, removed: %lld\n",
-					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed);
+					"data_size: %llu, valid: %lld, removed: %lld, need_sorting: %d\n",
+					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, bctl->need_sorting);
+
+			if (bctl->need_sorting) {
+				err = eblob_generate_sorted_index(b, bctl);
+				if (!err)
+					bctl->need_sorting = 0;
+			}
+
+			if (!(b->cfg.hash_flags & EBLOB_RUN_DEFRAG))
+				continue;
+
 
 			/* do not process last entry, it can be in use for write */
 			if (bctl->base_entry.next == &t->bases)
@@ -143,8 +153,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 			if ((bctl->removed < 0) || (bctl->num < 0)) {
 				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: EXITING: type: %d, index: %d, "
-						"data_size: %llu, valid: %lld, removed: %lld: waiting %d\n",
-						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, wait);
+						"data_size: %llu, valid: %lld, removed: %lld\n",
+						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed);
 				b->need_exit = 1;
 				break;
 			}
@@ -207,10 +217,7 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	long i, sleep_timeout = 60 * 60;
-
-	if (!(b->cfg.hash_flags & EBLOB_RUN_DEFRAG))
-		goto err_out_exit;
+	long i, sleep_timeout = 60;
 
 	while (!b->need_exit) {
 		for (i = 0; i < sleep_timeout; ++i) {

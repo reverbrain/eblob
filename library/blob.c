@@ -388,6 +388,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
 			goto err_out_unlock;
+
+		ctl->need_sorting = 1;
 		ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
 	}
 
@@ -562,11 +564,11 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit: written: position: %llu "
-			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d.\n",
+			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d, index: %d.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
 			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
-			wc->data_fd, (unsigned long long)wc->flags, wc->type);
+			wc->data_fd, (unsigned long long)wc->flags, wc->type, wc->index);
 
 	goto err_out_exit;
 
@@ -675,6 +677,8 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 
 	eblob_mark_entry_removed(b, &ctl);
 
+	eblob_remove_type(b, key, type);
+
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
@@ -741,7 +745,8 @@ err_out_exit:
 
 void eblob_data_unmap(struct eblob_map_fd *map)
 {
-	munmap(map->mapped_data, map->mapped_size);
+	if (map->mapped_data && map->mapped_size)
+		munmap(map->mapped_data, map->mapped_size);
 }
 
 int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)

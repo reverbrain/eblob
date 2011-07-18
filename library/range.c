@@ -32,26 +32,6 @@
 #include "eblob/blob.h"
 #include "blob.h"
 
-/*
- * Compare two IDs.
- * Returns  1 when id1 > id2
- *         -1 when id1 < id2
- *          0 when id1 = id2
- */
-static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id2)
-{
-	unsigned int i = 0;
-
-	for (i*=sizeof(unsigned long); i<EBLOB_ID_SIZE; ++i) {
-		if (id1[i] < id2[i])
-			return -1;
-		if (id1[i] > id2[i])
-			return 1;
-	}
-
-	return 0;
-}
-
 static int eblob_id_in_range(const unsigned char *id, const unsigned char *start, const unsigned char *end)
 {
 	int cmp_start, cmp_end;

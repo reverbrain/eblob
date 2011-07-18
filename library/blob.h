@@ -32,6 +32,39 @@
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
 
+/*
+ * Compare two IDs.
+ * Returns  1 when id1 > id2
+ *         -1 when id1 < id2
+ *          0 when id1 = id2
+ */
+static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id2)
+{
+	unsigned int i = 0;
+
+	for (i*=sizeof(unsigned long); i<EBLOB_ID_SIZE; ++i) {
+		if (id1[i] < id2[i])
+			return -1;
+		if (id1[i] > id2[i])
+			return 1;
+	}
+
+	return 0;
+}
+
+struct eblob_map_fd {
+	int			fd;
+	uint64_t		offset, size;
+	
+	void			*data;
+
+	uint64_t		mapped_size;
+	void			*mapped_data;
+};
+
+int eblob_data_map(struct eblob_map_fd *map);
+void eblob_data_unmap(struct eblob_map_fd *map);
+
 struct eblob_base_type {
 	int			type, index;
 	struct list_head	bases;
@@ -50,6 +83,9 @@ struct eblob_base_ctl {
 	long long		data_size;
 
 	atomic_t		refcnt;
+	int			need_sorting;
+
+	struct eblob_map_fd	sort;
 
 	long long		num, removed;
 
@@ -85,26 +121,19 @@ int eblob_load_data(struct eblob_backend *b);
 void eblob_base_types_cleanup(struct eblob_backend *b);
 
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res);
+int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl);
 
+int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type,
+		struct eblob_ram_control **dst, int *dsize);
+
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
-
-struct eblob_map_fd {
-	int			fd;
-	uint64_t		offset, size;
-	
-	void			*data;
-
-	uint64_t		mapped_size;
-	void			*mapped_data;
-};
-
-int eblob_data_map(struct eblob_map_fd *map);
-void eblob_data_unmap(struct eblob_map_fd *map);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
 
 void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old);
+
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 #endif /* __EBLOB_BLOB_H */
