@@ -37,18 +37,21 @@ namespace zbr {
 class eblob_logger {
 	public:
 		eblob_logger(const char *log_file, const unsigned int log_mask) : file_(NULL), log_file_(log_file) {
-			if (log_file && log_mask) {
-				file_ = fopen(log_file, "a");
-				if (!file_) {
-					std::ostringstream str;
-					str << "Failed to open log file " << log_file_;
-					throw std::runtime_error(str.str());
-				}
-
-				logger_.log_private = file_;
-				logger_.log_mask = log_mask;
-				logger_.log = eblob_log_raw_formatted;
+			if (!log_file) {
+				log_file = "/dev/stdout";
+				std::cerr << "Warning: using " << log_file << " as log file" << std::endl;
 			}
+
+			file_ = fopen(log_file, "a");
+			if (!file_) {
+				std::ostringstream str;
+				str << "Failed to open log file " << log_file_;
+				throw std::runtime_error(str.str());
+			}
+
+			logger_.log_private = file_;
+			logger_.log_mask = log_mask;
+			logger_.log = eblob_log_raw_formatted;
 		}
 
 		eblob_logger(const eblob_logger &l) {
@@ -56,8 +59,7 @@ class eblob_logger {
 		}
 
 		virtual ~eblob_logger() {
-			if (file_)
-				fclose(file_);
+			fclose(file_);
 		}
 
 		struct eblob_log *log() {
