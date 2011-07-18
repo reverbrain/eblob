@@ -1,3 +1,11 @@
+eblob (0.8.5) unstable; urgency=low
+
+  * Use /dev/stdout as default log file if NULL was provided in constructor
+  * Implemented on-disk index
+  * Added boost::regex check and compile regex iterator if it is present
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 19 Jul 2011 02:00:09 +0400
+
 eblob (0.8.4) unstable; urgency=low
 
   * Added thread num param to iterator_callbacks structure
