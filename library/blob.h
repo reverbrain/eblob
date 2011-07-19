@@ -132,8 +132,6 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
 
-void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_ram_control *old);
-
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 #endif /* __EBLOB_BLOB_H */
