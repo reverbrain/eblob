@@ -1,3 +1,12 @@
+eblob (0.8.6) unstable; urgency=low
+
+  * Log cleanups
+  * Added ability to overwrite data in place
+  * Fixed race between object removal and sorted index generation (not
+    completely yet)
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 19 Jul 2011 22:41:18 +0400
+
 eblob (0.8.5) unstable; urgency=low
 
   * Use /dev/stdout as default log file if NULL was provided in constructor
