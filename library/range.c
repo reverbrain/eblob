@@ -60,7 +60,7 @@ int eblob_read_range(struct eblob_range_request *req)
 	idx = eblob_hash_data(req->start, EBLOB_ID_SIZE, h->num);
 	last_idx = eblob_hash_data(req->end, EBLOB_ID_SIZE, h->num);
 
-	eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "idx: %x, last: %x\n", idx, last_idx);
+	eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "blob: range: idx: %x, last: %x\n", idx, last_idx);
 
 	while (idx <= last_idx) {
 		struct eblob_ram_control *ctl = NULL;
@@ -69,7 +69,8 @@ int eblob_read_range(struct eblob_range_request *req)
 		err = 0;
 		eblob_lock_lock(&head->lock);
 		list_for_each_entry(e, &head->head, hash_entry) {
-			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "idx: %x, last: %x, key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
+			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "blob: range: idx: %x, last: %x, "
+					"key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
 					idx, last_idx, *(unsigned long long *)e->key.id, eblob_id_in_range(e->key.id, req->start, req->end),
 					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
 					(unsigned long long)req->requested_limit_num);

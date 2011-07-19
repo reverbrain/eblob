@@ -64,7 +64,7 @@ static void *eblob_blob_iterator(void *data)
 		eblob_convert_disk_control(&dc);
 
 		if (dc.position + dc.disk_size > (uint64_t)bc->data_size) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "malformed entry: position + data size are out of bounds: "
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
 					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
 					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
 			err = -ESPIPE;
@@ -72,7 +72,7 @@ static void *eblob_blob_iterator(void *data)
 		}
 
 		if (dc.disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "malformed entry: disk size is less than eblob_disk_control (%zu): "
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
 					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
 					sizeof(struct eblob_disk_control),
 					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
@@ -91,7 +91,7 @@ static void *eblob_blob_iterator(void *data)
 		bc->index_offset += sizeof(dc);
 		bc->data_offset += dc.disk_size;
 
-		eblob_log(ctl->log, EBLOB_LOG_DSA, "%s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
+		eblob_log(ctl->log, EBLOB_LOG_DSA, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
 					eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
 					(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
 					(unsigned long long)dc.flags);
@@ -126,7 +126,7 @@ err_out_unlock:
 
 			bc->data_offset = dc.position + data_dc.disk_size;
 
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "truncating eblob to: data_fd: %d, index_fd: %d, "
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
 					"data_size(was): %llu, data_offset: %llu, data_position: %llu, "
 					"index_offset: %llu\n",
 					bc->data_fd, bc->index_fd, bc->data_size,
@@ -460,7 +460,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, wc->data_fd, offset);
 	if (data == MAP_FAILED) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob eblob_csum: mmap: index: %d, type: %d, "
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_csum: mmap: index: %d, type: %d, "
 				"size: %zu, offset: %llu, aligned: %llu: %s %d\n",
 				wc->index, wc->type, mapped_size,
 				(unsigned long long)off, (unsigned long long)offset,
@@ -554,8 +554,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	err = eblob_insert_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: "
-				"eblob_insert_type: %s %d.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_insert_type: %s %d.\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_unlock;
 	}
@@ -734,7 +733,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
 		eblob_mark_entry_removed(b, key, &ctl[i]);
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
 	}
 	eblob_hash_remove(b->hash, key);
@@ -762,7 +761,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 
 	eblob_remove_type(b, key, type);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
 err_out_exit:

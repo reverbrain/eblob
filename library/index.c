@@ -172,7 +172,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		}
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: sorted generated: index: %d, type: %d, index_fd: %d, data_fd: %d: "
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, index_fd: %d, data_fd: %d: "
 			"index_offset: %llu, data_offset: %llu: %s\n",
 			bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,

@@ -580,7 +580,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 	struct eblob_backend *b = priv;
 	char id[EBLOB_ID_SIZE*2+1];
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: type: %d, index: %d, "
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: iter: %s: type: %d, index: %d, "
 			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
 			eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id), ctl->type, ctl->index,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,
@@ -606,7 +606,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 
 	err = eblob_scan_base(b->cfg.file, b->cfg.mmap_file, &types, &max_type);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "Failed to scan base '%s': %s %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_iterate_existing: eblob_scan_base: '%s': %s %d\n",
 				b->cfg.file, strerror(-err), err);
 		goto err_out_exit;
 	}
@@ -618,7 +618,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		struct eblob_base_type *t = &types[i];
 		struct eblob_base_ctl *bctl;
 
-		eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: start iteration: type: %d\n", i);
+		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: eblob_iterate_existing: start: type: %d\n", i);
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			ctl->base = bctl;
 
@@ -626,7 +626,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			if (bctl->sort.fd < 0)
 				err = eblob_blob_iterate(ctl);
 
-			eblob_log(ctl->log, EBLOB_LOG_INFO, "bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, "
+			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, "
 					"data_size: %llu, data_offset: %llu, valid: %lld, removed: %lld, have_sort: %d, err: %d\n",
 					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
 					bctl->data_size, (unsigned long long)bctl->data_offset, bctl->num, bctl->removed,
