@@ -119,20 +119,56 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
 		for (i = 0; i < bctl->index_offset / sizeof(struct eblob_disk_control); ++i) {
-			struct eblob_disk_control *dc = bctl->sort.data + i * sizeof(struct eblob_disk_control);
-
-			if (dc->flags & rem)
-				continue;
-
-			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: %s\n",
-					bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
+			struct eblob_disk_control *dc = src.data + i * sizeof(struct eblob_disk_control);
 
 			/*
 			 * FIXME
 			 * There is a race between index lookup and defragmentation
-			 * There is another race between sorted index generation and object removal
 			 */
-			eblob_remove_type(b, &dc->key, bctl->type);
+			if (!(dc->flags & rem))
+				eblob_remove_type(b, &dc->key, bctl->type);
+
+			/*
+			 * it is still possible that we removed object in window
+			 * between flags check and index remove,
+			 * so we recheck on-disk entry here.
+			 *
+			 * Small race still exists, since we can copy data from hash table,
+			 * but not yet update on-disk structure, so after below check will
+			 * complete we will only update non-sorted index.
+			 *
+			 * This will be fixed when ram-based structures will contain not
+			 * file descriptors, but pointer to eblob_base_ctl
+			 */
+
+			if (dc->flags & rem) {
+				struct eblob_disk_control *sorted, *end;
+
+				end = bctl->sort.data + bctl->sort.size;
+
+				sorted = bsearch(&dc->key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
+						sizeof(struct eblob_disk_control), eblob_disk_control_sort);
+
+				while (sorted < end) {
+					if (sorted->position == dc->position) {
+						sorted->flags |= rem;
+						break;
+					}
+
+					sorted++;
+					if ((sorted >= end) || eblob_disk_control_sort(sorted, dc)) {
+						eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d: %s\n",
+								bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
+						break;
+					}
+				}
+
+				continue;
+			}
+
+			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: %s\n",
+					bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
+
 		}
 	}
 
