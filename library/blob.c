@@ -544,10 +544,12 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	ctl.type = wc->type;
 	ctl.index = wc->index;
 
-	old.type = wc->type;
-	err = eblob_lookup_type(b, key, &old);
-	if (!err)
-		have_old = 1;
+	if (!(wc->flags & BLOB_DISK_CTL_REMOVE)) {
+		old.type = wc->type;
+		err = eblob_lookup_type(b, key, &old);
+		if (!err)
+			have_old = 1;
+	}
 
 	err = eblob_insert_type(b, key, &ctl);
 	if (err) {
@@ -587,6 +589,81 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, void *data)
+{
+	struct eblob_ram_control ctl;
+	struct eblob_disk_control dc;
+	ssize_t err;
+
+	ctl.type = wc->type;
+	err = eblob_lookup_type(b, key, &ctl);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_try_overwrite: eblob_lookup_type: type: %d: %zd\n",
+				eblob_dump_id(key->id), wc->type, err);
+		goto err_out_exit;
+	}
+
+	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+	if (err != sizeof(dc)) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_try_overwrite: pread: fd: %d: %zd.\n",
+				eblob_dump_id(key->id), wc->data_fd, err);
+		goto err_out_exit;
+	}
+
+	eblob_convert_disk_control(&dc);
+
+	if (dc.disk_size < eblob_calculate_size(b, wc->size)) {
+		err = -E2BIG;
+		goto err_out_exit;
+	}
+
+	wc->data_fd = ctl.data_fd;
+	wc->index_fd = ctl.index_fd;
+
+	wc->index = ctl.index;
+
+	wc->ctl_index_offset = ctl.index_offset;
+	wc->ctl_data_offset = ctl.data_offset;
+
+	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+
+	/* use old disk_size so that iteration would not fail */
+	wc->total_size = dc.disk_size;
+
+	err = pwrite(wc->data_fd, data, wc->size, wc->data_offset);
+	if (err != (ssize_t)wc->size) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_try_overwrite: pwrite: fd: %d: "
+				"size: %llu, offset: %llu: %zd.\n",
+				eblob_dump_id(key->id), wc->data_fd,
+				(unsigned long long)wc->size, (unsigned long long)wc->data_offset,
+				err);
+		goto err_out_exit;
+	}
+
+	/*
+	 * this is a dirty trick to forbid eblob_write_commit() from removing old entry from hash
+	 * table and eventually mark on-disk entries as removed
+	 */
+	wc->flags |= BLOB_DISK_CTL_REMOVE;
+	err = eblob_write_commit(b, key, NULL, 0, wc);
+	wc->flags &= ~BLOB_DISK_CTL_REMOVE;
+
+	if (err)
+		goto err_out_exit;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_try_overwrite: written: position: %llu "
+			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d, index: %d.\n",
+			eblob_dump_id(key->id),
+			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
+			(unsigned long long)wc->size, (unsigned long long)wc->total_size,
+			wc->data_fd, (unsigned long long)wc->flags, wc->type, wc->index);
+
+err_out_exit:
+	return err;
+}
+
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t size, uint64_t flags, int type)
 {
@@ -610,6 +687,11 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.size = size;
 	wc.flags = flags;
 	wc.type = type;
+
+	err = eblob_try_overwrite(b, key, &wc, data);
+	if (!err)
+		/* ok, we have overwritten old data, got out */
+		goto err_out_exit;
 
 	err = eblob_write_prepare(b, key, &wc);
 	if (err)
