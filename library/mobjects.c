@@ -277,6 +277,10 @@ err_out_exit:
 	return ctl;
 }
 
+/*
+ * we will create new types starting from @start_type
+ * [0, @start_type - 1] will be copied
+ */
 static struct eblob_base_type *eblob_realloc_base_type(struct eblob_base_type *types, int start_type, int max_type)
 {
 	int i;
@@ -688,7 +692,11 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	if (type > b->max_type) {
 		struct eblob_base_type *types;
 
-		types = eblob_realloc_base_type(b->types, b->max_type, type);
+		/*
+		 * +1 hear means we will copy old types from 0 to b->max_type (inclusive),
+		 * and create new types from b->max_type+1 upto type (again inclusive)
+		 */
+		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
 		if (!types) {
 			err = -ENOMEM;
 			goto err_out_exit;
