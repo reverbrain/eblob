@@ -89,7 +89,7 @@ struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const c
 	struct eblob_hash *h;
 	int err;
 	unsigned int i;
-	unsigned int size = sizeof(struct eblob_hash) + sizeof(struct eblob_hash_head) * num;
+	long size = sizeof(struct eblob_hash) + sizeof(struct eblob_hash_head) * num;
 
 	h = malloc(size);
 	if (!h) {
