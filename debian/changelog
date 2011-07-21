@@ -1,3 +1,12 @@
+eblob (0.8.7) unstable; urgency=low
+
+  * Create sorted indexes on startup. Use them instead of plain indexes.
+  * Fixed eblob_realloc_base_type() invocation from eblob_add_new_base().
+  * Fixed int overflow during lock allocation.
+  * Initialize log_file_ only when we setup log_file string.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 22 Jul 2011 01:46:58 +0400
+
 eblob (0.8.6) unstable; urgency=low
 
   * Log cleanups
