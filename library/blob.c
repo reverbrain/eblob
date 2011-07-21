@@ -598,7 +598,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	ctl.type = wc->type;
 	err = eblob_lookup_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_try_overwrite: eblob_lookup_type: type: %d: %zd\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_try_overwrite: eblob_lookup_type: type: %d: %zd\n",
 				eblob_dump_id(key->id), wc->type, err);
 		goto err_out_exit;
 	}
