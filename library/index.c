@@ -166,8 +166,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 				continue;
 			}
 
-			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: %s\n",
-					bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
+			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: flags: %llx, %s\n",
+					bctl->index, bctl->type, (unsigned long long)eblob_bswap64(dc->flags),
+					eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
 
 		}
 	}
@@ -177,6 +178,10 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
 			file);
+
+	eblob_data_unmap(&src);
+	free(file);
+	return 0;
 
 err_out_unmap_src:
 	eblob_data_unmap(&src);
@@ -201,6 +206,9 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	*dst = NULL;
 	*dsize = 0;
 
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: type: %d, max_type: %d\n",
+			eblob_dump_id(key->id),	type, b->max_type);
+
 	if (type >= 0) {
 		if (type > b->max_type) {
 			err = -ENOENT;
@@ -222,8 +230,11 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 
 			dc = bsearch(key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
 					sizeof(struct eblob_disk_control), eblob_disk_control_sort);
-			if (!dc)
+			if (!dc) {
+				eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
+						eblob_dump_id(key->id),	bctl->index, bctl->type);
 				continue;
+			}
 
 			rest = bctl->sort.size - ((void *)dc - bctl->sort.data);
 			while (1) {

@@ -80,7 +80,7 @@ struct eblob_base_ctl {
 	off_t			data_offset, index_offset;
 
 	void			*data;
-	long long		data_size;
+	unsigned long long	data_size;
 
 	atomic_t		refcnt;
 	int			need_sorting;
@@ -93,7 +93,6 @@ struct eblob_base_ctl {
 };
 
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
-int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl);
 

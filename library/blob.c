@@ -614,6 +614,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	eblob_convert_disk_control(&dc);
 
 	if (dc.disk_size < eblob_calculate_size(b, wc->size)) {
+		printf("object size %llu is less than requested %llu\n", dc.disk_size, eblob_calculate_size(b, wc->size));
 		err = -E2BIG;
 		goto err_out_exit;
 	}
@@ -687,12 +688,12 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.size = size;
 	wc.flags = flags;
 	wc.type = type;
-
+#if 0
 	err = eblob_try_overwrite(b, key, &wc, data);
 	if (!err)
 		/* ok, we have overwritten old data, got out */
 		goto err_out_exit;
-
+#endif
 	err = eblob_write_prepare(b, key, &wc);
 	if (err)
 		goto err_out_exit;

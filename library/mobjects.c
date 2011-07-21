@@ -55,7 +55,7 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl)
 		goto err_out_exit;
 	}
 
-	if (st.st_size && (st.st_size != ctl->data_size)) {
+	if (st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) {
 		if (ctl->data_size && ctl->data)
 			munmap(ctl->data, ctl->data_size);
 
@@ -88,7 +88,7 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_base, const char *name, int name_len)
 {
 	int err, full_len;
-	char *full, *index_file = NULL;
+	char *full;
 
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
@@ -97,53 +97,37 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 		goto err_out_exit;
 	}
 
-	index_file = malloc(full_len);
-	if (!index_file) {
-		err = -ENOMEM;
-		goto err_out_free;
-	}
-
 	sprintf(full, "%s/%s.index.sorted", dir_base, name);
-	sprintf(index_file, "%s/%s.index", dir_base, name);
-	err = rename(full, index_file);
-	if (err)
-		goto err_out_free_index;
 
-	bctl->sort.fd = open(index_file, O_RDWR);
+	bctl->sort.fd = open(full, O_RDWR);
 	if (bctl->sort.fd >= 0) {
 		struct stat st;
 
 		err = fstat(bctl->sort.fd, &st);
 		if (err) {
 			err = -errno;
-			goto err_out_free_index;
+			goto err_out_free;
 		}
 
 		bctl->sort.size = st.st_size;
 		err = eblob_data_map(&bctl->sort);
 		if (err)
-			goto err_out_free_index;
+			goto err_out_free;
 	} else {
 		err = -errno;
 	}
 
-err_out_free_index:
-	free(index_file);
 err_out_free:
 	free(full);
 err_out_exit:
 	return err;
 }
 
-int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len)
+static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *ctl,
+		const char *dir_base, const char *name, int name_len)
 {
 	int err, full_len;
 	char *full;
-
-	ctl->sort.fd = -1;
-
-	memcpy(ctl->name, name, name_len);
-	ctl->name[name_len] = '\0';
 
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
@@ -170,28 +154,59 @@ int eblob_base_ctl_open(struct eblob_base_ctl *ctl, const char *dir_base, const 
 		goto err_out_close_data;
 
 	err = eblob_base_open_sorted(ctl, dir_base, name, name_len);
+
+	sprintf(full, "%s/%s.index", dir_base, name);
+
 	if (err) {
-		sprintf(full, "%s/%s.index", dir_base, name);
+		struct stat st;
+
 		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
 		if (ctl->index_fd < 0) {
 			err = -errno;
 			goto err_out_unmap;
 		}
+
+		err = fstat(ctl->index_fd, &st);
+		if (err) {
+			err = -errno;
+			goto err_out_close_index;
+		}
+
+		if (ctl->data_size >= b->cfg.blob_size) {
+			ctl->index_offset = st.st_size;
+
+			err = eblob_generate_sorted_index(b, ctl);
+			if (err)
+				goto err_out_close_index;
+		} else {
+			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using unsorted index: size: %llu, num: %llu, "
+					"data: size: %llu, max size: %llu\n",
+					ctl->index, ctl->type, (unsigned long long)st.st_size,
+					(unsigned long long)st.st_size / sizeof(struct eblob_disk_control),
+					ctl->data_size, (unsigned long long)b->cfg.blob_size);
+		}
 	} else {
+		unlink(full);
+
 		ctl->index_fd = dup(ctl->sort.fd);
 		if (err) {
 			err = -errno;
 			goto err_out_unmap;
 		}
+
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using existing sorted index: size: %llu, num: %llu: "
+				"old index has been removed\n",
+				ctl->index, ctl->type, (unsigned long long)ctl->sort.size,
+				(unsigned long long)ctl->sort.size / sizeof(struct eblob_disk_control));
+
 	}
 
-	ctl->data_offset = 0;
-	ctl->index_offset = 0;
-
-	posix_fadvise(ctl->index_fd, 0, 0, POSIX_FADV_SEQUENTIAL | POSIX_FADV_WILLNEED);
+	posix_fadvise(ctl->sort.fd, 0, 0, POSIX_FADV_WILLNEED);
 
 	return 0;
 
+err_out_close_index:
+	close(ctl->index_fd);
 err_out_unmap:
 	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
@@ -204,7 +219,8 @@ err_out_exit:
 	return err;
 }
 
-static struct eblob_base_ctl *eblob_get_base_ctl(const char *dir_base, const char *base, const char *name, int name_len)
+static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
+		const char *dir_base, const char *base, const char *name, int name_len)
 {
 	struct eblob_base_ctl *ctl = NULL;
 	char *format, *p;
@@ -258,12 +274,20 @@ found:
 
 	atomic_set(&ctl->refcnt, 1);
 
-	err = eblob_base_ctl_open(ctl, dir_base, name, name_len);
-	if (err)
-		goto err_out_free_ctl;
-
 	ctl->type = type;
 	ctl->index = index;
+
+	ctl->sort.fd = -1;
+
+	ctl->data_offset = 0;
+	ctl->index_offset = 0;
+
+	memcpy(ctl->name, name, name_len);
+	ctl->name[name_len] = '\0';
+
+	err = eblob_base_ctl_open(b, ctl, dir_base, name, name_len);
+	if (err)
+		goto err_out_free_ctl;
 
 	free(format);
 
@@ -362,8 +386,7 @@ static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_
 		t->index = ctl->index;
 }
 
-static int eblob_scan_base(const char *blob_base, const char *mmap_base,
-		struct eblob_base_type **typesp, int *max_typep)
+static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typesp, int *max_typep)
 {
 	int base_len, mmap_len, fd, err;
 	struct eblob_base_type *types;
@@ -373,13 +396,13 @@ static int eblob_scan_base(const char *blob_base, const char *mmap_base,
 	char *dir_base, *tmp;
 	int d_len, max_type;
 
-	base = eblob_get_base(blob_base);
+	base = eblob_get_base(b->cfg.file);
 	base_len = strlen(base);
 
-	mmap = eblob_get_base(mmap_base);
+	mmap = eblob_get_base(b->cfg.mmap_file);
 	mmap_len = strlen(mmap);
 
-	dir_base = strdup(blob_base);
+	dir_base = strdup(b->cfg.file);
 	if (!dir_base) {
 		err = -ENOMEM;
 		goto err_out_exit;
@@ -424,7 +447,7 @@ static int eblob_scan_base(const char *blob_base, const char *mmap_base,
 		if (!strncmp(d->d_name, base, base_len)) {
 			struct eblob_base_ctl *ctl;
 
-			ctl = eblob_get_base_ctl(dir_base, base, d->d_name, d_len);
+			ctl = eblob_get_base_ctl(b, dir_base, base, d->d_name, d_len);
 			if (!ctl)
 				continue;
 
@@ -547,9 +570,28 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struct eblob_ram_control *dst)
+{
+	int i, num, err = 0;
+
+	num = size / sizeof(struct eblob_ram_control);
+	for (i = 0; i < num; ++i) {
+		if (rc[i].type == dst->type) {
+			memcpy(dst, &rc[i], sizeof(struct eblob_ram_control));
+			break;
+		}
+	}
+
+	if (i == num) {
+		err = -ENOENT;
+	}
+
+	return err;
+}
+
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res)
 {
-	int err, size, num, i;
+	int err, size, disk = 0;
 	struct eblob_ram_control *rc;
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
@@ -557,19 +599,25 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		err = eblob_disk_index_lookup(b, key, res->type, &rc, &size);
 		if (err)
 			goto err_out_exit;
+
+		disk = 1;
 	}
 
-	num = size / sizeof(struct eblob_ram_control);
-	for (i = 0; i < num; ++i) {
-		if (rc[i].type == res->type) {
-			memcpy(res, &rc[i], sizeof(struct eblob_ram_control));
-			break;
+	err = eblob_lookup_exact_type(rc, size, res);
+	if (err) {
+		free(rc);
+
+		if (!disk) {
+			err = eblob_disk_index_lookup(b, key, res->type, &rc, &size);
+			if (err)
+				goto err_out_exit;
+
+			err = eblob_lookup_exact_type(rc, size, res);
+			if (err)
+				goto err_out_free;
+		} else {
+			goto err_out_exit;
 		}
-	}
-
-	if (i == num) {
-		err = -ENOENT;
-		goto err_out_free;
 	}
 
 err_out_free:
@@ -608,7 +656,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	if (ctl->iterator_cb.thread_num)
 		ctl->thread_num = ctl->iterator_cb.thread_num;
 
-	err = eblob_scan_base(b->cfg.file, b->cfg.mmap_file, &types, &max_type);
+	err = eblob_scan_base(b, &types, &max_type);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_iterate_existing: eblob_scan_base: '%s': %s %d\n",
 				b->cfg.file, strerror(-err), err);
@@ -630,9 +678,9 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			if (bctl->sort.fd < 0)
 				err = eblob_blob_iterate(ctl);
 
-			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: i: %d, type: %d, index: %d, data_fd: %d, index_fd: %d, "
+			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "
 					"data_size: %llu, data_offset: %llu, valid: %lld, removed: %lld, have_sort: %d, err: %d\n",
-					i, bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
+					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
 					bctl->data_size, (unsigned long long)bctl->data_offset, bctl->num, bctl->removed,
 					bctl->sort.fd >= 0, err);
 			if (err)
@@ -727,7 +775,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	else
 		snprintf(name, sizeof(name), "%s.%d", base, t->index);
 
-	ctl = eblob_get_base_ctl(dir_base, base, name, strlen(name));
+	ctl = eblob_get_base_ctl(b, dir_base, base, name, strlen(name));
 	if (!ctl) {
 		err = -ENOMEM;
 		goto err_out_free;
