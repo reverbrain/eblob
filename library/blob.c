@@ -1069,7 +1069,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->hash = eblob_hash_init(c->hash_size, c->hash_flags, c->mmap_file, &err);
 	if (!b->hash) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %d.\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
 		goto err_out_lock_destroy;
 	}
 
