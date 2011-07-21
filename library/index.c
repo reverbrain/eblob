@@ -206,7 +206,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	*dst = NULL;
 	*dsize = 0;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: type: %d, max_type: %d\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: type: %d, max_type: %d\n",
 			eblob_dump_id(key->id),	type, b->max_type);
 
 	if (type >= 0) {
@@ -231,7 +231,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			dc = bsearch(key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
 					sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 			if (!dc) {
-				eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
+				eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
 				continue;
 			}
