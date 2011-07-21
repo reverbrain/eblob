@@ -687,12 +687,12 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.size = size;
 	wc.flags = flags;
 	wc.type = type;
-#if 0
+
 	err = eblob_try_overwrite(b, key, &wc, data);
 	if (!err)
 		/* ok, we have overwritten old data, got out */
 		goto err_out_exit;
-#endif
+
 	err = eblob_write_prepare(b, key, &wc);
 	if (err)
 		goto err_out_exit;
