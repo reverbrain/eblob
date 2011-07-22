@@ -142,6 +142,17 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 		goto err_out_free;
 	}
 
+	err = access(full, R_OK | W_OK);
+	if (!err || (errno != ENOENT)) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: WARNING: eblob_base_ctl_open() should create new base,"
+				" but tried to open existing. FORBIDDEN to open %s: %s %d\n",
+				ctl->index, ctl->type, full, strerror(-err), err);
+		if (!err)
+			err = -ENOENT;
+		goto err_out_destroy_lock;
+	}
+
 	sprintf(full, "%s/%s", dir_base, name);
 	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0600);
 	if (ctl->data_fd < 0) {
@@ -220,7 +231,7 @@ err_out_exit:
 }
 
 static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
-		const char *dir_base, const char *base, const char *name, int name_len)
+		const char *dir_base, const char *base, const char *name, int name_len, int *errp)
 {
 	struct eblob_base_ctl *ctl = NULL;
 	char *format, *p;
@@ -291,6 +302,7 @@ found:
 
 	free(format);
 
+	*errp = 0;
 	return ctl;
 
 err_out_free_ctl:
@@ -298,6 +310,7 @@ err_out_free_ctl:
 err_out_free_format:
 	free(format);
 err_out_exit:
+	*errp = err;
 	return ctl;
 }
 
@@ -447,7 +460,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		if (!strncmp(d->d_name, base, base_len)) {
 			struct eblob_base_ctl *ctl;
 
-			ctl = eblob_get_base_ctl(b, dir_base, base, d->d_name, d_len);
+			ctl = eblob_get_base_ctl(b, dir_base, base, d->d_name, d_len, &err);
 			if (!ctl)
 				continue;
 
@@ -769,15 +782,23 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	if (tmp)
 		*tmp = '\0';
 
+try_again:
 	t->index++;
 	if (type != EBLOB_TYPE_DATA)
 		snprintf(name, sizeof(name), "%s-%d.%d", base, type, t->index);
 	else
 		snprintf(name, sizeof(name), "%s.%d", base, t->index);
 
-	ctl = eblob_get_base_ctl(b, dir_base, base, name, strlen(name));
+	ctl = eblob_get_base_ctl(b, dir_base, base, name, strlen(name), &err);
 	if (!ctl) {
-		err = -ENOMEM;
+		if (err == -ENOENT) {
+			/*
+			 * trying again to open next file,
+			 * this one is already used
+			 */
+			goto try_again;
+		}
+
 		goto err_out_free;
 	}
 
