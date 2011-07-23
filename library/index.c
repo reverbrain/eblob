@@ -39,6 +39,47 @@ static int eblob_disk_control_sort(const void *d1, const void *d2)
 	return eblob_id_cmp(dc1->key.id, dc2->key.id);
 }
 
+static struct eblob_disk_control *eblob_find_exact_index_on_disk(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc)
+{
+	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
+
+	end = bctl->sort.data + bctl->sort.size;
+	start = bctl->sort.data;
+
+	sorted_orig = bsearch(dc, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
+			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
+
+	sorted = sorted_orig;
+	while (sorted < end) {
+		if (sorted->position == dc->position) {
+			found = sorted;
+			break;
+		}
+
+		sorted++;
+		if ((sorted >= end) || eblob_disk_control_sort(sorted, dc))
+			break;
+	}
+
+	if (found)
+		goto out;
+
+	sorted = sorted_orig;
+	while (sorted > start) {
+		if (sorted->position == dc->position) {
+			found = sorted;
+			break;
+		}
+
+		sorted--;
+		if ((sorted < start) || eblob_disk_control_sort(sorted, dc))
+			break;
+	}
+
+out:
+	return found;
+}
+
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	struct eblob_map_fd src;
@@ -115,11 +156,12 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 
 	{
 		unsigned long i;
-		char id_str[EBLOB_ID_SIZE * 2 + 1];
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
+		struct eblob_disk_control *found, *dc;
+		char id_str[EBLOB_ID_SIZE * 2 + 1];
 
 		for (i = 0; i < bctl->index_offset / sizeof(struct eblob_disk_control); ++i) {
-			struct eblob_disk_control *dc = src.data + i * sizeof(struct eblob_disk_control);
+			dc = src.data + i * sizeof(struct eblob_disk_control);
 
 			/*
 			 * FIXME
@@ -142,58 +184,22 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 */
 
 			if (dc->flags & rem) {
-				struct eblob_disk_control *sorted, *end, *sorted_orig, *start;
-				int found = 0;
-
-				end = bctl->sort.data + bctl->sort.size;
-				start = bctl->sort.data;
-
-				sorted_orig = bsearch(&dc->key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
-						sizeof(struct eblob_disk_control), eblob_disk_control_sort);
-
-				sorted = sorted_orig;
-				while (sorted < end) {
-					if (sorted->position == dc->position) {
-						sorted->flags |= rem;
-						found = 1;
-						break;
-					}
-
-					sorted++;
-					if ((sorted >= end) || eblob_disk_control_sort(sorted, dc))
-						break;
+				found = eblob_find_exact_index_on_disk(bctl, dc);
+				if (found) {
+					found->flags |= rem;
+					eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: "
+							"flags: %llx, pos: %llu: %s\n",
+							bctl->index, bctl->type, (unsigned long long)eblob_bswap64(found->flags),
+							(unsigned long long)found->position,
+							eblob_dump_id_len_raw(found->key.id, EBLOB_ID_SIZE, id_str));
+				} else {
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d, "
+							"flags: %llx, pos: %llu: %s\n",
+							bctl->index, bctl->type, (unsigned long long)eblob_bswap64(dc->flags),
+							(unsigned long long)eblob_bswap64(dc->position),
+							eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
 				}
-
-				if (found)
-					continue;
-
-				sorted = sorted_orig;
-				while (sorted > start) {
-					if (sorted->position == dc->position) {
-						sorted->flags |= rem;
-						found = 1;
-						break;
-					}
-
-					sorted--;
-					if ((sorted < start) || eblob_disk_control_sort(sorted, dc)) {
-
-						break;
-					}
-				}
-
-				if (found)
-					continue;
-
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d, pos: %llu: %s\n",
-						bctl->index, bctl->type, (unsigned long long)eblob_bswap64(sorted_orig->position),
-						eblob_dump_id_len_raw(sorted_orig->key.id, EBLOB_ID_SIZE, id_str));
 			}
-
-			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: flags: %llx, %s\n",
-					bctl->index, bctl->type, (unsigned long long)eblob_bswap64(dc->flags),
-					eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
-
 		}
 	}
 
