@@ -142,28 +142,52 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 */
 
 			if (dc->flags & rem) {
-				struct eblob_disk_control *sorted, *end;
+				struct eblob_disk_control *sorted, *end, *sorted_orig, *start;
+				int found = 0;
 
 				end = bctl->sort.data + bctl->sort.size;
+				start = bctl->sort.data;
 
-				sorted = bsearch(&dc->key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
+				sorted_orig = bsearch(&dc->key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
 						sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
+				sorted = sorted_orig;
 				while (sorted < end) {
 					if (sorted->position == dc->position) {
 						sorted->flags |= rem;
+						found = 1;
 						break;
 					}
 
 					sorted++;
-					if ((sorted >= end) || eblob_disk_control_sort(sorted, dc)) {
-						eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d: %s\n",
-								bctl->index, bctl->type, eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
+					if ((sorted >= end) || eblob_disk_control_sort(sorted, dc))
+						break;
+				}
+
+				if (found)
+					continue;
+
+				sorted = sorted_orig;
+				while (sorted > start) {
+					if (sorted->position == dc->position) {
+						sorted->flags |= rem;
+						found = 1;
+						break;
+					}
+
+					sorted--;
+					if ((sorted < start) || eblob_disk_control_sort(sorted, dc)) {
+
 						break;
 					}
 				}
 
-				continue;
+				if (found)
+					continue;
+
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d, pos: %llu: %s\n",
+						bctl->index, bctl->type, (unsigned long long)eblob_bswap64(sorted_orig->position),
+						eblob_dump_id_len_raw(sorted_orig->key.id, EBLOB_ID_SIZE, id_str));
 			}
 
 			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: flags: %llx, %s\n",
