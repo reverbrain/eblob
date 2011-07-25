@@ -197,8 +197,9 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 					ctl->data_size, (unsigned long long)b->cfg.blob_size);
 		}
 	} else {
+#if 0
 		unlink(full);
-
+#endif
 		ctl->index_fd = dup(ctl->sort.fd);
 		if (err) {
 			err = -errno;
