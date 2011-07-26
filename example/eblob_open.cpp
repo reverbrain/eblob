@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 		uint64_t offset = data.size();
 		data = "this is a plain uncompressed data2";
 		eblob.write(ekey, data, offset, 0);
-		std::cout << "read2: " << eblob.read(ekey, 0, 0) << std::endl;
+		std::cout << "read2: " << eblob.read(ekey, 5, 0) << std::endl;
 
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;
