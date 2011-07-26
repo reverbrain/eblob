@@ -79,9 +79,12 @@ class eblob {
 		eblob(struct eblob_config *cfg);
 		virtual ~eblob();
 
-		void write(const struct eblob_key &key, const void *data, const uint64_t dsize, uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
-		void write(const struct eblob_key &key, const std::string &data, uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
-		void write_hashed(const std::string &key, const std::string &data, uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
+		void write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize,
+				uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
+		void write(const struct eblob_key &key, const std::string &data, const uint64_t offset = 0,
+				uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
+		void write_hashed(const std::string &key, const std::string &data, const uint64_t offset,
+				uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
 
 		std::string read(const struct eblob_key &key, const uint64_t offset, const uint64_t size, int type = EBLOB_TYPE_DATA);
 

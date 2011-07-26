@@ -304,14 +304,15 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
  * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t size, uint64_t flags, int type);
+		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type);
 
 /*
  * The same as above, but these functions take key/ksize pair to hash using sha512 to
  * generate key ID.
  */
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		const void *data, const uint64_t dsize, const uint64_t flags, int type);
+		const void *data, const uint64_t offset, const uint64_t dsize,
+		const uint64_t flags, int type);
 int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
 
@@ -337,6 +338,7 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
  */
 struct eblob_write_control {
 	uint64_t			size;
+	uint64_t			offset;
 	uint64_t			flags;
 	int				type;
 

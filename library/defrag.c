@@ -37,7 +37,7 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 	struct eblob_backend *b = priv;
 	int err;
 
-	err = eblob_write(b, &dc->key, data, dc->data_size, dc->flags, ctl->type);
+	err = eblob_write(b, &dc->key, data, 0, dc->data_size, dc->flags, ctl->type);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: %s: size: %llu: position: %llu, flags: %llx, type: %d, err: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,

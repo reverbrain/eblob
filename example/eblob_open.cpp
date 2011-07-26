@@ -43,22 +43,27 @@ int main(int argc, char *argv[])
 		snprintf((char *)ekey.id, sizeof(ekey.id), "test_key");
 
 		std::string data = "this is supposed to be compressed data";
-		eblob.write(ekey, data, BLOB_DISK_CTL_COMPRESS);
+		eblob.write(ekey, data, 0, BLOB_DISK_CTL_COMPRESS);
 
 		std::cout << "read: " << eblob.read(ekey, 0, 0) << std::endl;
 
 		std::string key = "to-be-hashed-test-key";
 
-		eblob.write_hashed(key, data, BLOB_DISK_CTL_COMPRESS);
+		data = "this is supposed to be compressed data";
+		eblob.write_hashed(key, data, 0, BLOB_DISK_CTL_COMPRESS);
 		std::cout << "read hashed: " << eblob.read_hashed(key, 0, 0) << std::endl;
 
 		memset(&ekey, 0, sizeof(ekey));
 		snprintf((char *)ekey.id, sizeof(ekey.id), "test_key1");
 
-		data = "this is a plain uncompressed data";
-		eblob.write(ekey, data, 0);
+		data = "this is a plain uncompressed data1 ";
+		eblob.write(ekey, data, 0, 0);
+		std::cout << "read1: " << eblob.read(ekey, 0, 0) << std::endl;
 
-		std::cout << "read: " << eblob.read(ekey, 0, 0) << std::endl;
+		uint64_t offset = data.size();
+		data = "this is a plain uncompressed data2";
+		eblob.write(ekey, data, offset, 0);
+		std::cout << "read2: " << eblob.read(ekey, 0, 0) << std::endl;
 
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;

@@ -308,9 +308,9 @@ err_out_exit:
 	return err;
 }
 
-static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t size)
+static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t offset, uint64_t size)
 {
-	uint64_t total_size = size + sizeof(struct eblob_disk_control) + sizeof(struct eblob_disk_footer);
+	uint64_t total_size = size + offset + sizeof(struct eblob_disk_control) + sizeof(struct eblob_disk_footer);
 
 	if (b->cfg.bsize)
 		total_size = ALIGN(total_size, b->cfg.bsize);
@@ -406,8 +406,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	wc->ctl_index_offset = ctl->index_offset;
 	wc->ctl_data_offset = ctl->data_offset;
 
-	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-	wc->total_size = eblob_calculate_size(b, wc->size);
+	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
+	wc->total_size = eblob_calculate_size(b, wc->offset, wc->size);
 
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
@@ -453,7 +453,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	long page_size = sysconf(_SC_PAGE_SIZE);
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	off_t offset = off & ~(page_size - 1);
-	size_t mapped_size = wc->size + off - offset;
+	size_t mapped_size = wc->offset + wc->size + off - offset;
 	void *data, *ptr;
 	int err;
 	
@@ -469,7 +469,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	}
 	ptr = data + off - offset;
 
-	eblob_hash(b, dst, dsize, ptr, wc->size);
+	eblob_hash(b, dst, dsize, ptr, wc->size + wc->offset);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_csum: index: %d, type: %d, "
 			"size: %zu, offset: %llu, aligned: %llu: csum: %s\n",
@@ -539,7 +539,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	ctl.data_fd = wc->data_fd;
 	ctl.index_fd = wc->index_fd;
-	ctl.size = wc->size;
+	ctl.size = wc->size + wc->offset;
 	ctl.data_offset = wc->ctl_data_offset;
 	ctl.index_offset = wc->ctl_index_offset;
 	ctl.type = wc->type;
@@ -613,7 +613,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 
 	eblob_convert_disk_control(&dc);
 
-	if (dc.disk_size < eblob_calculate_size(b, wc->size)) {
+	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
 		err = -E2BIG;
 		goto err_out_exit;
 	}
@@ -626,7 +626,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	wc->ctl_index_offset = ctl.index_offset;
 	wc->ctl_data_offset = ctl.data_offset;
 
-	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
 
 	/* use old disk_size so that iteration would not fail */
 	wc->total_size = dc.disk_size;
@@ -665,7 +665,7 @@ err_out_exit:
 }
 
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t size, uint64_t flags, int type)
+		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
 {
 	struct eblob_write_control wc;
 	int compress_err = -1;
@@ -675,6 +675,13 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 	wc.size = size;
 	if (flags & BLOB_DISK_CTL_COMPRESS) {
+		if (offset) {
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: offset is not supported in compressed writes\n",
+					eblob_dump_id(key->id));
+			err = -ENOTSUP;
+			goto err_out_exit;
+		}
+
 		compress_err = eblob_compress(data, size, (char **)&data, &size);
 		if (compress_err)
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
@@ -684,6 +691,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 				(unsigned long long)wc.size, (unsigned long long)size, compress_err);
 	}
 
+	wc.offset = offset;
 	wc.size = size;
 	wc.flags = flags;
 	wc.type = type;
@@ -697,6 +705,30 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
+	if (offset) {
+		char *tmp;
+		uint64_t tsize = wc.offset;
+
+		err = eblob_read_data(b, key, 0, &tmp, &tsize, wc.type);
+		if (!err) {
+			err = pwrite(wc.data_fd, tmp, offset, wc.data_offset - wc.offset);
+			free(tmp);
+
+			if (err != (ssize_t)offset) {
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write: pwrite-offset: "
+						"offset: %llu, size: %llu, fd: %d: %s %zd\n",
+						eblob_dump_id(key->id),	(unsigned long long)(wc.data_offset - wc.offset),
+						(unsigned long long)offset, wc.data_fd, strerror(-err), err);
+				goto err_out_exit;
+			}
+
+			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_write: pwrite-offset: "
+					"offset: %llu, size: %llu, fd: %d: Ok\n",
+					eblob_dump_id(key->id),	(unsigned long long)(wc.data_offset - wc.offset),
+					(unsigned long long)offset, wc.data_fd);
+		}
+	}
+
 	err = pwrite(wc.data_fd, data, size, wc.data_offset);
 	if (err != (ssize_t)size) {
 		err = -errno;
@@ -709,6 +741,11 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_write_commit(b, key, NULL, 0, &wc);
 	if (err)
 		goto err_out_exit;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_write: pwrite: "
+			"offset: %llu, size: %llu, fd: %d: Ok\n",
+			eblob_dump_id(key->id),	(unsigned long long)wc.data_offset,
+			(unsigned long long)size, wc.data_fd);
 
 err_out_exit:
 	if (!compress_err)
@@ -870,11 +907,17 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 		goto err_out_exit;
 
 	if (compress) {
+		m.size -= sizeof(struct eblob_disk_control);
+		m.data += sizeof(struct eblob_disk_control);
+
 		err = eblob_decompress(m.data, m.size, dst, size);
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: read compress: %llu -> %llu: %d\n",
 				eblob_dump_id(key->id),
 				(unsigned long long)m.size, (unsigned long long)*size, err);
+
+		m.size += sizeof(struct eblob_disk_control);
+		m.data -= sizeof(struct eblob_disk_control);
 
 		/*
 		 * If data was not compressed, but compression flag was set, clear it and
@@ -891,6 +934,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 			memcpy(m.data, &dc, sizeof(struct eblob_disk_control));
 			compress = 0;
+			err = 0;
 			goto have_uncompressed_data;
 		}
 
@@ -902,14 +946,17 @@ have_uncompressed_data:
 	if (!compress) {
 		void *data;
 
+		m.size -= sizeof(struct eblob_disk_control);
+
 		data = malloc(m.size);
 		if (!data) {
 			err = -ENOMEM;
 			goto err_out_unmap;
 		}
 
-		memcpy(data, m.data + sizeof(struct eblob_disk_control), m.size - sizeof(struct eblob_disk_control));
+		memcpy(data, m.data + sizeof(struct eblob_disk_control), m.size);
 
+		*size = m.size;
 		*dst = data;
 	}
 
@@ -1137,13 +1184,14 @@ unsigned long long eblob_total_elements(struct eblob_backend *b)
 }
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		const void *data, const uint64_t dsize, const uint64_t flags, int type)
+		const void *data, const uint64_t offset, const uint64_t dsize,
+		const uint64_t flags, int type)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
 
-	return eblob_write(b, &ekey, (void *)data, dsize, flags, type);
+	return eblob_write(b, &ekey, (void *)data, offset, dsize, flags, type);
 }
 
 int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
