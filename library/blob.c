@@ -248,16 +248,17 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 
 	memcpy(&dc.key, key, sizeof(struct eblob_key));
 	dc.flags = 0;
-	dc.data_size = wc->size;
+	dc.data_size = wc->offset + wc->size;
 	dc.disk_size = wc->total_size;
 	dc.position = wc->ctl_data_offset;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: blob_update_index: index position %llu (0x%llx), "
-			"data position: %llu (0x%llx), data size: %llu.\n",
+			"data position: %llu (0x%llx), data size: %llu, record offset: %llu, size: %llu.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_index_offset, (unsigned long long)wc->ctl_index_offset,
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->ctl_data_offset,
-			(unsigned long long)wc->size);
+			(unsigned long long)dc.data_size,
+			(unsigned long long)wc->offset, (unsigned long long)wc->size);
 
 	eblob_convert_disk_control(&dc);
 
