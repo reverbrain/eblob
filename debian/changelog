@@ -1,3 +1,15 @@
+eblob (0.9.0) unstable; urgency=low
+
+  * Export convenient prepare/commit helpers
+  * Added write offsets
+  * Do not remove old index
+  * Search in both directions frm bsearch()-found entry when looking up key in
+    on-disk sorted index
+  * Refactor sorted generation code
+  * Added paranoidal check about opening existing blobs for writing
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 27 Jul 2011 20:52:22 +0400
+
 eblob (0.8.7) unstable; urgency=low
 
   * Create sorted indexes on startup. Use them instead of plain indexes.
