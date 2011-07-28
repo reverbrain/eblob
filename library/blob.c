@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "blob.h"
+#include "crypto/sha512.h"
 
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
@@ -471,22 +472,9 @@ err_out_exit:
 	return err;
 }
 
-int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size)
+int eblob_hash(struct eblob_backend *b __eblob_unused, void *dst, unsigned int dsize __eblob_unused, const void *src, uint64_t size)
 {
-	unsigned char md_value[EVP_MAX_MD_SIZE];
-	unsigned int hsize = sizeof(md_value);
-
-	eblob_lock_lock(&b->csum_lock);
-	EVP_DigestInit_ex(&b->mdctx, b->evp_md, NULL);
-	EVP_DigestUpdate(&b->mdctx, src, size);
-	EVP_DigestFinal_ex(&b->mdctx, md_value, &hsize);
-	eblob_lock_unlock(&b->csum_lock);
-
-	if (hsize > dsize)
-		hsize = dsize;
-
-	memcpy(dst, md_value, hsize);
-
+	sha512_buffer(src, size, dst);
 	return 0;
 }
 
