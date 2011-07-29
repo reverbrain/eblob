@@ -315,6 +315,27 @@ err_out_exit:
 	return ctl;
 }
 
+static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_ctl *ctl)
+{
+	struct eblob_base_ctl *tmp;
+	int added = 0;
+
+	list_for_each_entry(tmp, &t->bases, base_entry) {
+		if (ctl->index < tmp->index) {
+			list_add_tail(&ctl->base_entry, &tmp->base_entry);
+			added = 1;
+			break;
+		}
+	}
+
+	if (!added) {
+		list_add_tail(&ctl->base_entry, &t->bases);
+	}
+
+	if (ctl->index > t->index)
+		t->index = ctl->index;
+}
+
 /*
  * we will create new types starting from @start_type
  * [0, @start_type - 1] will be copied
@@ -337,7 +358,8 @@ static struct eblob_base_type *eblob_realloc_base_type(struct eblob_base_type *t
 		t->index = types[i].index;
 
 		list_for_each_entry_safe(ctl, tmp, &types[i].bases, base_entry) {
-			list_move(&ctl->base_entry, &t->bases);
+			list_del(&ctl->base_entry);
+			eblob_add_new_base_ctl(t, ctl);
 		}
 	}
 
@@ -377,27 +399,6 @@ static void eblob_base_types_free(struct eblob_base_type *types, int max_type)
 void eblob_base_types_cleanup(struct eblob_backend *b)
 {
 	eblob_base_types_free(b->types, b->max_type);
-}
-
-static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_ctl *ctl)
-{
-	struct eblob_base_ctl *tmp;
-	int added = 0;
-
-	list_for_each_entry(tmp, &t->bases, base_entry) {
-		if (ctl->index < tmp->index) {
-			list_add_tail(&ctl->base_entry, &tmp->base_entry);
-			added = 1;
-			break;
-		}
-	}
-
-	if (!added) {
-		list_add_tail(&ctl->base_entry, &t->bases);
-	}
-
-	if (ctl->index > t->index)
-		t->index = ctl->index;
 }
 
 static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typesp, int *max_typep)
