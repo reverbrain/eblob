@@ -16,9 +16,6 @@
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
 
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-
 #include "eblob/blob.h"
 #include "hash.h"
 #include "lock.h"
@@ -100,8 +97,6 @@ struct eblob_backend {
 	struct eblob_config	cfg;
 
 	struct eblob_lock	csum_lock;
-	EVP_MD_CTX 		mdctx;
-	const EVP_MD		*evp_md;
 
 	pthread_mutex_t		lock;
 

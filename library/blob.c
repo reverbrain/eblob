@@ -1091,7 +1091,6 @@ void eblob_cleanup(struct eblob_backend *b)
 
 	eblob_hash_exit(b->hash);
 	pthread_mutex_destroy(&b->lock);
-	EVP_MD_CTX_cleanup(&b->mdctx);
 
 	unlink(b->cfg.mmap_file);
 
@@ -1134,24 +1133,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->max_type = -1;
 
- 	OpenSSL_add_all_digests();
-
-	b->evp_md = EVP_get_digestbyname("sha512");
-	if (!b->evp_md) {
-		err = -errno;
-		if (!err)
-			err = -ENOENT;
-
-		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to initialize sha512 "
-				"checksum hash: %d.\n", err);
-		goto err_out_free;
-	}
-
-	EVP_MD_CTX_init(&b->mdctx);
-
 	err = eblob_lock_init(&b->csum_lock);
 	if (err)
-		goto err_out_crypto_cleanup;
+		goto err_out_free;
 
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
@@ -1254,8 +1238,6 @@ err_out_free_file:
 	free(b->cfg.file);
 err_out_csum_lock_destroy:
 	eblob_lock_destroy(&b->csum_lock);
-err_out_crypto_cleanup:
-	EVP_MD_CTX_cleanup(&b->mdctx);
 err_out_free:
 	free(b);
 err_out_exit:
