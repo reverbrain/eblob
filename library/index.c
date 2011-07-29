@@ -49,6 +49,9 @@ static struct eblob_disk_control *eblob_find_exact_index_on_disk(struct eblob_ba
 	sorted_orig = bsearch(dc, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
 			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
+	if (!sorted_orig)
+		goto out;
+
 	sorted = sorted_orig;
 	while (sorted < end) {
 		if (sorted->position == dc->position) {
@@ -233,6 +236,9 @@ static struct eblob_disk_control *eblob_disk_index_lookup_non_removed(struct ebl
 
 	sorted_orig = bsearch(key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
 			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
+
+	if (!sorted_orig)
+		goto out;
 
 	sorted = sorted_orig;
 	while (sorted < end) {
