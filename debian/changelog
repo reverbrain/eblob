@@ -1,3 +1,9 @@
+eblob (0.9.3) unstable; urgency=low
+
+  * We must check what bsearch() return and return error if needed.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 30 Jul 2011 01:20:56 +0400
+
 eblob (0.9.2) unstable; urgency=low
 
   * When adding new column and reallocating bases we should sort base_ctls
