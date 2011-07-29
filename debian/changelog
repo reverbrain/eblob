@@ -1,3 +1,10 @@
+eblob (0.9.2) unstable; urgency=low
+
+  * When adding new column and reallocating bases we should sort base_ctls
+  * Added local checksum calculation conde isntead of locked openssl
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 29 Jul 2011 23:56:49 +0400
+
 eblob (0.9.1) unstable; urgency=low
 
   * configure.in udpate
