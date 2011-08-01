@@ -241,8 +241,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 	}
 }
 
-static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
-		struct eblob_ram_control *old)
+static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	struct eblob_disk_control dc;
 	int err;
@@ -278,9 +277,6 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 		eblob_dump_id(key->id), (unsigned long long)wc->ctl_index_offset, wc->index_fd);
 
 	err = 0;
-	if (old) {
-		eblob_mark_entry_removed(b, key, old);
-	}
 
 err_out_exit:
 	return err;
@@ -410,6 +406,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
+	struct eblob_ram_control old;
 
 	pthread_mutex_lock(&b->lock);
 	if (wc->type > b->max_type) {
@@ -458,9 +455,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_commit_ram(b, key, wc, NULL);
-	if (err)
+	err = eblob_commit_ram(b, key, wc, &old);
+	if (err < 0)
 		goto err_out_exit;
+	if (err > 0) {
+		eblob_mark_entry_removed(b, key, &old);
+	}
 
 	return 0;
 
@@ -609,8 +609,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc)
 {
-	int err, have_old = 0;
-	struct eblob_ram_control old;
+	int err;
 
 	if (!wc->ctl_data_offset) {
 		err = eblob_fill_write_control_from_ram(b, key, wc);
@@ -628,15 +627,15 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	err = eblob_commit_ram(b, key, wc, &old);
+	err = eblob_commit_ram(b, key, wc, NULL);
 	if (err < 0)
 		goto err_out_exit;
-	if (err > 0)
-		have_old = 1;
+	err = 0;
 
-	err = blob_update_index(b, key, wc, have_old ? &old : NULL);
+	err = blob_update_index(b, key, wc);
 	if (err)
 		goto err_out_exit;
+
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit: written: position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d, index: %d.\n",
