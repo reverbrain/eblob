@@ -312,7 +312,7 @@ err_out_free_format:
 	free(format);
 err_out_exit:
 	*errp = err;
-	return ctl;
+	return NULL;
 }
 
 static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_ctl *ctl)
