@@ -1,3 +1,10 @@
+eblob (0.9.4) unstable; urgency=low
+
+  * Fixed range requests (it does not iterate over on-disk index yet)
+  * Mark existing index entry as removed in prepare hook
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 01 Aug 2011 21:58:11 +0400
+
 eblob (0.9.3) unstable; urgency=low
 
   * We must check what bsearch() return and return error if needed.
