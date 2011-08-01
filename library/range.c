@@ -112,9 +112,7 @@ int eblob_read_range(struct eblob_range_request *req)
 		if (err)
 			break;
 
-		if (!e) {
-			idx++;
-		}
+		idx++;
 	}
 
 	return err;
