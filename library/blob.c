@@ -112,9 +112,13 @@ static void *eblob_blob_iterator(void *data)
 				ctl->priv, iter_priv->thread_priv);
 	}
 
-	bc->data_offset = bc->data_size;
-
 err_out_unlock:
+	bc->data_offset = bc->data_size;
+	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: iterated: data_fd: %d, index_fd: %d, "
+			"data_size: %llu, data_offset: %llu, index_offset: %llu\n",
+			bc->data_fd, bc->index_fd, bc->data_size,
+			(unsigned long long)bc->data_offset, (unsigned long long)bc->index_offset);
+
 	if (err && !ctl->err) {
 		struct eblob_disk_control data_dc;
 
