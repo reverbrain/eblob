@@ -11,7 +11,6 @@ EXTRA_DIST = autogen.sh AUTHORS .gitignore \
 	     config/acsetup.h \
 	     config/acx_pthread.m4 \
 	     config/ax_check_compiler_flags.m4 \
-	     config/ax_check_openssl.m4 \
 	     config/ax_create_stdint_h.m4 \
 	     config/ax_prefix_config_h.m4 \
 	     config/ac_set_releaseinfo_versioninfo.m4 \
