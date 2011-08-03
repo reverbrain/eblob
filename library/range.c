@@ -185,10 +185,12 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 			if (!eblob_disk_control_in_range(bctl, &dc, i, &start, &end))
 				break;
 
-			err = eblob_range_callback(req, &dc.key, bctl->data_fd,
-					dc.position + sizeof(struct eblob_disk_control), dc.data_size);
-			if (err)
-				goto err_out_exit;
+			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
+				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
+				if (err)
+					goto err_out_exit;
+			}
 			--i;
 		}
 
@@ -198,10 +200,12 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 			if (!eblob_disk_control_in_range(bctl, &dc, i, &start, &end))
 				break;
 
-			err = eblob_range_callback(req, &dc.key, bctl->data_fd,
-					dc.position + sizeof(struct eblob_disk_control), dc.data_size);
-			if (err)
-				goto err_out_exit;
+			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
+				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
+				if (err)
+					goto err_out_exit;
+			}
 			++i;
 		}
 	}
@@ -215,7 +219,8 @@ err_out_exit:
 
 int eblob_read_range(struct eblob_range_request *req)
 {
-	struct eblob_hash *h = req->back->hash;
+	struct eblob_backend *b = req->back;
+	struct eblob_hash *h = b->hash;
 	struct eblob_hash_entry *e;
 	unsigned int idx, last_idx;
 	int err = -ENOENT;
@@ -223,7 +228,7 @@ int eblob_read_range(struct eblob_range_request *req)
 	idx = eblob_hash_data(req->start, EBLOB_ID_SIZE, h->num);
 	last_idx = eblob_hash_data(req->end, EBLOB_ID_SIZE, h->num);
 
-	eblob_log(req->back->cfg.log, EBLOB_LOG_DSA, "blob: range: idx: %x, last: %x\n", idx, last_idx);
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: range: idx: %x, last: %x\n", idx, last_idx);
 
 	while (idx <= last_idx) {
 		struct eblob_ram_control *ctl = NULL;
@@ -232,7 +237,7 @@ int eblob_read_range(struct eblob_range_request *req)
 		err = 0;
 		eblob_lock_lock(&head->lock);
 		list_for_each_entry(e, &head->head, hash_entry) {
-			eblob_log(req->back->cfg.log, EBLOB_LOG_NOTICE, "blob: range: idx: %x, last: %x, "
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: range: idx: %x, last: %x, "
 					"key: %llx, in-range: %d, limit: %llu [%llu %llu]\n",
 					idx, last_idx, *(unsigned long long *)e->key.id, eblob_id_in_range(e->key.id, req->start, req->end),
 					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
@@ -245,7 +250,7 @@ int eblob_read_range(struct eblob_range_request *req)
 				for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
 					ctl = &((struct eblob_ram_control *)e->data)[i];
 
-					if (ctl->type == req->requested_type) {
+					if ((ctl->type == req->requested_type) && (ctl->index == b->types[ctl->type].index)) {
 						err = eblob_range_callback(req, &e->key, ctl->data_fd,
 								ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
 						if (err > 0) {
