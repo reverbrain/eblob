@@ -1,3 +1,10 @@
+eblob (0.9.6) unstable; urgency=low
+
+  * Do not send range replies for removed data and multiple times for objects,
+    which are present on disk and in RAM
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 03 Aug 2011 21:11:53 +0400
+
 eblob (0.9.5) unstable; urgency=low
 
   * Fixed old eblob iteration
