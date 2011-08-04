@@ -615,7 +615,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 {
 	int err;
 
-	if (!wc->ctl_data_offset) {
+	if (!wc->ctl_data_offset && (wc->data_fd == 0) && (wc->index_fd == 0)) {
 		err = eblob_fill_write_control_from_ram(b, key, wc);
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_fill_write_control_from_ram: %s %d\n",
@@ -782,6 +782,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.size = size;
 	wc.flags = flags;
 	wc.type = type;
+	wc.index = -1;
 
 	err = eblob_try_overwrite(b, key, &wc, data);
 	if (!err)
