@@ -1,3 +1,11 @@
+eblob (0.9.7) unstable; urgency=low
+
+  * Get eblob_write_control from RAM only when all its fields are zeroes, so
+    it is plain eblob_commit_write() call
+  * Debug cleanups
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 05 Aug 2011 01:47:55 +0400
+
 eblob (0.9.6) unstable; urgency=low
 
   * Do not send range replies for removed data and multiple times for objects,
