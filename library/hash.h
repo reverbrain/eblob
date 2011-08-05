@@ -68,7 +68,8 @@ static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsign
 	for (i=0; i<size; ++i)
 		h[size - i - 1] = ptr[i];
 
-	hash &= limit - 1;
+	/* 33 because ffs() returns bit number starting from 1 not 0 */
+	hash >>= 33 - ffs(limit);
 
 	return hash;
 }
