@@ -39,7 +39,19 @@ static int eblob_disk_control_sort(const void *d1, const void *d2)
 	return eblob_id_cmp(dc1->key.id, dc2->key.id);
 }
 
-static struct eblob_disk_control *eblob_find_exact_index_on_disk(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc)
+static int eblob_find_exact_callback(struct eblob_disk_control *sorted, struct eblob_disk_control *dc)
+{
+	return sorted->position == dc->position;
+}
+
+static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted, struct eblob_disk_control *dc __eblob_unused)
+{
+	uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
+	return !(sorted->flags & rem);
+}
+
+static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc))
 {
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
 
@@ -54,7 +66,7 @@ static struct eblob_disk_control *eblob_find_exact_index_on_disk(struct eblob_ba
 
 	sorted = sorted_orig;
 	while (sorted < end) {
-		if (sorted->position == dc->position) {
+		if (callback(sorted, dc)) {
 			found = sorted;
 			break;
 		}
@@ -67,9 +79,9 @@ static struct eblob_disk_control *eblob_find_exact_index_on_disk(struct eblob_ba
 	if (found)
 		goto out;
 
-	sorted = sorted_orig;
-	while (sorted > start) {
-		if (sorted->position == dc->position) {
+	sorted = sorted_orig - 1;
+	while (sorted >= start) {
+		if (callback(sorted, dc)) {
 			found = sorted;
 			break;
 		}
@@ -187,7 +199,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 */
 
 			if (dc->flags & rem) {
-				found = eblob_find_exact_index_on_disk(bctl, dc);
+				found = eblob_find_on_disk(bctl, dc, eblob_find_exact_callback);
 				if (found) {
 					found->flags |= rem;
 					eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: "
@@ -209,7 +221,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, index_fd: %d, data_fd: %d: "
 			"index_offset: %llu, data_offset: %llu: %s\n",
 			bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
+			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
 			file);
 
 	eblob_data_unmap(&src);
@@ -226,56 +238,11 @@ err_out_exit:
 	return err;
 }
 
-static struct eblob_disk_control *eblob_disk_index_lookup_non_removed(struct eblob_base_ctl *bctl, struct eblob_key *key)
-{
-	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
-	uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
-
-	end = bctl->sort.data + bctl->sort.size;
-	start = bctl->sort.data;
-
-	sorted_orig = bsearch(key, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
-			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
-
-	if (!sorted_orig)
-		goto out;
-
-	sorted = sorted_orig;
-	while (sorted < end) {
-		if (!(sorted->flags & rem)) {
-			found = sorted;
-			break;
-		}
-
-		sorted++;
-		if ((sorted >= end) || eblob_id_cmp(sorted->key.id, key->id))
-			break;
-	}
-
-	if (found)
-		goto out;
-
-	sorted = sorted_orig;
-	while (sorted > start) {
-		if (!(sorted->flags & rem)) {
-			found = sorted;
-			break;
-		}
-
-		sorted--;
-		if ((sorted < start) || eblob_id_cmp(sorted->key.id, key->id))
-			break;
-	}
-
-out:
-	return found;
-}
-
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control **dst, int *dsize)
 {
 	struct eblob_base_ctl *bctl;
 	struct eblob_ram_control *rc = NULL, *r;
-	struct eblob_disk_control *dc;
+	struct eblob_disk_control *dc, tmp;
 	int num = 0, i, err;
 	int start_type, max_type;
 
@@ -297,6 +264,9 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 		max_type = b->max_type;
 	}
 
+	memset(&tmp, 0, sizeof(tmp));
+	memcpy(&tmp.key, key, sizeof(struct eblob_key));
+
 	for (i = start_type; i <= max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 
@@ -304,7 +274,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			if (bctl->sort.fd < 0)
 				continue;
 
-			dc = eblob_disk_index_lookup_non_removed(bctl, key);
+			dc = eblob_find_on_disk(bctl, &tmp, eblob_find_non_removed_callback);
 			if (!dc) {
 				eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
