@@ -113,6 +113,8 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 		err = eblob_data_map(&bctl->sort);
 		if (err)
 			goto err_out_free;
+
+		bctl->index_size = st.st_size;
 	} else {
 		err = -errno;
 	}
@@ -183,6 +185,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 			goto err_out_close_index;
 		}
 
+		ctl->index_size = st.st_size;
+
 		if (ctl->data_size >= b->cfg.blob_size) {
 			ctl->index_offset = st.st_size;
 
@@ -193,7 +197,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max size: %llu\n",
 					ctl->index, ctl->type, (unsigned long long)st.st_size,
-					(unsigned long long)st.st_size / sizeof(struct eblob_disk_control),
+					ctl->index_size / sizeof(struct eblob_disk_control),
 					ctl->data_size, (unsigned long long)b->cfg.blob_size);
 		}
 	} else {
@@ -206,8 +210,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 			goto err_out_unmap;
 		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using existing sorted index: size: %llu, num: %llu: "
-				"old index has been removed\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using existing sorted index: size: %llu, num: %llu\n",
 				ctl->index, ctl->type, (unsigned long long)ctl->sort.size,
 				(unsigned long long)ctl->sort.size / sizeof(struct eblob_disk_control));
 

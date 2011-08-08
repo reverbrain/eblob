@@ -78,6 +78,7 @@ struct eblob_base_ctl {
 
 	void			*data;
 	unsigned long long	data_size;
+	unsigned long long	index_size;
 
 	atomic_t		refcnt;
 	int			need_sorting;

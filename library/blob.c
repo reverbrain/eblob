@@ -62,6 +62,18 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
+		if (ctl->check_index) {
+			if (bc->index_offset + sizeof(dc) > bc->index_size) {
+				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
+						"index_offset: %llu, index_size: %llu, pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+						(unsigned long long)bc->index_offset, bc->index_size,
+						(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
+				err = 0;
+				goto err_out_unlock;
+			}
+		} else {
+		}
+
 		eblob_convert_disk_control(&dc);
 
 		if (dc.position + dc.disk_size > (uint64_t)bc->data_size) {
