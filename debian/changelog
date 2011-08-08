@@ -1,3 +1,12 @@
+eblob (0.9.9) unstable; urgency=low
+
+  * Unified on-disk search for exact match and non-removed entries
+  * Generate sorted index for blobs which index is less than max index already
+    found
+  * Added index_size to stop iterator, if index grew under us
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 08 Aug 2011 23:34:32 +0400
+
 eblob (0.9.8) unstable; urgency=low
 
   * eblob_hash_data() should use high bits untouched
