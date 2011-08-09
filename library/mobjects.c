@@ -172,7 +172,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 
 	if (err) {
 		struct stat st;
-		int max_index = INT_MAX;
+		int max_index = -1;
 
 		if (ctl->type <= max_type) {
 			max_index = types[ctl->type].index;
