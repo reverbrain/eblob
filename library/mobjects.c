@@ -192,7 +192,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 
 		ctl->index_size = st.st_size;
 
-		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index)) {
+		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index && ctl->type <= max_type)) {
 			ctl->index_offset = st.st_size;
 
 			err = eblob_generate_sorted_index(b, ctl);
