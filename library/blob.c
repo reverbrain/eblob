@@ -856,6 +856,10 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			eblob_dump_id(key->id),	(unsigned long long)wc.data_offset,
 			(unsigned long long)size, wc.data_fd);
 
+	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
+		memcpy(data, &wc, sizeof(struct eblob_write_control));
+	}
+
 err_out_exit:
 	if (!compress_err)
 		free(data);

@@ -134,6 +134,7 @@ enum eblob_base_types {
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 #define BLOB_DISK_CTL_COMPRESS	(1<<2)
+#define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
 
 struct eblob_disk_control {
 	/* key data */
