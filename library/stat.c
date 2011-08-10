@@ -26,7 +26,7 @@ void eblob_stat_cleanup(struct eblob_stat *s)
 	pthread_mutex_destroy(&s->lock);
 }
 
-static int eblob_stat_init_new(struct eblob_stat *s, char *path)
+static int eblob_stat_init_new(struct eblob_stat *s, char *path, char *mode)
 {
 	int err;
 
@@ -38,7 +38,7 @@ static int eblob_stat_init_new(struct eblob_stat *s, char *path)
 		goto err_out_exit;
 	}
 
-	s->file = fopen(path, "w+");
+	s->file = fopen(path, mode);
 	if (!s->file) {
 		err = -errno;
 		goto err_out_destroy;
@@ -57,11 +57,11 @@ static int eblob_stat_init_existing(struct eblob_stat *s, char *path)
 {
 	int err;
 
-	err = eblob_stat_init_new(s, path);
+	err = eblob_stat_init_new(s, path, "r+");
 	if (err)
 		goto err_out_exit;
 
-	err = fscanf(s->file, "total: %llu\n", &s->total);
+	err = fscanf(s->file, "disk: %llu\n", &s->disk);
 	if (err != 1) {
 		err = -EINVAL;
 		goto err_out_free;
@@ -94,22 +94,24 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 			return 0;
 	}
 
-	return eblob_stat_init_new(s, path);
+	return eblob_stat_init_new(s, path, "w+");
 }
 
-void eblob_stat_update(struct eblob_stat *s, long long total, long long removed, long long hashed)
+void eblob_stat_update(struct eblob_stat *s, long long disk, long long removed, long long hashed)
 {
 	pthread_mutex_lock(&s->lock);
 
-	s->total += total;
+	s->disk += disk;
 	s->removed += removed;
 	s->hashed += hashed;
 
 	fseek(s->file, 0, SEEK_SET);
-	fprintf(s->file, "total: %llu\n", s->total);
+	fprintf(s->file, "disk: %llu\n", s->disk);
 	fprintf(s->file, "removed: %llu\n", s->removed);
 	fprintf(s->file, "hashed: %llu\n", s->hashed);
 	fflush(s->file);
-
+#if 0
+	printf("disk: %llu, removed: %llu, hashed: %llu\n", s->disk, s->removed, s->hashed);
+#endif
 	pthread_mutex_unlock(&s->lock);
 }

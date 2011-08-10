@@ -98,14 +98,14 @@ struct eblob_stat {
 
 	int			need_check;
 
-	unsigned long long	total;
+	unsigned long long	disk;
 	unsigned long long	removed;
 	unsigned long long	hashed;
 };
 
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, char *path);
-void eblob_stat_update(struct eblob_stat *s, long long total, long long removed, long long hashed);
+void eblob_stat_update(struct eblob_stat *s, long long disk, long long removed, long long hashed);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -130,7 +130,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type);
 int eblob_load_data(struct eblob_backend *b);
 void eblob_base_types_cleanup(struct eblob_backend *b);
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res);
+int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
 int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl);
 

@@ -354,6 +354,8 @@ struct eblob_write_control {
 
 	uint64_t			ctl_data_offset, ctl_index_offset;
 	uint64_t			total_size;
+
+	int				on_disk;
 };
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);
