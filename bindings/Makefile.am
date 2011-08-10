@@ -1,1 +1,6 @@
 SUBDIRS = cpp
+
+if HAVE_BOOST_PYTHON_CONDITIONAL
+SUBDIRS += python
+endif
+
