@@ -620,7 +620,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	if (!wc->size)
 		wc->size = dc.data_size;
 
-	err = 0;
+	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
 
 err_out_exit:
 	return err;
@@ -634,7 +634,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	if (!wc->ctl_data_offset && (wc->data_fd == 0) && (wc->index_fd == 0)) {
 		err = eblob_fill_write_control_from_ram(b, key, wc);
-		if (err) {
+		if (err < 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_fill_write_control_from_ram: %s %d\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 			goto err_out_exit;
@@ -683,7 +683,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	ssize_t err;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc);
-	if (err)
+	if (err < 0)
 		goto err_out_exit;
 
 	err = pwrite(wc->data_fd, data, wc->size, wc->data_offset);
@@ -918,35 +918,33 @@ err_out_exit:
 
 int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
 {
-	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc;
-	int err, disk;
+	struct eblob_write_control wc;
+	int err, compressed = 0;
 
-	ctl.type = type;
-	err = eblob_lookup_type(b, key, &ctl, &disk);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_lookup_type: type: %d: %d.\n",
+	memset(&wc, 0, sizeof(struct eblob_write_control));
+
+	wc.type = type;
+	err = eblob_fill_write_control_from_ram(b, key, &wc);
+	if (err < 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_fill_write_control_from_ram: type: %d: %d.\n",
 				eblob_dump_id(key->id), type, err);
 		goto err_out_exit;
 	}
 
-	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
-	if (err != sizeof(dc)) {
-		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread: type: %d: %d.\n",
-				eblob_dump_id(key->id), type, err);
-		goto err_out_exit;
+	compressed = err;
+
+	/* put this key into RAM for caching */
+	if (wc.on_disk) {
+		err = eblob_commit_ram(b, key, &wc, NULL);
+		if (err < 0)
+			goto err_out_exit;
 	}
 
-	eblob_convert_disk_control(&dc);
+	*fd = wc.data_fd;
+	*size = wc.size;
+	*offset = wc.data_offset;
 
-	err = 0;
-	if (dc.flags & BLOB_DISK_CTL_COMPRESS)
-		err = 1;
-
-	*fd = ctl.data_fd;
-	*size = ctl.size;
-	*offset = ctl.data_offset + sizeof(struct eblob_disk_control);
+	err = compressed;
 
 err_out_exit:
 	return err;
