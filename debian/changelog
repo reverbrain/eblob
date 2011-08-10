@@ -1,3 +1,14 @@
+eblob (0.10.1) unstable; urgency=low
+
+  * We should check key first, since second loop in eblob_find_on_disk()
+    starts with different key
+  * Propagate key into RAM if we read it from disk
+  * Added eblob_regex_iter into bin_PROGRAMS
+  * Added utility eblob_index_info
+  * Added python binding
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 10 Aug 2011 23:12:55 +0400
+
 eblob (0.10.0) unstable; urgency=low
 
   * Added stat support
