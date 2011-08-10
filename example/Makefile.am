@@ -6,6 +6,10 @@ noinst_PROGRAMS = eblob_open
 eblob_open_SOURCES = eblob_open.cpp
 eblob_open_LDADD = ../bindings/cpp/libeblob_cpp.la
 
+bin_PROGRAMS = eblob_index_info
+
+eblob_index_info_SOURCES = eblob_index_info.cpp
+
 if HAVE_BOOST_REGEX
 noinst_PROGRAMS += eblob_regex_iter
 eblob_regex_iter_SOURCES = eblob_regex_iter.cpp
