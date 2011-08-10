@@ -538,12 +538,15 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 			}
 
 			memcpy(&rc[num], ctl, sizeof(struct eblob_ram_control));
+			eblob_stat_update(&b->stat, 1, 0, 1);
 		}
 
 		rc_free = 1;
 	} else {
 		rc = ctl;
 		size = sizeof(struct eblob_ram_control);
+
+		eblob_stat_update(&b->stat, 1, 0, 1);
 	}
 
 	err = eblob_hash_replace(b->hash, key, rc, size);
@@ -673,6 +676,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	int err, i, max_type = -1;
 
 	ctl->log = b->cfg.log;
+	ctl->b = b;
 
 	if (!ctl->thread_num)
 		ctl->thread_num = b->cfg.iterate_threads;
@@ -699,13 +703,13 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->base = bctl;
 
 			err = 0;
-			if (bctl->sort.fd < 0)
+			if (bctl->sort.fd < 0 || b->stat.need_check)
 				err = eblob_blob_iterate(ctl);
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "
-					"data_size: %llu, data_offset: %llu, valid: %lld, removed: %lld, have_sort: %d, err: %d\n",
+					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
 					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
-					bctl->data_size, (unsigned long long)bctl->data_offset, bctl->num, bctl->removed,
+					bctl->data_size, (unsigned long long)bctl->data_offset,
 					bctl->sort.fd >= 0, err);
 			if (err)
 				goto err_out_exit;

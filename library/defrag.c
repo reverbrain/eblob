@@ -102,7 +102,7 @@ void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	struct eblob_iterate_control ctl;
-	int err, wait, i;
+	int err, i;
 
 	memset(&ctl, 0, sizeof(ctl));
 
@@ -130,10 +130,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				goto err_out_exit;
 			}
 
-			eblob_log(ctl.log, EBLOB_LOG_DSA, "defrag: type: %d, index: %d, "
-					"data_size: %llu, valid: %lld, removed: %lld, need_sorting: %d\n",
-					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, bctl->need_sorting);
-
 			if (bctl->need_sorting) {
 				err = eblob_generate_sorted_index(b, bctl);
 				if (!err)
@@ -150,7 +146,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 			if (--num < 0)
 				break;
-
+#if 0
 			if ((bctl->removed < 0) || (bctl->num < 0)) {
 				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: EXITING: type: %d, index: %d, "
 						"data_size: %llu, valid: %lld, removed: %lld\n",
@@ -207,6 +203,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			list_del(&bctl->base_entry);
 			eblob_base_ctl_cleanup(bctl);
 			free(bctl);
+#endif
 		}
 	}
 

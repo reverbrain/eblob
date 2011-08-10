@@ -16,6 +16,8 @@
 #ifndef __EBLOB_HASH_H
 #define __EBLOB_HASH_H
 
+#include <strings.h>
+
 #include "atomic.h"
 #include "lock.h"
 #include "list.h"
@@ -31,8 +33,6 @@ struct eblob_hash {
 	uint64_t		map_used_total, map_used;
 	int			map_fd;
 	uint64_t		file_size;
-
-	unsigned long long	total;
 };
 
 struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp);

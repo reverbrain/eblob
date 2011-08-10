@@ -41,6 +41,7 @@ static void *eblob_blob_iterator(void *data)
 {
 	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
+	struct eblob_backend *b = ctl->b;
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control dc;
 	struct eblob_ram_control rc;
@@ -103,21 +104,31 @@ static void *eblob_blob_iterator(void *data)
 
 		bc->index_offset += sizeof(dc);
 		bc->data_offset += dc.disk_size;
-
-		eblob_log(ctl->log, EBLOB_LOG_DSA, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx\n",
-					eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
-					(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
-					(unsigned long long)dc.flags);
-
-		if (dc.flags & BLOB_DISK_CTL_REMOVE) {
-			bc->removed++;
-		} else {
-			bc->num++;
-		}
-
 		pthread_mutex_unlock(&bc->lock);
 
-		if (dc.flags & BLOB_DISK_CTL_REMOVE)
+		if (b->stat.need_check) {
+			int total, removed, hashed;
+
+			total = removed = hashed = 0;
+
+			if (dc.flags & BLOB_DISK_CTL_REMOVE)
+				removed = 1;
+			else if (bc->sort.fd >= 0)
+				/* unsorted index will have this entry incremented when key is inserted into hash table */
+				total = 1;
+
+			eblob_stat_update(&b->stat, total, removed, hashed);
+		}
+
+		eblob_log(ctl->log, EBLOB_LOG_DSA, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
+				"stat: total: %llu, removed: %llu, hashed: %llu\n",
+				eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
+				(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
+				(unsigned long long)dc.flags,
+				b->stat.total, b->stat.removed, b->stat.hashed);
+
+
+		if ((dc.flags & BLOB_DISK_CTL_REMOVE) || (bc->sort.fd >= 0))
 			continue;
 
 		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control),
@@ -199,7 +210,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
 	}
 
-	if ((ctl->err == -ENOENT) && ctl->base->num)
+	if ((ctl->err == -ENOENT) && ctl->b->stat.total)
 		ctl->err = 0;
 
 	return ctl->err;
@@ -217,19 +228,14 @@ static int blob_mark_index_removed(int fd, off_t offset)
 	return 0;
 }
 
-static void eblob_find_base_decrement_or_remove(struct eblob_backend *b, int type, int index, int remove)
+static void eblob_find_base_decrement_or_remove(struct eblob_backend *b, int type, int index)
 {
 	struct eblob_base_ctl *ctl;
 
 	pthread_mutex_lock(&b->lock);
 	list_for_each_entry_reverse(ctl, &b->types[type].bases, base_entry) {
 		if (ctl->index == index) {
-			if (remove) {
-				ctl->removed++;
-				ctl->num--;
-			} else {
-				atomic_dec(&ctl->refcnt);
-			}
+			atomic_dec(&ctl->refcnt);
 			break;
 		}
 	}
@@ -245,8 +251,6 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		(unsigned long long)old->index_offset, old->index_fd,
 		(unsigned long long)old->data_offset,
 		(unsigned long long)old->data_offset, old->data_fd);
-
-	eblob_find_base_decrement_or_remove(b, old->type, old->index, 1);
 
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
@@ -448,8 +452,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	}
 
 	atomic_inc(&ctl->refcnt);
-
-	ctl->num++;
 
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
@@ -665,7 +667,7 @@ err_out_exit:
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: size: %llu, fd: %d: %s %d\n",
 			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->data_fd, strerror(-err), err);
 
-	eblob_find_base_decrement_or_remove(b, wc->type, wc->index, 0);
+	eblob_find_base_decrement_or_remove(b, wc->type, wc->index);
 
 	return err;
 }
@@ -1113,6 +1115,8 @@ void eblob_cleanup(struct eblob_backend *b)
 	free(b->cfg.file);
 	free(b->cfg.mmap_file);
 
+	eblob_stat_cleanup(&b->stat);
+
 	free(b);
 }
 
@@ -1123,8 +1127,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	int err;
 
 	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
-
-	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap", c->file);
 
 	b = malloc(sizeof(struct eblob_backend));
 	if (!b) {
@@ -1149,9 +1151,14 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->max_type = -1;
 
-	err = eblob_lock_init(&b->csum_lock);
+	snprintf(mmap_file, sizeof(mmap_file), "%s.stat", c->file);
+	err = eblob_stat_init(&b->stat, mmap_file);
 	if (err)
 		goto err_out_free;
+
+	err = eblob_lock_init(&b->csum_lock);
+	if (err)
+		goto err_out_stat_free;
 
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
@@ -1175,6 +1182,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	eblob_log(c->log, EBLOB_LOG_INFO, "blob: using probably increased hash size %d (0x%x).\n", c->hash_size, c->hash_size);
 
+	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap", c->file);
 	if (!c->mmap_file)
 		c->mmap_file = mmap_file;
 
@@ -1254,6 +1262,8 @@ err_out_free_file:
 	free(b->cfg.file);
 err_out_csum_lock_destroy:
 	eblob_lock_destroy(&b->csum_lock);
+err_out_stat_free:
+	eblob_stat_cleanup(&b->stat);
 err_out_free:
 	free(b);
 err_out_exit:
@@ -1262,7 +1272,7 @@ err_out_exit:
 
 unsigned long long eblob_total_elements(struct eblob_backend *b)
 {
-	return b->hash->total;
+	return b->stat.total;
 }
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,

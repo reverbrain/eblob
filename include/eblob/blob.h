@@ -250,6 +250,8 @@ struct eblob_iterate_callbacks {
 
 /* Iterate over all blob files */
 struct eblob_iterate_control {
+	struct eblob_backend		*b;
+
 	struct eblob_log		*log;
 
 	struct eblob_base_ctl		*base;
