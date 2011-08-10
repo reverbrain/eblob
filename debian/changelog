@@ -1,3 +1,9 @@
+eblob (0.10.0) unstable; urgency=low
+
+  * Added stat support
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 10 Aug 2011 05:49:55 +0400
+
 eblob (0.9.9) unstable; urgency=low
 
   * Unified on-disk search for exact match and non-removed entries
