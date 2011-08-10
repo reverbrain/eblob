@@ -182,8 +182,10 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 * FIXME
 			 * There is a race between index lookup and defragmentation
 			 */
-			if (!(dc->flags & rem))
+			if (!(dc->flags & rem)) {
 				eblob_remove_type(b, &dc->key, bctl->type);
+				eblob_stat_update(&b->stat, 1, 0, 0);
+			}
 
 			/*
 			 * it is still possible that we removed object in window

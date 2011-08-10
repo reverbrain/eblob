@@ -172,7 +172,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 
 	if (err) {
 		struct stat st;
-		int max_index = INT_MAX;
+		int max_index = -1;
 
 		if (ctl->type <= max_type) {
 			max_index = types[ctl->type].index;
@@ -198,6 +198,12 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 			err = eblob_generate_sorted_index(b, ctl);
 			if (err)
 				goto err_out_close_index;
+
+			/*
+			 * eblob_generate_sorted_index() uses ctl->index_offset to find how large is index 
+			 * we set it to 0 here since iterator may read it even if we sorted index
+			 */
+			ctl->index_offset = 0;
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -538,12 +544,15 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 			}
 
 			memcpy(&rc[num], ctl, sizeof(struct eblob_ram_control));
+			eblob_stat_update(&b->stat, 0, 0, 1);
 		}
 
 		rc_free = 1;
 	} else {
 		rc = ctl;
 		size = sizeof(struct eblob_ram_control);
+
+		eblob_stat_update(&b->stat, 0, 0, 1);
 	}
 
 	err = eblob_hash_replace(b->hash, key, rc, size);
@@ -586,6 +595,7 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 				goto err_out_free;
 		}
 		err = 0;
+		eblob_stat_update(&b->stat, 0, 0, -1);
 	}
 
 err_out_free:
@@ -613,40 +623,28 @@ static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struc
 	return err;
 }
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res)
+int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp)
 {
 	int err, size, disk = 0;
 	struct eblob_ram_control *rc;
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
+	if (!err) {
+		err = eblob_lookup_exact_type(rc, size, res);
+	}
+
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, res->type, &rc, &size);
 		if (err)
 			goto err_out_exit;
 
 		disk = 1;
+		memcpy(res, rc, sizeof(struct eblob_ram_control));
 	}
 
-	err = eblob_lookup_exact_type(rc, size, res);
-	if (err) {
-		free(rc);
-
-		if (!disk) {
-			err = eblob_disk_index_lookup(b, key, res->type, &rc, &size);
-			if (err)
-				goto err_out_exit;
-
-			err = eblob_lookup_exact_type(rc, size, res);
-			if (err)
-				goto err_out_free;
-		} else {
-			goto err_out_exit;
-		}
-	}
-
-err_out_free:
 	free(rc);
 err_out_exit:
+	*diskp = disk;
 	return err;
 }
 
@@ -673,6 +671,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	int err, i, max_type = -1;
 
 	ctl->log = b->cfg.log;
+	ctl->b = b;
 
 	if (!ctl->thread_num)
 		ctl->thread_num = b->cfg.iterate_threads;
@@ -699,13 +698,13 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->base = bctl;
 
 			err = 0;
-			if (bctl->sort.fd < 0)
+			if (bctl->sort.fd < 0 || b->stat.need_check)
 				err = eblob_blob_iterate(ctl);
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "
-					"data_size: %llu, data_offset: %llu, valid: %lld, removed: %lld, have_sort: %d, err: %d\n",
+					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
 					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
-					bctl->data_size, (unsigned long long)bctl->data_offset, bctl->num, bctl->removed,
+					bctl->data_size, (unsigned long long)bctl->data_offset,
 					bctl->sort.fd >= 0, err);
 			if (err)
 				goto err_out_exit;
