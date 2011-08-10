@@ -1,3 +1,10 @@
+eblob (0.10.2) unstable; urgency=low
+
+  * Added BLOB_DISK_CTL_WRITE_RETURN flag, which specifies whether
+    eblob_write_control should be copied back into data
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 11 Aug 2011 02:35:49 +0400
+
 eblob (0.10.1) unstable; urgency=low
 
   * We should check key first, since second loop in eblob_find_on_disk()
