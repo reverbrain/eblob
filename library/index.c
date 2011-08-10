@@ -72,7 +72,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 		}
 
 		sorted++;
-		if ((sorted >= end) || eblob_disk_control_sort(sorted, dc))
+		if (eblob_disk_control_sort(sorted, dc))
 			break;
 	}
 
@@ -81,14 +81,18 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 
 	sorted = sorted_orig - 1;
 	while (sorted >= start) {
+		/*
+		 * sorted_orig - 1 at the very beginning may contain different key,
+		 * so we change check logic here if compare it with previous loop
+		 */
+		if (eblob_disk_control_sort(sorted, dc))
+			break;
+
 		if (callback(sorted, dc)) {
 			found = sorted;
 			break;
 		}
-
 		sorted--;
-		if ((sorted < start) || eblob_disk_control_sort(sorted, dc))
-			break;
 	}
 
 out:
