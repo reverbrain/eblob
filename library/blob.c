@@ -385,7 +385,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	disk_ctl.flags = wc->flags;
 	disk_ctl.position = wc->ctl_data_offset;
-	disk_ctl.data_size = wc->size;
+	disk_ctl.data_size = wc->size + wc->offset;
 	disk_ctl.disk_size = wc->total_size;
 
 	memcpy(&disk_ctl.key, key, sizeof(struct eblob_key));
@@ -398,8 +398,8 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 		goto err_out_exit;
 
 	if (b->cfg.bsize) {
-		uint64_t local_offset = wc->data_offset + wc->size;
-		unsigned int alignment = wc->total_size - wc->size -
+		uint64_t local_offset = wc->data_offset + wc->size + wc->offset;
+		unsigned int alignment = wc->total_size - wc->size - wc->offset -
 			sizeof(struct eblob_disk_control) -
 			sizeof(struct eblob_disk_footer);
 
@@ -684,6 +684,10 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 
 	err = eblob_fill_write_control_from_ram(b, key, wc);
 	if (err < 0)
+		goto err_out_exit;
+
+	err = blob_write_prepare_ll(b, key, wc);
+	if (err)
 		goto err_out_exit;
 
 	err = pwrite(wc->data_fd, data, wc->size, wc->data_offset);
