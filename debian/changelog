@@ -1,3 +1,10 @@
+eblob (0.10.3) unstable; urgency=low
+
+  * Fixed nasty bug in alignment calculation, which may lead to unability to
+    read data. Also need to copy write_control even in overwrite case
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 11 Aug 2011 04:30:14 +0400
+
 eblob (0.10.2) unstable; urgency=low
 
   * Added BLOB_DISK_CTL_WRITE_RETURN flag, which specifies whether
