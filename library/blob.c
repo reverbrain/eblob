@@ -398,7 +398,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 		goto err_out_exit;
 
 	if (b->cfg.bsize) {
-		uint64_t local_offset = wc->ctl_data_offset + wc->size;
+		uint64_t local_offset = wc->data_offset + wc->size;
 		unsigned int alignment = wc->total_size - wc->size -
 			sizeof(struct eblob_disk_control) -
 			sizeof(struct eblob_disk_footer);
@@ -856,11 +856,11 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			eblob_dump_id(key->id),	(unsigned long long)wc.data_offset,
 			(unsigned long long)size, wc.data_fd);
 
+err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
 		memcpy(data, &wc, sizeof(struct eblob_write_control));
 	}
 
-err_out_exit:
 	if (!compress_err)
 		free(data);
 
