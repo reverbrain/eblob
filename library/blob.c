@@ -589,7 +589,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_exit;
 	}
 
-	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread: fd: %d: %zd.\n",
