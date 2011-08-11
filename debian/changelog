@@ -1,3 +1,11 @@
+eblob (0.10.4) unstable; urgency=low
+
+  * Update data header in overwrite
+  * Read ctl from index when reading, since overwrite does not update data
+    header
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 11 Aug 2011 23:35:36 +0400
+
 eblob (0.10.3) unstable; urgency=low
 
   * Fixed nasty bug in alignment calculation, which may lead to unability to
