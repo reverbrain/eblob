@@ -598,8 +598,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_exit;
 	}
 
-	eblob_convert_disk_control(&dc);
-
 	if (!dc.data_size || !dc.disk_size) {
 		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
 		if (err != sizeof(dc)) {
@@ -608,8 +606,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 					eblob_dump_id(key->id), wc->data_fd, err);
 			goto err_out_exit;
 		}
+
 		from_data = 1;
 	}
+
+	eblob_convert_disk_control(&dc);
 
 	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: eblob_calculate_size: "
