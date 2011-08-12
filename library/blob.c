@@ -592,12 +592,22 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread: fd: %d: %zd.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-index: fd: %d: %zd.\n",
 				eblob_dump_id(key->id), wc->data_fd, err);
 		goto err_out_exit;
 	}
 
 	eblob_convert_disk_control(&dc);
+
+	if (!dc.data_size || !dc.disk_size) {
+		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+		if (err != sizeof(dc)) {
+			err = -errno;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-data: fd: %d: %zd.\n",
+					eblob_dump_id(key->id), wc->data_fd, err);
+			goto err_out_exit;
+		}
+	}
 
 	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
 		err = -E2BIG;
