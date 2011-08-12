@@ -1,3 +1,10 @@
+eblob (0.10.5) unstable; urgency=low
+
+  * If eblob_fill_write_control_from_ram() read disk control from index and
+    its data_size or disk_size are 0, reread it from data blob
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 12 Aug 2011 20:05:23 +0400
+
 eblob (0.10.4) unstable; urgency=low
 
   * Update data header in overwrite
