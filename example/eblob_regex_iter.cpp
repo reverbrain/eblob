@@ -39,25 +39,32 @@ class eblob_regex_callback : public eblob_iterator_callback {
 
 			int match = regex_match(key, re_);
 
-			char id_str[2 * EBLOB_ID_SIZE + 1];
-			std::cout << index << ": " << eblob_dump_id_len_raw(dco->key.id, EBLOB_ID_SIZE, id_str);
+			if (match) {
+				char id_str[2 * EBLOB_ID_SIZE + 1];
+				std::cout << eblob_dump_id_len_raw(dco->key.id, EBLOB_ID_SIZE, id_str) << ": " <<
+					"index: " << index << ", " <<
+					"data_size: " << dco->data_size << ", " <<
+					"disk_size: " << dco->disk_size << ", " <<
+					"position: " << dco->position << ", " <<
+					"flags: " << std::hex << dco->flags << std::dec;
 
-			std::string mstr = match ? ": MATCH" : ": NOT_MATCH";
-			std::cout << mstr;
+				std::string mstr = match ? ": MATCH" : ": NOT_MATCH";
+				std::cout << mstr;
 
-			std::string flags = " [ ";
-			if (dco->flags &  BLOB_DISK_CTL_NOCSUM)
-				flags += "NO_CSUM ";
-			if (dco->flags &  BLOB_DISK_CTL_COMPRESS)
-				flags += "COMPRESS ";
-			if (dco->flags &  BLOB_DISK_CTL_REMOVE)
-				flags += "REMOVED ";
+				std::string flags = " [ ";
+				if (dco->flags &  BLOB_DISK_CTL_NOCSUM)
+					flags += "NO_CSUM ";
+				if (dco->flags &  BLOB_DISK_CTL_COMPRESS)
+					flags += "COMPRESS ";
+				if (dco->flags &  BLOB_DISK_CTL_REMOVE)
+					flags += "REMOVED ";
 
-			if (flags.size() > 3) {
-				std::cout << flags << "]";
+				if (flags.size() > 3) {
+					std::cout << flags << "]";
+				}
+
+				std::cout << std::endl;
 			}
-
-			std::cout << std::endl;
 
 			return match;
 		}
