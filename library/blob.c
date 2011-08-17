@@ -45,12 +45,17 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control dc;
 	struct eblob_ram_control rc;
-	int err;
+	int err = 0;
 
 	memset(&rc, 0, sizeof(rc));
 
-	while (1) {
+	while (ctl->thread_num > 0) {
 		pthread_mutex_lock(&bc->lock);
+
+		if (!ctl->thread_num) {
+			err = 0;
+			goto err_out_unlock;
+		}
 
 		if (ctl->check_index)
 			err = pread(bc->index_fd, &dc, sizeof(dc), bc->index_offset);
@@ -136,6 +141,8 @@ static void *eblob_blob_iterator(void *data)
 	}
 
 err_out_unlock:
+	ctl->thread_num = 0;
+
 	bc->data_offset = bc->data_size;
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: iterated: data_fd: %d, index_fd: %d, "
 			"data_size: %llu, data_offset: %llu, index_offset: %llu\n",
@@ -177,11 +184,11 @@ err_out_unlock:
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 {
-	int i, err;
+	int i, err, thread_num = ctl->thread_num;
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
-	for (i=0; i<ctl->thread_num; ++i) {
+	for (i=0; i<thread_num; ++i) {
 		iter_priv[i].ctl = ctl;
 		iter_priv[i].thread_priv = NULL;
 
@@ -202,11 +209,11 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 		}
 	}
 
-	for (i=0; i<ctl->thread_num; ++i) {
+	for (i=0; i<thread_num; ++i) {
 		pthread_join(tid[i], NULL);
 	}
 
-	for (i=0; ctl->iterator_cb.iterator_free && i<ctl->thread_num; ++i) {
+	for (i = 0; ctl->iterator_cb.iterator_free && i < thread_num; ++i) {
 		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
 	}
 

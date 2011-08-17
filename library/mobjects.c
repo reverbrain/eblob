@@ -668,16 +668,16 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		struct eblob_base_type **typesp, int *max_typep)
 {
 	struct eblob_base_type *types = NULL;
-	int err, i, max_type = -1;
+	int err, i, max_type = -1, thread_num = ctl->thread_num;
 
 	ctl->log = b->cfg.log;
 	ctl->b = b;
 
-	if (!ctl->thread_num)
-		ctl->thread_num = b->cfg.iterate_threads;
+	if (!thread_num)
+		thread_num = b->cfg.iterate_threads;
 
 	if (ctl->iterator_cb.thread_num)
-		ctl->thread_num = ctl->iterator_cb.thread_num;
+		thread_num = ctl->iterator_cb.thread_num;
 
 	err = eblob_scan_base(b, &types, &max_type);
 	if (err) {
@@ -696,6 +696,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: eblob_iterate_existing: start: type: %d\n", i);
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			ctl->base = bctl;
+			ctl->thread_num = thread_num;
 
 			err = 0;
 			if (bctl->sort.fd < 0 || b->stat.need_check)
