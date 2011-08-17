@@ -991,7 +991,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 		}
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_read: Ok: "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: "
 			"data_fd: %d, ctl_data_offset: %llu, data_offset: %llu, index_fd: %d, index_offset: %llu, "
 			"size: %llu, total(disk)_size: %llu, on_disk: %d\n",
 			eblob_dump_id(key->id),
