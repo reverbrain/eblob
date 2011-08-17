@@ -593,8 +593,8 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-index: fd: %d: %zd.\n",
-				eblob_dump_id(key->id), wc->data_fd, err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-index: fd: %d: off: %llu: %zd.\n",
+				eblob_dump_id(key->id), ctl.index_fd, (unsigned long long)ctl.index_offset, err);
 		goto err_out_exit;
 	}
 
@@ -605,8 +605,9 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
 		if (err != sizeof(dc)) {
 			err = -errno;
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-data: fd: %d: %zd.\n",
-					eblob_dump_id(key->id), wc->data_fd, err);
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-data: "
+					"fd: %d: off: %llu: %zd.\n",
+					eblob_dump_id(key->id), ctl.data_fd, (unsigned long long)ctl.data_offset, err);
 			goto err_out_exit;
 		}
 
@@ -989,6 +990,14 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 			goto err_out_exit;
 		}
 	}
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_read: Ok: "
+			"data_fd: %d, ctl_data_offset: %llu, data_offset: %llu, index_fd: %d, index_offset: %llu, "
+			"size: %llu, total(disk)_size: %llu, on_disk: %d\n",
+			eblob_dump_id(key->id),
+			wc.data_fd, (unsigned long long)wc.ctl_data_offset, (unsigned long long)wc.data_offset,
+			wc.index_fd, (unsigned long long)wc.ctl_index_offset,
+			(unsigned long long)wc.size, (unsigned long long)wc.total_size, wc.on_disk);
 
 	*fd = wc.data_fd;
 	*size = wc.size;
