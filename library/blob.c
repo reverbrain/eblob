@@ -987,6 +987,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: index-removed: fd: %d: offset: %llu: %d.\n",
 					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
 			err = -ENOENT;
+			eblob_remove_type(b, key, type);
 			goto err_out_exit;
 		}
 	}
