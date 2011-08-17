@@ -970,6 +970,24 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 		err = eblob_commit_ram(b, key, &wc, NULL);
 		if (err < 0)
 			goto err_out_exit;
+	} else {
+		struct eblob_disk_control dc;
+		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
+
+		err = pread(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
+		if (err != sizeof(dc)) {
+			err = -errno;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread-index: fd: %d: offset: %llu: %d.\n",
+					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
+			goto err_out_exit;
+		}
+
+		if (dc.flags & rem) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: index-removed: fd: %d: offset: %llu: %d.\n",
+					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
+			err = -ENOENT;
+			goto err_out_exit;
+		}
 	}
 
 	*fd = wc.data_fd;
