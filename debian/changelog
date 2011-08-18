@@ -1,3 +1,17 @@
+eblob (0.10.8) unstable; urgency=low
+
+  * Use eblob_iterate_control->thread_num to indicate threads exiting, for
+    example when file iteration completes
+  * Remove key from hash table, if it happend to point to removed entry
+  * Added NOTICE debug about eblob_read() result: data/index fd, offset, size
+    and so on
+  * Added paranoidal check into eblob_read(), which checks that index read
+    from disk is not marked as removed.
+  * Added id search into eblob_index_info structure
+  * Extended regex matched info
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 18 Aug 2011 18:56:23 +0400
+
 eblob (0.10.7) unstable; urgency=low
 
   * workaround for old indexes, which did not set dc.disk_size
