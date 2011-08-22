@@ -813,6 +813,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 {
 	struct eblob_write_control wc;
 	int compress_err = -1;
+	void *old_data = data;
 	ssize_t err;
 
 	memset(&wc, 0, sizeof(wc));
@@ -894,7 +895,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
-		memcpy(data, &wc, sizeof(struct eblob_write_control));
+		memcpy(old_data, &wc, sizeof(struct eblob_write_control));
 	}
 
 	if (!compress_err)
