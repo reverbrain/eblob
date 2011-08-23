@@ -276,7 +276,7 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 	int err;
 
 	memcpy(&dc.key, key, sizeof(struct eblob_key));
-	dc.flags = 0;
+	dc.flags = wc->flags & ~BLOB_DISK_CTL_REMOVE;
 	dc.data_size = wc->offset + wc->size;
 	dc.disk_size = wc->total_size;
 	dc.position = wc->ctl_data_offset;
@@ -602,7 +602,8 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-index: fd: %d: off: %llu: %zd.\n",
 				eblob_dump_id(key->id), ctl.index_fd, (unsigned long long)ctl.index_offset, err);
-		goto err_out_exit;
+		/* we should repeat this read from data_fd */
+		memset(&dc, 0, sizeof(dc));
 	}
 
 	eblob_convert_disk_control(&dc);
