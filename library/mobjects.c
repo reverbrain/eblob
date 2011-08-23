@@ -166,6 +166,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 	if (err)
 		goto err_out_close_data;
 
+again:
+
 	err = eblob_base_open_sorted(ctl, dir_base, name, name_len);
 
 	sprintf(full, "%s/%s.index", dir_base, name);
@@ -212,9 +214,34 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 					ctl->data_size, (unsigned long long)b->cfg.blob_size);
 		}
 	} else {
-#if 0
-		unlink(full);
-#endif
+		struct stat st;
+
+		err = stat(full, &st);
+		if (err) {
+			err = -errno;
+
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "bctl: index: %d, type: %d: can not scan unsorted index '%s': %s %d\n",
+					ctl->index, ctl->type, full, strerror(-err), err);
+			goto err_out_close_sort_fd;
+		}
+
+		if ((uint64_t)st.st_size != ctl->sort.size) {
+			err = -EINVAL;
+
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "bctl: index: %d, type: %d: unsorted index size mismatch for '%s': "
+					"sorted: %llu, unsorted: %llu: removing regenerating sorted index\n",
+					ctl->index, ctl->type, full,
+					(unsigned long long)ctl->sort.size, (unsigned long long)st.st_size);
+
+			eblob_data_unmap(&ctl->sort);
+			close(ctl->sort.fd);
+
+			sprintf(full, "%s/%s.index.sorted", dir_base, name);
+			unlink(full);
+
+			goto again;
+		}
+
 		ctl->index_fd = dup(ctl->sort.fd);
 		if (err) {
 			err = -errno;
@@ -233,6 +260,11 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 
 err_out_close_index:
 	close(ctl->index_fd);
+err_out_close_sort_fd:
+	if (ctl->sort.fd >= 0) {
+		eblob_data_unmap(&ctl->sort);
+		close(ctl->sort.fd);
+	}
 err_out_unmap:
 	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
