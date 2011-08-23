@@ -1,3 +1,13 @@
+eblob (0.10.10) unstable; urgency=low
+
+  * Added EBLOB_TRY_OVERWRITE hash_flags flag. We try to overwrite data only
+    when it is set or for EBLOB_TYPE_META writes
+  * Always read eblob_disk_control from data_fd in
+    eblob_fill_write_control_from_ram()
+  * When updating index, put there wc->flags without BLOB_DISK_CTL_REMOVE set.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 23 Aug 2011 04:59:39 +0400
+
 eblob (0.10.9) unstable; urgency=low
 
   * If sorted index size does not match unsorted, remove and regenerate sorted
