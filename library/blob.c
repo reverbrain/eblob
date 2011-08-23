@@ -826,10 +826,12 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.type = type;
 	wc.index = -1;
 
-	err = eblob_try_overwrite(b, key, &wc, data);
-	if (!err)
-		/* ok, we have overwritten old data, got out */
-		goto err_out_exit;
+	if ((b->cfg.hash_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META)) {
+		err = eblob_try_overwrite(b, key, &wc, data);
+		if (!err)
+			/* ok, we have overwritten old data, got out */
+			goto err_out_exit;
+	}
 
 	err = eblob_write_prepare(b, key, &wc);
 	if (err)
