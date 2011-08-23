@@ -1,3 +1,11 @@
+eblob (0.10.9) unstable; urgency=low
+
+  * If sorted index size does not match unsorted, remove and regenerate sorted
+    index.
+  * Fixed write-control-back for compressed data.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 23 Aug 2011 04:06:38 +0400
+
 eblob (0.10.8) unstable; urgency=low
 
   * Use eblob_iterate_control->thread_num to indicate threads exiting, for
