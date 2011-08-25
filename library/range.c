@@ -161,6 +161,11 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 	int err = -ENOENT;
 	ssize_t pos, num, i;
 
+	if (req->current_pos - req->requested_limit_start >= req->requested_limit_num) {
+		err = 1;
+		goto err_out_exit;
+	}
+
 	if (req->requested_type > b->max_type)
 		goto err_out_exit;
 
@@ -221,69 +226,81 @@ int eblob_read_range(struct eblob_range_request *req)
 {
 	struct eblob_backend *b = req->back;
 	struct eblob_hash *h = b->hash;
-	struct eblob_hash_entry *e;
-	unsigned int idx, last_idx;
-	int err = -ENOENT;
+	struct rb_node *n = h->root.rb_node;
+	struct eblob_hash_entry *e = NULL, *t = NULL;
+	int err = -ENOENT, cmp;
 
-	idx = eblob_hash_data(req->start, EBLOB_ID_SIZE, h->num);
-	last_idx = eblob_hash_data(req->end, EBLOB_ID_SIZE, h->num);
+	pthread_mutex_lock(&h->root_lock);
+	while (n) {
+		t = rb_entry(n, struct eblob_hash_entry, node);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: range: idx: %x, last: %x\n", idx, last_idx);
+		cmp = eblob_id_cmp(t->key.id, req->start);
+		if (cmp < 0)
+			n = n->rb_left;
+		else if (cmp > 0) {
+			n = n->rb_right;
 
-	while (idx <= last_idx) {
-		struct eblob_ram_control *ctl = NULL;
-		struct eblob_hash_head *head = &h->heads[idx];
-
-		err = 0;
-		eblob_lock_lock(&head->lock);
-		list_for_each_entry(e, &head->head, hash_entry) {
-			if (b->cfg.log->log_mask & EBLOB_LOG_NOTICE) {
-				int len = 6;
-				char start_id[2*len + 1];
-				char end_id[2*len + 1];
-				char id_str[2*len + 1];
-
-				eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "id: %s, start: %s: end: %s, in-range: %d, limit: %llu [%llu %llu]\n",
-						eblob_dump_id_len_raw(e->key.id, len, id_str),
-						eblob_dump_id_len_raw(req->start, len, start_id),
-						eblob_dump_id_len_raw(req->end, len, end_id),
-						eblob_id_in_range(e->key.id, req->start, req->end),
-						(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
-						(unsigned long long)req->requested_limit_num);
+			if (eblob_id_in_range(t->key.id, req->start, req->end)) {
+				e = t;
 			}
+		} else {
+			e = t;
+			break;
+		}
+	}
 
-			if (eblob_id_in_range(e->key.id, req->start, req->end)) {
-				unsigned int i;
+	if (!e) {
+		err = -ENOENT;
+		goto err_out_unlock;
+	}
 
-				for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
-					ctl = &((struct eblob_ram_control *)e->data)[i];
+	n = &e->node;
+	while (n) {
+		e = rb_entry(n, struct eblob_hash_entry, node);
 
-					if ((ctl->type == req->requested_type) && (ctl->index == b->types[ctl->type].index)) {
-						err = eblob_range_callback(req, &e->key, ctl->data_fd,
-								ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
-						if (err > 0) {
-							idx = last_idx + 1;
-							err = 0;
-						}
-						break;
+		if (b->cfg.log->log_mask & EBLOB_LOG_NOTICE) {
+			int len = 6;
+			char start_id[2*len + 1];
+			char end_id[2*len + 1];
+			char id_str[2*len + 1];
+
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "id: %s, start: %s: end: %s, in-range: %d, limit: %llu [%llu %llu]\n",
+					eblob_dump_id_len_raw(e->key.id, len, id_str),
+					eblob_dump_id_len_raw(req->start, len, start_id),
+					eblob_dump_id_len_raw(req->end, len, end_id),
+					eblob_id_in_range(e->key.id, req->start, req->end),
+					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
+					(unsigned long long)req->requested_limit_num);
+		}
+
+		if (eblob_id_in_range(e->key.id, req->start, req->end)) {
+			struct eblob_ram_control *ctl;
+			unsigned int i;
+
+			for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
+				ctl = &((struct eblob_ram_control *)e->data)[i];
+
+				if ((ctl->type == req->requested_type) && (ctl->index == b->types[ctl->type].index)) {
+					err = eblob_range_callback(req, &e->key, ctl->data_fd,
+							ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
+					if (err > 0) {
+						err = 0;
+						goto err_out_unlock;
 					}
+					break;
 				}
 			}
 
-			if (err || (idx > last_idx))
-				break;
-		}
-		eblob_lock_unlock(&head->lock);
-
-		if (err)
+			n = rb_next(&e->node);
+		} else {
 			break;
-
-		idx++;
+		}
 	}
 
-	if (!err) {
-		eblob_read_range_on_disk(req);
-	}
+err_out_unlock:
+	pthread_mutex_unlock(&h->root_lock);
+
+	eblob_read_range_on_disk(req);
 
 	return err;
 }

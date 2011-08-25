@@ -1163,9 +1163,6 @@ void eblob_cleanup(struct eblob_backend *b)
 	pthread_join(b->sync_tid, NULL);
 	pthread_join(b->defrag_tid, NULL);
 
-	if (b->cfg.hash_flags & EBLOB_HASH_MLOCK)
-		munlockall();
-
 	eblob_base_types_cleanup(b);
 
 	eblob_hash_exit(b->hash);
@@ -1193,19 +1190,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!b) {
 		err = -ENOMEM;
 		goto err_out_exit;
-	}
-
-	if (c->hash_flags & EBLOB_HASH_MLOCK) {
-		struct rlimit rl;
-
-		rl.rlim_cur = rl.rlim_max = RLIM_INFINITY;
-		err = setrlimit(RLIMIT_MEMLOCK, &rl);
-		if (err) {
-			err = -errno;
-			eblob_log(c->log, EBLOB_LOG_ERROR, "blob: failed to set infinite memory limits: %s [%d]\n",
-					strerror(errno), errno);
-			goto err_out_free;
-		}
 	}
 
 	memset(b, 0, sizeof(struct eblob_backend));
@@ -1267,7 +1251,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_free_mmap_file;
 	}
 
-	b->hash = eblob_hash_init(c->hash_size, c->hash_flags, c->mmap_file, &err);
+	b->hash = eblob_hash_init(&err);
 	if (!b->hash) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
 		goto err_out_lock_destroy;
@@ -1279,22 +1263,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_hash_destroy;
 	}
 
-	if (c->hash_flags & EBLOB_HASH_MLOCK) {
-		err = mlockall(MCL_CURRENT | MCL_FUTURE);
-		if (err) {
-			err = -errno;
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to lock all current and future allocations: %s [%d].\n",
-					strerror(errno), err);
-			goto err_out_cleanup;
-		}
-
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: successfully locked all current and future allocations.\n");
-	}
-
 	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
-		goto err_out_munlock;
+		goto err_out_cleanup;
 	}
 
 	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
@@ -1308,9 +1280,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 err_out_join_sync:
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
-err_out_munlock:
-	if (c->hash_flags & EBLOB_HASH_MLOCK)
-		munlockall();
 err_out_cleanup:
 	eblob_base_types_cleanup(b);
 err_out_hash_destroy:

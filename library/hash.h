@@ -21,21 +21,17 @@
 #include "atomic.h"
 #include "lock.h"
 #include "list.h"
+#include "rbtree.h"
 
 struct eblob_hash_head;
 struct eblob_hash {
-	unsigned int		num;
 	unsigned int		flags;
-	struct eblob_hash_head	*heads;
 
-	pthread_mutex_t		map_lock;
-	void			*map_base;
-	uint64_t		map_used_total, map_used;
-	int			map_fd;
-	uint64_t		file_size;
+	struct rb_root		root;
+	pthread_mutex_t		root_lock;
 };
 
-struct eblob_hash *eblob_hash_init(unsigned int num, unsigned int flags, const char *mmap_path, int *errp);
+struct eblob_hash *eblob_hash_init(int *errp);
 void eblob_hash_exit(struct eblob_hash *h);
 int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
@@ -43,17 +39,12 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
 
 struct eblob_hash_entry {
-	struct list_head	hash_entry;
+	struct rb_node		node;
 
 	unsigned int		dsize;
 
 	struct eblob_key	key;
 	unsigned char		data[0];
-};
-
-struct eblob_hash_head {
-	struct list_head		head;
-	struct eblob_lock		lock;
 };
 
 static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsigned int limit)
@@ -73,7 +64,5 @@ static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsign
 
 	return hash;
 }
-
-struct eblob_hash_entry *eblob_hash_entry_next(struct eblob_hash_head *head, struct eblob_hash_entry *e);
 
 #endif /* __EBLOB_HASH_H */
