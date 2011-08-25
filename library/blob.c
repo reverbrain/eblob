@@ -118,8 +118,7 @@ static void *eblob_blob_iterator(void *data)
 
 			if (dc.flags & BLOB_DISK_CTL_REMOVE)
 				removed = 1;
-			else if (bc->sort.fd >= 0)
-				/* unsorted index will have this entry incremented when key is inserted into hash table */
+			else
 				disk = 1;
 
 			eblob_stat_update(&b->stat, disk, removed, 0);
@@ -262,7 +261,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
 
-	eblob_stat_update(&b->stat, 0, 1, 0);
+	eblob_stat_update(&b->stat, -1, 1, 0);
 
 	if (!b->cfg.sync) {
 		fsync(old->data_fd);
@@ -488,6 +487,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	if (err > 0) {
 		eblob_mark_entry_removed(b, key, &old);
 	}
+
+	eblob_stat_update(&b->stat, 1, 0, 0);
 
 	return 0;
 
@@ -931,9 +932,8 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 	}
 
 	eblob_mark_entry_removed(b, key, &ctl);
-	if (disk)
-		eblob_stat_update(&b->stat, -1, 0, 0);
-	else
+
+	if (!disk)
 		eblob_remove_type(b, key, type);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
@@ -1302,7 +1302,7 @@ err_out_exit:
 
 unsigned long long eblob_total_elements(struct eblob_backend *b)
 {
-	return b->stat.disk + b->stat.hashed;
+	return b->stat.disk;
 }
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
