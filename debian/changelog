@@ -1,3 +1,10 @@
+eblob (0.10.11) unstable; urgency=low
+
+  * Always account for on-disk entries
+  * Switched from hash table to rbtree to store keys
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 26 Aug 2011 00:40:28 +0400
+
 eblob (0.10.10) unstable; urgency=low
 
   * Added EBLOB_TRY_OVERWRITE hash_flags flag. We try to overwrite data only
