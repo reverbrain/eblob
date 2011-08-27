@@ -587,6 +587,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
 	ssize_t err;
+	int from_data = 0;
 
 	ctl.type = wc->type;
 	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
@@ -597,26 +598,42 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_exit;
 	}
 
-	err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-data: "
-				"fd: %d: off: %llu: %zd.\n",
-				eblob_dump_id(key->id), ctl.data_fd, (unsigned long long)ctl.data_offset, err);
-		goto err_out_exit;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-index: fd: %d: off: %llu: %zd.\n",
+				eblob_dump_id(key->id), ctl.index_fd, (unsigned long long)ctl.index_offset, err);
+		/* we should repeat this read from data_fd */
+		memset(&dc, 0, sizeof(dc));
+	}
+
+	eblob_convert_disk_control(&dc);
+
+	/* workaround for old indexes, which did not set dc.disk_size */
+	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
+		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+		if (err != sizeof(dc)) {
+			err = -errno;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: pread-data: "
+					"fd: %d: off: %llu: %zd.\n",
+					eblob_dump_id(key->id), ctl.data_fd, (unsigned long long)ctl.data_offset, err);
+			goto err_out_exit;
+		}
+
+		from_data = 1;
 	}
 
 	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: eblob_calculate_size: "
 				"data_fd: %d, data_offset: %llu, index_fd: %d, index_offset: %llu, "
 				"data_size: %llu, disk_size: %llu, position: %llu, "
-				"wc_offset: %llu, wc_size: %llu, calculated_size: %llu.\n",
+				"wc_offset: %llu, wc_size: %llu, calculated_size: %llu, from_data: %d.\n",
 				eblob_dump_id(key->id),
 				ctl.data_fd, (unsigned long long)ctl.data_offset,
 				ctl.index_fd, (unsigned long long)ctl.index_offset,
 				(unsigned long long)dc.data_size, (unsigned long long)dc.disk_size, (unsigned long long)dc.position,
 				(unsigned long long)wc->offset, (unsigned long long)wc->size,
-				(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
+				(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size), from_data);
 		err = -E2BIG;
 		goto err_out_exit;
 	}
