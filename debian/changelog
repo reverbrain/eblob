@@ -1,3 +1,11 @@
+eblob (0.10.12) unstable; urgency=low
+
+  * Added rbtree.h into library/Makefile.am
+  * Revert "Always read eblob_disk_control from data_fd in
+    eblob_fill_write_control_from_ram()"
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 28 Aug 2011 05:27:09 +0400
+
 eblob (0.10.11) unstable; urgency=low
 
   * Always account for on-disk entries
