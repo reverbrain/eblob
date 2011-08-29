@@ -291,7 +291,7 @@ int eblob_read_range(struct eblob_range_request *req)
 				}
 			}
 
-			n = rb_next(&e->node);
+			n = rb_prev(&e->node);
 		} else {
 			break;
 		}
