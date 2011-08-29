@@ -118,6 +118,9 @@ struct eblob_hash *eblob_hash_init(int *errp)
 		goto err_out_exit;
 	}
 
+	h->flags = 0;
+	h->root = RB_ROOT;
+
 	pthread_mutex_init(&h->root_lock, NULL);
 
 	return h;
