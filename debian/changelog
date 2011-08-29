@@ -1,3 +1,11 @@
+eblob (0.10.13) unstable; urgency=low
+
+  * Use rb_prev() to iterate over tree in range request, since weRBtree is
+    sorted in descending order
+  * Set hash->rb_root to RB_ROOT prior its usage
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 30 Aug 2011 00:26:56 +0400
+
 eblob (0.10.12) unstable; urgency=low
 
   * Added rbtree.h into library/Makefile.am
