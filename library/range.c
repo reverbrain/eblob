@@ -158,7 +158,7 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control dc;
 	struct eblob_key start, end;
-	int err = -ENOENT;
+	int err = 0;
 	ssize_t pos, num, i;
 
 	if (req->current_pos - req->requested_limit_start >= req->requested_limit_num) {
