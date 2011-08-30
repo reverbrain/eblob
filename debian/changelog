@@ -1,3 +1,13 @@
+eblob (0.11.0) unstable; urgency=low
+
+  * Get rid of unused config fields
+  * Moved comparison function into include/eblob/blob.h
+  * Initial error value in eblob_read_range_on_disk() should be 0
+  * Added records_in_blob into cfg config which limits maximum number of
+    records before blob is closed
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 31 Aug 2011 00:23:46 +0400
+
 eblob (0.10.13) unstable; urgency=low
 
   * Use rb_prev() to iterate over tree in range request, since weRBtree is
