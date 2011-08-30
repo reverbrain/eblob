@@ -136,7 +136,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					bctl->need_sorting = 0;
 			}
 
-			if (!(b->cfg.hash_flags & EBLOB_RUN_DEFRAG))
+			if (!(b->cfg.blob_flags & EBLOB_RUN_DEFRAG))
 				continue;
 
 

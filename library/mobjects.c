@@ -451,19 +451,16 @@ void eblob_base_types_cleanup(struct eblob_backend *b)
 
 static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typesp, int *max_typep)
 {
-	int base_len, mmap_len, fd, err;
+	int base_len, fd, err;
 	struct eblob_base_type *types;
 	DIR *dir;
 	struct dirent64 *d;
-	const char *base, *mmap;
+	const char *base;
 	char *dir_base, *tmp;
 	int d_len, max_type;
 
 	base = eblob_get_base(b->cfg.file);
 	base_len = strlen(base);
-
-	mmap = eblob_get_base(b->cfg.mmap_file);
-	mmap_len = strlen(mmap);
 
 	dir_base = strdup(b->cfg.file);
 	if (!dir_base) {
@@ -502,9 +499,6 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		d_len = _D_EXACT_NAMLEN(d);
 
 		if (d_len < base_len)
-			continue;
-
-		if ((d_len == mmap_len) && !strncmp(d->d_name, mmap, mmap_len))
 			continue;
 
 		if (!strncmp(d->d_name, base, base_len)) {

@@ -191,11 +191,8 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 
 struct eblob_config {
-	/* hash table size in entries */
-	unsigned int		hash_size;
-
-	/* hash table flags above */
-	unsigned int		hash_flags;
+	/* blob flags above */
+	unsigned int		blob_flags;
 
 	/* sync interval in seconds */
 	int			sync;
@@ -213,12 +210,6 @@ struct eblob_config {
 	 * it will add .index to store on-disk index
 	 */
 	char			*file;
-
-	/*
-	 * File used to map all memory allocation
-	 * for lookup hash table elements
-	 */
-	char			*mmap_file;
 
 	/* number of threads which will iterate over
 	 * each blob file at startup

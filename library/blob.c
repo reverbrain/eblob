@@ -845,7 +845,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.type = type;
 	wc.index = -1;
 
-	if ((b->cfg.hash_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META)) {
+	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META)) {
 		err = eblob_try_overwrite(b, key, &wc, data);
 		if (!err)
 			/* ok, we have overwritten old data, got out */
@@ -1186,10 +1186,7 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_hash_exit(b->hash);
 	pthread_mutex_destroy(&b->lock);
 
-	unlink(b->cfg.mmap_file);
-
 	free(b->cfg.file);
-	free(b->cfg.mmap_file);
 
 	eblob_stat_cleanup(&b->stat);
 
@@ -1199,7 +1196,7 @@ void eblob_cleanup(struct eblob_backend *b)
 struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
-	char mmap_file[256];
+	char stat_file[256];
 	int err;
 
 	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
@@ -1214,8 +1211,8 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->max_type = -1;
 
-	snprintf(mmap_file, sizeof(mmap_file), "%s.stat", c->file);
-	err = eblob_stat_init(&b->stat, mmap_file);
+	snprintf(stat_file, sizeof(stat_file), "%s.stat", c->file);
+	err = eblob_stat_init(&b->stat, stat_file);
 	if (err)
 		goto err_out_free;
 
@@ -1232,26 +1229,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->records_in_blob)
 		c->records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
 
-	if (!c->hash_size) {
-		c->hash_size = EBLOB_BLOB_DEFAULT_HASH_SIZE;
-	} else {
-		int i, bit = 0;
-		for (i = 31; i >= 0; --i) {
-			if (c->hash_size & (1 << i)) {
-				bit = i;
-				break;
-			}
-		}
-
-		c->hash_size = 1 << (bit + 1);
-	}
-
-	eblob_log(c->log, EBLOB_LOG_INFO, "blob: using probably increased hash size %d (0x%x).\n", c->hash_size, c->hash_size);
-
-	snprintf(mmap_file, sizeof(mmap_file), "%s.mmap", c->file);
-	if (!c->mmap_file)
-		c->mmap_file = mmap_file;
-
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
 	b->cfg.file = strdup(c->file);
@@ -1260,16 +1237,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_csum_lock_destroy;
 	}
 
-	b->cfg.mmap_file = strdup(c->mmap_file);
-	if (!b->cfg.mmap_file) {
-		err = -ENOMEM;
-		goto err_out_free_file;
-	}
-
 	err = pthread_mutex_init(&b->lock, NULL);
 	if (err) {
 		err = -errno;
-		goto err_out_free_mmap_file;
+		goto err_out_free_file;
 	}
 
 	b->hash = eblob_hash_init(&err);
@@ -1307,8 +1278,6 @@ err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
-err_out_free_mmap_file:
-	free(b->cfg.mmap_file);
 err_out_free_file:
 	free(b->cfg.file);
 err_out_csum_lock_destroy:
