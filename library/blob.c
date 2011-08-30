@@ -448,7 +448,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	}
 
 	ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
-	if ((ctl->data_offset >= (off_t)b->cfg.blob_size) || (ctl->sort.fd >= 0)) {
+	if ((ctl->data_offset >= (off_t)b->cfg.blob_size) || (ctl->sort.fd >= 0) ||
+			(ctl->index_offset / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
 			goto err_out_unlock;
@@ -1227,6 +1228,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	if (!c->iterate_threads)
 		c->iterate_threads = 1;
+
+	if (!c->records_in_blob)
+		c->records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
 
 	if (!c->hash_size) {
 		c->hash_size = EBLOB_BLOB_DEFAULT_HASH_SIZE;

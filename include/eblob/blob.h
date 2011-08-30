@@ -205,11 +205,21 @@ struct eblob_config {
 	 */
 	int			iterate_threads;
 
-	/* maximum blob size (supported modifiers: G, M, K)
+	/* maximum blob size
 	 * when blob file size becomes bigger than this value
 	 * library will create new file
 	 */
 	uint64_t		blob_size;
+
+	/*
+	 * Maximum number of records in blob.
+	 * When number of records reaches this level,
+	 * blob is closed and sorted index is generated.
+	 *
+	 * Its meaning is similar to above @blob_size,
+	 * except that it operates on records and not bytes.
+	 */
+	uint64_t		records_in_blob;
 };
 
 struct eblob_ram_control {

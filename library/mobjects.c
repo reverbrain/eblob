@@ -194,7 +194,8 @@ again:
 
 		ctl->index_size = st.st_size;
 
-		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index)) {
+		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index) ||
+				(st.st_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
 			ctl->index_offset = st.st_size;
 
 			err = eblob_generate_sorted_index(b, ctl);
