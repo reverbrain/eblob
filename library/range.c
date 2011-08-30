@@ -300,7 +300,7 @@ int eblob_read_range(struct eblob_range_request *req)
 err_out_unlock:
 	pthread_mutex_unlock(&h->root_lock);
 
-	eblob_read_range_on_disk(req);
+	err = eblob_read_range_on_disk(req);
 
 	return err;
 }
