@@ -607,6 +607,7 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 				memcpy(&rc[i], &rc[i + 1], sizeof(struct eblob_ram_control));
 			}
 			found = 1;
+			break;
 		}
 	}
 
