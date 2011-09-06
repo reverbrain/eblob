@@ -1,3 +1,10 @@
+eblob (0.11.1) unstable; urgency=low
+
+  * Fixed bug with on-disk index lookup
+  * Added iterator in Python binding
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 06 Sep 2011 23:51:29 +0400
+
 eblob (0.11.0) unstable; urgency=low
 
   * Get rid of unused config fields
