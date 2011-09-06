@@ -102,7 +102,7 @@ out:
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	struct eblob_map_fd src;
-	int fd, err, len;
+	int fd, err, len, tmp_fd;
 	char *file;
 
 	/* should be enough to store /path/to/data.N.index.sorted */
@@ -158,6 +158,17 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	bctl->sort.fd = fd;
 	bctl->sort.size = bctl->index_offset;
 
+	tmp_fd = dup(bctl->sort.fd);
+	if (tmp_fd < 0) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort-dup: index: %d, type: %d, index_fd: %d, data_fd: %d: "
+				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
+				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
+				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
+				file, strerror(-err), err);
+		goto err_out_unmap_src;
+	}
+
 	err = eblob_data_map(&bctl->sort);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
@@ -165,7 +176,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
 				file, strerror(-err), err);
-		goto err_out_unmap_src;
+		goto err_out_close_tmp;
 	}
 
 	memcpy(bctl->sort.data, src.data, bctl->index_offset);
@@ -229,10 +240,15 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
 			file);
 
+	close(bctl->index_fd);
+	bctl->index_fd = tmp_fd;
+
 	eblob_data_unmap(&src);
 	free(file);
 	return 0;
 
+err_out_close_tmp:
+	close(tmp_fd);
 err_out_unmap_src:
 	eblob_data_unmap(&src);
 err_out_close:
@@ -302,7 +318,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->data_fd = bctl->data_fd;
 			r->data_offset = dc->position;
 
-			r->index_fd = bctl->index_fd;
+			r->index_fd = bctl->sort.fd;
 			r->index_offset = (void *)dc - bctl->sort.data;
 
 			r->size = dc->data_size;
