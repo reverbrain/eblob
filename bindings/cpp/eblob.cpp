@@ -155,3 +155,9 @@ void eblob::remove_blobs(void)
 {
 	eblob_remove_blobs(eblob_);
 }
+
+int eblob::iterate(struct eblob_iterate_control &ctl)
+{
+	return eblob_iterate(eblob_, &ctl);
+}
+
