@@ -101,6 +101,9 @@ class eblob {
 		unsigned long long elements(void);
 
 		void remove_blobs(void);
+
+		int iterate(struct eblob_iterate_control &ctl);
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;

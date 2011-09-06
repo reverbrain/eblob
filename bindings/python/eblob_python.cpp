@@ -25,6 +25,11 @@ using namespace zbr;
 struct eblob_id {
 	eblob_id() {}
 	eblob_id(list id_) : id(id_) {}
+	eblob_id(struct eblob_key &key) {
+		for (unsigned int i = 0; i < sizeof(key.id); ++i)
+			id.append(key.id[i]);
+	}
+
 	list id;
 };
 
@@ -46,6 +51,44 @@ static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 
         eblob_extract_arr(e.id, id.id, &len);
 }
+
+struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
+{
+	eblob_py_iterator() {}
+
+	eblob_py_iterator(const zbr::eblob_iterate_control &ctl)
+	{
+		this->start_type = ctl.start_type;
+		this->max_type = ctl.max_type;
+		this->check_index = ctl.check_index;
+	}
+
+	virtual void process(struct eblob_id &id, std::string &data)
+	{
+		PyGILState_STATE gstate = PyGILState_Ensure();
+
+		try {
+			call<void>(this->get_override("process").ptr(), id, data);
+		} catch (const error_already_set) {
+			PyErr_Print();
+		}
+
+		PyGILState_Release(gstate);
+	}
+
+	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc,
+			void *data, void *priv, void *thread_priv __attribute__((unused)))
+	{
+		struct eblob_id id(dc->key);
+		std::string d((const char*)data, rc->size);
+
+		struct eblob_py_iterator *it = (struct eblob_py_iterator *)priv;
+		
+
+		it->process(id, d);
+		return 0;
+	}
+};
 
 class eblob_python: public eblob {
 public:
@@ -78,13 +121,44 @@ public:
 		eblob_extract_id(id, key);
 		eblob::remove_all(key);
 	}
+
+	int py_iterate(class eblob_py_iterator &it) {
+		struct eblob_iterate_control ctl;
+		int err;
+
+		memset(&ctl, 0, sizeof(ctl));
+
+		ctl.start_type = it.start_type;
+		ctl.max_type = it.max_type;
+		ctl.check_index = it.check_index;
+
+		ctl.thread_num = 1;
+		ctl.priv = &it;
+
+		ctl.iterator_cb.iterator = &eblob_py_iterator::iterator;
+
+		Py_BEGIN_ALLOW_THREADS
+		err = eblob::iterate(ctl);
+		Py_END_ALLOW_THREADS
+
+		return err;
+	}
 };
 
 BOOST_PYTHON_MODULE(libeblob_python) {
 
+	PyEval_InitThreads();
+
 	class_<eblob_id>("eblob_id", init<>())
 		.def(init<list>())
 		.def_readwrite("id", &eblob_id::id)
+	;
+
+	class_<eblob_py_iterator>("eblob_iterator", init<>())
+		.def("process", pure_virtual(&eblob_py_iterator::process))
+		.def_readwrite("start_type", &eblob_py_iterator::start_type)
+		.def_readwrite("max_type", &eblob_py_iterator::max_type)
+		.def_readwrite("check_index", &eblob_py_iterator::check_index)
 	;
 
 	class_<eblob_python>("eblob", init<const char *, const uint32_t, const std::string>())
@@ -96,5 +170,6 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def("remove_hashed", &eblob_python::remove_hashed)
 		.def("remove_all", &eblob_python::remove_all_by_id)
 		.def("elements", &eblob_python::elements)
+		.def("iterate", &eblob_python::py_iterate)
 	;
 };
