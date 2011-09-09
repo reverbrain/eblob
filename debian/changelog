@@ -1,3 +1,9 @@
+eblob (0.11.2) unstable; urgency=low
+
+  * Do not lock eblob_commit_ram()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 09 Sep 2011 20:18:45 +0400
+
 eblob (0.11.1) unstable; urgency=low
 
   * Fixed bug with on-disk index lookup
