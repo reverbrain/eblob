@@ -347,8 +347,6 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	struct eblob_ram_control ctl;
 	int err, have_old = 0, disk;
 
-	pthread_mutex_lock(&b->lock);
-
 	ctl.data_fd = wc->data_fd;
 	ctl.index_fd = wc->index_fd;
 	ctl.size = wc->size + wc->offset;
@@ -368,15 +366,13 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_insert_type: %s %d.\n",
 				eblob_dump_id(key->id), strerror(-err), err);
-		goto err_out_unlock;
+		goto err_out_exit;
 	}
 
 	if (have_old)
 		err = 1;
 
-err_out_unlock:
-	pthread_mutex_unlock(&b->lock);
-
+err_out_exit:
 	return err;
 }
 
