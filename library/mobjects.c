@@ -727,7 +727,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->thread_num = thread_num;
 
 			err = 0;
-			if (bctl->sort.fd < 0 || b->stat.need_check)
+			if (bctl->sort.fd < 0 || b->stat.need_check || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
 				err = eblob_blob_iterate(ctl);
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "

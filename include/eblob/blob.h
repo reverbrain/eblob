@@ -272,6 +272,8 @@ struct eblob_iterate_callbacks {
 
 };
 
+#define EBLOB_ITERATE_FLAGS_ALL		(1<<0)	/* iterate over all blobs, not only the last one */
+
 /* Iterate over all blob files */
 struct eblob_iterate_control {
 	struct eblob_backend		*b;
@@ -283,6 +285,8 @@ struct eblob_iterate_control {
 	int				check_index;
 	int				thread_num;
 	int				err;
+
+	unsigned int			flags;
 
 	int				start_type, max_type;
 
