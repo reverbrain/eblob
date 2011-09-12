@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#define _GNU_SOURCE
+
 #include "config.h"
 
 #include <sys/types.h>
@@ -28,6 +30,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <linux/limits.h>
 
 #include "blob.h"
 #include "crypto/sha512.h"
@@ -342,10 +346,10 @@ static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t of
 	return total_size;
 }
 
-static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, struct eblob_ram_control *old)
+static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	struct eblob_ram_control ctl;
-	int err, have_old = 0, disk;
+	int err;
 
 	ctl.data_fd = wc->data_fd;
 	ctl.index_fd = wc->index_fd;
@@ -355,22 +359,12 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.type = wc->type;
 	ctl.index = wc->index;
 
-	if (!(wc->flags & BLOB_DISK_CTL_REMOVE) && old) {
-		old->type = wc->type;
-		err = eblob_lookup_type(b, key, old, &disk);
-		if (!err)
-			have_old = 1;
-	}
-
 	err = eblob_insert_type(b, key, &ctl);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_insert_type: %s %d.\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_exit;
 	}
-
-	if (have_old)
-		err = 1;
 
 err_out_exit:
 	return err;
@@ -424,11 +418,139 @@ err_out_exit:
 	return err;
 }
 
+/*
+ * splice() does not allow to transfer data when in and out
+ * file descriptors are the same or refer to the same file
+ */
+#if 0
+static int eblob_splice_data_one(int *fds, int fd_in, loff_t *off_in,
+		int fd_out, loff_t *off_out, ssize_t len)
+{
+	int err;
+	size_t to_write = len;
+
+	while (to_write > 0) {
+		err = splice(fd_in, off_in, fds[1], NULL, to_write, 0);
+		printf("splice  in: %zu bytes from fd: %d, off: %llu: %d\n",
+				to_write, fd_in, *off_in, err);
+		if (err == 0) {
+			err = -ENOSPC;
+			goto err_out_exit;
+		}
+		if (err < 0) {
+			err = -errno;
+			perror("splice1");
+			goto err_out_exit;
+		}
+		to_write -= err;
+	}
+
+	to_write = len;
+	while (to_write > 0) {
+		err = splice(fds[0], NULL, fd_out, off_out, to_write, 0);
+		printf("splice out: %zu bytes into fd: %d, off: %llu: %d\n",
+				to_write, fd_out, *off_out, err);
+		if (err == 0) {
+			err = -ENOSPC;
+			goto err_out_exit;
+		}
+		if (err < 0) {
+			err = -errno;
+			perror("splice2");
+			goto err_out_exit;
+		}
+		to_write -= err;
+	}
+
+	err = 0;
+
+err_out_exit:
+	return err;
+}
+
+static int eblob_splice_data(int fd_in, loff_t off_in, int fd_out, loff_t off_out, ssize_t len)
+{
+	int fds[2];
+	int err;
+
+	err = pipe(fds);
+	if (err < 0)
+		goto err_out_exit;
+
+	while (len > 0) {
+		size_t chunk_size = PIPE_BUF;
+
+		if (chunk_size > len)
+			chunk_size = len;
+
+		err = eblob_splice_data_one(fds, fd_in, &off_in, fd_out, &off_out, chunk_size);
+		if (err < 0)
+			goto err_out_close;
+
+		len -= chunk_size;
+	}
+
+	err = 0;
+
+err_out_close:
+	close(fds[0]);
+	close(fds[1]);
+err_out_exit:
+	return err;
+}
+#else
+static int eblob_splice_data(int fd_in, loff_t off_in, int fd_out, loff_t off_out, ssize_t len)
+{
+	void *buf;
+	ssize_t err;
+
+	buf = malloc(len);
+	if (!buf) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	err = pread(fd_in, buf, len, off_in);
+	if (err != len) {
+		err = -ENOSPC;
+		goto err_out_free;
+	}
+	if (err < 0) {
+		err = -errno;
+		goto err_out_free;
+	}
+
+	err = pwrite(fd_out, buf, len, off_out);
+	if (err != len) {
+		err = -ENOSPC;
+		goto err_out_free;
+	}
+	if (err < 0) {
+		err = -errno;
+		goto err_out_free;
+	}
+
+	err = 0;
+
+err_out_free:
+	free(buf);
+err_out_exit:
+	return err;
+}
+#endif
+
+
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
+	int have_old = 0, disk;
+
+	old.type = wc->type;
+	err = eblob_lookup_type(b, key, &old, &disk);
+	if (!err)
+		have_old = 1;
 
 	pthread_mutex_lock(&b->lock);
 	if (wc->type > b->max_type) {
@@ -458,6 +580,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	atomic_inc(&ctl->refcnt);
 
+	if (have_old) {
+		if (wc->flags & BLOB_DISK_CTL_APPEND) {
+			wc->offset += old.size;
+		}
+	}
+
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
 
@@ -474,14 +602,47 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	pthread_mutex_unlock(&b->lock);
 
+	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
+	if (err < 0) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: fallocate: "
+				"fd: %d, offset: %llu, size: %llu: %s %zd\n",
+				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
+				(unsigned long long)wc->total_size, strerror(-err), err);
+		goto err_out_exit;
+	}
+
+	err = eblob_commit_ram(b, key, wc);
+	if (err < 0)
+		goto err_out_exit;
+
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_commit_ram(b, key, wc, &old);
-	if (err < 0)
-		goto err_out_exit;
-	if (err > 0) {
+	if (have_old) {
+		loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
+		loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+
+		err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+		if (err < 0) {
+			err = -errno;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
+				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
+				eblob_dump_id(key->id),
+				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
+				(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
+				(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
+			goto err_out_exit;
+		}
+
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare: splice: "
+			"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
+			eblob_dump_id(key->id),
+			(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
+			(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
+			(unsigned long long)old.size, old.data_fd, wc->data_fd);
+
 		eblob_mark_entry_removed(b, key, &old);
 	}
 
@@ -620,6 +781,10 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		from_data = 1;
 	}
 
+	if (wc->flags & BLOB_DISK_CTL_APPEND) {
+		wc->offset += ctl.size;
+	}
+
 	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_fill_write_control_from_ram: eblob_calculate_size: "
 				"data_fd: %d, data_offset: %llu, index_fd: %d, index_offset: %llu, "
@@ -681,7 +846,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	/* only commit data to ram if it was not found on disk */
 	if (!wc->on_disk) {
-		err = eblob_commit_ram(b, key, wc, NULL);
+		err = eblob_commit_ram(b, key, wc);
 		if (err < 0)
 			goto err_out_exit;
 		err = 0;
@@ -831,8 +996,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
-				eblob_dump_id(key->id),
-				(unsigned long long)wc.size, (unsigned long long)size, compress_err);
+			eblob_dump_id(key->id),	(unsigned long long)wc.size, (unsigned long long)size, compress_err);
 	}
 
 	wc.offset = offset;
@@ -846,35 +1010,14 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		if (!err)
 			/* ok, we have overwritten old data, got out */
 			goto err_out_exit;
+
+		/* it could be modified if EBLOB_DISK_CTL_OFFSET flag is set */
+		wc.offset = offset;
 	}
 
 	err = eblob_write_prepare(b, key, &wc);
 	if (err)
 		goto err_out_exit;
-
-	if (offset) {
-		char *tmp;
-		uint64_t tsize = wc.offset;
-
-		err = eblob_read_data(b, key, 0, &tmp, &tsize, wc.type);
-		if (!err) {
-			err = pwrite(wc.data_fd, tmp, offset, wc.data_offset - wc.offset);
-			free(tmp);
-
-			if (err != (ssize_t)offset) {
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write: pwrite-offset: "
-						"offset: %llu, size: %llu, fd: %d: %s %zd\n",
-						eblob_dump_id(key->id),	(unsigned long long)(wc.data_offset - wc.offset),
-						(unsigned long long)offset, wc.data_fd, strerror(-err), err);
-				goto err_out_exit;
-			}
-
-			eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_write: pwrite-offset: "
-					"offset: %llu, size: %llu, fd: %d: Ok\n",
-					eblob_dump_id(key->id),	(unsigned long long)(wc.data_offset - wc.offset),
-					(unsigned long long)offset, wc.data_fd);
-		}
-	}
 
 	err = pwrite(wc.data_fd, data, size, wc.data_offset);
 	if (err != (ssize_t)size) {
@@ -889,7 +1032,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_write: pwrite: "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: pwrite: "
 			"offset: %llu, size: %llu, fd: %d: Ok\n",
 			eblob_dump_id(key->id),	(unsigned long long)wc.data_offset,
 			(unsigned long long)size, wc.data_fd);
@@ -976,7 +1119,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 
 	/* put this key into RAM for caching */
 	if (wc.on_disk) {
-		err = eblob_commit_ram(b, key, &wc, NULL);
+		err = eblob_commit_ram(b, key, &wc);
 		if (err < 0)
 			goto err_out_exit;
 	} else {
