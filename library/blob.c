@@ -53,7 +53,7 @@ static void *eblob_blob_iterator(void *data)
 
 	memset(&rc, 0, sizeof(rc));
 
-	while (ctl->thread_num > 0) {
+	while (ctl->thread_num > 0 && ctl->data_offset < ctl->data_size) {
 		pthread_mutex_lock(&bc->lock);
 
 		if (!ctl->thread_num) {
@@ -62,9 +62,9 @@ static void *eblob_blob_iterator(void *data)
 		}
 
 		if (ctl->check_index)
-			err = pread(bc->index_fd, &dc, sizeof(dc), bc->index_offset);
+			err = pread(bc->index_fd, &dc, sizeof(dc), ctl->index_offset);
 		else
-			err = pread(bc->data_fd, &dc, sizeof(dc), bc->data_offset);
+			err = pread(bc->data_fd, &dc, sizeof(dc), ctl->data_offset);
 
 		if (err != sizeof(dc)) {
 			if (err < 0)
@@ -73,11 +73,11 @@ static void *eblob_blob_iterator(void *data)
 		}
 
 		if (ctl->check_index) {
-			if (bc->index_offset + sizeof(dc) > bc->index_size) {
+			if (ctl->index_offset + sizeof(dc) > ctl->index_size) {
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
 						"index_offset: %llu, index_size: %llu, pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-						(unsigned long long)bc->index_offset, bc->index_size,
-						(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
+						ctl->index_offset, ctl->index_size,
+						(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
 				err = 0;
 				goto err_out_unlock;
 			}
@@ -86,10 +86,10 @@ static void *eblob_blob_iterator(void *data)
 
 		eblob_convert_disk_control(&dc);
 
-		if (dc.position + dc.disk_size > (uint64_t)bc->data_size) {
+		if (dc.position + dc.disk_size > (uint64_t)ctl->data_size) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
 					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
+					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
 			err = -ESPIPE;
 			goto err_out_unlock;
 		}
@@ -98,12 +98,12 @@ static void *eblob_blob_iterator(void *data)
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
 					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
 					sizeof(struct eblob_disk_control),
-					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, bc->data_size);
+					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
 			err = -ESPIPE;
 			goto err_out_unlock;
 		}
 
-		rc.index_offset = bc->index_offset;
+		rc.index_offset = ctl->index_offset;
 		rc.data_offset = dc.position;
 		rc.data_fd = bc->data_fd;
 		rc.index_fd = bc->index_fd;
@@ -111,8 +111,9 @@ static void *eblob_blob_iterator(void *data)
 		rc.index = bc->index;
 		rc.type = bc->type;
 
-		bc->index_offset += sizeof(dc);
-		bc->data_offset += dc.disk_size;
+		ctl->index_offset += sizeof(dc);
+		ctl->data_offset += dc.disk_size;
+
 		pthread_mutex_unlock(&bc->lock);
 
 		if (b->stat.need_check) {
@@ -143,43 +144,48 @@ static void *eblob_blob_iterator(void *data)
 				ctl->priv, iter_priv->thread_priv);
 	}
 
+	pthread_mutex_lock(&bc->lock);
+
 err_out_unlock:
 	ctl->thread_num = 0;
 
-	bc->data_offset = bc->data_size;
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: iterated: data_fd: %d, index_fd: %d, "
 			"data_size: %llu, data_offset: %llu, index_offset: %llu\n",
-			bc->data_fd, bc->index_fd, bc->data_size,
-			(unsigned long long)bc->data_offset, (unsigned long long)bc->index_offset);
+			bc->data_fd, bc->index_fd, ctl->data_size,
+			ctl->data_offset, ctl->index_offset);
 
-	if (err && !ctl->err) {
-		struct eblob_disk_control data_dc;
+	if (!(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
+		bc->data_offset = bc->data_size;
+		bc->index_offset = ctl->index_offset;
 
-		err = pread(bc->index_fd, &dc, sizeof(dc), bc->index_offset - sizeof(dc));
-		if (err == sizeof(dc)) {
-			eblob_convert_disk_control(&dc);
+		if (err && !ctl->err) {
+			struct eblob_disk_control data_dc;
 
-			memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
-			eblob_convert_disk_control(&data_dc);
+			err = pread(bc->index_fd, &dc, sizeof(dc), ctl->index_offset - sizeof(dc));
+			if (err == sizeof(dc)) {
+				eblob_convert_disk_control(&dc);
 
-			bc->data_offset = dc.position + data_dc.disk_size;
+				memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
+				eblob_convert_disk_control(&data_dc);
 
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
-					"data_size(was): %llu, data_offset: %llu, data_position: %llu, "
-					"index_offset: %llu\n",
-					bc->data_fd, bc->index_fd, bc->data_size,
-					(unsigned long long)bc->data_offset, (unsigned long long)dc.position,
-					(unsigned long long)bc->index_offset);
+				bc->data_offset = ctl->data_offset = dc.position + data_dc.disk_size;
+
+				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
+						"data_size(was): %llu, data_offset: %llu, data_position: %llu, "
+						"index_offset: %llu\n",
+						bc->data_fd, bc->index_fd, ctl->data_size,
+						(unsigned long long)bc->data_offset, (unsigned long long)dc.position,
+						(unsigned long long)bc->index_offset);
 
 #if 0
-			err = ftruncate(bc->data_fd, bc->data_offset);
+				err = ftruncate(bc->data_fd, bc->data_offset);
 #endif
-			err = ftruncate(bc->index_fd, bc->index_offset);
-		} else {
-			ctl->err = err;
+				err = ftruncate(bc->index_fd, bc->index_offset);
+			} else {
+				ctl->err = err;
+			}
 		}
 	}
-
 	pthread_mutex_unlock(&bc->lock);
 
 	return NULL;
@@ -190,6 +196,18 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	int i, err, thread_num = ctl->thread_num;
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
+
+	err = eblob_base_setup_data(ctl->base);
+	if (err) {
+		ctl->err = err;
+		goto err_out_exit;
+	}
+
+	ctl->index_offset = 0;
+	ctl->data_offset = 0;
+
+	ctl->data_size = ctl->base->data_size;
+	ctl->index_size = ctl->base->index_size;
 
 	for (i=0; i<thread_num; ++i) {
 		iter_priv[i].ctl = ctl;
@@ -223,6 +241,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	if ((ctl->err == -ENOENT) && eblob_total_elements(ctl->b))
 		ctl->err = 0;
 
+err_out_exit:
 	return ctl->err;
 }
 
@@ -624,16 +643,18 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 		loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
-		err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
-		if (err < 0) {
-			err = -errno;
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
-				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
-				eblob_dump_id(key->id),
-				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
-				(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
-				(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
-			goto err_out_exit;
+		if (old.size) {
+			err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+			if (err < 0) {
+				err = -errno;
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
+					"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
+					eblob_dump_id(key->id),
+					(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
+					(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
+					(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
+				goto err_out_exit;
+			}
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare: splice: "
