@@ -1054,9 +1054,9 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: pwrite: "
-			"offset: %llu, size: %llu, fd: %d: Ok\n",
+			"data offset: %llu, wc offset: %llu, size: %llu, fd: %d: Ok\n",
 			eblob_dump_id(key->id),	(unsigned long long)wc.data_offset,
-			(unsigned long long)size, wc.data_fd);
+			(unsigned long long)wc.offset, (unsigned long long)size, wc.data_fd);
 
 err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
