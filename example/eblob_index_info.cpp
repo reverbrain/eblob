@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
 
 					position -= sizeof(struct eblob_disk_control);
 
-					std::cout << eblob_dump_control(&dc, position, 1, 0);
+					std::cout << eblob_dump_control(&dc, position, 1, 0) << std::endl;
 				}
 			}
 		}

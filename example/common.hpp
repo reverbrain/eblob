@@ -61,12 +61,12 @@ static inline std::string eblob_dump_control(const struct eblob_disk_control *dc
 		flags += "COMPRESS ";
 	if (dco->flags &  BLOB_DISK_CTL_REMOVE)
 		flags += "REMOVED ";
+	if (dco->flags &  BLOB_DISK_CTL_APPEND)
+		flags += "APPEND ";
 
 	if (flags.size() > 3) {
-		std::cout << flags << "]";
+		out << flags << "]";
 	}
-
-	out << std::endl;
 
 	return out.str();
 }

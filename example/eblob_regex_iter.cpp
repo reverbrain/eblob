@@ -43,7 +43,7 @@ class eblob_regex_callback : public eblob_iterator_callback {
 			int match = regex_match(key, re_);
 
 			if (match || (check_key_len_ && !memcmp(dco->key.id, check_key_.id, check_key_len_))) {
-				std::cout << eblob_dump_control(dco, 0, match, index);
+				std::cout << eblob_dump_control(dco, 0, match, index) << std::endl;
 			}
 
 			return match;
