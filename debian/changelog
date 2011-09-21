@@ -1,3 +1,10 @@
+eblob (0.12.2) unstable; urgency=low
+
+  * Added eblob_gen_index util to generate index files from data blobs
+  * Extended debug in eblob helpers
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 21 Sep 2011 15:03:37 +0400
+
 eblob (0.12.1) unstable; urgency=low
 
   * Use temporary offsets when iterating over blobs.
