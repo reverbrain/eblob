@@ -184,6 +184,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	qsort(dst.data, bctl->index_offset / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
 			eblob_disk_control_sort);
 
+	bctl->sort = dst;
+
 	{
 		unsigned long i;
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
@@ -239,8 +241,6 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
 			file);
-
-	bctl->sort = dst;
 
 	fd = bctl->index_fd;
 	bctl->index_fd = tmp_fd;
