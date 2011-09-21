@@ -1,3 +1,9 @@
+eblob (0.12.3) unstable; urgency=low
+
+  * Close race between sort lookups and uncompleted sort setup in bctl
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 21 Sep 2011 19:36:33 +0400
+
 eblob (0.12.2) unstable; urgency=low
 
   * Added eblob_gen_index util to generate index files from data blobs
