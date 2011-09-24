@@ -137,7 +137,7 @@ static void *eblob_blob_iterator(void *data)
 				b->stat.disk, b->stat.removed, b->stat.hashed);
 
 
-		if ((dc.flags & BLOB_DISK_CTL_REMOVE) || (bc->sort.fd >= 0))
+		if ((dc.flags & BLOB_DISK_CTL_REMOVE) || ((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)))
 			continue;
 
 		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control),
