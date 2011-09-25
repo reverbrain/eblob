@@ -102,8 +102,8 @@ out:
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	struct eblob_map_fd src, dst;
-	int fd, err, len, tmp_fd;
-	char *file;
+	int fd, err, len;
+	char *file, *dst_file;
 
 	/* should be enough to store /path/to/data.N.index.sorted */
 	len = strlen(b->cfg.file) + sizeof(".index") + sizeof(".sorted") + 256;
@@ -113,10 +113,19 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_exit;
 	}
 
-	if (bctl->type != EBLOB_TYPE_DATA)
-		snprintf(file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-	else
-		snprintf(file, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+	dst_file = malloc(len);
+	if (!dst_file) {
+		err = -ENOMEM;
+		goto err_out_free_file;
+	}
+
+	if (bctl->type != EBLOB_TYPE_DATA) {
+		snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
+		snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	} else {
+		snprintf(file, len, "%s.%d.index.tmp", b->cfg.file, bctl->index);
+		snprintf(dst_file, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+	}
 
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
 	if (fd < 0) {
@@ -126,7 +135,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
 				file, strerror(-err), err);
-		goto err_out_free;
+		goto err_out_free_dst_file;
 	}
 
 	err = ftruncate(fd, bctl->index_offset);
@@ -158,17 +167,6 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	dst.fd = fd;
 	dst.size = bctl->index_offset;
 
-	tmp_fd = dup(fd);
-	if (tmp_fd < 0) {
-		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort-dup: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				file, strerror(-err), err);
-		goto err_out_unmap_src;
-	}
-
 	err = eblob_data_map(&dst);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
@@ -176,7 +174,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
 				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
 				file, strerror(-err), err);
-		goto err_out_close_tmp;
+		goto err_out_unmap_src;
 	}
 
 	memcpy(dst.data, src.data, bctl->index_offset);
@@ -242,22 +240,23 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
 			file);
 
-	fd = bctl->index_fd;
-	bctl->index_fd = tmp_fd;
+	close(bctl->index_fd);
+	bctl->index_fd = fd;
 
-	close(fd);
+	rename(file, dst_file);
 
 	eblob_data_unmap(&src);
 	free(file);
+	free(dst_file);
 	return 0;
 
-err_out_close_tmp:
-	close(tmp_fd);
 err_out_unmap_src:
 	eblob_data_unmap(&src);
 err_out_close:
 	close(fd);
-err_out_free:
+err_out_free_dst_file:
+	free(dst_file);
+err_out_free_file:
 	free(file);
 err_out_exit:
 	return err;
