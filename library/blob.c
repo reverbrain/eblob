@@ -565,6 +565,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
+	size_t size;
 
 	old.type = wc->type;
 	err = eblob_lookup_type(b, key, &old, &disk);
@@ -614,7 +615,16 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	wc->ctl_data_offset = ctl->data_offset;
 
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
-	wc->total_size = eblob_calculate_size(b, wc->offset, wc->size);
+
+	size = wc->size;
+
+	if (have_old && (wc->flags & BLOB_DISK_CTL_OVERWRITE)) {
+		if (old.size > wc->offset + size) {
+			size = old.size - wc->offset;
+		}
+	}
+
+	wc->total_size = eblob_calculate_size(b, wc->offset, size);
 
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
@@ -640,13 +650,13 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 		goto err_out_exit;
 
 	/*
-	 * only copy old file if APPEND flag is set, since we accounted old.size in wc->offset
-	 * only in this case
+	 * only copy old file if APPEND or OVERWRITE flag is set,
+	 * since we accounted old.size in wc->offset only in this case
 	 *
 	 * if we will blindly copy data always, it is possible to corrupt data, since
 	 * we accounted for new size+offset, while old size can be bigger
 	 */
-	if (have_old && (wc->flags & BLOB_DISK_CTL_APPEND)) {
+	if (have_old && (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE))) {
 		loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
