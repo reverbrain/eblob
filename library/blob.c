@@ -639,7 +639,14 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	if (err)
 		goto err_out_exit;
 
-	if (have_old) {
+	/*
+	 * only copy old file if APPEND flag is set, since we accounted old.size in wc->offset
+	 * only in this case
+	 *
+	 * if we will blindly copy data always, it is possible to corrupt data, since
+	 * we accounted for new size+offset, while old size can be bigger
+	 */
+	if (have_old && (wc->flags & BLOB_DISK_CTL_APPEND)) {
 		loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
