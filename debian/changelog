@@ -1,3 +1,9 @@
+eblob (0.12.6) unstable; urgency=low
+
+  * If we have old entry, mark it removed always, not only when flag is set.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 27 Sep 2011 15:51:14 +0400
+
 eblob (0.12.5) unstable; urgency=low
 
   * Added overwrite eblob flag
