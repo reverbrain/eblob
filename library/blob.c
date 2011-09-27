@@ -656,30 +656,33 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	 * if we will blindly copy data always, it is possible to corrupt data, since
 	 * we accounted for new size+offset, while old size can be bigger
 	 */
-	if (have_old && (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE))) {
-		loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
-		loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+	if (have_old) {
+		if (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE)) {
+			loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
+			loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
-		if (old.size) {
-			err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
-			if (err < 0) {
-				err = -errno;
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
-					"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
-					eblob_dump_id(key->id),
-					(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
-					(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
-					(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
-				goto err_out_exit;
+			if (old.size) {
+				err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+				if (err < 0) {
+					err = -errno;
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
+						"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
+						eblob_dump_id(key->id),
+						(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
+						(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
+						(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
+					goto err_out_exit;
+				}
 			}
-		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare: splice: "
-			"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
-			eblob_dump_id(key->id),
-			(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
-			(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
-			(unsigned long long)old.size, old.data_fd, wc->data_fd);
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare: splice: "
+				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
+				eblob_dump_id(key->id),
+				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
+				(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
+				(unsigned long long)old.size, old.data_fd, wc->data_fd);
+
+		}
 
 		eblob_mark_entry_removed(b, key, &old);
 	}
