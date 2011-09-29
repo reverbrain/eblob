@@ -90,6 +90,16 @@ void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 		free(dst);
 	}
 
+	if (ctl->sort.fd) {
+		err = eblob_readlink(ctl->sort.fd, &dst);
+		if (err > 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: remove: %s\n", dst);
+
+			unlink(dst);
+			free(dst);
+		}
+	}
+
 	err = eblob_readlink(ctl->index_fd, &dst);
 	if (err > 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: remove: %s\n", dst);
