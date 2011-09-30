@@ -10,6 +10,8 @@
 
 #include "common.hpp"
 
+static loff_t data_offset_shift;
+
 enum dnet_common_embed_types {
 	DNET_FCGI_EMBED_DATA	    = 1,
 	DNET_FCGI_EMBED_TIMESTAMP,
@@ -70,13 +72,17 @@ int main(int argc, char *argv[])
 {
 	int print_all = 0;
 
-	if (argc < 2) {
-		std::cerr << "Usage: " << argv[0] << " blob <print-all>" << std::endl;
+	if (argc < 3) {
+		std::cerr << "Usage: " << argv[0] << " blob <print-all> <data offset shift>" << std::endl;
 		return(-1);
 	}
 
 	if (argc > 2) {
 		print_all = atoi(argv[2]);
+	}
+
+	if (argc == 4) {
+		data_offset_shift = strtoul(argv[3], NULL, 0);
 	}
 
 	struct eblob_disk_control idc, ddc;
@@ -107,7 +113,7 @@ int main(int argc, char *argv[])
 			size_t index_disk_size = idc.disk_size;
 			size_t index_data_size = idc.data_size;
 
-			loff_t data_position = idc.position;
+			loff_t data_position = idc.position - data_offset_shift;
 
 			total++;
 			if (idc.flags & BLOB_DISK_CTL_REMOVE)
@@ -124,6 +130,8 @@ int main(int argc, char *argv[])
 				eblob_check_embed(data, ddc, data_position);
 			} catch (...) {
 			}
+
+			idc.position = ddc.position = data_position;
 
 			if ((idc.disk_size == sizeof(struct eblob_disk_control)) || !idc.data_size || !idc.disk_size) {
 				idc.disk_size = ddc.disk_size;
