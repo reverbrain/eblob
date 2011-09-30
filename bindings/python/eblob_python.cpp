@@ -92,9 +92,11 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 
 class eblob_python: public eblob {
 public:
-	eblob_python(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) : eblob::eblob(log_file, log_mask, eblob_path) {}
+	eblob_python(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
+		eblob::eblob(log_file, log_mask, eblob_path) {}
 
-	void write_by_id(const struct eblob_id &id, const std::string &data, const uint64_t offset, uint64_t flags, int type) {
+	void write_by_id(const struct eblob_id &id, const std::string &data, const uint64_t offset,
+			const uint64_t flags, const int type) {
 		struct eblob_key key;
 		eblob_extract_id(id, key);
 		eblob::write(key, data, offset, flags, type);
