@@ -1,3 +1,10 @@
+eblob (0.12.8) unstable; urgency=low
+
+  * Use internal ctl iterator when truncating last record
+  * Added initial data offset shift into eblob gen
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 30 Sep 2011 19:31:15 +0400
+
 eblob (0.12.7) unstable; urgency=low
 
   * Fixed error checking in eblob_base_remove
