@@ -171,16 +171,17 @@ err_out_unlock:
 				bc->data_offset = ctl->data_offset = dc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
-						"data_size(was): %llu, data_offset: %llu, data_position: %llu, "
+						"data_size(was): %llu, data_offset: %llu, data_position: %llu, disk_size: %llu, "
 						"index_offset: %llu\n",
 						bc->data_fd, bc->index_fd, ctl->data_size,
-						(unsigned long long)bc->data_offset, (unsigned long long)dc.position,
-						(unsigned long long)bc->index_offset);
+						(unsigned long long)bc->data_offset,
+						(unsigned long long)dc.position, (unsigned long long)dc.disk_size,
+						(unsigned long long)ctl->index_offset - sizeof(dc));
 
 #if 0
 				err = ftruncate(bc->data_fd, bc->data_offset);
 #endif
-				err = ftruncate(bc->index_fd, bc->index_offset);
+				err = ftruncate(bc->index_fd, ctl->index_offset);
 			} else {
 				ctl->err = err;
 			}
