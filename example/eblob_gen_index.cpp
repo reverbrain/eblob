@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
 						    ", position: " << index_position <<
 					" : old data : data_size: " << data_data_size <<
 						    ", disk_size: " << data_disk_size <<
+					" < " << data_position + data_offset_shift <<
 					std::endl;
 			}
 
