@@ -1,3 +1,11 @@
+eblob (0.12.9) unstable; urgency=low
+
+  * spec update
+  * rename eblob.spec
+  * use bz2 archive
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 03 Oct 2011 20:48:53 +0400
+
 eblob (0.12.8) unstable; urgency=low
 
   * Use internal ctl iterator when truncating last record

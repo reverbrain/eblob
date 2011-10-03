@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.8
+Version:	0.12.9
 Release:	1%{?dist}.1
 
 License:	GPLv2+
