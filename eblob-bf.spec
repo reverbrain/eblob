@@ -11,7 +11,7 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:	openssl-devel snappy-devel python-devel
 BuildRequires:  python-devel, libtar-devel
-%if 0%{?rhel} < 6
+%if 0%{?rhel} < 6 || 0%{?fedora} < 10
 BuildRequires:  boost141-python, boost141-devel
 %else
 BuildRequires:  boost-python, boost-devel
@@ -64,7 +64,7 @@ needed for developing software which uses the eblob library.
 %build
 export LDFLAGS="-Wl,-z,defs"
 ./autogen.sh
-%if 0%{?rhel} < 6
+%if 0%{?rhel} < 6 || 0%{?fedora} < 10
 CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
 %else
 %configure
