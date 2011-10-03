@@ -1,7 +1,7 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.6.0
-Release:	1%{?dist}
+Version:	0.12.8
+Release:	1%{?dist}.1
 
 License:	GPLv2+
 Group:		System Environment/Libraries
@@ -9,7 +9,13 @@ URL:		http://www.ioremap.net/projects/eblob
 Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:	openssl-devel
+BuildRequires:	openssl-devel snappy-devel python-devel
+BuildRequires:  python-devel, libtar-devel
+%if 0%{?rhel} < 6
+BuildRequires:  boost141-python, boost141-devel
+%else
+BuildRequires:  boost-python, boost-devel
+%endif
 BuildRequires:	automake autoconf libtool
 
 %description
@@ -58,7 +64,11 @@ needed for developing software which uses the eblob library.
 %build
 export LDFLAGS="-Wl,-z,defs"
 ./autogen.sh
-%configure 
+%if 0%{?rhel} < 6
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
+%else
+%configure
+%endif
 
 make %{?_smp_mflags}
 
@@ -79,13 +89,13 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc AUTHORS AUTHORS COPYING README
 %{_bindir}/*
-%{_libdir}/libeblob.so.*
+%{_libdir}/lib*.so.*
 
 
 %files devel
 %defattr(-,root,root,-)
 %{_includedir}/*
-%{_libdir}/libeblob.so
+%{_libdir}/lib*.so
 
 %changelog
 * Wed Jun 29 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.6.0
