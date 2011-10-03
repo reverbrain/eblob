@@ -243,10 +243,10 @@ again:
 			goto again;
 		}
 
-		ctl->index_fd = dup(ctl->sort.fd);
-		if (err) {
+		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
+		if (ctl->index_fd < 0) {
 			err = -errno;
-			goto err_out_unmap;
+			goto err_out_close_sort_fd;
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using existing sorted index: size: %llu, num: %llu\n",

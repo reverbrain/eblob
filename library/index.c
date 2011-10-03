@@ -240,9 +240,6 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
 			file);
 
-	close(bctl->index_fd);
-	bctl->index_fd = fd;
-
 	rename(file, dst_file);
 
 	eblob_data_unmap(&src);
