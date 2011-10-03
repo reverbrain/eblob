@@ -6,7 +6,7 @@ Release:	1%{?dist}
 License:	GPLv2+
 Group:		System Environment/Libraries
 URL:		http://www.ioremap.net/projects/eblob
-Source0:	%{name}-%{version}.tar.gz
+Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 BuildRequires:	openssl-devel
