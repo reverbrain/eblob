@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.9
+Version:	0.12.10
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Oct 11 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.10
+- Returned offline defrag tool
+- Drop libssl deps
+- Check if record is removed in blob
+
 * Wed Jun 29 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.6.0
 - Added snappy compression support
 - Added start/max types into iterator. Exoport nice interface outside. (0.5.2)
