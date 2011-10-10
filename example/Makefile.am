@@ -7,10 +7,12 @@ noinst_HEADERS = common.hpp
 eblob_open_SOURCES = eblob_open.cpp
 eblob_open_LDADD = ../bindings/cpp/libeblob_cpp.la
 
-bin_PROGRAMS = eblob_index_info eblob_gen_index
+bin_PROGRAMS = eblob_index_info eblob_gen_index eblob_defrag
 
 eblob_index_info_SOURCES = eblob_index_info.cpp
 eblob_gen_index_SOURCES = eblob_gen_index.cpp
+
+eblob_defrag_SOURCES = defrag.cpp
 
 if HAVE_BOOST_REGEX
 bin_PROGRAMS += eblob_regex_iter
