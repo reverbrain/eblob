@@ -48,6 +48,17 @@ struct eblob_base_type {
 	struct list_head	bases;
 };
 
+#define EBLOB_INDEX_BLOCK_SIZE			1024
+
+struct eblob_index_block {
+	struct rb_node		node;
+
+	struct eblob_key	start_key;
+	struct eblob_key	end_key;
+
+	int			offset;
+};
+
 struct eblob_base_ctl {
 	struct list_head	base_entry;
 
@@ -65,6 +76,9 @@ struct eblob_base_ctl {
 	int			need_sorting;
 
 	struct eblob_map_fd	sort;
+
+	struct rb_root		index_blocks_root;
+	pthread_mutex_t		index_blocks_lock;
 
 	char			name[0];
 };

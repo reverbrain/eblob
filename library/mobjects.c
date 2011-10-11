@@ -75,6 +75,7 @@ err_out_exit:
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 {
 	pthread_mutex_destroy(&ctl->lock);
+	pthread_mutex_destroy(&ctl->index_blocks_lock);
 
 	munmap(ctl->data, ctl->data_size);
 
@@ -143,6 +144,14 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		err = -err;
 		goto err_out_free;
 	}
+
+	bctl->index_blocks_root.rb_node = NULL;
+	err = pthread_mutex_init(&bctl->index_blocks_lock, NULL);
+	if (err) {
+		err = -err;
+		goto err_out_free;
+	}
+
 
 	err = access(full, R_OK | W_OK);
 	if (!err || (errno != ENOENT)) {
