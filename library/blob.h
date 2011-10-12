@@ -56,7 +56,7 @@ struct eblob_index_block {
 	struct eblob_key	start_key;
 	struct eblob_key	end_key;
 
-	int			offset;
+	uint64_t		offset;
 };
 
 struct eblob_base_ctl {
@@ -138,5 +138,9 @@ void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
 
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+
+int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
+int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
+struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc);
 
 #endif /* __EBLOB_BLOB_H */

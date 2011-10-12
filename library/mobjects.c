@@ -107,19 +107,76 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 		err = fstat(bctl->sort.fd, &st);
 		if (err) {
 			err = -errno;
-			goto err_out_free;
+			goto err_out_close;
 		}
 
 		bctl->sort.size = st.st_size;
+		if (bctl->sort.size % sizeof(struct eblob_disk_control)) {
+			err = -EBADF;
+			goto err_out_close;
+		}
+
 		err = eblob_data_map(&bctl->sort);
 		if (err)
-			goto err_out_free;
+			goto err_out_close;
 
 		bctl->index_size = st.st_size;
 	} else {
 		err = -errno;
+		goto err_out_free;
 	}
 
+	struct eblob_index_block *block;
+	struct eblob_disk_control dc;
+	uint64_t offset = 0;
+
+	while (offset < bctl->sort.size) {
+		block = (struct eblob_index_block *)malloc(sizeof(struct eblob_index_block));
+		if (!block) {
+			err = -ENOMEM;
+			goto err_out_drop_tree;
+		}
+		memset(block, 0, sizeof(block));
+
+		block->offset = offset;
+
+		err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
+		if (err != sizeof(dc)) {
+			if (err < 0)
+				err = -errno;
+			goto err_out_drop_tree;
+		}
+
+		memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
+
+		offset += sizeof(struct eblob_disk_control) * (EBLOB_INDEX_BLOCK_SIZE-1);
+		if (offset > bctl->sort.size)
+			offset = bctl->sort.size;
+
+		err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
+		if (err != sizeof(dc)) {
+			if (err < 0)
+				err = -errno;
+			goto err_out_drop_tree;
+		}
+
+		memcpy(&block->end_key, &dc.key, sizeof(struct eblob_key));
+
+		err = eblob_index_blocks_insert(bctl, block);
+		if (err)
+			goto err_out_drop_tree;
+
+		offset += sizeof(struct eblob_disk_control);
+	}
+
+
+	free(full);
+	return err;
+
+err_out_drop_tree:
+	eblob_index_blocks_destroy(bctl);
+err_out_close:
+	close(bctl->sort.fd);
 err_out_free:
 	free(full);
 err_out_exit:
@@ -145,8 +202,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		goto err_out_free;
 	}
 
-	bctl->index_blocks_root.rb_node = NULL;
-	err = pthread_mutex_init(&bctl->index_blocks_lock, NULL);
+	ctl->index_blocks_root.rb_node = NULL;
+	err = pthread_mutex_init(&ctl->index_blocks_lock, NULL);
 	if (err) {
 		err = -err;
 		goto err_out_free;

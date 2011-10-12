@@ -60,34 +60,54 @@ static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted, st
 	return !(sorted->flags & rem);
 }
 
+int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
+{
+	struct eblob_index_block *t;
+	struct rb_node *n;
+
+	pthread_mutex_lock(&bctl->index_blocks_lock);
+
+	while((n = rb_first(&bctl->index_blocks_root))) {
+		t = rb_entry(n, struct eblob_index_block, node);
+
+		rb_erase(n, &bctl->index_blocks_root);
+
+		free(t);
+	}
+
+	pthread_mutex_unlock(&bctl->index_blocks_lock);
+
+	return 0;
+}
 
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block)
 {
-	struct rb_node **n, *parent;
+	struct eblob_index_block *t;
+	struct rb_node **n, *parent = NULL;
 	int err = 0;
 	int cmp;
 
 	pthread_mutex_lock(&bctl->index_blocks_lock);
 
-	*n = bctl->index_blocks_root.rb_node;
+	n = &bctl->index_blocks_root.rb_node;
 
 	while(*n) {
-		parent = *n
+		parent = *n;
 
-		t = rb_entry(n, struct eblob_index_block, node);
+		t = rb_entry(parent, struct eblob_index_block, node);
 
 		cmp = eblob_id_cmp(t->start_key.id, block->end_key.id);
-		if (cmp < 0)
+		if (cmp <= 0)
 			n = &parent->rb_left;
-		else if (cmp > 0) {
-			if (eblob_id_cmp(t->end_key.id, block->start_key.id) > 0)
+		else {
+			if (eblob_id_cmp(t->end_key.id, block->start_key.id) >= 0)
 				n = &parent->rb_right;
 			else
 				break;
-		} else
-			break;
+		}
 	}
 
+	/* TODO: Add checks for incorrect blocks boundaries*/
 	if (*n) {
 		err = -EEXIST;
 		goto err_out_exit;
@@ -96,15 +116,13 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 	rb_link_node(&block->node, parent, n);
 	rb_insert_color(&block->node, &bctl->index_blocks_root);
 
+err_out_exit:
 	pthread_mutex_unlock(&bctl->index_blocks_lock);
 
-
-
-err_out_exit:
 	return err;
 }
 
-static struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc)
+struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc)
 {
 	struct eblob_index_block *t = NULL;
 	struct rb_node *n;
@@ -138,9 +156,6 @@ static struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl
 	return t;
 }
 
-	
-
-
 static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc))
 {
@@ -154,6 +169,9 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 	if (!block) {
 		start = bctl->sort.data + block->offset;
 		end = start + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
+
+		if ((void *)end > bctl->sort.data + bctl->sort.size)
+			end = bctl->sort.data + bctl->sort.size;
 	}
 
 	sorted_orig = bsearch(dc, bctl->sort.data, bctl->sort.size / sizeof(struct eblob_disk_control),
