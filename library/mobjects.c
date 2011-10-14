@@ -128,7 +128,9 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 
 	struct eblob_index_block *block;
 	struct eblob_disk_control dc;
+	int bloom_byte_num, bloom_bit_num;
 	uint64_t offset = 0;
+	int i;
 
 	while (offset < bctl->sort.size) {
 		block = (struct eblob_index_block *)malloc(sizeof(struct eblob_index_block));
@@ -140,24 +142,22 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 
 		block->offset = offset;
 
-		err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
-		if (err != sizeof(dc)) {
-			if (err < 0)
-				err = -errno;
-			goto err_out_drop_tree;
-		}
+		for (i = 0; i < EBLOB_INDEX_BLOCK_SIZE && offset < bctl->sort.size; ++i) {
+			err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
+			if (err != sizeof(dc)) {
+				if (err < 0)
+					err = -errno;
+				goto err_out_drop_tree;
+			}
 
-		memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
+			if (i == 0)
+				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-		offset += sizeof(struct eblob_disk_control) * (EBLOB_INDEX_BLOCK_SIZE-1);
-		if (offset > bctl->sort.size)
-			offset = bctl->sort.size;
+			eblob_calculate_bloom(&dc.key, &bloom_byte_num, &bloom_bit_num);
 
-		err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
-		if (err != sizeof(dc)) {
-			if (err < 0)
-				err = -errno;
-			goto err_out_drop_tree;
+			block->bloom[bloom_byte_num] |= 1<<bloom_bit_num;
+
+			offset += sizeof(struct eblob_disk_control);
 		}
 
 		memcpy(&block->end_key, &dc.key, sizeof(struct eblob_key));
@@ -165,8 +165,6 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 		err = eblob_index_blocks_insert(bctl, block);
 		if (err)
 			goto err_out_drop_tree;
-
-		offset += sizeof(struct eblob_disk_control);
 	}
 
 
