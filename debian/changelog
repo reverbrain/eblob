@@ -1,3 +1,9 @@
+eblob (0.12.11) unstable; urgency=low
+
+  * Only read mapped data blob if EBLOB_ITERATE_FLAGS_ALL flag is set
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 12 Oct 2011 00:51:56 +0400
+
 eblob (0.12.10) unstable; urgency=low
 
   * Returned offline defrag tool

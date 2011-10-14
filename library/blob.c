@@ -116,7 +116,7 @@ static void *eblob_blob_iterator(void *data)
 
 		pthread_mutex_unlock(&bc->lock);
 
-		if (bc->sort.fd > 0) {
+		if (ctl->flags & EBLOB_ITERATE_FLAGS_ALL) {
 			dc_blob = (struct eblob_disk_control*)(bc->data + dc.position);
 			if (dc_blob->flags & BLOB_DISK_CTL_REMOVE)
 				dc.flags |= BLOB_DISK_CTL_REMOVE;

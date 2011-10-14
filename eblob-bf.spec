@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.10
+Version:	0.12.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Oct 12 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.11
+- Only read mapped data blob if EBLOB_ITERATE_FLAGS_ALL flag is set
+
 * Tue Oct 11 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.10
 - Returned offline defrag tool
 - Drop libssl deps
