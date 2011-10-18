@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.12
+Version:	0.12.13
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Oct 18 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.13
+- Fixed sorted index bsearch range calculation
+
 * Sat Oct 15 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.12
 - Added bloom filter in sorted index blocks
 - Added tree for range index search
