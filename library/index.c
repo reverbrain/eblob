@@ -30,6 +30,7 @@
 #include <unistd.h>
 
 #include "blob.h"
+//struct eblob_backend *gb;
 
 static int eblob_disk_control_sort(const void *d1, const void *d2)
 {
@@ -177,7 +178,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 	block = eblob_index_blocks_search(bctl, dc);
 	if (block) {
 		search_start = bctl->sort.data + block->offset;
-		search_end = search_start + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
+		search_end = bctl->sort.data + block->offset + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
 
 		if ((void *)search_end > bctl->sort.data + bctl->sort.size)
 			search_end = bctl->sort.data + bctl->sort.size;
@@ -185,7 +186,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 		goto out;
 	}
 
-	sorted_orig = bsearch(dc, search_start, (search_end - search_start) / sizeof(struct eblob_disk_control),
+	//eblob_log(gb->cfg.log, EBLOB_LOG_INFO, "blob: start: 0x%016llX, end: 0x%016llX, blob_start: 0x%016llX, blob_end: 0x%016llX, size: %d\n", 
+	//	search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size,
+	//	search_end - search_start);
+	sorted_orig = bsearch(dc, search_start, search_end - search_start,
 			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
 	if (!sorted_orig)
@@ -397,6 +401,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	*dst = NULL;
 	*dsize = 0;
 
+//gb = b;
 	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: type: %d, max_type: %d\n",
 			eblob_dump_id(key->id),	type, b->max_type);
 
