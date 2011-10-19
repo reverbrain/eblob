@@ -48,9 +48,9 @@ struct eblob_base_type {
 	struct list_head	bases;
 };
 
-#define EBLOB_INDEX_BLOCK_SIZE			1024
-/* Length of bloom filter = 2048 bits */
-#define EBLOB_INDEX_BLOCK_BLOOM_LENGTH		2048
+#define EBLOB_INDEX_BLOCK_SIZE			40
+/* Length of bloom filter should have at least 2 bits per index entry, we set 'this multiplier' number bits */
+#define EBLOB_INDEX_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
 	struct rb_node		node;
@@ -159,6 +159,16 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc);
+
+struct eblob_disk_search_stat {
+	int			bloom_null;
+	int			range_has_key;
+	int			bsearch_reached;
+	int			bsearch_found;
+	int			additional_reads;
+};
+
+struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		struct eblob_disk_search_stat *st);
 
 #endif /* __EBLOB_BLOB_H */
