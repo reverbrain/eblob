@@ -1,3 +1,10 @@
+eblob (0.12.14) unstable; urgency=low
+
+  * Added bsearch statistics and on-disk lookup debugs
+  * Use 40 indexes per range block. Use 128 bits per index for bloom.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 19 Oct 2011 20:51:23 +0400
+
 eblob (0.12.13) unstable; urgency=low
 
   * Fixed sorted index bsearch range calculation
