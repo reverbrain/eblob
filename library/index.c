@@ -30,7 +30,6 @@
 #include <unistd.h>
 
 #include "blob.h"
-//struct eblob_backend *gb;
 
 static int eblob_disk_control_sort(const void *d1, const void *d2)
 {
@@ -123,7 +122,8 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc)
+struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		struct eblob_disk_search_stat *st)
 {
 	struct eblob_index_block *t = NULL;
 	struct rb_node *n;
@@ -151,9 +151,14 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 			break;
 	}
 
+	if (n)
+		st->range_has_key++;
+
 	if (n && t) {
-		if (!(t->bloom[bloom_byte_num] & 1<<bloom_bit_num))
+		if (!(t->bloom[bloom_byte_num] & 1<<bloom_bit_num)) {
+			st->bloom_null++;
 			t = NULL;
+		}
 	}
 
 	pthread_mutex_unlock(&bctl->index_blocks_lock);
@@ -165,35 +170,59 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 	return t;
 }
 
-static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
-		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc))
+static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
+		struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc),
+		struct eblob_disk_search_stat *st)
 {
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
 	struct eblob_disk_control *search_start, *search_end;
 	struct eblob_index_block *block;
+	int num = 0;
 
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
 
-	block = eblob_index_blocks_search(bctl, dc);
+	block = eblob_index_blocks_search(bctl, dc, st);
 	if (block) {
 		search_start = bctl->sort.data + block->offset;
 		search_end = bctl->sort.data + block->offset + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
 
-		if ((void *)search_end > bctl->sort.data + bctl->sort.size)
+		num = EBLOB_INDEX_BLOCK_SIZE;
+
+		if ((void *)search_end > bctl->sort.data + bctl->sort.size) {
 			search_end = bctl->sort.data + bctl->sort.size;
+
+			num = ((unsigned long)search_end - (unsigned long)search_start) / sizeof(struct eblob_disk_control);
+		}
 	} else {
 		goto out;
 	}
 
-	//eblob_log(gb->cfg.log, EBLOB_LOG_INFO, "blob: start: 0x%016llX, end: 0x%016llX, blob_start: 0x%016llX, blob_end: 0x%016llX, size: %d\n", 
-	//	search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size,
-	//	search_end - search_start);
-	sorted_orig = bsearch(dc, search_start, search_end - search_start,
-			sizeof(struct eblob_disk_control), eblob_disk_control_sort);
+	st->bsearch_reached++;
+
+	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %d\n", 
+			eblob_dump_id(dc->key.id),
+			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
+
+	if (b->cfg.log->log_mask & EBLOB_LOG_DSA) {
+		char start_str[EBLOB_ID_SIZE * 2 + 1];
+		char end_str[EBLOB_ID_SIZE * 2 + 1];
+		char id_str[EBLOB_ID_SIZE * 2 + 1];
+
+		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "%s: bsearch range: start: %s, end: %s, num: %d\n",
+				eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str),
+				eblob_dump_id_len_raw(search_start->key.id, EBLOB_ID_SIZE, start_str),
+				eblob_dump_id_len_raw(search_end->key.id, EBLOB_ID_SIZE, end_str),
+				num);
+	}
 
 	if (!sorted_orig)
 		goto out;
+
+	st->bsearch_found++;
 
 	sorted = sorted_orig;
 	while (sorted < end) {
@@ -202,6 +231,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 			break;
 		}
 
+		st->additional_reads++;
 		sorted++;
 		if (eblob_disk_control_sort(sorted, dc))
 			break;
@@ -212,6 +242,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_base_ctl *bctl
 
 	sorted = sorted_orig - 1;
 	while (sorted >= start) {
+		st->additional_reads++;
 		/*
 		 * sorted_orig - 1 at the very beginning may contain different key,
 		 * so we change check logic here if compare it with previous loop
@@ -346,7 +377,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 */
 
 			if (dc->flags & rem) {
-				found = eblob_find_on_disk(bctl, dc, eblob_find_exact_callback);
+				struct eblob_disk_search_stat st;
+				found = eblob_find_on_disk(b, bctl, dc, eblob_find_exact_callback, &st);
 				if (found) {
 					found->flags |= rem;
 					eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: index: generated sorted: index: %d, type: %d: "
@@ -397,11 +429,11 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	struct eblob_disk_control *dc, tmp;
 	int num = 0, i, err;
 	int start_type, max_type;
+	struct eblob_disk_search_stat st;
 
 	*dst = NULL;
 	*dsize = 0;
 
-//gb = b;
 	eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: type: %d, max_type: %d\n",
 			eblob_dump_id(key->id),	type, b->max_type);
 
@@ -423,11 +455,12 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	for (i = start_type; i <= max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 
+		memset(&st, 0, sizeof(st));
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			if (bctl->sort.fd < 0)
 				continue;
 
-			dc = eblob_find_on_disk(bctl, &tmp, eblob_find_non_removed_callback);
+			dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 			if (!dc) {
 				eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
@@ -465,6 +498,11 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			eblob_convert_disk_control(dc);
 			break;
 		}
+
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
+				"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
+				eblob_dump_id(key->id),	i, st.range_has_key, st.bloom_null,
+				st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);
 	}
 
 	err = 0;
