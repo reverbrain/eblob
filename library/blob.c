@@ -116,10 +116,17 @@ static void *eblob_blob_iterator(void *data)
 
 		pthread_mutex_unlock(&bc->lock);
 
-		if (ctl->flags & EBLOB_ITERATE_FLAGS_ALL) {
+		if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc.flags & BLOB_DISK_CTL_REMOVE) && ctl->check_index) {
 			dc_blob = (struct eblob_disk_control*)(bc->data + dc.position);
-			if (dc_blob->flags & BLOB_DISK_CTL_REMOVE)
+			if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
 				dc.flags |= BLOB_DISK_CTL_REMOVE;
+				err = pwrite(bc->index_fd, &dc, sizeof(dc), ctl->index_offset);
+				if (err != sizeof(dc)) {
+					if (err < 0)
+						err = -errno;
+					break;
+				}
+			}
 		}
 
 		if (b->stat.need_check) {

@@ -771,11 +771,16 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	if (ctl->iterator_cb.thread_num)
 		thread_num = ctl->iterator_cb.thread_num;
 
-	err = eblob_scan_base(b, &types, &max_type);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_iterate_existing: eblob_scan_base: '%s': %s %d\n",
-				b->cfg.file, strerror(-err), err);
-		goto err_out_exit;
+	if (*typesp) {
+		types = *typesp;
+		max_type = *max_typep;
+	} else {
+		err = eblob_scan_base(b, &types, &max_type);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_iterate_existing: eblob_scan_base: '%s': %s %d\n",
+					b->cfg.file, strerror(-err), err);
+			goto err_out_exit;
+		}
 	}
 
 	if (max_type > ctl->max_type)
@@ -804,8 +809,10 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		}
 	}
 
-	*typesp = types;
-	*max_typep = max_type;
+	if (!(*typesp)) {
+		*typesp = types;
+		*max_typep = max_type;
+	}
 
 	return 0;
 
@@ -816,13 +823,9 @@ err_out_exit:
 
 int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 {
-	struct eblob_base_type *types = NULL;
-	int max_type = -1;
 	int err;
 
-	err = eblob_iterate_existing(b, ctl, &types, &max_type);
-	if (!err)
-		eblob_base_types_free(types, max_type);
+	err = eblob_iterate_existing(b, ctl, &b->types, &b->max_type);
 
 	return err;
 }
