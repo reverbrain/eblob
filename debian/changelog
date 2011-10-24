@@ -1,3 +1,13 @@
+eblob (0.12.15) unstable; urgency=low
+
+  * Do not open index and data files again in eblob_iterate
+  * Update unsorted indexes of removed records with BLOB_DISK_CTL_REMOVE flag
+  * Use 50 millions of records in blob by default
+  * Added eblob_merge (instead of old eblob_defrag) which defragments and
+    merges (multiple) blobs into larger one
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 24 Oct 2011 18:31:03 +0400
+
 eblob (0.12.14) unstable; urgency=low
 
   * Added bsearch statistics and on-disk lookup debugs

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.14
+Version:	0.12.15
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Oct 24 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.15
+- Do not open index and data files again in eblob_iterate
+- Update unsorted indexes of removed records with BLOB_DISK_CTL_REMOVE flag
+- Use 50 millions of records in blob by default
+- Added eblob_merge (instead of old eblob_defrag) which defragments and
+    merges (multiple) blobs into larger one
+
 * Wed Oct 19 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.14
 - Added bsearch statistics and on-disk lookup debugs
 - Use 40 indexes per range block. Use 128 bits per index for bloom.
