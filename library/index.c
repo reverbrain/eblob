@@ -36,6 +36,14 @@ static int eblob_disk_control_sort(const void *d1, const void *d2)
 	const struct eblob_disk_control *dc1 = d1;
 	const struct eblob_disk_control *dc2 = d2;
 
+	return eblob_id_cmp(dc1->key.id, dc2->key.id);
+}
+
+static int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
+{
+	const struct eblob_disk_control *dc1 = d1;
+	const struct eblob_disk_control *dc2 = d2;
+
 	int cmp = eblob_id_cmp(dc1->key.id, dc2->key.id);
 
 	if (cmp == 0) {
@@ -342,7 +350,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	memcpy(dst.data, src.data, bctl->index_offset);
 
 	qsort(dst.data, bctl->index_offset / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
-			eblob_disk_control_sort);
+			eblob_disk_control_sort_with_flags);
 
 	bctl->sort = dst;
 
