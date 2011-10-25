@@ -1,3 +1,9 @@
+eblob (0.12.16) unstable; urgency=low
+
+  * Don't compare flags in bsearch callback
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 25 Oct 2011 21:16:23 +0400
+
 eblob (0.12.15) unstable; urgency=low
 
   * Do not open index and data files again in eblob_iterate

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.15
+Version:	0.12.16
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Oct 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.16
+- Don't compare flags in bsearch callback
+
 * Mon Oct 24 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.15
 - Do not open index and data files again in eblob_iterate
 - Update unsorted indexes of removed records with BLOB_DISK_CTL_REMOVE flag
