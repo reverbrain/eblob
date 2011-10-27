@@ -655,9 +655,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 		goto err_out_exit;
 	}
 
-	err = eblob_commit_ram(b, key, wc);
-	if (err < 0)
-		goto err_out_exit;
+	/* Do not update data in RAM if prerare was called from eblob_write */
+	if (!(wc->flags & BLOB_DISK_CTL_FROM_WRITE)) {
+		err = eblob_commit_ram(b, key, wc);
+		if (err < 0)
+			goto err_out_exit;
+	}
 
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
@@ -698,7 +701,9 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 		}
 
-		eblob_mark_entry_removed(b, key, &old);
+		/* Do not mark entry as removed if prerare was called from eblob_write */
+		if (!(wc->flags & BLOB_DISK_CTL_FROM_WRITE))
+			eblob_mark_entry_removed(b, key, &old);
 	}
 
 	eblob_stat_update(&b->stat, 1, 0, 0);
@@ -901,9 +906,24 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	/* only commit data to ram if it was not found on disk */
 	if (!wc->on_disk) {
+		/* If commit was called from eblob_write
+		   RAM and index are still not updated.
+		   First, search the old record in RAM */
+		struct eblob_ram_control old;
+		int ret = 0, disk;
+		if (wc->flags & BLOB_DISK_CTL_FROM_WRITE) {
+			ret = eblob_lookup_type(b, key, &old, &disk);
+		}
+
+		/* Commit new data in RAM */
 		err = eblob_commit_ram(b, key, wc);
 		if (err < 0)
 			goto err_out_exit;
+
+		/* And mark old record as removed */
+		if (wc->flags & BLOB_DISK_CTL_FROM_WRITE && !ret)
+			eblob_mark_entry_removed(b, key, &old);
+
 		err = 0;
 	}
 
