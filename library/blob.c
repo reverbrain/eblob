@@ -1518,3 +1518,28 @@ int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t
 
 	return eblob_remove(b, &ekey, type);
 }
+
+int eblob_get_types(struct eblob_backend *b, int **typesp) {
+	struct eblob_base_type *type;
+	int types_num, i;
+	int *types;
+
+	typesp = NULL;
+
+	types_num = b->max_type + 1;
+	if (types_num <= 1)
+		return -ENOENT;
+
+	types = (int *)malloc(sizeof(int) * types_num);
+	memset(types, 0, sizeof(int) * types_num);
+
+	for (i = 0; i <= b->max_type; ++i) {
+		type = &b->types[i];
+		types[i] = type->type;
+	}
+
+	typesp = &types;
+
+	return types_num;
+}
+
