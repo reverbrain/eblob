@@ -160,6 +160,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
+int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
+
 struct eblob_disk_search_stat {
 	int			bloom_null;
 	int			range_has_key;

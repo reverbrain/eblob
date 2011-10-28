@@ -142,8 +142,11 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 			if (bctl->need_sorting) {
 				err = eblob_generate_sorted_index(b, bctl);
-				if (!err)
-					bctl->need_sorting = 0;
+				if (!err) {
+					err = eblob_index_blocks_fill(bctl);
+					if (!err)
+						bctl->need_sorting = 0;
+				}
 			}
 
 			if (!(b->cfg.blob_flags & EBLOB_RUN_DEFRAG))
