@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.16
+Version:	0.12.17
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Oct 31 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.17
+- Fill in-memory rbtree and bloom filter for online generated sorted index
+- Do not update in-memory structures before pwrite
+- Added eblob_get_types function
+
 * Tue Oct 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.16
 - Don't compare flags in bsearch callback
 

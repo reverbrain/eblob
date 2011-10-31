@@ -1,3 +1,11 @@
+eblob (0.12.17) unstable; urgency=low
+
+  * Fill in-memory rbtree and bloom filter for online generated sorted index
+  * Do not update in-memory structures before pwrite
+  * Added eblob_get_types function
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 31 Oct 2011 22:02:21 +0400
+
 eblob (0.12.16) unstable; urgency=low
 
   * Don't compare flags in bsearch callback
