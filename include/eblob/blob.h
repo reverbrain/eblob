@@ -434,6 +434,8 @@ unsigned long long eblob_total_elements(struct eblob_backend *b);
 
 int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
 
+int eblob_get_types(struct eblob_backend *b, int **typesp);
+
 int eblob_compress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
 int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
 
