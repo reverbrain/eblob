@@ -1524,8 +1524,6 @@ int eblob_get_types(struct eblob_backend *b, int **typesp) {
 	int types_num, i;
 	int *types;
 
-	typesp = NULL;
-
 	types_num = b->max_type + 1;
 	if (types_num <= 1)
 		return -ENOENT;
@@ -1538,7 +1536,7 @@ int eblob_get_types(struct eblob_backend *b, int **typesp) {
 		types[i] = type->type;
 	}
 
-	typesp = &types;
+	*typesp = types;
 
 	return types_num;
 }
