@@ -9,7 +9,7 @@ URL:		http://www.ioremap.net/projects/eblob
 Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:	openssl-devel snappy-devel python-devel
+BuildRequires:	snappy-devel python-devel
 BuildRequires:  python-devel, libtar-devel
 %if 0%{?rhel} < 6 || 0%{?fedora} < 10
 BuildRequires:  boost141-python, boost141-devel
