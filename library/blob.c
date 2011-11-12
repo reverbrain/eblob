@@ -386,7 +386,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 
 	ctl.data_fd = wc->data_fd;
 	ctl.index_fd = wc->index_fd;
-	ctl.size = wc->size + wc->offset;
+	ctl.size = wc->total_data_size;
 	ctl.data_offset = wc->ctl_data_offset;
 	ctl.index_offset = wc->ctl_index_offset;
 	ctl.type = wc->type;
@@ -414,7 +414,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	disk_ctl.flags = wc->flags;
 	disk_ctl.position = wc->ctl_data_offset;
-	disk_ctl.data_size = wc->size + wc->offset;
+	disk_ctl.data_size = wc->total_data_size;
 	disk_ctl.disk_size = wc->total_size;
 
 	memcpy(&disk_ctl.key, key, sizeof(struct eblob_key));
@@ -427,8 +427,8 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 		goto err_out_exit;
 
 	if (b->cfg.bsize) {
-		uint64_t local_offset = wc->data_offset + wc->size + wc->offset;
-		unsigned int alignment = wc->total_size - wc->size - wc->offset -
+		uint64_t local_offset = wc->data_offset + wc->total_data_size;
+		unsigned int alignment = wc->total_size - wc->total_data_size -
 			sizeof(struct eblob_disk_control) -
 			sizeof(struct eblob_disk_footer);
 
@@ -579,7 +579,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
-	size_t size;
 
 	old.type = wc->type;
 	err = eblob_lookup_type(b, key, &old, &disk);
@@ -630,15 +629,15 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
 
-	size = wc->size;
+	wc->total_data_size = wc->offset + wc->size;
 
 	if (have_old && (wc->flags & BLOB_DISK_CTL_OVERWRITE)) {
-		if (old.size > wc->offset + size) {
-			size = old.size - wc->offset;
+		if (old.size > wc->offset + wc->size) {
+			wc->total_data_size = old.size;
 		}
 	}
 
-	wc->total_size = eblob_calculate_size(b, wc->offset, size);
+	wc->total_size = eblob_calculate_size(b, 0, wc->total_data_size);
 
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
@@ -653,13 +652,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
 				(unsigned long long)wc->total_size, strerror(-err), err);
 		goto err_out_exit;
-	}
-
-	/* Do not update data in RAM if prerare was called from eblob_write */
-	if (!(wc->flags & BLOB_DISK_CTL_FROM_WRITE)) {
-		err = eblob_commit_ram(b, key, wc);
-		if (err < 0)
-			goto err_out_exit;
 	}
 
 	err = blob_write_prepare_ll(b, key, wc);
@@ -701,10 +693,15 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 		}
 
-		/* Do not mark entry as removed if prerare was called from eblob_write */
-		if (!(wc->flags & BLOB_DISK_CTL_FROM_WRITE))
-			eblob_mark_entry_removed(b, key, &old);
+		eblob_mark_entry_removed(b, key, &old);
 	}
+
+	/*
+	 * Commit record to RAM early, so that eblob_plain_write() could access it
+	 */
+	err = eblob_commit_ram(b, key, wc);
+	if (err < 0)
+		goto err_out_exit;
 
 	eblob_stat_update(&b->stat, 1, 0, 0);
 
@@ -730,7 +727,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	long page_size = sysconf(_SC_PAGE_SIZE);
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	off_t offset = off & ~(page_size - 1);
-	size_t mapped_size = wc->offset + wc->size + off - offset;
+	size_t mapped_size = wc->total_data_size + off - offset;
 	void *data, *ptr;
 	int err;
 	
@@ -746,11 +743,11 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	}
 	ptr = data + off - offset;
 
-	eblob_hash(b, dst, dsize, ptr, wc->size + wc->offset);
+	eblob_hash(b, dst, dsize, ptr, wc->total_data_size);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_csum: index: %d, type: %d, "
 			"size: %zu, offset: %llu, aligned: %llu: csum: %s\n",
-			wc->index, wc->type, wc->size,
+			wc->index, wc->type, wc->total_data_size,
 			(unsigned long long)off, (unsigned long long)offset,
 			eblob_dump_id_len(dst, dsize));
 
@@ -870,6 +867,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
 
+	wc->total_data_size = dc.data_size;
 	/* use old disk_size so that iteration would not fail */
 	wc->total_size = dc.disk_size;
 
@@ -887,7 +885,11 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
 	int err;
+	int want_commit_ram = 0;
 
+	/*
+	 * Should only fire for eblob_write_commit() called directly from high-level code, not from eblob_write()
+	 */
 	if (!wc->ctl_data_offset && (wc->data_fd == 0) && (wc->index_fd == 0)) {
 		err = eblob_fill_write_control_from_ram(b, key, wc);
 		if (err < 0) {
@@ -895,6 +897,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 				eblob_dump_id(key->id), strerror(-err), err);
 			goto err_out_exit;
 		}
+
+		want_commit_ram = 1;
 	}
 
 	err = eblob_write_commit_ll(b, csum, csize, wc);
@@ -904,27 +908,16 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	/* only commit data to ram if it was not found on disk */
-	if (!wc->on_disk) {
-		/* If commit was called from eblob_write
-		   RAM and index are still not updated.
-		   First, search the old record in RAM */
-		struct eblob_ram_control old;
-		int ret = 0, disk;
-		if (wc->flags & BLOB_DISK_CTL_FROM_WRITE) {
-			ret = eblob_lookup_type(b, key, &old, &disk);
-		}
-
-		/* Commit new data in RAM */
+	if (want_commit_ram && !wc->size) {
+		/*
+		 * This only happens when eblob_write_commit() is called directly from higher layer
+		 * In this case we want to commit exact number of bytes user asked, but not how many
+		 * it was written or was in given object previously
+		 */
+		wc->total_data_size = wc->size + wc->offset;
 		err = eblob_commit_ram(b, key, wc);
 		if (err < 0)
 			goto err_out_exit;
-
-		/* And mark old record as removed */
-		if (wc->flags & BLOB_DISK_CTL_FROM_WRITE && !ret)
-			eblob_mark_entry_removed(b, key, &old);
-
-		err = 0;
 	}
 
 	err = blob_update_index(b, key, wc);
@@ -1080,13 +1073,13 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.type = type;
 	wc.index = -1;
 
-	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META)) {
+	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META) || (flags & BLOB_DISK_CTL_OVERWRITE)) {
 		err = eblob_try_overwrite(b, key, &wc, data);
 		if (!err)
 			/* ok, we have overwritten old data, got out */
 			goto err_out_exit;
 
-		/* it could be modified if EBLOB_DISK_CTL_OFFSET flag is set */
+		/* it could be modified if EBLOB_DISK_CTL_APPEND flag is set */
 		wc.offset = offset;
 	}
 
@@ -1200,6 +1193,8 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 	} else {
 		struct eblob_disk_control dc;
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
+
+		/* Check if object was actually removed on disk, but this was not updated in RAM yet */
 
 		err = pread(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
 		if (err != sizeof(dc)) {
