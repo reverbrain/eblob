@@ -36,6 +36,33 @@
 #include "blob.h"
 #include "crypto/sha512.h"
 
+static unsigned int eblob_iohash_index(struct eblob_backend *b, struct eblob_key *key)
+{
+	unsigned int *ptr = (unsigned int *)key->id;
+	unsigned int h = 0;
+	unsigned int i;
+
+	for (i = 0; i < sizeof(key->id) / sizeof(unsigned int); ++i) {
+		h ^= ptr[i];
+	}
+
+	return h % ARRAY_SIZE(b->iolocks);
+}
+
+static void eblob_iolock(struct eblob_backend *b, struct eblob_key *key)
+{
+	unsigned int idx = eblob_iohash_index(b, key);
+
+	pthread_mutex_lock(&b->iolocks[idx]);
+}
+
+static void eblob_iounlock(struct eblob_backend *b, struct eblob_key *key)
+{
+	unsigned int idx = eblob_iohash_index(b, key);
+
+	pthread_mutex_unlock(&b->iolocks[idx]);
+}
+
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
 	void *thread_priv;
@@ -394,7 +421,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 
 	err = eblob_insert_type(b, key, &ctl);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_insert_type: %s %d.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_commit_ram: eblob_insert_type: %s %d.\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_exit;
 	}
@@ -572,8 +599,7 @@ err_out_exit:
 }
 #endif
 
-
-int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
+static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
@@ -647,7 +673,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
 	if (err < 0) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: fallocate: "
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_nolock: fallocate: "
 				"fd: %d, offset: %llu, size: %llu: %s %zd\n",
 				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
 				(unsigned long long)wc->total_size, strerror(-err), err);
@@ -674,7 +700,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 				err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
 				if (err < 0) {
 					err = -errno;
-					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare: splice: "
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_nolock: splice: "
 						"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
 						eblob_dump_id(key->id),
 						(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
@@ -684,7 +710,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 				}
 			}
 
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare: splice: "
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_nolock: splice: "
 				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
 				eblob_dump_id(key->id),
 				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
@@ -712,6 +738,17 @@ err_out_unlock:
 err_out_exit:
 	if (ctl)
 		atomic_dec(&ctl->refcnt);
+	return err;
+}
+
+int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
+{
+	int err;
+
+	eblob_iolock(b, key);
+	err = eblob_write_prepare_nolock(b, key, wc);
+	eblob_iounlock(b, key);
+
 	return err;
 }
 
@@ -880,7 +917,7 @@ err_out_exit:
 	return err;
 }
 
-int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
+static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
 		unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc)
 {
@@ -888,12 +925,12 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	int want_commit_ram = 0;
 
 	/*
-	 * Should only fire for eblob_write_commit() called directly from high-level code, not from eblob_write()
+	 * Should only fire for eblob_write_commit_nolock() called directly from high-level code, not from eblob_write()
 	 */
 	if (!wc->ctl_data_offset && (wc->data_fd == 0) && (wc->index_fd == 0)) {
 		err = eblob_fill_write_control_from_ram(b, key, wc);
 		if (err < 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_fill_write_control_from_ram: %s %d\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit_nolock: eblob_fill_write_control_from_ram: %s %d\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 			goto err_out_exit;
 		}
@@ -903,14 +940,14 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: eblob_write_commit_ll: %s %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit_nolock: eblob_write_commit_ll: %s %d\n",
 				eblob_dump_id(key->id), strerror(-err), err);
 		goto err_out_exit;
 	}
 
 	if (want_commit_ram && !wc->size) {
 		/*
-		 * This only happens when eblob_write_commit() is called directly from higher layer
+		 * This only happens when eblob_write_commit_nolock() is called directly from higher layer
 		 * In this case we want to commit exact number of bytes user asked, but not how many
 		 * it was written or was in given object previously
 		 */
@@ -925,7 +962,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit: written: position: %llu "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit_nolock: written: position: %llu "
 			"(data offset: %llu), size: %llu, on-disk-size: %llu, fd: %d, flags: %llx, type: %d, index: %d.\n",
 			eblob_dump_id(key->id),
 			(unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
@@ -934,10 +971,23 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	if (err)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit: size: %llu, fd: %d: %s %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_commit_nolock: size: %llu, fd: %d: %s %d\n",
 			eblob_dump_id(key->id), (unsigned long long)wc->size, wc->data_fd, strerror(-err), err);
 
 	eblob_find_base_decrement_or_remove(b, wc->type, wc->index);
+
+	return err;
+}
+
+int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
+		unsigned char *csum, unsigned int csize,
+		struct eblob_write_control *wc)
+{
+	int err;
+
+	eblob_iolock(b, key);
+	err = eblob_write_commit_nolock(b, key, csum, csize, wc);
+	eblob_iounlock(b, key);
 
 	return err;
 }
@@ -965,14 +1015,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 		goto err_out_exit;
 	}
 
-	/*
-	 * this is a dirty trick to forbid eblob_write_commit() from removing old entry from hash
-	 * table and eventually mark on-disk entries as removed
-	 */
-	wc->flags |= BLOB_DISK_CTL_REMOVE;
-	err = eblob_write_commit(b, key, NULL, 0, wc);
-	wc->flags &= ~BLOB_DISK_CTL_REMOVE;
-
+	err = eblob_write_commit_nolock(b, key, NULL, 0, wc);
 	if (err)
 		goto err_out_exit;
 
@@ -1048,6 +1091,8 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	void *old_data = data;
 	ssize_t err;
 
+	eblob_iolock(b, key);
+
 	memset(&wc, 0, sizeof(wc));
 
 	wc.size = size;
@@ -1083,7 +1128,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		wc.offset = offset;
 	}
 
-	err = eblob_write_prepare(b, key, &wc);
+	err = eblob_write_prepare_nolock(b, key, &wc);
 	if (err)
 		goto err_out_exit;
 
@@ -1096,7 +1141,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	err = eblob_write_commit(b, key, NULL, 0, &wc);
+	err = eblob_write_commit_nolock(b, key, NULL, 0, &wc);
 	if (err)
 		goto err_out_exit;
 
@@ -1113,6 +1158,8 @@ err_out_exit:
 	if (!compress_err)
 		free(data);
 
+	eblob_iounlock(b, key);
+
 	return err;
 }
 
@@ -1121,6 +1168,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	struct eblob_ram_control *ctl;
 	unsigned int size;
 	int err, i;
+
+	eblob_iolock(b, key);
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size);
 	if (err) {
@@ -1140,6 +1189,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	free(ctl);
 
 err_out_exit:
+	eblob_iounlock(b, key);
 	return err;
 }
 
@@ -1147,6 +1197,8 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	struct eblob_ram_control ctl;
 	int err, disk;
+
+	eblob_iolock(b, key);
 
 	ctl.type = type;
 	err = eblob_lookup_type(b, key, &ctl, &disk);
@@ -1165,10 +1217,11 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
 err_out_exit:
+	eblob_iounlock(b, key);
 	return err;
 }
 
-int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
 {
 	struct eblob_write_control wc;
 	int err, compressed = 0;
@@ -1231,6 +1284,17 @@ err_out_exit:
 	return err;
 }
 
+int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+{
+	int err;
+
+	eblob_iolock(b, key);
+	err = eblob_read_nolock(b, key, fd, offset, size, type);
+	eblob_iounlock(b, key);
+
+	return err;
+}
+
 int eblob_data_map(struct eblob_map_fd *map)
 {
 	uint64_t off;
@@ -1265,7 +1329,9 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read(b, key, &m.fd, &m.offset, &m.size, type);
+	eblob_iolock(b, key);
+
+	err = eblob_read_nolock(b, key, &m.fd, &m.offset, &m.size, type);
 	if (err < 0)
 		goto err_out_exit;
 
@@ -1353,6 +1419,7 @@ have_uncompressed_data:
 err_out_unmap:
 	eblob_data_unmap(&m);
 err_out_exit:
+	eblob_iounlock(b, key);
 	return err;
 }
 
@@ -1384,6 +1451,45 @@ static void *eblob_sync(void *data)
 	return NULL;
 }
 
+static void eblob_locks_destroy(struct eblob_backend *b)
+{
+	int i;
+
+	for (i = 0; i < (int)ARRAY_SIZE(b->iolocks); ++i) {
+		pthread_mutex_destroy(&b->iolocks[i]);
+	}
+	pthread_mutex_destroy(&b->lock);
+}
+
+static int eblob_locks_init(struct eblob_backend *b)
+{
+	int i, err;
+
+	err = pthread_mutex_init(&b->lock, NULL);
+	if (err) {
+		err = -errno;
+		goto err_out_exit;
+	}
+
+	for (i = 0; i < (int)ARRAY_SIZE(b->iolocks); ++i) {
+		err = pthread_mutex_init(&b->iolocks[i], NULL);
+		if (err) {
+			err = -errno;
+			goto err_out_locks_destroy;
+		}
+	}
+	
+	return 0;
+
+err_out_locks_destroy:
+	while (--i >= 0) {
+		pthread_mutex_destroy(&b->iolocks[i]);
+	}
+	pthread_mutex_destroy(&b->lock);
+err_out_exit:
+	return err;
+}
+
 void eblob_cleanup(struct eblob_backend *b)
 {
 	b->need_exit = 1;
@@ -1393,7 +1499,7 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_base_types_cleanup(b);
 
 	eblob_hash_exit(b->hash);
-	pthread_mutex_destroy(&b->lock);
+	eblob_locks_destroy(b);
 
 	free(b->cfg.file);
 
@@ -1425,7 +1531,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err)
 		goto err_out_free;
 
-	err = eblob_lock_init(&b->csum_lock);
+	err = eblob_locks_init(b);
 	if (err)
 		goto err_out_stat_free;
 
@@ -1486,7 +1592,7 @@ err_out_cleanup:
 err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
-	pthread_mutex_destroy(&b->lock);
+	eblob_locks_destroy(b);
 err_out_free_file:
 	free(b->cfg.file);
 err_out_csum_lock_destroy:
