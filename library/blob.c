@@ -747,8 +747,15 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	eblob_iolock(b, key);
 	err = eblob_write_prepare_nolock(b, key, wc);
-	eblob_iounlock(b, key);
+	if (err)
+		goto err_out_unlock;
 
+	err = blob_update_index(b, key, wc);
+	if (err)
+		goto err_out_unlock;
+
+err_out_unlock:
+	eblob_iounlock(b, key);
 	return err;
 }
 
