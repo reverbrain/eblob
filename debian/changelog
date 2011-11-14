@@ -1,3 +1,11 @@
+eblob (0.12.18) unstable; urgency=low
+
+  * Added array of IO locks to protect state update during IO
+  * Simplified eblob_write()
+  * Dropped openssl bits
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 14 Nov 2011 16:17:20 +0400
+
 eblob (0.12.17) unstable; urgency=low
 
   * Fill in-memory rbtree and bloom filter for online generated sorted index
