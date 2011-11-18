@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.18
+Version:	0.12.19
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Nov 19 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.19
+- Multiple prepare/commit fixes for POHMELFS. Better write debug.
+
 * Mon Nov 14 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.18
 - Added array of IO locks to protect state update during IO
 - Simplified eblob_write()
