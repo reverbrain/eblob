@@ -907,8 +907,8 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_exit;
 	}
 
-err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+err_out_exit:
 	return err;
 }
 
@@ -993,6 +993,8 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 {
 	struct eblob_write_control wc;
 	ssize_t err;
+
+	memset(&wc, 0, sizeof(struct eblob_write_control));
 
 	wc.type = type;
 	wc.size = size;
