@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
 					}
 				} while (c.dc.disk_size == 0);
 
-				if (blob->complete)
+				if (blob->completed)
 					continue;
 
 				blob->index.seekg(-sizeof(struct eblob_disk_control), std::ios_base::cur);
