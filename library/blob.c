@@ -121,6 +121,13 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
+		if (ctl->check_index && (dc.disk_size == 0) && (dc.data_size == 0)) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is zero, pos: %llu\n",
+					(unsigned long long)dc.position);
+			ctl->index_offset += sizeof(dc);
+			continue;
+		}
+
 		if (dc.disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
 					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
