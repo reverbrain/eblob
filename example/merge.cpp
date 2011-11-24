@@ -155,17 +155,22 @@ int main(int argc, char *argv[])
 				if (blob->completed)
 					continue;
 
-				blob->index.read((char *)&c.dc, sizeof(struct eblob_disk_control));
+				do {
+					blob->index.read((char *)&c.dc, sizeof(struct eblob_disk_control));
 
-				if (blob->index.gcount() != sizeof(struct eblob_disk_control)) {
-					blob->completed = 1;
+					if (blob->index.gcount() != sizeof(struct eblob_disk_control)) {
+						blob->completed = 1;
 
-					std::cout << "Completed input stream " << blob->path_ <<
-						": total: " << total_input <<
-						", rest: " << blobs.size() << std::endl;
+						std::cout << "Completed input stream " << blob->path_ <<
+							": total: " << total_input <<
+							", rest: " << blobs.size() << std::endl;
+						break;
 
+					}
+				} while (c.dc.disk_size == 0);
+
+				if (blob->complete)
 					continue;
-				}
 
 				blob->index.seekg(-sizeof(struct eblob_disk_control), std::ios_base::cur);
 
