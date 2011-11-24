@@ -843,7 +843,8 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
+static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
+		struct eblob_write_control *wc, int for_write)
 {
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
@@ -860,7 +861,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	}
 
 	/* only for write */
-	if (wc->flags & BLOB_DISK_CTL_APPEND) {
+	if (for_write && (wc->flags & BLOB_DISK_CTL_APPEND)) {
 		wc->offset += ctl.size;
 	}
 
@@ -908,8 +909,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
 
-
-	if (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size)) {
+	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
 		goto err_out_exit;
@@ -955,7 +955,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	eblob_iolock(b, key);
 	wc->offset = wc->size = 0;
 
-	err = eblob_fill_write_control_from_ram(b, key, wc);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (err < 0) {
 		goto err_out_exit;
 	}
@@ -973,7 +973,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 {
 	ssize_t err;
 
-	err = eblob_fill_write_control_from_ram(b, key, wc);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (err < 0)
 		goto err_out_exit;
 
@@ -1010,7 +1010,7 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 
 	eblob_iolock(b, key);
 
-	err = eblob_fill_write_control_from_ram(b, key, &wc);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (err)
 		goto err_out_exit;
 
@@ -1178,7 +1178,7 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 	memset(&wc, 0, sizeof(struct eblob_write_control));
 
 	wc.type = type;
-	err = eblob_fill_write_control_from_ram(b, key, &wc);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 0);
 	if (err < 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_fill_write_control_from_ram: type: %d: %d.\n",
 				eblob_dump_id(key->id), type, err);
