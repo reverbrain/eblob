@@ -125,6 +125,7 @@ static void *eblob_blob_iterator(void *data)
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is zero, pos: %llu\n",
 					(unsigned long long)dc.position);
 			ctl->index_offset += sizeof(dc);
+			pthread_mutex_unlock(&bc->lock);
 			continue;
 		}
 
