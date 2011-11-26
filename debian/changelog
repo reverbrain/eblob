@@ -1,3 +1,9 @@
+eblob (0.12.22) unstable; urgency=low
+
+  * Added eblob_csum_ok() - runtime csum read check
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 26 Nov 2011 15:59:13 +0400
+
 eblob (0.12.21) unstable; urgency=low
 
   * Skip malformed zero entries during iteration

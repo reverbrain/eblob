@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.21
+Version:	0.12.22
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Nov 26 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.22
+- Added eblob_csum_ok()
+
 * Thu Nov 24 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.21
 - Skip malformed zero entries during iteration
 - eblob_fill_write_control_from_ram() should not check whether aligned size is enough when doing read command
