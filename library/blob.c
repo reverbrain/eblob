@@ -1063,7 +1063,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		if (compress_err)
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
-		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
 			eblob_dump_id(key->id),	(unsigned long long)wc.size, (unsigned long long)size, compress_err);
 	}
 
@@ -1170,6 +1170,45 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc)
+{
+	struct eblob_disk_footer *f;
+	unsigned char csum[EBLOB_ID_SIZE];
+	struct eblob_map_fd m;
+	int err;
+
+	memset(&m, 0, sizeof(struct eblob_map_fd));
+
+	/* mapping whole record incluing header and footer */
+	m.fd = wc->data_fd;
+	m.size = wc->total_size;
+	m.offset = wc->ctl_data_offset;
+
+	err = eblob_data_map(&m);
+	if (err)
+		goto err_out_exit;
+
+	memset(csum, 0, sizeof(csum));
+	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
+	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
+		err = 0;
+		goto err_out_unmap;
+	}
+
+	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
+	if (memcmp(csum, f->csum, sizeof(f->csum))) {
+		err = -EBADFD;
+		goto err_out_unmap;
+	}
+
+	err = 0;
+
+err_out_unmap:
+	eblob_data_unmap(&m);
+err_out_exit:
+	return err;
+}
+
 static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
 {
 	struct eblob_write_control wc;
@@ -1186,6 +1225,10 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 	}
 
 	compressed = err;
+
+	err = eblob_csum_ok(b, &wc);
+	if (err)
+		goto err_out_exit;
 
 	/* put this key into RAM for caching */
 	if (wc.on_disk) {
