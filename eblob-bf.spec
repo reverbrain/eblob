@@ -98,7 +98,7 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
-* Fri Dec 1 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.23
+* Fri Dec 2 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.23
 - Added eblob_read_nocsum() - read data without csum check
 
 * Sat Nov 26 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.22
