@@ -813,7 +813,6 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	char *dir_base, *tmp, name[64];
 	const char *base;
 	struct eblob_base_type *t;
-	int base_len;
 	struct eblob_base_ctl *ctl;
 
 	if (type > b->max_type) {
@@ -836,7 +835,6 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	t = &b->types[type];
 
 	base = eblob_get_base(b->cfg.file);
-	base_len = strlen(base);
 
 	dir_base = strdup(b->cfg.file);
 	if (!dir_base) {

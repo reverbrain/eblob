@@ -849,7 +849,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
 	ssize_t err;
-	int from_data = 0;
 
 	ctl.type = wc->type;
 	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
@@ -894,8 +893,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 			eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
 			goto err_out_exit;
 		}
-
-		from_data = 1;
 	}
 
 	wc->total_data_size = dc.data_size;
@@ -1209,7 +1206,7 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type, int csum)
 {
 	struct eblob_write_control wc;
 	int err, compressed = 0;
@@ -1226,9 +1223,11 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 
 	compressed = err;
 
-	err = eblob_csum_ok(b, &wc);
-	if (err)
-		goto err_out_exit;
+	if (csum) {
+		err = eblob_csum_ok(b, &wc);
+		if (err)
+			goto err_out_exit;
+	}
 
 	/* put this key into RAM for caching */
 	if (wc.on_disk) {
@@ -1260,11 +1259,11 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: "
 			"data_fd: %d, ctl_data_offset: %llu, data_offset: %llu, index_fd: %d, index_offset: %llu, "
-			"size: %llu, total(disk)_size: %llu, on_disk: %d\n",
+			"size: %llu, total(disk)_size: %llu, on_disk: %d, want-csum: %d\n",
 			eblob_dump_id(key->id),
 			wc.data_fd, (unsigned long long)wc.ctl_data_offset, (unsigned long long)wc.data_offset,
 			wc.index_fd, (unsigned long long)wc.ctl_index_offset,
-			(unsigned long long)wc.size, (unsigned long long)wc.total_size, wc.on_disk);
+			(unsigned long long)wc.size, (unsigned long long)wc.total_size, wc.on_disk, csum);
 
 	*fd = wc.data_fd;
 	*size = wc.size;
@@ -1281,7 +1280,18 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 	int err;
 
 	eblob_iolock(b, key);
-	err = eblob_read_nolock(b, key, fd, offset, size, type);
+	err = eblob_read_nolock(b, key, fd, offset, size, type, 1);
+	eblob_iounlock(b, key);
+
+	return err;
+}
+
+int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+{
+	int err;
+
+	eblob_iolock(b, key);
+	err = eblob_read_nolock(b, key, fd, offset, size, type, 0);
 	eblob_iounlock(b, key);
 
 	return err;
@@ -1323,7 +1333,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 	eblob_iolock(b, key);
 
-	err = eblob_read_nolock(b, key, &m.fd, &m.offset, &m.size, type);
+	err = eblob_read_nolock(b, key, &m.fd, &m.offset, &m.size, type, 1);
 	if (err < 0)
 		goto err_out_exit;
 

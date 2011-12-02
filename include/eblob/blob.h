@@ -323,6 +323,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key);
  */
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
+int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
+		int *fd, uint64_t *offset, uint64_t *size, int type);
 
 /*
  * Allocates buffer and reads data there.
