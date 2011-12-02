@@ -1,3 +1,9 @@
+eblob (0.12.23) unstable; urgency=low
+
+  * Added eblob_read_nocsum() - read data without csum check
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 2 Dec 2011 22:00:13 +0400
+
 eblob (0.12.22) unstable; urgency=low
 
   * Added eblob_csum_ok() - runtime csum read check
