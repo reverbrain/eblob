@@ -233,6 +233,9 @@ struct eblob_config {
 	 * except that it operates on records and not bytes.
 	 */
 	uint64_t		records_in_blob;
+
+	/* maximum number of keys that could be cached from disk */
+	uint64_t		cache_size;
 };
 
 struct eblob_ram_control {

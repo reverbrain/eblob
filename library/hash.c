@@ -47,7 +47,7 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
-static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace)
+static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace, int on_disk)
 {
 	struct rb_node **n, *parent;
 	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize;
@@ -73,11 +73,22 @@ again:
 				goto err_out_exit;
 			}
 
+			if (t->flags & EBLOB_HASH_FLAGS_CACHE) {
+				list_del(&t->cache_entry);
+				if (t->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
+					hash->cache_top_cnt--;
+				} else {
+					t->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
+					hash->cache_bottom_cnt--;
+				}
+			}
+
 			if (t->dsize >= dsize) {
 				memcpy(t->data, data, dsize);
 				t->dsize = dsize;
 				err = 0;
-				goto err_out_exit;
+				e = t;
+				goto out_cache;
 			}
 
 			rb_erase(&t->node, &hash->root);
@@ -94,6 +105,8 @@ again:
 	}
 
 	e->dsize = dsize;
+	if (on_disk)
+		e->flags = EBLOB_HASH_FLAGS_CACHE;
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
 	memcpy(e->data, data, dsize);
@@ -103,11 +116,36 @@ again:
 
 	err = 0;
 
+out_cache:
+	if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
+		INIT_LIST_HEAD(&e->cache_entry);
+		if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
+			list_add(&e->cache_entry, &hash->cache_top);
+		} else {
+			list_add(&e->cache_entry, &hash->cache_bottom);
+		}
+
+		t = NULL;
+		if ((hash->cache_top_cnt > hash->max_queue_size) && !list_empty(&hash->cache_top)) {
+			t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
+			list_del(&t->cache_entry);
+			list_add(&t->cache_entry, &hash->cache_bottom);
+		}
+
+		t = NULL;
+		if ((hash->cache_bottom_cnt > hash->max_queue_size) && !list_empty(&hash->cache_bottom)) {
+			t = list_last_entry(&hash->cache_bottom, struct eblob_hash_entry, cache_entry);
+			list_del(&t->cache_entry);
+			rb_erase(&t->node, &hash->root);
+			eblob_hash_entry_put(hash, t);
+		}
+	}
+
 err_out_exit:
 	return err;
 }
 
-struct eblob_hash *eblob_hash_init(int *errp)
+struct eblob_hash *eblob_hash_init(uint64_t cache_size, int *errp)
 {
 	struct eblob_hash *h;
 	int err;
@@ -120,6 +158,11 @@ struct eblob_hash *eblob_hash_init(int *errp)
 
 	h->flags = 0;
 	h->root = RB_ROOT;
+	INIT_LIST_HEAD(&h->cache_top);
+	INIT_LIST_HEAD(&h->cache_bottom);
+	h->cache_top_cnt = 0;
+	h->cache_bottom_cnt = 0;
+	h->max_queue_size = cache_size / 2;
 
 	pthread_mutex_init(&h->root_lock, NULL);
 
@@ -135,25 +178,25 @@ void eblob_hash_exit(struct eblob_hash *h)
 	free(h);
 }
 
-static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int replace)
+static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int replace, int on_disk)
 {
 	int err;
 
 	pthread_mutex_lock(&h->root_lock);
-	err = eblob_hash_entry_add(h, key, data, dsize, replace);
+	err = eblob_hash_entry_add(h, key, data, dsize, replace, on_disk);
 	pthread_mutex_unlock(&h->root_lock);
 
 	return err;
 }
 
-int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
+int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
 {
-	return eblob_hash_insert_raw(h, key, data, dsize, 0);
+	return eblob_hash_insert_raw(h, key, data, dsize, 0, on_disk);
 }
 
-int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
+int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
 {
-	return eblob_hash_insert_raw(h, key, data, dsize, 1);
+	return eblob_hash_insert_raw(h, key, data, dsize, 1, on_disk);
 }
 
 static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct eblob_key *key)
@@ -185,6 +228,7 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	pthread_mutex_lock(&h->root_lock);
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
+		list_del(&e->cache_entry);
 		rb_erase(&e->node, &h->root);
 		err = 0;
 	}
@@ -196,7 +240,7 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	return err;
 }
 
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep)
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
 {
 	struct eblob_hash_entry *e;
 	void *data;
@@ -219,7 +263,27 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 			err = 0;
 		}
 	}
+
+	if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
+		*on_diskp = 1;
+		list_del(&e->cache_entry);
+		if (!(e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE)) {
+			e->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
+			h->cache_top_cnt++;
+			h->cache_bottom_cnt--;
+		}
+		list_add(&e->cache_entry, &h->cache_top);
+	}
+
 	pthread_mutex_unlock(&h->root_lock);
 
 	return err;
+}
+
+void eblob_hash_get_counters(struct eblob_hash *h, uint64_t *cache_top_cnt, uint64_t *cache_bottom_cnt)
+{
+	pthread_mutex_lock(&h->root_lock);
+		*cache_top_cnt = h->cache_top_cnt;
+		*cache_bottom_cnt = h->cache_bottom_cnt;
+	pthread_mutex_unlock(&h->root_lock);
 }

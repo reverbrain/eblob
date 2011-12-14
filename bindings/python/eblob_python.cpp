@@ -76,11 +76,11 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 		PyGILState_Release(gstate);
 	}
 
-	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc,
+	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc __attribute__((unused)),
 			void *data, void *priv, void *thread_priv __attribute__((unused)))
 	{
 		struct eblob_id id(dc->key);
-		std::string d((const char*)data, rc->size);
+		std::string d((const char*)data, dc->data_size);
 
 		struct eblob_py_iterator *it = (struct eblob_py_iterator *)priv;
 		

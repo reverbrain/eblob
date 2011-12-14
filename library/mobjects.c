@@ -568,12 +568,12 @@ err_out_exit:
 	return err;
 }
 
-int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl)
+int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk)
 {
-	int err, size, rc_free = 0;
+	int err, size, rc_free = 0, disk;
 	struct eblob_ram_control *rc;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
 		int num, i;
 
@@ -595,7 +595,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 			}
 
 			memcpy(&rc[num], ctl, sizeof(struct eblob_ram_control));
-			eblob_stat_update(&b->stat, 0, 0, 1);
+			eblob_stat_update(b, 0, 0, 1);
 		}
 
 		rc_free = 1;
@@ -603,10 +603,10 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		rc = ctl;
 		size = sizeof(struct eblob_ram_control);
 
-		eblob_stat_update(&b->stat, 0, 0, 1);
+		eblob_stat_update(b, 0, 0, 1);
 	}
 
-	err = eblob_hash_replace(b->hash, key, rc, size);
+	err = eblob_hash_replace(b->hash, key, rc, size, on_disk);
 
 	if (rc_free)
 		free(rc);
@@ -617,10 +617,10 @@ err_out_exit:
 
 int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 {
-	int err, size, num, i, found = 0;
+	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
 	if (err)
 		goto err_out_exit;
 
@@ -642,12 +642,12 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 			eblob_hash_remove(b->hash, key);
 		} else {
 			size = num * sizeof(struct eblob_ram_control);
-			err = eblob_hash_replace(b->hash, key, rc, size);
+			err = eblob_hash_replace(b->hash, key, rc, size, on_disk);
 			if (err)
 				goto err_out_free;
 		}
 		err = 0;
-		eblob_stat_update(&b->stat, 0, 0, -1);
+		eblob_stat_update(b, 0, 0, -1);
 	}
 
 err_out_free:
@@ -680,7 +680,7 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	int err, size, disk = 0;
 	struct eblob_ram_control *rc;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
 		err = eblob_lookup_exact_type(rc, size, res);
 	}
@@ -692,6 +692,13 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 
 		disk = 1;
 		memcpy(res, rc, sizeof(struct eblob_ram_control));
+
+		/* Cache entry in RAM */
+		err = eblob_insert_type(b, key, rc, 1);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_lookup_type: eblob_insert_type err: %d",
+				eblob_dump_id(key->id), err);
+		}
 	}
 
 	free(rc);
@@ -713,7 +720,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
-	return eblob_insert_type(b, &dc->key, ctl);
+	return eblob_insert_type(b, &dc->key, ctl, 0);
 }
 
 int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,

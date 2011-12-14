@@ -29,6 +29,7 @@
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
 #define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	50000000
+#define EBLOB_BLOB_DEFAULT_CACHE_SIZE		50000000
 
 struct eblob_map_fd {
 	int			fd;
@@ -118,7 +119,7 @@ struct eblob_stat {
 
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, char *path);
-void eblob_stat_update(struct eblob_stat *s, long long disk, long long removed, long long hashed);
+void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -147,7 +148,7 @@ void eblob_base_types_cleanup(struct eblob_backend *b);
 
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
 int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl);
+int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
 
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type,
 		struct eblob_ram_control **dst, int *dsize);

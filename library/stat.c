@@ -97,21 +97,28 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 	return eblob_stat_init_new(s, path, "w+");
 }
 
-void eblob_stat_update(struct eblob_stat *s, long long disk, long long removed, long long hashed)
+void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed)
 {
-	pthread_mutex_lock(&s->lock);
+	uint64_t cache_top_cnt;
+	uint64_t cache_bottom_cnt;
 
-	s->disk += disk;
-	s->removed += removed;
-	s->hashed += hashed;
+	eblob_hash_get_counters(b->hash, &cache_top_cnt, &cache_bottom_cnt);
 
-	fseek(s->file, 0, SEEK_SET);
-	fprintf(s->file, "disk: %llu\n", s->disk);
-	fprintf(s->file, "removed: %llu\n", s->removed);
-	fprintf(s->file, "hashed: %llu\n", s->hashed);
-	fflush(s->file);
+	pthread_mutex_lock(&b->stat.lock);
+
+	b->stat.disk += disk;
+	b->stat.removed += removed;
+	b->stat.hashed += hashed;
+
+	fseek(b->stat.file, 0, SEEK_SET);
+	fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
+	fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
+	fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
+	fprintf(b->stat.file, "cached_top: %llu\n", cache_top_cnt);
+	fprintf(b->stat.file, "cached_bottom: %llu\n", cache_bottom_cnt);
+	fflush(b->stat.file);
 #if 0
-	printf("disk: %llu, removed: %llu, hashed: %llu\n", s->disk, s->removed, s->hashed);
+	printf("disk: %llu, removed: %llu, hashed: %llu\n", b->stat.disk, b->stat.removed, b->stat->hashed);
 #endif
-	pthread_mutex_unlock(&s->lock);
+	pthread_mutex_unlock(&b->stat.lock);
 }

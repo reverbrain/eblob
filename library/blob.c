@@ -174,7 +174,7 @@ static void *eblob_blob_iterator(void *data)
 			else
 				disk = 1;
 
-			eblob_stat_update(&b->stat, disk, removed, 0);
+			eblob_stat_update(b, disk, removed, 0);
 		}
 
 		eblob_log(ctl->log, EBLOB_LOG_DSA, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
@@ -344,7 +344,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
 
-	eblob_stat_update(&b->stat, -1, 1, 0);
+	eblob_stat_update(b, -1, 1, 0);
 
 	if (!b->cfg.sync) {
 		fsync(old->data_fd);
@@ -428,7 +428,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.type = wc->type;
 	ctl.index = wc->index;
 
-	err = eblob_insert_type(b, key, &ctl);
+	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_commit_ram: ERROR-eblob_insert_type", err);
 		goto err_out_exit;
@@ -658,6 +658,7 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 	wc->index_fd = ctl->index_fd;
 
 	wc->index = ctl->index;
+	wc->on_disk = 0;
 
 	wc->ctl_index_offset = ctl->index_offset;
 	wc->ctl_data_offset = ctl->data_offset;
@@ -741,7 +742,7 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 	if (err < 0)
 		goto err_out_exit;
 
-	eblob_stat_update(&b->stat, 1, 0, 0);
+	eblob_stat_update(b, 1, 0, 0);
 
 	return 0;
 
@@ -1113,11 +1114,11 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct eblob_ram_control *ctl;
 	unsigned int size;
-	int err, i;
+	int err, i, on_disk;
 
 	eblob_iolock(b, key);
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_hash_lookup_alloc: all-types: %d.\n",
 				eblob_dump_id(key->id), err);
@@ -1546,6 +1547,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->records_in_blob)
 		c->records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
 
+	if (!c->cache_size)
+		c->cache_size = EBLOB_BLOB_DEFAULT_CACHE_SIZE;
+
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
 	b->cfg.file = strdup(c->file);
@@ -1560,7 +1564,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_free_file;
 	}
 
-	b->hash = eblob_hash_init(&err);
+	b->hash = eblob_hash_init(b->cfg.cache_size, &err);
 	if (!b->hash) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
 		goto err_out_lock_destroy;

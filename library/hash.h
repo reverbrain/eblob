@@ -29,19 +29,37 @@ struct eblob_hash {
 
 	struct rb_root		root;
 	pthread_mutex_t		root_lock;
+
+	struct list_head	cache_top;
+	struct list_head	cache_bottom;
+
+	uint64_t		cache_top_cnt;
+	uint64_t		cache_bottom_cnt;
+	uint64_t		max_queue_size;
 };
 
-struct eblob_hash *eblob_hash_init(int *errp);
+struct eblob_hash *eblob_hash_init(uint64_t cache_szie, int *errp);
 void eblob_hash_exit(struct eblob_hash *h);
-int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
-int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
+int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
+int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
 int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
+void eblob_hash_get_counters(struct eblob_hash *h, uint64_t *cache_top_cnt, uint64_t *cache_bottom_cnt);
+
+/* Record is cached from disk index */
+#define EBLOB_HASH_FLAGS_CACHE          (1<<0)
+
+/* Record is placed in top queue.
+ * It happens if it is hitted again
+ */
+#define EBLOB_HASH_FLAGS_TOP_QUEUE      (1<<1)
 
 struct eblob_hash_entry {
 	struct rb_node		node;
+	struct list_head	cache_entry;
 
 	unsigned int		dsize;
+	unsigned int		flags;
 
 	struct eblob_key	key;
 	unsigned char		data[0];
