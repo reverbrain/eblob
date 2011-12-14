@@ -88,6 +88,9 @@ again:
 				t->dsize = dsize;
 				err = 0;
 				e = t;
+				if (!on_disk) {
+					t->flags = 0;
+				}
 				goto out_cache;
 			}
 
@@ -121,8 +124,10 @@ out_cache:
 		INIT_LIST_HEAD(&e->cache_entry);
 		if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
 			list_add(&e->cache_entry, &hash->cache_top);
+			hash->cache_top_cnt++;
 		} else {
 			list_add(&e->cache_entry, &hash->cache_bottom);
+			hash->cache_bottom_cnt++;
 		}
 
 		t = NULL;
@@ -262,17 +267,17 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 
 			err = 0;
 		}
-	}
 
-	if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
-		*on_diskp = 1;
-		list_del(&e->cache_entry);
-		if (!(e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE)) {
-			e->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
-			h->cache_top_cnt++;
-			h->cache_bottom_cnt--;
+		if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
+			*on_diskp = 1;
+			list_del(&e->cache_entry);
+			if (!(e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE)) {
+				e->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
+				h->cache_top_cnt++;
+				h->cache_bottom_cnt--;
+			}
+			list_add(&e->cache_entry, &h->cache_top);
 		}
-		list_add(&e->cache_entry, &h->cache_top);
 	}
 
 	pthread_mutex_unlock(&h->root_lock);

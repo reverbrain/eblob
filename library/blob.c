@@ -1230,12 +1230,7 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 			goto err_out_exit;
 	}
 
-	/* put this key into RAM for caching */
-	if (wc.on_disk) {
-		err = eblob_commit_ram(b, key, &wc);
-		if (err < 0)
-			goto err_out_exit;
-	} else {
+	if (!wc.on_disk) {
 		struct eblob_disk_control dc;
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
