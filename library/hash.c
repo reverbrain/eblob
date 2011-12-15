@@ -47,6 +47,29 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
+static inline void rebalance_cache(struct eblob_hash *hash)
+{
+	struct eblob_hash_entry *t;
+
+	t = NULL;
+	while ((hash->cache_top_cnt > hash->max_queue_size) && !list_empty(&hash->cache_top)) {
+		t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
+		list_del(&t->cache_entry);
+		list_add(&t->cache_entry, &hash->cache_bottom);
+		hash->cache_top_cnt--;
+		hash->cache_bottom_cnt++;
+	}
+
+	t = NULL;
+	while ((hash->cache_bottom_cnt > hash->max_queue_size) && !list_empty(&hash->cache_bottom)) {
+		t = list_last_entry(&hash->cache_bottom, struct eblob_hash_entry, cache_entry);
+		list_del(&t->cache_entry);
+		rb_erase(&t->node, &hash->root);
+		eblob_hash_entry_put(hash, t);
+		hash->cache_bottom_cnt--;
+	}
+}
+
 static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace, int on_disk)
 {
 	struct rb_node **n, *parent;
@@ -130,23 +153,8 @@ out_cache:
 			hash->cache_bottom_cnt++;
 		}
 
-		t = NULL;
-		if ((hash->cache_top_cnt > hash->max_queue_size) && !list_empty(&hash->cache_top)) {
-			t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
-			list_del(&t->cache_entry);
-			list_add(&t->cache_entry, &hash->cache_bottom);
-			hash->cache_top_cnt--;
-			hash->cache_bottom_cnt++;
-		}
+		rebalance_cache(hash);
 
-		t = NULL;
-		if ((hash->cache_bottom_cnt > hash->max_queue_size) && !list_empty(&hash->cache_bottom)) {
-			t = list_last_entry(&hash->cache_bottom, struct eblob_hash_entry, cache_entry);
-			list_del(&t->cache_entry);
-			rb_erase(&t->node, &hash->root);
-			eblob_hash_entry_put(hash, t);
-			hash->cache_bottom_cnt--;
-		}
 	}
 
 err_out_exit:
@@ -280,6 +288,7 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 				h->cache_bottom_cnt--;
 			}
 			list_add(&e->cache_entry, &h->cache_top);
+			rebalance_cache(h);
 		}
 	}
 
