@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Dec 15 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.1
+- Fixed cache balancing
+
 * Thu Dec 15 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.0
 - Added configurable two-queue cache for read data by Anton Kortunov <toshic.toshic@gmail.com>
 

@@ -1,8 +1,14 @@
+eblob (0.13.1) unstable; urgency=low
+
+  * Fixed cache balancing
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 15 Dec 2011 22:02:13 +0400
+
 eblob (0.13.0) unstable; urgency=low
 
-  * Added configurable two-queue cache for read data
+  * Added configurable two-queue cache for read data by Anton Kortunov <toshic.toshic@gmail.com>
 
- -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 2 Dec 2011 22:00:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 15 Dec 2011 22:00:13 +0400
 
 eblob (0.12.23) unstable; urgency=low
 
