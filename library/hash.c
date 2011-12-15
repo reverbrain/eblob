@@ -135,6 +135,8 @@ out_cache:
 			t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
 			list_del(&t->cache_entry);
 			list_add(&t->cache_entry, &hash->cache_bottom);
+			hash->cache_top_cnt--;
+			hash->cache_bottom_cnt++;
 		}
 
 		t = NULL;
@@ -143,6 +145,7 @@ out_cache:
 			list_del(&t->cache_entry);
 			rb_erase(&t->node, &hash->root);
 			eblob_hash_entry_put(hash, t);
+			hash->cache_bottom_cnt--;
 		}
 	}
 
