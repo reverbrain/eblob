@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.12.23
+Version:	0.13.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Dec 15 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.0
+- Added configurable two-queue cache for read data by Anton Kortunov <toshic.toshic@gmail.com>
+
 * Fri Dec 2 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.12.23
 - Added eblob_read_nocsum() - read data without csum check
 
