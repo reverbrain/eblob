@@ -129,6 +129,7 @@ again:
 		err = -ENOMEM;
 		goto err_out_exit;
 	}
+	memset(e, 0, sizeof(struct eblob_hash_entry));
 
 	e->dsize = dsize;
 	if (on_disk)
@@ -171,6 +172,7 @@ struct eblob_hash *eblob_hash_init(uint64_t cache_size, int *errp)
 		err = -ENOMEM;
 		goto err_out_exit;
 	}
+	memset(h, 0, sizeof(struct eblob_hash));
 
 	h->flags = 0;
 	h->root = RB_ROOT;
