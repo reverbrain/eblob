@@ -114,8 +114,8 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
 	fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
 	fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
-	fprintf(b->stat.file, "cached_top: %llu\n", cache_top_cnt);
-	fprintf(b->stat.file, "cached_bottom: %llu\n", cache_bottom_cnt);
+	fprintf(b->stat.file, "cached_top: %llu\n", (unsigned long long)cache_top_cnt);
+	fprintf(b->stat.file, "cached_bottom: %llu\n", (unsigned long long)cache_bottom_cnt);
 	fflush(b->stat.file);
 #if 0
 	printf("disk: %llu, removed: %llu, hashed: %llu\n", b->stat.disk, b->stat.removed, b->stat->hashed);
