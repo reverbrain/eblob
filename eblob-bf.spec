@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.13.0
+Version:	0.13.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Dec 17 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.2
+- Optimize prepare (for eblob_write_prepare() only) call to reuse existing prepared area if its size is big enough
+
 * Thu Dec 15 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.1
 - Fixed cache balancing
 
