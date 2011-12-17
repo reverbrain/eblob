@@ -844,23 +844,13 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	 */
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
-		wc->size = 0;
-		wc->offset = 0;
-		wc->total_data_size = 0;
-		wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-
-		err = blob_write_prepare_ll(b, key, wc);
-		if (err)
-			goto err_out_unlock;
-
-		err = eblob_commit_ram(b, key, wc);
-		if (err)
-			goto err_out_unlock;
-	} else {
-		err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
-		if (err)
-			goto err_out_unlock;
+		err = 0;
+		goto err_out_unlock;
 	}
+
+	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
+	if (err)
+		goto err_out_unlock;
 
 	err = blob_update_index(b, key, wc);
 	if (err)
@@ -971,6 +961,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
 	int err;
+	uint64_t size = wc->size;
 
 	eblob_iolock(b, key);
 	wc->offset = wc->size = 0;
@@ -979,6 +970,10 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (err < 0) {
 		goto err_out_exit;
 	}
+
+	if (size)
+		wc->size = wc->total_data_size = size;
+
 	err = eblob_write_commit_nolock(b, key, csum, csize, wc);
 	if (err)
 		goto err_out_exit;
