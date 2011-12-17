@@ -607,6 +607,81 @@ err_out_exit:
 }
 #endif
 
+static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
+		struct eblob_write_control *wc, int for_write)
+{
+	struct eblob_ram_control ctl;
+	struct eblob_disk_control dc;
+	ssize_t err;
+
+	ctl.type = wc->type;
+	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_fill_write_control_from_ram: "
+				"eblob_lookup_type: type: %d: %zd, on_disk: %d\n",
+				eblob_dump_id(key->id), wc->type, err, wc->on_disk);
+		goto err_out_exit;
+	}
+
+	/* only for write */
+	if (for_write && (wc->flags & BLOB_DISK_CTL_APPEND)) {
+		wc->offset += ctl.size;
+	}
+
+	wc->data_fd = ctl.data_fd;
+	wc->index_fd = ctl.index_fd;
+
+	wc->index = ctl.index;
+
+	wc->ctl_index_offset = ctl.index_offset;
+	wc->ctl_data_offset = ctl.data_offset;
+
+	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
+
+
+	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
+	if (err != sizeof(dc)) {
+		err = -errno;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
+		/* we should repeat this read from data_fd */
+		memset(&dc, 0, sizeof(dc));
+	}
+
+	eblob_convert_disk_control(&dc);
+
+	/* workaround for old indexes, which did not set dc.disk_size */
+	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
+		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
+		if (err != sizeof(dc)) {
+			err = -errno;
+			eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
+			goto err_out_exit;
+		}
+	}
+
+	wc->total_data_size = dc.data_size;
+	if (wc->total_data_size < wc->offset + wc->size)
+		wc->total_data_size = wc->offset + wc->size;
+	/* use old disk_size so that iteration would not fail */
+	wc->total_size = dc.disk_size;
+
+	if (!wc->size)
+		wc->size = dc.data_size;
+
+	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
+
+	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
+		err = -E2BIG;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
+		goto err_out_exit;
+	}
+
+	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+err_out_exit:
+	return err;
+}
+
+
 static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
 		uint64_t prepare_disk_size)
 {
@@ -614,6 +689,24 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
+
+	/*
+	 * For eblob_write_prepare() this can not fail with -E2BIG, since size/offset are zero
+	 * But for eblob_write() path size and offset are set, so we should copy old data.
+	 */
+
+	if (prepare_disk_size) {
+		err = eblob_fill_write_control_from_ram(b, key, wc, 1);
+		if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
+			wc->size = 0;
+			wc->offset = 0;
+			wc->total_data_size = 0;
+			wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+
+			err = 0;
+			goto commit;
+		}
+	}
 
 	old.type = wc->type;
 	err = eblob_lookup_type(b, key, &old, &disk);
@@ -654,6 +747,7 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 		}
 	}
 
+
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
 
@@ -693,6 +787,7 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 		goto err_out_exit;
 	}
 
+commit:
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
@@ -840,80 +935,6 @@ static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, u
 		fsync(wc->data_fd);
 	err = 0;
 
-err_out_exit:
-	return err;
-}
-
-static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_write_control *wc, int for_write)
-{
-	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc;
-	ssize_t err;
-
-	ctl.type = wc->type;
-	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_fill_write_control_from_ram: "
-				"eblob_lookup_type: type: %d: %zd, on_disk: %d\n",
-				eblob_dump_id(key->id), wc->type, err, wc->on_disk);
-		goto err_out_exit;
-	}
-
-	/* only for write */
-	if (for_write && (wc->flags & BLOB_DISK_CTL_APPEND)) {
-		wc->offset += ctl.size;
-	}
-
-	wc->data_fd = ctl.data_fd;
-	wc->index_fd = ctl.index_fd;
-
-	wc->index = ctl.index;
-
-	wc->ctl_index_offset = ctl.index_offset;
-	wc->ctl_data_offset = ctl.data_offset;
-
-	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
-
-
-	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
-	if (err != sizeof(dc)) {
-		err = -errno;
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
-		/* we should repeat this read from data_fd */
-		memset(&dc, 0, sizeof(dc));
-	}
-
-	eblob_convert_disk_control(&dc);
-
-	/* workaround for old indexes, which did not set dc.disk_size */
-	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
-		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
-		if (err != sizeof(dc)) {
-			err = -errno;
-			eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
-			goto err_out_exit;
-		}
-	}
-
-	wc->total_data_size = dc.data_size;
-	if (wc->total_data_size < wc->offset + wc->size)
-		wc->total_data_size = wc->offset + wc->size;
-	/* use old disk_size so that iteration would not fail */
-	wc->total_size = dc.disk_size;
-
-	if (!wc->size)
-		wc->size = dc.data_size;
-
-	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
-
-	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
-		err = -E2BIG;
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
-		goto err_out_exit;
-	}
-
-	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 err_out_exit:
 	return err;
 }
