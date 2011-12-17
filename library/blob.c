@@ -682,31 +682,13 @@ err_out_exit:
 }
 
 
-static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
+static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
 		uint64_t prepare_disk_size)
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
-
-	/*
-	 * For eblob_write_prepare() this can not fail with -E2BIG, since size/offset are zero
-	 * But for eblob_write() path size and offset are set, so we should copy old data.
-	 */
-
-	if (prepare_disk_size) {
-		err = eblob_fill_write_control_from_ram(b, key, wc, 1);
-		if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
-			wc->size = 0;
-			wc->offset = 0;
-			wc->total_data_size = 0;
-			wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-
-			err = 0;
-			goto commit;
-		}
-	}
 
 	old.type = wc->type;
 	err = eblob_lookup_type(b, key, &old, &disk);
@@ -780,14 +762,13 @@ static int eblob_write_prepare_nolock(struct eblob_backend *b, struct eblob_key 
 	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
 	if (err < 0) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_nolock: fallocate: "
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: fallocate: "
 				"fd: %d, offset: %llu, size: %llu: %s %zd\n",
 				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
 				(unsigned long long)wc->total_size, strerror(-err), err);
 		goto err_out_exit;
 	}
 
-commit:
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
@@ -808,7 +789,7 @@ commit:
 				err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
 				if (err < 0) {
 					err = -errno;
-					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_nolock: splice: "
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: splice: "
 						"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
 						eblob_dump_id(key->id),
 						(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
@@ -818,7 +799,7 @@ commit:
 				}
 			}
 
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_nolock: splice: "
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: splice: "
 				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
 				eblob_dump_id(key->id),
 				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
@@ -852,14 +833,34 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
 {
 	int err;
-	uint64_t prepare_disk = wc->size;
+	uint64_t prepare_disk_size = wc->size;
 
 	wc->size = wc->offset = 0;
 
 	eblob_iolock(b, key);
-	err = eblob_write_prepare_nolock(b, key, wc, prepare_disk);
-	if (err)
-		goto err_out_unlock;
+
+	/*
+	 * For eblob_write_prepare() this can not fail with -E2BIG, since size/offset are zero
+	 */
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
+	if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
+		wc->size = 0;
+		wc->offset = 0;
+		wc->total_data_size = 0;
+		wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+
+		err = blob_write_prepare_ll(b, key, wc);
+		if (err)
+			goto err_out_unlock;
+
+		err = eblob_commit_ram(b, key, wc);
+		if (err)
+			goto err_out_unlock;
+	} else {
+		err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
+		if (err)
+			goto err_out_unlock;
+	}
 
 	err = blob_update_index(b, key, wc);
 	if (err)
@@ -868,7 +869,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 err_out_unlock:
 	eblob_iounlock(b, key);
 
-	wc->size = prepare_disk;
+	wc->size = prepare_disk_size;
 	return err;
 }
 
@@ -1102,7 +1103,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		wc.offset = offset;
 	}
 
-	err = eblob_write_prepare_nolock(b, key, &wc, 0);
+	err = eblob_write_prepare_disk(b, key, &wc, 0);
 	if (err)
 		goto err_out_exit;
 
