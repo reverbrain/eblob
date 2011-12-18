@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.13.5
+Version:	0.13.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Dec 18 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.6
+- Fixed cache entry stall list head processing 
+
 * Sun Dec 18 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.5
 - Fixed cache entry removal
 
