@@ -134,6 +134,7 @@ again:
 	e->dsize = dsize;
 	if (on_disk)
 		e->flags = EBLOB_HASH_FLAGS_CACHE;
+	INIT_LIST_HEAD(&e->cache_entry);
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
 	memcpy(e->data, data, dsize);
@@ -145,7 +146,6 @@ again:
 
 out_cache:
 	if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
-		INIT_LIST_HEAD(&e->cache_entry);
 		if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
 			list_add(&e->cache_entry, &hash->cache_top);
 			hash->cache_top_cnt++;
@@ -246,6 +246,10 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	pthread_mutex_lock(&h->root_lock);
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
+		/*
+		 * we should only remove it if EBLOB_HASH_FLAGS_CACHE is set,
+		 * but we initialized it anyway, so it is safe now
+		 */
 		list_del(&e->cache_entry);
 		rb_erase(&e->node, &h->root);
 		err = 0;
