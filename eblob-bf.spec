@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.13.4
+Version:	0.13.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Dec 18 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.5
+- Fixed cache entry removal
+
 * Sat Dec 17 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.4
 - If commit provides size, use it as object size. If prepare reuses existing region, do not change its sizes.
 - Changed eblob_write_prepare() first to try to check existing region if it is big enough.
