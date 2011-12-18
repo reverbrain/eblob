@@ -54,8 +54,7 @@ static inline void rebalance_cache(struct eblob_hash *hash)
 	t = NULL;
 	while ((hash->cache_top_cnt > hash->max_queue_size) && !list_empty(&hash->cache_top)) {
 		t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
-		list_del(&t->cache_entry);
-		list_add(&t->cache_entry, &hash->cache_bottom);
+		list_move(&t->cache_entry, &hash->cache_bottom);
 		hash->cache_top_cnt--;
 		hash->cache_bottom_cnt++;
 	}
@@ -97,7 +96,8 @@ again:
 			}
 
 			if (t->flags & EBLOB_HASH_FLAGS_CACHE) {
-				list_del(&t->cache_entry);
+				/* we can jump to out_cache and this entry will be eventually deleted with stall cache_entry pointer */
+				list_del_init(&t->cache_entry);
 				if (t->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
 					hash->cache_top_cnt--;
 				} else {
@@ -287,13 +287,12 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 
 		if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
 			*on_diskp = 1;
-			list_del(&e->cache_entry);
+			list_move(&e->cache_entry, &h->cache_top);
 			if (!(e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE)) {
 				e->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
 				h->cache_top_cnt++;
 				h->cache_bottom_cnt--;
 			}
-			list_add(&e->cache_entry, &h->cache_top);
 			rebalance_cache(h);
 		}
 	}
