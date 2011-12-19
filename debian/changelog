@@ -1,3 +1,9 @@
+eblob (0.13.9) unstable; urgency=low
+
+  * If we are doing prepare, and there is some old data - reserve 2 times as much as requested
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 20 Dec 2011 01:12:13 +0400
+
 eblob (0.13.8) unstable; urgency=low
 
   * Added free space check before trying to reserve space on disk
