@@ -1,3 +1,11 @@
+eblob (0.13.7) unstable; urgency=low
+
+  * Added actual index size checks.
+  * Update index early in eblob_write_prepare_disk().
+  * eblob_write() does not need full eblob_write_commit_nolock(), only low-level on-disk part.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 19 Dec 2011 04:36:13 +0400
+
 eblob (0.13.6) unstable; urgency=low
 
   * Fixed cache entry stall list head processing 
