@@ -4,7 +4,7 @@ eblob (0.13.8) unstable; urgency=low
   * Truncate stat file precisely to the number of bytes written
   * Fixed cached keys removal
 
- -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 20 Dec 2011 01:12:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 20 Dec 2011 01:12:13 +0400
 
 eblob (0.13.7) unstable; urgency=low
 
