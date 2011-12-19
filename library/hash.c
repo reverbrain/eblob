@@ -104,6 +104,8 @@ again:
 					t->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
 					hash->cache_bottom_cnt--;
 				}
+			} else {
+				on_disk = 0;
 			}
 
 			if (t->dsize >= dsize) {
@@ -247,10 +249,16 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
 		/*
-		 * we should only remove it if EBLOB_HASH_FLAGS_CACHE is set,
-		 * but we initialized it anyway, so it is safe now
+		 * we should only remove it if EBLOB_HASH_FLAGS_CACHE is set.
 		 */
-		list_del(&e->cache_entry);
+		if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
+			list_del(&e->cache_entry);
+			if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
+				h->cache_top_cnt--;
+			} else {
+				h->cache_bottom_cnt--;
+			}
+		}
 		rb_erase(&e->node, &h->root);
 		err = 0;
 	}

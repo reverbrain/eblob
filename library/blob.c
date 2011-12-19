@@ -1166,8 +1166,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 
 	eblob_mark_entry_removed(b, key, &ctl);
 
-	if (!disk)
-		eblob_remove_type(b, key, type);
+	eblob_remove_type(b, key, type);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
