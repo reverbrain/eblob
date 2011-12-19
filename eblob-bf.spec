@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.13.7
+Version:	0.13.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Dec 20 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.8
+- Added free space check before trying to reserve space on disk
+- Truncate stat file precisely to the number of bytes written
+- Fixed cached keys removal
+
 * Mon Dec 19 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.7
 - Added actual index size checks.
 - Update index early in eblob_write_prepare_disk().

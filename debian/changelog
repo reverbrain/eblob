@@ -1,3 +1,11 @@
+eblob (0.13.8) unstable; urgency=low
+
+  * Added free space check before trying to reserve space on disk
+  * Truncate stat file precisely to the number of bytes written
+  * Fixed cached keys removal
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 20 Dec 2011 01:12:13 +0400
+
 eblob (0.13.7) unstable; urgency=low
 
   * Added actual index size checks.
