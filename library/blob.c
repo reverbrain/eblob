@@ -306,20 +306,6 @@ static int blob_mark_index_removed(int fd, off_t offset)
 	return 0;
 }
 
-static void eblob_find_base_decrement_or_remove(struct eblob_backend *b, int type, int index)
-{
-	struct eblob_base_ctl *ctl;
-
-	pthread_mutex_lock(&b->lock);
-	list_for_each_entry_reverse(ctl, &b->types[type].bases, base_entry) {
-		if (ctl->index == index) {
-			atomic_dec(&ctl->refcnt);
-			break;
-		}
-	}
-	pthread_mutex_unlock(&b->lock);
-}
-
 static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
 {
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: i%d, t%d: %s: position: %llu, "
@@ -721,8 +707,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
 	}
 
-	atomic_inc(&ctl->refcnt);
-
 	if (have_old) {
 		if (wc->flags & BLOB_DISK_CTL_APPEND) {
 			wc->offset += old.size;
@@ -833,8 +817,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
 err_out_exit:
-	if (ctl)
-		atomic_dec(&ctl->refcnt);
 	return err;
 }
 
@@ -960,7 +942,6 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_write_commit_nolock", err);
-	eblob_find_base_decrement_or_remove(b, wc->type, wc->index);
 	return err;
 }
 

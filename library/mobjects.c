@@ -356,8 +356,6 @@ found:
 	}
 	memset(ctl, 0, sizeof(struct eblob_base_ctl));
 
-	atomic_set(&ctl->refcnt, 1);
-
 	ctl->type = type;
 	ctl->index = index;
 
