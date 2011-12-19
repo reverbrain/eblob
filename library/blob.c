@@ -774,6 +774,14 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		goto err_out_exit;
 
 	/*
+	 * We are doing early index update to prevent situations when system crashed (or even blob is closed),
+	 * but index entry was not yet written, since we only reserved space.
+	 */
+	err = blob_update_index(b, key, wc);
+	if (err)
+		goto err_out_exit;
+
+	/*
 	 * only copy old file if APPEND or OVERWRITE flag is set,
 	 * since we accounted old.size in wc->offset only in this case
 	 *
@@ -1109,9 +1117,12 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	err = eblob_write_commit_nolock(b, key, NULL, 0, &wc);
-	if (err)
+	/* Only low-level commit, since we already updated index and in-ram key */
+	err = eblob_write_commit_ll(b, NULL, 0, &wc);
+	if (err) {
+		eblob_dump_wc(b, key, &wc, "eblob_write_commit_ll: ERROR-pwrite", err);
 		goto err_out_exit;
+	}
 
 err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
