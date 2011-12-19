@@ -101,6 +101,7 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 {
 	uint64_t cache_top_cnt;
 	uint64_t cache_bottom_cnt;
+	int len = 0;
 
 	eblob_hash_get_counters(b->hash, &cache_top_cnt, &cache_bottom_cnt);
 
@@ -111,11 +112,14 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	b->stat.hashed += hashed;
 
 	fseek(b->stat.file, 0, SEEK_SET);
-	fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
-	fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
-	fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
-	fprintf(b->stat.file, "cached_top: %llu\n", (unsigned long long)cache_top_cnt);
-	fprintf(b->stat.file, "cached_bottom: %llu\n", (unsigned long long)cache_bottom_cnt);
+	len += fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
+	len += fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
+	len += fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
+	len += fprintf(b->stat.file, "cached_top: %llu\n", (unsigned long long)cache_top_cnt);
+	len += fprintf(b->stat.file, "cached_bottom: %llu\n", (unsigned long long)cache_bottom_cnt);
+
+	ftruncate(fileno(b->stat.file), len);
+
 	fflush(b->stat.file);
 #if 0
 	printf("disk: %llu, removed: %llu, hashed: %llu, cached_top: %llu, cached_bottom: %llu\n",
