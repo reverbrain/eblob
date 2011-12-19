@@ -321,10 +321,24 @@ out:
 	return found;
 }
 
+static ssize_t eblob_get_actual_size(int fd)
+{
+	struct stat st;
+	ssize_t err;
+
+	err = fstat(fd, &st);
+	if (err < 0)
+		return err;
+
+	return st.st_size;
+}
+
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	struct eblob_map_fd src, dst;
 	int fd, err, len;
+	ssize_t real_size_src;
+	ssize_t real_size_dst;
 	char *file, *dst_file;
 
 	/* should be enough to store /path/to/data.N.index.sorted */
@@ -375,6 +389,16 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	src.fd = bctl->index_fd;
 	src.size = bctl->index_offset;
 
+	real_size_src = eblob_get_actual_size(bctl->index_fd);
+	if ((real_size_src <= 0) || (real_size_src != bctl->index_offset)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
+				"index_offset: %llu, data_offset: %llu: BUT real index size: src: %zd: %s\n",
+				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
+				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
+				real_size_src, file);
+		goto err_out_close;
+	}
+
 	err = eblob_data_map(&src);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
@@ -388,6 +412,16 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	memset(&dst, 0, sizeof(dst));
 	dst.fd = fd;
 	dst.size = bctl->index_offset;
+
+	real_size_dst = eblob_get_actual_size(fd);
+	if ((real_size_dst <= 0) || (real_size_dst != real_size_src)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
+				"index_offset: %llu, data_offset: %llu: BUT real index size: src: %zd, dst: %zd: %s\n",
+				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
+				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
+				real_size_src, real_size_dst, file);
+		goto err_out_unmap_src;
+	}
 
 	err = eblob_data_map(&dst);
 	if (err) {
@@ -446,12 +480,6 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 							bctl->index, bctl->type, (unsigned long long)eblob_bswap64(found->flags),
 							(unsigned long long)found->position,
 							eblob_dump_id_len_raw(found->key.id, EBLOB_ID_SIZE, id_str));
-				} else {
-					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: sort mismatch: index: %d, type: %d, "
-							"flags: %llx, pos: %llu: %s\n",
-							bctl->index, bctl->type, (unsigned long long)eblob_bswap64(dc->flags),
-							(unsigned long long)eblob_bswap64(dc->position),
-							eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str));
 				}
 			}
 		}
