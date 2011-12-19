@@ -774,6 +774,14 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	else
 		wc->total_size = eblob_calculate_size(b, 0, wc->total_data_size);
 
+	/*
+	 * if we are doing prepare, and there is some old data - reserve 2 times as much as requested
+	 * This allows to not to copy data frequently if we append records
+	 */
+	if (have_old && (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE))) {
+		wc->total_size *= 2;
+	}
+
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 
