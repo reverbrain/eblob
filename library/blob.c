@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/socket.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -667,6 +668,35 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
+{
+	struct statvfs s;
+	unsigned long long total, avail;
+	int err;
+
+	err = fstatvfs(fileno(b->stat.file), &s);
+	if (err)
+		return err;
+
+	avail = s.f_bsize * s.f_bavail;
+	total = s.f_frsize * s.f_blocks;
+	if (avail < size)
+		return -ENOSPC;
+
+	if ((avail < total * 0.1) || (avail < b->cfg.blob_size)) {
+		static int print_once;
+
+		if (!print_once) {
+			print_once = 1;
+
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu, total: %llu, blob size: %llu\n",
+					avail, total, (unsigned long long)b->cfg.blob_size);
+		}
+		return -ENOSPC;
+	}
+
+	return 0;
+}
 
 static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
 		uint64_t prepare_disk_size)
@@ -675,6 +705,12 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
+
+	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, prepare_disk_size > wc->size + wc->offset ?
+								prepare_disk_size :
+								wc->size + wc->offset));
+	if (err)
+		goto err_out_exit;
 
 	old.type = wc->type;
 	err = eblob_lookup_type(b, key, &old, &disk);
