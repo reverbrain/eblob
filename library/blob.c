@@ -478,8 +478,8 @@ err_out_exit:
  * file descriptors are the same or refer to the same file
  */
 #if 0
-static int eblob_splice_data_one(int *fds, int fd_in, loff_t *off_in,
-		int fd_out, loff_t *off_out, ssize_t len)
+static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
+		int fd_out, uint64_t *off_out, ssize_t len)
 {
 	int err;
 	size_t to_write = len;
@@ -523,7 +523,7 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_splice_data(int fd_in, loff_t off_in, int fd_out, loff_t off_out, ssize_t len)
+static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
 	int fds[2];
 	int err;
@@ -554,7 +554,7 @@ err_out_exit:
 	return err;
 }
 #else
-static int eblob_splice_data(int fd_in, loff_t off_in, int fd_out, loff_t off_out, ssize_t len)
+static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
 	void *buf;
 	ssize_t err;
@@ -787,6 +787,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 	pthread_mutex_unlock(&b->lock);
 
+#ifdef __linux__
 	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
 	if (err < 0) {
 		err = -errno;
@@ -796,7 +797,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 				(unsigned long long)wc->total_size, strerror(-err), err);
 		goto err_out_exit;
 	}
-
+#endif
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
@@ -818,13 +819,12 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 */
 	if (have_old) {
 		if (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE)) {
-			loff_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
-			loff_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+			uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
+			uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
 			if (old.size) {
 				err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
 				if (err < 0) {
-					err = -errno;
 					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: splice: "
 						"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
 						eblob_dump_id(key->id),
@@ -1247,6 +1247,10 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
+		/* for Mac OS X */
+#ifndef EBADFD
+#define	EBADFD		77	/* File descriptor in bad state */
+#endif
 		err = -EBADFD;
 		goto err_out_unmap;
 	}
