@@ -279,7 +279,10 @@ again:
 
 	}
 
+#ifdef __linux__
+	/* Yup, it is supposed to be POSIX call, but implemented only in Linux to date */
 	posix_fadvise(ctl->sort.fd, 0, 0, POSIX_FADV_WILLNEED);
+#endif
 
 	return 0;
 
