@@ -32,7 +32,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __linux__
 #include <linux/limits.h>
+#else
+#include <sys/limits.h>
+#endif
 
 #include "blob.h"
 #include "crypto/sha512.h"
