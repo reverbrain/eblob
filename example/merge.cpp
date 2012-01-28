@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	int total_input = 0;
 	int print_all = 0;
 	struct eblob_disk_control ddc;
-	long long total = 0, removed = 0, written = 0;
+	long long total = 0, removed = 0, written = 0, broken = 0;
 	long long position = 0;
 
 	std::vector<em_blob_ptr> blobs;
@@ -220,15 +220,19 @@ int main(int argc, char *argv[])
 				std::cout << "out: " << eblob_dump_control(&ddc, position, 1, 0) << std::endl;
 			}
 
-			eblob_convert_disk_control(&ddc);
+			if (size > sizeof(struct eblob_disk_control)) {
+				eblob_convert_disk_control(&ddc);
 
-			data_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
-			copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
+				data_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+				copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
 
-			index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+				index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
 
-			position += size;
-			written++;
+				position += size;
+				written++;
+			} else {
+				broken++;
+			}
 		}
 	} catch (const std::exception &e) {
 		std::cerr << e.what() << std::endl;
@@ -237,6 +241,7 @@ int main(int argc, char *argv[])
 	std::cout << "Total records: " << total << std::endl;
 	std::cout << "Written records: " << written << std::endl;
 	std::cout << "Removed records: " << removed << std::endl;
+	std::cout << "Broken records: " << broken << std::endl;
 
 	return 0;
 }
