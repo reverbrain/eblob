@@ -1,3 +1,9 @@
+eblob (0.13.12) unstable; urgency=low
+
+  * Use chunked splice/copy, since we may have really big objects written
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 29 Jan 2012 21:33:13 +0400
+
 eblob (0.13.11) unstable; urgency=low
 
   * Allow to rollback preallocation if prepare fails
