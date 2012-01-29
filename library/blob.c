@@ -477,11 +477,43 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
+{
+	void *buf;
+	ssize_t err;
+
+	buf = malloc(len);
+	if (!buf) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	err = pread(fd_in, buf, len, off_in);
+	if (err != len) {
+		err = -ENOSPC;
+		goto err_out_free;
+	}
+
+	err = pwrite(fd_out, buf, len, off_out);
+	if (err != len) {
+		err = -ENOSPC;
+		goto err_out_free;
+	}
+
+	err = 0;
+
+err_out_free:
+	free(buf);
+err_out_exit:
+	return err;
+}
+
+#ifdef __linux__
 /*
  * splice() does not allow to transfer data when in and out
  * file descriptors are the same or refer to the same file
  */
-#if 0
+
 static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
 		int fd_out, uint64_t *off_out, ssize_t len)
 {
@@ -489,9 +521,7 @@ static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
 	size_t to_write = len;
 
 	while (to_write > 0) {
-		err = splice(fd_in, off_in, fds[1], NULL, to_write, 0);
-		printf("splice  in: %zu bytes from fd: %d, off: %llu: %d\n",
-				to_write, fd_in, *off_in, err);
+		err = splice(fd_in, (loff_t *)off_in, fds[1], NULL, to_write, 0);
 		if (err == 0) {
 			err = -ENOSPC;
 			goto err_out_exit;
@@ -506,9 +536,7 @@ static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
 
 	to_write = len;
 	while (to_write > 0) {
-		err = splice(fds[0], NULL, fd_out, off_out, to_write, 0);
-		printf("splice out: %zu bytes into fd: %d, off: %llu: %d\n",
-				to_write, fd_out, *off_out, err);
+		err = splice(fds[0], NULL, fd_out, (loff_t *)off_out, to_write, 0);
 		if (err == 0) {
 			err = -ENOSPC;
 			goto err_out_exit;
@@ -537,7 +565,7 @@ static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t of
 		goto err_out_exit;
 
 	while (len > 0) {
-		size_t chunk_size = PIPE_BUF;
+		ssize_t chunk_size = PIPE_BUF;
 
 		if (chunk_size > len)
 			chunk_size = len;
@@ -560,41 +588,7 @@ err_out_exit:
 #else
 static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
-	void *buf;
-	ssize_t err;
-
-	buf = malloc(len);
-	if (!buf) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	err = pread(fd_in, buf, len, off_in);
-	if (err != len) {
-		err = -ENOSPC;
-		goto err_out_free;
-	}
-	if (err < 0) {
-		err = -errno;
-		goto err_out_free;
-	}
-
-	err = pwrite(fd_out, buf, len, off_out);
-	if (err != len) {
-		err = -ENOSPC;
-		goto err_out_free;
-	}
-	if (err < 0) {
-		err = -errno;
-		goto err_out_free;
-	}
-
-	err = 0;
-
-err_out_free:
-	free(buf);
-err_out_exit:
-	return err;
+	return eblob_copy_data(fd_in, off_in, fd_out, off_out, len);
 }
 #endif
 
@@ -725,13 +719,13 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (wc->type > b->max_type) {
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
-			goto err_out_unlock;
+			goto err_out_unlock_exit;
 	}
 
 	if (list_empty(&b->types[wc->type].bases)) {
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
-			goto err_out_unlock;
+			goto err_out_unlock_exit;
 	}
 
 	ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
@@ -739,7 +733,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			(ctl->index_offset / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
-			goto err_out_unlock;
+			goto err_out_unlock_exit;
 
 		if (ctl->sort.fd < 0)
 			ctl->need_sorting = 1;
@@ -789,22 +783,19 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 
-	pthread_mutex_unlock(&b->lock);
-
 #ifdef __linux__
 	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
 	if (err < 0) {
-		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: fallocate: "
 				"fd: %d, offset: %llu, size: %llu: %s %zd\n",
 				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
 				(unsigned long long)wc->total_size, strerror(-err), err);
-		goto err_out_exit;
+		goto err_out_unlock;
 	}
 #endif
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
-		goto err_out_exit;
+		goto err_out_unlock;
 
 	/*
 	 * We are doing early index update to prevent situations when system crashed (or even blob is closed),
@@ -812,7 +803,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 */
 	err = blob_update_index(b, key, wc);
 	if (err)
-		goto err_out_exit;
+		goto err_out_unlock;
 
 	/*
 	 * only copy old file if APPEND or OVERWRITE flag is set,
@@ -827,7 +818,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
 			if (old.size) {
-				err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+				if (wc->data_fd != old.data_fd)
+					err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+				else
+					err = eblob_copy_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
 				if (err < 0) {
 					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: splice: "
 						"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
@@ -835,7 +829,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 						(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
 						(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
 						(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
-					goto err_out_exit;
+					goto err_out_unlock;
 				}
 			}
 
@@ -847,8 +841,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 				(unsigned long long)old.size, old.data_fd, wc->data_fd);
 
 		}
-
-		eblob_mark_entry_removed(b, key, &old);
 	}
 
 	/*
@@ -856,13 +848,20 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 */
 	err = eblob_commit_ram(b, key, wc);
 	if (err < 0)
-		goto err_out_exit;
+		goto err_out_unlock;
+
+	if (have_old)
+		eblob_mark_entry_removed(b, key, &old);
+	pthread_mutex_unlock(&b->lock);
 
 	eblob_stat_update(b, 1, 0, 0);
 
 	return 0;
 
 err_out_unlock:
+	ctl->data_offset -= wc->total_size;
+	ctl->index_offset -= sizeof(struct eblob_disk_control);
+err_out_unlock_exit:
 	pthread_mutex_unlock(&b->lock);
 err_out_exit:
 	return err;
@@ -887,10 +886,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 	}
 
 	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
-	if (err)
-		goto err_out_unlock;
-
-	err = blob_update_index(b, key, wc);
 	if (err)
 		goto err_out_unlock;
 

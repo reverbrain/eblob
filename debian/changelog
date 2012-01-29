@@ -2,7 +2,7 @@ eblob (0.13.10) unstable; urgency=low
 
   * Merge helpers and fixes
 
- -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 29 Jan 2011 03:00:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 29 Jan 2012 03:00:13 +0400
 
 eblob (0.13.9) unstable; urgency=low
 
