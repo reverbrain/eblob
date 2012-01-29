@@ -481,26 +481,46 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 {
 	void *buf;
 	ssize_t err;
+	int alloc_size = len;
+	int max_size = 10 * 1024 * 1024;
 
-	buf = malloc(len);
+	if (alloc_size > max_size)
+		alloc_size = max_size;
+
+	buf = malloc(alloc_size);
 	if (!buf) {
 		err = -ENOMEM;
 		goto err_out_exit;
 	}
 
-	err = pread(fd_in, buf, len, off_in);
-	if (err != len) {
-		err = -ENOSPC;
-		goto err_out_free;
-	}
+	while (len > 0) {
+		int read_size = alloc_size;
 
-	err = pwrite(fd_out, buf, len, off_out);
-	if (err != len) {
-		err = -ENOSPC;
-		goto err_out_free;
-	}
+		if (read_size > len)
+			read_size = len;
 
-	err = 0;
+		err = pread(fd_in, buf, read_size, off_in);
+		if (err == 0)
+			err = -EOF;
+		if (err < 0)
+			goto err_out_free;
+
+		read_size = err;
+
+		err = pwrite(fd_out, buf, read_size, off_out);
+		if (err == 0)
+			err = -EPIPE;
+		if (err < 0)
+			goto err_out_free;
+
+		read_size = err;
+
+		off_out += read_size;
+		off_in += read_size;
+		len -= read_size;
+
+		err = 0;
+	}
 
 err_out_free:
 	free(buf);
