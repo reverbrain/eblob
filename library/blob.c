@@ -500,18 +500,26 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 			read_size = len;
 
 		err = pread(fd_in, buf, read_size, off_in);
-		if (err == 0)
+		if (err == 0) {
 			err = -EOF;
-		if (err < 0)
 			goto err_out_free;
+		}
+		if (err < 0) {
+			err = -errno;
+			goto err_out_free;
+		}
 
 		read_size = err;
 
 		err = pwrite(fd_out, buf, read_size, off_out);
-		if (err == 0)
+		if (err == 0) {
 			err = -EPIPE;
-		if (err < 0)
 			goto err_out_free;
+		}
+		if (err < 0) {
+			err = -errno;
+			goto err_out_free;
+		}
 
 		read_size = err;
 
