@@ -1,3 +1,9 @@
+eblob (0.13.13) unstable; urgency=low
+
+  * Use ssize_t instead of int in eblob_copy_data()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 30 Jan 2012 18:33:13 +0400
+
 eblob (0.13.12) unstable; urgency=low
 
   * Use chunked splice/copy, since we may have really big objects written
