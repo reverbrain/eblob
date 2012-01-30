@@ -481,8 +481,8 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 {
 	void *buf;
 	ssize_t err;
-	int alloc_size = len;
-	int max_size = 10 * 1024 * 1024;
+	ssize_t alloc_size = len;
+	ssize_t max_size = 10 * 1024 * 1024;
 
 	if (alloc_size > max_size)
 		alloc_size = max_size;
@@ -494,7 +494,7 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 	}
 
 	while (len > 0) {
-		int read_size = alloc_size;
+		ssize_t read_size = alloc_size;
 
 		if (read_size > len)
 			read_size = len;
