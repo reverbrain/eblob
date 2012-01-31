@@ -297,6 +297,8 @@ struct eblob_iterate_control {
 	struct eblob_iterate_callbacks	iterator_cb;
 	void				*priv;
 
+	int				blob_start, blob_num;
+
 	unsigned long long		index_offset, index_size;
 	unsigned long long		data_offset, data_size;
 

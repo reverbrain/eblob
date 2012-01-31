@@ -757,23 +757,28 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	for (i = ctl->start_type; i <= max_type; ++i) {
 		struct eblob_base_type *t = &types[i];
 		struct eblob_base_ctl *bctl;
+		int idx = 0;
 
 		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: eblob_iterate_existing: start: type: %d\n", i);
 		list_for_each_entry(bctl, &t->bases, base_entry) {
-			ctl->base = bctl;
-			ctl->thread_num = thread_num;
+			if (!ctl->blob_num || ((idx >= ctl->blob_start) && (idx < ctl->blob_num - ctl->blob_start))) {
+				ctl->base = bctl;
+				ctl->thread_num = thread_num;
 
-			err = 0;
-			if (bctl->sort.fd < 0 || b->stat.need_check || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
-				err = eblob_blob_iterate(ctl);
+				err = 0;
+				if (bctl->sort.fd < 0 || b->stat.need_check || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
+					err = eblob_blob_iterate(ctl);
 
-			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "
-					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
-					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
-					bctl->data_size, (unsigned long long)bctl->data_offset,
-					bctl->sort.fd >= 0, err);
-			if (err)
-				goto err_out_exit;
+				eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: type: %d, index: %d, data_fd: %d, index_fd: %d, "
+						"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
+						bctl->type, bctl->index, bctl->data_fd, bctl->index_fd,
+						bctl->data_size, (unsigned long long)bctl->data_offset,
+						bctl->sort.fd >= 0, err);
+				if (err)
+					goto err_out_exit;
+			}
+
+			idx++;
 		}
 	}
 
