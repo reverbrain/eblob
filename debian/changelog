@@ -1,3 +1,9 @@
+eblob (0.14.1) unstable; urgency=low
+
+  * Added start/num parameters to iterate over selected number of blobs.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 1 Feb 2012 00:55:13 +0400
+
 eblob (0.13.13) unstable; urgency=low
 
   * Use ssize_t instead of int in eblob_copy_data()

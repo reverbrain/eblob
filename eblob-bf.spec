@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.13.13
+Version:	0.14.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Feb 1 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.1
+- Added start/num parameters to iterate over selected number of blobs
+
 * Mon Jan 30 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.13.13
 - Use ssize_t instead of int in eblob_copy_data()
 
