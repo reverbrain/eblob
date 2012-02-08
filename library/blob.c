@@ -1252,6 +1252,8 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	struct eblob_disk_footer *f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	struct eblob_map_fd m;
+	int alloc_size = 1024 * 1024;
+	void *adata = NULL;
 	int err;
 
 	memset(&m, 0, sizeof(struct eblob_map_fd));
@@ -1261,9 +1263,39 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	m.size = wc->total_size;
 	m.offset = wc->ctl_data_offset;
 
-	err = eblob_data_map(&m);
-	if (err)
-		goto err_out_exit;
+	if (m.size > (uint64_t)alloc_size) {
+		err = eblob_data_map(&m);
+		if (err)
+			goto err_out_exit;
+	} else {
+		void *ptr;
+		uint64_t offset = wc->ctl_data_offset;
+
+		ptr = adata = malloc(m.size);
+		if (!adata) {
+			err = -ENOMEM;
+			goto err_out_unmap;
+		}
+
+		alloc_size = m.size;
+		while (alloc_size > 0) {
+			err = pread(wc->data_fd, ptr, alloc_size, offset);
+			if (err < 0) {
+				err = -errno;
+				goto err_out_unmap;
+			}
+			if (err == 0) {
+				err = -EPIPE;
+				goto err_out_unmap;
+			}
+
+			alloc_size -= err;
+			offset += err;
+			ptr += err;
+		}
+
+		m.data = adata;
+	}
 
 	memset(csum, 0, sizeof(csum));
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
@@ -1271,7 +1303,6 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		err = 0;
 		goto err_out_unmap;
 	}
-
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
 		/* for Mac OS X */
@@ -1285,7 +1316,10 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	err = 0;
 
 err_out_unmap:
-	eblob_data_unmap(&m);
+	if (m.size > (uint64_t)alloc_size)
+		eblob_data_unmap(&m);
+	else
+		free(m.data);
 err_out_exit:
 	return err;
 }
