@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.14.1
+Version:	0.14.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Feb 8 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.2
+- Use allocate/read for checksum calculation when reading small objects
+- Skip .tmp files when scanning base names
+
 * Wed Feb 1 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.1
 - Added start/num parameters to iterate over selected number of blobs
 

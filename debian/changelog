@@ -1,3 +1,10 @@
+eblob (0.14.2) unstable; urgency=low
+
+  * Use allocate/read for checksum calculation when reading small objects
+  * Skip .tmp files when scanning base names
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 8 Feb 2012 22:54:13 +0400
+
 eblob (0.14.1) unstable; urgency=low
 
   * Added start/num parameters to iterate over selected number of blobs.
