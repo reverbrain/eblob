@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# defragment all blobs in given ($1) path using 'eblob_merge' utility
+
 for f in `ls -1 $1/data.* | egrep -v "index|stat"`; do
 	d=`basename $f`
 
