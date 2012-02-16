@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 {
 	int print_all = 0;
 
-	if (argc < 3) {
+	if (argc < 2) {
 		std::cerr << "Usage: " << argv[0] << " blob <print-all> <data offset shift>" << std::endl;
 		return(-1);
 	}
