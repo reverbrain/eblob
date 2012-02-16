@@ -47,6 +47,16 @@ eblob::eblob(struct eblob_config *cfg) : logger_(NULL, 0)
 	}
 }
 
+eblob::eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg) :
+	logger_(log_file, log_mask)
+{
+	cfg->log = logger_.log();
+	eblob_ = eblob_init(cfg);
+	if (!eblob_) {
+		throw std::runtime_error("Failed to initialize eblob");
+	}
+}
+
 eblob::~eblob()
 {
 	eblob_cleanup(eblob_);
