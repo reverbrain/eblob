@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.14.2
+Version:	0.14.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -98,6 +98,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Feb 16 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.3
+- Added python eblob constructor that accepts eblob_config structure on input
+
 * Wed Feb 8 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.2
 - Use allocate/read for checksum calculation when reading small objects
 - Skip .tmp files when scanning base names

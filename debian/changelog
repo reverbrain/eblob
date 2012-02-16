@@ -1,3 +1,9 @@
+eblob (0.14.3) unstable; urgency=low
+
+  * Added python eblob constructor that accepts eblob_config structure on input
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 16 Feb 2012 22:45:13 +0400
+
 eblob (0.14.2) unstable; urgency=low
 
   * Use allocate/read for checksum calculation when reading small objects
