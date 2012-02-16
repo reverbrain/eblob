@@ -77,6 +77,7 @@ class eblob {
 	public:
 		eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path);
 		eblob(struct eblob_config *cfg);
+		eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg);
 		virtual ~eblob();
 
 		void write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize,

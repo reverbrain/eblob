@@ -95,6 +95,9 @@ public:
 	eblob_python(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
 		eblob::eblob(log_file, log_mask, eblob_path) {}
 
+	eblob_python(const char *log_file, const unsigned int log_mask, const eblob_config &cfg) :
+		eblob::eblob(log_file, log_mask, (eblob_config *)&cfg) {};
+
 	void write_by_id(const struct eblob_id &id, const std::string &data, const uint64_t offset,
 			const uint64_t flags, const int type) {
 		struct eblob_key key;
@@ -163,7 +166,19 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def_readwrite("check_index", &eblob_py_iterator::check_index)
 	;
 
+	class_<eblob_config>("eblob_config", init<>())
+		.def_readwrite("blob_flags", &eblob_config::blob_flags)
+		.def_readwrite("sync", &eblob_config::sync)
+		.def_readwrite("bsize", &eblob_config::bsize)
+		.def_readwrite("file", &eblob_config::file)
+		.def_readwrite("iterate_threads", &eblob_config::iterate_threads)
+		.def_readwrite("blob_size", &eblob_config::blob_size)
+		.def_readwrite("records_in_blob", &eblob_config::records_in_blob)
+		.def_readwrite("cache_size", &eblob_config::cache_size)
+	;
+
 	class_<eblob_python>("eblob", init<const char *, const uint32_t, const std::string>())
+		.def(init<const char *, const uint32_t, struct eblob_config>())
 		.def("write", &eblob_python::write_by_id)
 		.def("write_hashed", &eblob_python::write_hashed)
 		.def("read", &eblob_python::read_by_id)
