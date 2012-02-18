@@ -44,8 +44,15 @@ AX_BOOST_PYTHON
 AC_CHECK_HEADER(dlfcn.h)
 AC_CHECK_LIB(dl,dlopen)
 
-AC_CONFIG_FILES([Makefile include/Makefile include/eblob/Makefile
-		 library/Makefile debian/Makefile bindings/Makefile
-		 bindings/cpp/Makefile bindings/python/Makefile example/Makefile])
+AC_CONFIG_FILES([Makefile
+		 include/Makefile
+		 include/eblob/Makefile
+		 library/Makefile
+		 debian/Makefile
+		 bindings/Makefile
+		 bindings/cpp/Makefile
+		 bindings/python/Makefile
+		 bindings/python/python/Makefile
+		 example/Makefile])
 
 AC_OUTPUT

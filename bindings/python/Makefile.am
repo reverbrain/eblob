@@ -1,4 +1,5 @@
 lib_LTLIBRARIES = libeblob_python.la
+SUBDIRS = . python
 
 libeblob_python_la_SOURCES = eblob_python.cpp
 libeblob_python_la_LIBADD =  @top_srcdir@/library/.libs/libeblob.la \
