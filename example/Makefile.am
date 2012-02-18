@@ -7,7 +7,7 @@ noinst_HEADERS = common.hpp
 eblob_open_SOURCES = eblob_open.cpp
 eblob_open_LDADD = ../bindings/cpp/libeblob_cpp.la
 
-bin_PROGRAMS = eblob_index_info eblob_gen_index eblob_merge
+bin_PROGRAMS = eblob_index_info eblob_merge
 
 eblob_index_info_SOURCES = eblob_index_info.cpp
 
