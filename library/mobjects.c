@@ -767,7 +767,8 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		struct eblob_base_ctl *bctl;
 		int idx = 0;
 
-		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: eblob_iterate_existing: start: type: %d\n", i);
+		if (!list_empty(&t->bases))
+			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: eblob_iterate_existing: start: type: %d\n", i);
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			if (!ctl->blob_num || ((idx >= ctl->blob_start) && (idx < ctl->blob_num - ctl->blob_start))) {
 				ctl->base = bctl;
