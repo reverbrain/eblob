@@ -89,7 +89,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %doc AUTHORS AUTHORS COPYING README
 %{_bindir}/*
-%{_libdir}/lib*.so.*
+%{_libdir}/lib*.so.* %{_libdir}/python*/site-packages/eblob*
 
 
 %files devel
