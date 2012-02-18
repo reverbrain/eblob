@@ -10,7 +10,6 @@ eblob_open_LDADD = ../bindings/cpp/libeblob_cpp.la
 bin_PROGRAMS = eblob_index_info eblob_gen_index eblob_merge
 
 eblob_index_info_SOURCES = eblob_index_info.cpp
-eblob_gen_index_SOURCES = eblob_gen_index.cpp
 
 eblob_merge_SOURCES = merge.cpp
 
