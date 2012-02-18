@@ -1200,9 +1200,12 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_hash_lookup_alloc: all-types: %d.\n",
-				eblob_dump_id(key->id), err);
-		goto err_out_exit;
+		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
+					eblob_dump_id(key->id), err);
+			goto err_out_exit;
+		}
 	}
 
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
