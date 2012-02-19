@@ -90,7 +90,11 @@ rm -rf %{buildroot}
 %doc AUTHORS AUTHORS COPYING README
 %{_bindir}/*
 %{_libdir}/lib*.so.*
+%if 0%{?rhel} < 6 || 0%{?fedora} < 10
+%{_libdir}/python*/site-packages/eblob*
+%else
 %{python_sitelib}/eblob*
+%endif
 
 
 %files devel
