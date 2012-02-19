@@ -90,7 +90,7 @@ rm -rf %{buildroot}
 %doc AUTHORS AUTHORS COPYING README
 %{_bindir}/*
 %{_libdir}/lib*.so.*
-%{_libdir}/python*/site-packages/eblob*
+%{python_sitelib}/eblob*
 
 
 %files devel
