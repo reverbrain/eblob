@@ -69,6 +69,10 @@ CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %con
 %else
 %configure
 %endif
+%if 0%{?rhel} <= 5
+%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
+%endif
 
 make %{?_smp_mflags}
 
@@ -90,11 +94,7 @@ rm -rf %{buildroot}
 %doc AUTHORS AUTHORS COPYING README
 %{_bindir}/*
 %{_libdir}/lib*.so.*
-%if 0%{?rhel} < 6 || 0%{?fedora} < 10
-%{_libdir}/python*/site-packages/eblob*
-%else
 %{python_sitelib}/eblob*
-%endif
 
 
 %files devel
