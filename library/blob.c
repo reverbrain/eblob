@@ -41,33 +41,6 @@
 #include "blob.h"
 #include "crypto/sha512.h"
 
-static unsigned int eblob_iohash_index(struct eblob_backend *b, struct eblob_key *key)
-{
-	unsigned int *ptr = (unsigned int *)key->id;
-	unsigned int h = 0;
-	unsigned int i;
-
-	for (i = 0; i < sizeof(key->id) / sizeof(unsigned int); ++i) {
-		h ^= ptr[i];
-	}
-
-	return h % ARRAY_SIZE(b->iolocks);
-}
-
-static void eblob_iolock(struct eblob_backend *b, struct eblob_key *key)
-{
-	unsigned int idx = eblob_iohash_index(b, key);
-
-	pthread_mutex_lock(&b->iolocks[idx]);
-}
-
-static void eblob_iounlock(struct eblob_backend *b, struct eblob_key *key)
-{
-	unsigned int idx = eblob_iohash_index(b, key);
-
-	pthread_mutex_unlock(&b->iolocks[idx]);
-}
-
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
 	void *thread_priv;
@@ -902,24 +875,20 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	wc->size = wc->offset = 0;
 
-	eblob_iolock(b, key);
-
 	/*
 	 * For eblob_write_prepare() this can not fail with -E2BIG, since size/offset are zero
 	 */
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
 		err = 0;
-		goto err_out_unlock;
+		goto err_out_exit;
 	}
 
 	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
 	if (err)
-		goto err_out_unlock;
+		goto err_out_exit;
 
-err_out_unlock:
-	eblob_iounlock(b, key);
-
+err_out_exit:
 	wc->size = prepare_disk_size;
 	return err;
 }
@@ -1023,7 +992,6 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	int err;
 	uint64_t size = wc->size;
 
-	eblob_iolock(b, key);
 	wc->offset = wc->size = 0;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
@@ -1039,7 +1007,6 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 
 err_out_exit:
-	eblob_iounlock(b, key);
 	eblob_dump_wc(b, key, wc, "eblob_write_commit", err);
 	return err;
 }
@@ -1083,8 +1050,6 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 	wc.size = size;
 	wc.offset = offset;
 
-	eblob_iolock(b, key);
-
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (err)
 		goto err_out_exit;
@@ -1108,7 +1073,6 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 
 	err = 0;
 err_out_exit:
-	eblob_iounlock(b, key);
 	eblob_dump_wc(b, key, &wc, "eblob_plain_write", err);
 	return err;
 }
@@ -1120,8 +1084,6 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	int compress_err = -1;
 	void *old_data = data;
 	ssize_t err;
-
-	eblob_iolock(b, key);
 
 	memset(&wc, 0, sizeof(wc));
 
@@ -1184,8 +1146,6 @@ err_out_exit:
 	if (!compress_err)
 		free(data);
 
-	eblob_iounlock(b, key);
-
 	eblob_dump_wc(b, key, &wc, "eblob_write", err);
 	return err;
 }
@@ -1195,8 +1155,6 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	struct eblob_ram_control *ctl;
 	unsigned int size;
 	int err, i, on_disk;
-
-	eblob_iolock(b, key);
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
@@ -1219,7 +1177,6 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	free(ctl);
 
 err_out_exit:
-	eblob_iounlock(b, key);
 	return err;
 }
 
@@ -1227,8 +1184,6 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	struct eblob_ram_control ctl;
 	int err, disk;
-
-	eblob_iolock(b, key);
 
 	ctl.type = type;
 	err = eblob_lookup_type(b, key, &ctl, &disk);
@@ -1246,7 +1201,6 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
 err_out_exit:
-	eblob_iounlock(b, key);
 	return err;
 }
 
@@ -1395,10 +1349,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t
 {
 	int err;
 
-	eblob_iolock(b, key);
 	err = eblob_read_nolock(b, key, fd, offset, size, type, 1);
-	eblob_iounlock(b, key);
-
 	return err;
 }
 
@@ -1406,10 +1357,7 @@ int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key, int *fd, u
 {
 	int err;
 
-	eblob_iolock(b, key);
 	err = eblob_read_nolock(b, key, fd, offset, size, type, 0);
-	eblob_iounlock(b, key);
-
 	return err;
 }
 
@@ -1446,8 +1394,6 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 	struct eblob_map_fd m;
 
 	memset(&m, 0, sizeof(m));
-
-	eblob_iolock(b, key);
 
 	err = eblob_read_nolock(b, key, &m.fd, &m.offset, &m.size, type, 1);
 	if (err < 0)
@@ -1537,7 +1483,6 @@ have_uncompressed_data:
 err_out_unmap:
 	eblob_data_unmap(&m);
 err_out_exit:
-	eblob_iounlock(b, key);
 	return err;
 }
 
@@ -1569,45 +1514,6 @@ static void *eblob_sync(void *data)
 	return NULL;
 }
 
-static void eblob_locks_destroy(struct eblob_backend *b)
-{
-	int i;
-
-	for (i = 0; i < (int)ARRAY_SIZE(b->iolocks); ++i) {
-		pthread_mutex_destroy(&b->iolocks[i]);
-	}
-	pthread_mutex_destroy(&b->lock);
-}
-
-static int eblob_locks_init(struct eblob_backend *b)
-{
-	int i, err;
-
-	err = pthread_mutex_init(&b->lock, NULL);
-	if (err) {
-		err = -errno;
-		goto err_out_exit;
-	}
-
-	for (i = 0; i < (int)ARRAY_SIZE(b->iolocks); ++i) {
-		err = pthread_mutex_init(&b->iolocks[i], NULL);
-		if (err) {
-			err = -errno;
-			goto err_out_locks_destroy;
-		}
-	}
-	
-	return 0;
-
-err_out_locks_destroy:
-	while (--i >= 0) {
-		pthread_mutex_destroy(&b->iolocks[i]);
-	}
-	pthread_mutex_destroy(&b->lock);
-err_out_exit:
-	return err;
-}
-
 void eblob_cleanup(struct eblob_backend *b)
 {
 	b->need_exit = 1;
@@ -1617,7 +1523,6 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_base_types_cleanup(b);
 
 	eblob_hash_exit(b->hash);
-	eblob_locks_destroy(b);
 
 	free(b->cfg.file);
 
@@ -1649,10 +1554,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err)
 		goto err_out_free;
 
-	err = eblob_locks_init(b);
-	if (err)
-		goto err_out_stat_free;
-
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
 
@@ -1670,7 +1571,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	b->cfg.file = strdup(c->file);
 	if (!b->cfg.file) {
 		err = -ENOMEM;
-		goto err_out_csum_lock_destroy;
+		goto err_out_stat_free;
 	}
 
 	err = pthread_mutex_init(&b->lock, NULL);
@@ -1713,11 +1614,9 @@ err_out_cleanup:
 err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
-	eblob_locks_destroy(b);
+	pthread_mutex_destroy(&b->lock);
 err_out_free_file:
 	free(b->cfg.file);
-err_out_csum_lock_destroy:
-	eblob_lock_destroy(&b->csum_lock);
 err_out_stat_free:
 	eblob_stat_cleanup(&b->stat);
 err_out_free:

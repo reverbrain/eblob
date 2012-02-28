@@ -129,8 +129,6 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 struct eblob_backend {
 	struct eblob_config	cfg;
 
-	struct eblob_lock	csum_lock;
-
 	pthread_mutex_t		lock;
 
 	int			max_type;
@@ -143,8 +141,6 @@ struct eblob_backend {
 	int			need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
-
-	pthread_mutex_t		iolocks[1024];
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);
