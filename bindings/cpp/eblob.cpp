@@ -62,6 +62,11 @@ eblob::~eblob()
 	eblob_cleanup(eblob_);
 }
 
+void eblob::key(const std::string &key, struct eblob_key &ekey)
+{
+	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
+}
+
 void eblob::write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize, uint64_t flags, int type)
 {
 	int err = eblob_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, dsize, flags, type);

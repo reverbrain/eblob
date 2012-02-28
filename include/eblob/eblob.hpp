@@ -105,6 +105,8 @@ class eblob {
 
 		int iterate(struct eblob_iterate_control &ctl);
 
+		void key(const std::string &key, struct eblob_key &ekey);
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
