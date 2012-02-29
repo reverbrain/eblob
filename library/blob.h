@@ -51,7 +51,6 @@ int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
 
 struct eblob_base_type {
-	int			iter_base;
 	int			type, index;
 	struct list_head	bases;
 };
@@ -112,6 +111,8 @@ struct eblob_base_ctl {
 
 	struct rb_root		index_blocks_root;
 	pthread_mutex_t		index_blocks_lock;
+
+	size_t			good, removed;
 
 	char			name[0];
 };

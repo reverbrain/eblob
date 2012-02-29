@@ -324,10 +324,58 @@ static void eblob_defrag_close(struct eblob_base_ctl *bctl)
 	close(bctl->dfi);
 }
 
+static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_control *ctl __unused,
+		void *data __unused, void *priv, void *thread_priv __unused)
+{
+	struct eblob_base_ctl *bctl = priv;
+
+	pthread_mutex_lock(&bctl->dlock);
+	if (dc->flags & BLOB_DISK_CTL_REMOVE)
+		bctl->removed++;
+	else
+		bctl->good++;
+	pthread_mutex_unlock(&bctl->dlock);
+
+	return 0;
+}
+
+static int eblob_want_defrag(struct eblob_base_ctl *bctl)
+{
+	struct eblob_backend *b = bctl->back;
+	struct eblob_iterate_control ctl;
+	int err;
+
+	bctl->good = bctl->removed = 0;
+
+	memset(&ctl, 0, sizeof(struct eblob_iterate_control));
+
+	ctl.check_index = 1;
+	ctl.thread_num = 1;
+	ctl.log = b->cfg.log;
+
+	ctl.iterator_cb.iterator = eblob_defrag_count;
+	ctl.iterator_cb.iterator_init = NULL;
+	ctl.iterator_cb.iterator_free = NULL;
+
+	ctl.b = b;
+	ctl.flags = EBLOB_ITERATE_FLAGS_ALL;
+
+	ctl.base = bctl;
+	ctl.priv = bctl;
+	err = eblob_blob_iterate(&ctl);
+	if (err)
+		goto err_out_exit;
+
+	return bctl->removed >= (bctl->good + bctl->removed) * b->cfg.defrag_percentage / 100;
+
+err_out_exit:
+	return err;
+}
+
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	struct eblob_iterate_control ctl;
-	int err, i;
+	int err = 0, i, no_defrag = 0;
 	ssize_t dsize;
 
 	memset(&ctl, 0, sizeof(ctl));
@@ -346,7 +394,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	for (i = 0; i <= b->max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 		struct eblob_base_ctl *bctl;
-		int pos = 0;
 
 		/* It should be safe to iterate without locks, since we never delete entry, and add only to the end which is safe */
 		list_for_each_entry(bctl, &t->bases, base_entry) {
@@ -384,7 +431,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (bctl->base_entry.next == &t->bases)
 				break;
 
-			if (++pos < t->iter_base)
+			if (no_defrag)
+				continue;
+
+			if (eblob_want_defrag(bctl) <= 0)
 				continue;
 
 			err = eblob_defrag_open(bctl);
@@ -414,7 +464,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			eblob_defrag_unlink(bctl, 0);
 
 			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
-			t->iter_base++;
+			no_defrag = 1;
 			continue;
 
 err_out_unlink:

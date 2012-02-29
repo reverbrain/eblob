@@ -236,6 +236,28 @@ struct eblob_config {
 
 	/* maximum number of keys that could be cached from disk */
 	uint64_t		cache_size;
+
+	/*
+	 * Automatic defragmentation starts when
+	 * number of removed entries in blob is higher
+	 * than this percentage (i.e. removed >= (good + removed) * defrag_percentage / 100)
+	 */
+	int			defrag_percentage;
+
+	/*
+	 * Number of seconds between defragmentation checks and sorted index generation
+	 * It is a good idea to put here hours or even days,
+	 * since defragmentation checks every blob (read whole index)
+	 * to determine whether it is a good candidate for defragmentation,
+	 * but it only processes _one_ blob in given timeout, since
+	 * eblob only reserves space for at most one additional blob
+	 * After defragmented blob created, it will replace original
+	 * in the next run, i.e. after next timeout
+	 */
+	int			defrag_timeout;
+
+	/* for future use */
+	int			pad[12];
 };
 
 struct eblob_ram_control {
