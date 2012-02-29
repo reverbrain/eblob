@@ -1,5 +1,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+
+#include <errno.h>
 
 #include <boost/shared_ptr.hpp>
 
