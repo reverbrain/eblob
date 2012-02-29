@@ -51,6 +51,7 @@ int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
 
 struct eblob_base_type {
+	int			iter_base;
 	int			type, index;
 	struct list_head	bases;
 };
@@ -85,6 +86,7 @@ inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_
 
 
 struct eblob_base_ctl {
+	struct eblob_backend	*back;
 	struct list_head	base_entry;
 
 	int			type, index;
@@ -99,7 +101,14 @@ struct eblob_base_ctl {
 
 	int			need_sorting;
 
+	pthread_mutex_t		dlock;
+	int			df, dfi;
+
+	/* cached old_ parameters which are used until defragmented blobs are copied to the place of original ones */
+	int			old_data_fd, old_index_fd;
+
 	struct eblob_map_fd	sort;
+	struct eblob_map_fd	old_sort;
 
 	struct rb_root		index_blocks_root;
 	pthread_mutex_t		index_blocks_lock;
@@ -159,7 +168,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
@@ -176,5 +185,7 @@ struct eblob_disk_search_stat {
 
 struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st);
+
+ssize_t eblob_get_actual_size(int fd);
 
 #endif /* __EBLOB_BLOB_H */

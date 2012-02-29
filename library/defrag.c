@@ -31,20 +31,81 @@
 
 #include "blob.h"
 
+static int eblob_defrag_write(int fd, void *data, ssize_t size)
+{
+	ssize_t err;
+
+	while (size > 0) {
+		err = write(fd, data, size);
+		if (err < 0) {
+			err = -errno;
+			goto err_out_exit;
+		}
+
+		if (err == 0) {
+			err = -EPIPE;
+			goto err_out_exit;
+		}
+
+		data += err;
+		size -= err;
+	}
+
+	err = 0;
+err_out_exit:
+	return err;
+}
+
 static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *ctl,
 		void *data, void *priv, void *thread_priv __unused)
 {
-	struct eblob_backend *b = priv;
+	struct eblob_base_ctl *bctl = priv;
+	uint64_t disk_size;
 	int err;
 
-	err = eblob_write(b, &dc->key, data, 0, dc->data_size, dc->flags, ctl->type);
+	if (dc->flags & BLOB_DISK_CTL_REMOVE)
+		return 0;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: %s: size: %llu: position: %llu, flags: %llx, type: %d, err: %d\n",
+	pthread_mutex_lock(&bctl->dlock);
+
+	dc->position = lseek(bctl->df, 0, SEEK_CUR);
+	disk_size = dc->disk_size;
+	eblob_convert_disk_control(dc);
+
+	err = eblob_defrag_write(bctl->df, dc, sizeof(struct eblob_disk_control));
+	if (err) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 1: %s: size: %llu: position: %llu, "
+				"flags: %llx, type: %d, err: %d\n",
+				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
+				(unsigned long long)dc->flags, ctl->type, err);
+		goto err_out_unlock;
+	}
+
+	err = eblob_defrag_write(bctl->df, data, disk_size - sizeof(struct eblob_disk_control));
+	if (err) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 2: %s: size: %llu: position: %llu, "
+				"flags: %llx, type: %d, err: %d\n",
+				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
+				(unsigned long long)dc->flags, ctl->type, err);
+		goto err_out_unlock;
+	}
+
+	err = eblob_defrag_write(bctl->dfi, dc, sizeof(struct eblob_disk_control));
+	if (err) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 3: %s: size: %llu: position: %llu, "
+				"flags: %llx, type: %d, err: %d\n",
+				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
+				(unsigned long long)dc->flags, ctl->type, err);
+		goto err_out_unlock;
+	}
+
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "defrag: %s: size: %llu: position: %llu, "
+			"flags: %llx, type: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-			(unsigned long long)dc->flags, ctl->type, err);
-	if (err)
-		return err;
+			(unsigned long long)dc->flags, ctl->type);
 
+err_out_unlock:
+	pthread_mutex_unlock(&bctl->dlock);
 	return 0;
 }
 
@@ -109,39 +170,193 @@ void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 	}
 }
 
+static int eblob_defrag_open(struct eblob_base_ctl *bctl)
+{
+	struct eblob_backend *b = bctl->back;
+	int len = strlen(b->cfg.file) + 256;
+	char *path;
+	int err;
+
+	path = malloc(len);
+	if (!path) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	snprintf(path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	bctl->df = open(path, O_RDWR | O_TRUNC | O_CREAT, 0644);
+	if (bctl->df < 0) {
+		err = -errno;
+		goto err_out_free;
+	}
+
+	snprintf(path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+	bctl->dfi = open(path, O_RDWR | O_TRUNC | O_CREAT, 0644);
+	if (bctl->dfi < 0) {
+		err = -errno;
+		goto err_out_close;
+	}
+
+	free(path);
+	return 0;
+
+err_out_close:
+	close(bctl->df);
+err_out_free:
+	free(path);
+err_out_exit:
+	return err;
+}
+
+static int eblob_defrag_unlink(struct eblob_base_ctl *bctl, int defrag)
+{
+	struct eblob_backend *b = bctl->back;
+	int len = strlen(b->cfg.file) + 256;
+	char *path;
+	int err = 0;
+
+	path = malloc(len);
+	if (!path) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	if (defrag) {
+		snprintf(path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+
+		snprintf(path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+
+		snprintf(path, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+	} else {
+		snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+
+		snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+
+		snprintf(path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+		unlink(path);
+
+		if (bctl->type == EBLOB_TYPE_DATA) {
+			snprintf(path, len, "%s.%d", b->cfg.file, bctl->index);
+			unlink(path);
+
+			snprintf(path, len, "%s.%d.index", b->cfg.file, bctl->index);
+			unlink(path);
+
+			snprintf(path, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+			unlink(path);
+		}
+	}
+
+	free(path);
+
+err_out_exit:
+	return err;
+}
+
+static int eblob_defrag_rename(struct eblob_base_ctl *bctl)
+{
+	struct eblob_backend *b = bctl->back;
+	int len = strlen(b->cfg.file) + 256;
+	char *old_path, *new_path;
+	int err = 0;
+
+	old_path = malloc(len);
+	if (!old_path) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	new_path = malloc(len);
+	if (!new_path) {
+		err = -ENOMEM;
+		goto err_out_free_old;
+	}
+
+	snprintf(old_path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	snprintf(new_path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+
+	err = rename(old_path, new_path);
+	if (err) {
+		err = -errno;
+		goto err_out_free_new;
+	}
+
+	printf("%s -> %s\n", old_path, new_path);
+
+
+	snprintf(old_path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+	snprintf(new_path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+
+	err = rename(old_path, new_path);
+	if (err) {
+		err = -errno;
+		goto err_out_free_new;
+	}
+
+
+	snprintf(old_path, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	snprintf(new_path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+
+	err = rename(old_path, new_path);
+	if (err) {
+		err = -errno;
+		goto err_out_free_new;
+	}
+
+
+err_out_free_new:
+	free(new_path);
+err_out_free_old:
+	free(old_path);
+err_out_exit:
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "rename: index: %d, type: %d, err: %d\n", bctl->index, bctl->type, err);
+	return err;
+}
+
+static void eblob_defrag_close(struct eblob_base_ctl *bctl)
+{
+	close(bctl->df);
+	close(bctl->dfi);
+}
+
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	struct eblob_iterate_control ctl;
 	int err, i;
+	ssize_t dsize;
 
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.check_index = 1;
 	ctl.thread_num = 1;
-	ctl.priv = b;
 	ctl.log = b->cfg.log;
 
 	ctl.iterator_cb.iterator = eblob_defrag_iterator;
 	ctl.iterator_cb.iterator_init = NULL;
 	ctl.iterator_cb.iterator_free = NULL;
 
+	ctl.b = b;
+	ctl.flags = EBLOB_ITERATE_FLAGS_ALL;
+
 	for (i = 0; i <= b->max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
-		struct eblob_base_ctl *bctl, *tmp;
-		int num = 0;
+		struct eblob_base_ctl *bctl;
+		int pos = 0;
 
-		list_for_each_entry(bctl, &t->bases, base_entry)
-			num++;
-
-		/* It should be safe, */
-		list_for_each_entry_safe(bctl, tmp, &t->bases, base_entry) {
+		/* It should be safe to iterate without locks, since we never delete entry, and add only to the end which is safe */
+		list_for_each_entry(bctl, &t->bases, base_entry) {
 			if (b->need_exit) {
 				err = 0;
 				goto err_out_exit;
 			}
 
 			if (bctl->need_sorting) {
-				err = eblob_generate_sorted_index(b, bctl);
+				err = eblob_generate_sorted_index(b, bctl, 0);
 				if (!err) {
 					err = eblob_index_blocks_fill(bctl);
 					if (!err)
@@ -149,74 +364,65 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				}
 			}
 
-			if (!(b->cfg.blob_flags & EBLOB_RUN_DEFRAG))
-				continue;
+			if (bctl->old_index_fd != -1) {
+				err = eblob_defrag_rename(bctl);
+				if (err) {
+					eblob_defrag_close(bctl);
+					eblob_defrag_unlink(bctl, 1);
+				}
 
+				close(bctl->old_index_fd);
+				close(bctl->old_data_fd);
 
-			/* do not process last entry, it can be in use for write */
+				bctl->old_index_fd = -1;
+				bctl->old_data_fd = -1;
+
+				eblob_data_unmap(&bctl->old_sort);
+			}
+
+			/* do not process last entry, it can be used for writing */
 			if (bctl->base_entry.next == &t->bases)
 				break;
 
-			if (--num < 0)
-				break;
-#if 0
-			if ((bctl->removed < 0) || (bctl->num < 0)) {
-				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: EXITING: type: %d, index: %d, "
-						"data_size: %llu, valid: %lld, removed: %lld\n",
-						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed);
-				b->need_exit = 1;
-				break;
-			}
-
-			if (!bctl->removed || (bctl->removed < bctl->num / 2))
+			if (++pos < t->iter_base)
 				continue;
 
-			/*
-			 * Since we do not process last entry, it is guaranteed that all
-			 * new writes already go into that last (or even after that last) eblob,
-			 * so we only have to wait for pending writes, which incremented
-			 * refcnt but which are not yet completed.
-			 */
-			wait = 0;
-			while (atomic_read(&bctl->refcnt) != 1) {
-				if (b->need_exit)
-					goto err_out_exit;
-
-				eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: type: %d, index: %d, "
-						"data_size: %llu, valid: %lld, removed: %lld: waiting %d\n",
-						bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed, wait);
-
-				sleep(1);
-				wait++;
-			}
-
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: type: %d, index: %d, data_fd: %d, index_fd: %d, "
-					"valid: %lld, removed: %lld\n",
-					bctl->type, bctl->index, bctl->data_fd, bctl->index_fd, bctl->num, bctl->removed);
-
-			bctl->data_offset = bctl->index_offset = 0;
-			bctl->removed = bctl->num = 0;
-
-			err = eblob_base_setup_data(bctl);
+			err = eblob_defrag_open(bctl);
 			if (err)
 				goto err_out_exit;
 
 			ctl.base = bctl;
-
+			ctl.priv = bctl;
 			err = eblob_blob_iterate(&ctl);
 			if (err)
+				goto err_out_unlink;
+
+			dsize = eblob_get_actual_size(bctl->df);
+			if ((dsize <= 0) || (dsize == (ssize_t)bctl->data_size)) {
+				if (dsize == 0)
+					eblob_defrag_unlink(bctl, 0);
+				err = 0;
+				goto err_out_unlink;
+			}
+
+			err = eblob_generate_sorted_index(b, bctl, 1);
+			if (err)
+				goto err_out_unlink;
+
+			eblob_index_blocks_destroy(bctl);
+			eblob_index_blocks_fill(bctl);
+			eblob_defrag_unlink(bctl, 0);
+
+			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
+			t->iter_base++;
+			continue;
+
+err_out_unlink:
+			eblob_defrag_close(bctl);
+			eblob_defrag_unlink(bctl, 1);
+			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: error type: %d, index: %d, err: %d\n", bctl->type, bctl->index, err);
+			if (err)
 				goto err_out_exit;
-
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d, data_size: %llu, "
-					"valid: %lld, removed: %lld, data_fd: %d, index_fd: %d\n",
-					bctl->type, bctl->index, bctl->data_size, bctl->num, bctl->removed,
-					bctl->data_fd, bctl->index_fd);
-
-			eblob_base_remove(b, bctl);
-			list_del(&bctl->base_entry);
-			eblob_base_ctl_cleanup(bctl);
-			free(bctl);
-#endif
 		}
 	}
 
@@ -227,7 +433,7 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	long i, sleep_timeout = 60;
+	long i, sleep_timeout = 30;
 
 	while (!b->need_exit) {
 		for (i = 0; i < sleep_timeout; ++i) {

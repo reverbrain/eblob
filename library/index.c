@@ -99,12 +99,24 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 
 	n = &bctl->index_blocks_root.rb_node;
 
-	while(*n) {
+	while (*n) {
 		parent = *n;
 
 		t = rb_entry(parent, struct eblob_index_block, node);
 
 		cmp = eblob_id_cmp(t->end_key.id, block->end_key.id);
+
+		if (bctl->back->cfg.log->log_mask & EBLOB_LOG_DSA) {
+			int num = 6;
+			char start_str[num * 2 + 1];
+			char end_str[num * 2 + 1];
+			char id_str[num * 2 + 1];
+
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "insert: range: start: %s, end: %s, tree-end: %s, cmp: %d, offset: %llu\n",
+					eblob_dump_id_len_raw(block->start_key.id, num, start_str),
+					eblob_dump_id_len_raw(block->end_key.id, num, end_str),
+					eblob_dump_id_len_raw(t->end_key.id, num, id_str), cmp, (unsigned long long)t->offset);
+		}
 		if (cmp <= 0)
 			n = &parent->rb_left;
 		else {
@@ -148,10 +160,35 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 		t = rb_entry(n, struct eblob_index_block, node);
 
 		cmp = eblob_id_cmp(t->end_key.id, dc->key.id);
+		if (bctl->back->cfg.log->log_mask & EBLOB_LOG_DSA) {
+			int num = 6;
+			char start_str[num * 2 + 1];
+			char end_str[num * 2 + 1];
+			char id_str[num * 2 + 1];
+
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "lookup1: range: start: %s, end: %s, key: %s, cmp: %d\n",
+					eblob_dump_id_len_raw(t->start_key.id, num, start_str),
+					eblob_dump_id_len_raw(t->end_key.id, num, end_str),
+					eblob_dump_id_len_raw(dc->key.id, num, id_str), cmp);
+		}
+
 		if (cmp < 0)
 			n = n->rb_left;
 		else if (cmp > 0) {
-			if (eblob_id_cmp(t->start_key.id, dc->key.id) > 0)
+			cmp = eblob_id_cmp(t->start_key.id, dc->key.id);
+			if (bctl->back->cfg.log->log_mask & EBLOB_LOG_DSA) {
+				int num = 6;
+				char start_str[num * 2 + 1];
+				char end_str[num * 2 + 1];
+				char id_str[num * 2 + 1];
+
+				eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "lookup2: range: start: %s, end: %s, "
+						"key: %s, cmp: %d, offset: %llu\n",
+						eblob_dump_id_len_raw(t->start_key.id, num, start_str),
+						eblob_dump_id_len_raw(t->end_key.id, num, end_str),
+						eblob_dump_id_len_raw(dc->key.id, num, id_str), cmp, (unsigned long long)t->offset);
+			}
+			if (cmp > 0)
 				n = n->rb_right;
 			else
 				break;
@@ -188,18 +225,18 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	int i;
 
 	while (offset < bctl->sort.size) {
-		block = (struct eblob_index_block *)malloc(sizeof(struct eblob_index_block));
+		block = malloc(sizeof(struct eblob_index_block));
 		if (!block) {
 			err = -ENOMEM;
 			goto err_out_drop_tree;
 		}
-		memset(block, 0, sizeof(block));
+		memset(block, 0, sizeof(struct eblob_index_block));
 
 		block->offset = offset;
 
 		for (i = 0; i < EBLOB_INDEX_BLOCK_SIZE && offset < bctl->sort.size; ++i) {
-			err = pread(bctl->sort.fd, &dc, sizeof(dc), offset);
-			if (err != sizeof(dc)) {
+			err = pread(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), offset);
+			if (err != sizeof(struct eblob_disk_control)) {
 				if (err < 0)
 					err = -errno;
 				goto err_out_drop_tree;
@@ -321,7 +358,7 @@ out:
 	return found;
 }
 
-static ssize_t eblob_get_actual_size(int fd)
+ssize_t eblob_get_actual_size(int fd)
 {
 	struct stat st;
 	ssize_t err;
@@ -333,13 +370,14 @@ static ssize_t eblob_get_actual_size(int fd)
 	return st.st_size;
 }
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag)
 {
 	struct eblob_map_fd src, dst;
 	int fd, err, len;
-	ssize_t real_size_src;
-	ssize_t real_size_dst;
 	char *file, *dst_file;
+
+	memset(&src, 0, sizeof(src));
+	memset(&dst, 0, sizeof(dst));
 
 	/* should be enough to store /path/to/data.N.index.sorted */
 	len = strlen(b->cfg.file) + sizeof(".index") + sizeof(".sorted") + 256;
@@ -355,90 +393,96 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_file;
 	}
 
-	if (bctl->type != EBLOB_TYPE_DATA) {
-		snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
-		snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	if (defrag) {
+		snprintf(file, len, "%s-defrag-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
+		snprintf(dst_file, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
 	} else {
-		snprintf(file, len, "%s.%d.index.tmp", b->cfg.file, bctl->index);
-		snprintf(dst_file, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+		if (bctl->type != EBLOB_TYPE_DATA) {
+			snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
+			snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+		} else {
+			snprintf(file, len, "%s.%d.index.tmp", b->cfg.file, bctl->index);
+			snprintf(dst_file, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+		}
 	}
 
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
 	if (fd < 0) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: open: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: open: index: %d, type: %d: %s: %s %d\n",
+				bctl->index, bctl->type, file, strerror(-err), err);
 		goto err_out_free_dst_file;
 	}
 
-	err = ftruncate(fd, bctl->index_offset);
-	if (err) {
-		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: ftruncate: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				file, strerror(-err), err);
-		goto err_out_close;
+	if (defrag) {
+		src.fd = bctl->dfi;
+	} else {
+		src.fd = bctl->index_fd;
 	}
 
-	memset(&src, 0, sizeof(src));
-	src.fd = bctl->index_fd;
-	src.size = bctl->index_offset;
-
-	real_size_src = eblob_get_actual_size(bctl->index_fd);
-	if ((real_size_src <= 0) || (real_size_src != bctl->index_offset)) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: BUT real index size: src: %zd: %s\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				real_size_src, file);
+	src.size = eblob_get_actual_size(src.fd);
+	if (src.size <= 0) {
+		err = src.size;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: actual-size: index: %d, type: %d: %s: %s %d\n",
+				bctl->index, bctl->type, file, strerror(-err), err);
 		goto err_out_close;
 	}
 
 	err = eblob_data_map(&src);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d: size: %llu: %s: %s %d\n",
+				bctl->index, bctl->type, (unsigned long long)src.size, file, strerror(-err), err);
 		goto err_out_close;
 	}
 
-	memset(&dst, 0, sizeof(dst));
 	dst.fd = fd;
-	dst.size = bctl->index_offset;
+	dst.size = src.size;
 
-	real_size_dst = eblob_get_actual_size(fd);
-	if ((real_size_dst <= 0) || (real_size_dst != real_size_src)) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: BUT real index size: src: %zd, dst: %zd: %s\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				real_size_src, real_size_dst, file);
+	err = ftruncate(dst.fd, dst.size);
+	if (err) {
+		err = -errno;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: ftruncate: index: %d, type: %d: offset: %llu: %s: %s %d\n",
+				bctl->index, bctl->type, (unsigned long long)dst.size, file, strerror(-err), err);
 		goto err_out_unmap_src;
 	}
 
 	err = eblob_data_map(&dst);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-				"index_offset: %llu, data_offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-				(unsigned long long)bctl->index_offset, (unsigned long long)bctl->index_offset,
-				file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d: size: %llu: %s: %s %d\n",
+				bctl->index, bctl->type, (unsigned long long)dst.size, file, strerror(-err), err);
 		goto err_out_unmap_src;
 	}
 
-	memcpy(dst.data, src.data, bctl->index_offset);
+	memcpy(dst.data, src.data, dst.size);
 
-	qsort(dst.data, bctl->index_offset / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
+	qsort(dst.data, dst.size / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
 			eblob_disk_control_sort_with_flags);
 
-	bctl->sort = dst;
+	pthread_mutex_lock(&b->lock);
+	if (defrag) {
+		bctl->old_data_fd = bctl->data_fd;
+		bctl->old_index_fd = bctl->index_fd;
+		bctl->old_sort = bctl->sort;
+
+		bctl->data_fd = bctl->df;
+		bctl->index_fd = bctl->dfi;
+		bctl->sort = dst;
+
+		err = eblob_base_setup_data(bctl);
+		if (!err) {
+			bctl->data_offset = bctl->data_size;
+		} else {
+			bctl->data_fd = bctl->old_data_fd;
+			bctl->index_fd = bctl->old_index_fd;
+			bctl->sort = bctl->old_sort;
+		}
+	} else {
+		bctl->sort = dst;
+	}
+	pthread_mutex_unlock(&b->lock);
+
+	if (err)
+		goto err_out_unmap_dst;
 
 	{
 		unsigned long i;
@@ -446,16 +490,10 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		struct eblob_disk_control *found, *dc;
 		char id_str[EBLOB_ID_SIZE * 2 + 1];
 
-		for (i = 0; i < bctl->index_offset / sizeof(struct eblob_disk_control); ++i) {
+		for (i = 0; i < dst.size / sizeof(struct eblob_disk_control); ++i) {
 			dc = src.data + i * sizeof(struct eblob_disk_control);
 
-			/*
-			 * FIXME
-			 * There is a race between index lookup and defragmentation
-			 */
-			if (!(dc->flags & rem)) {
-				eblob_remove_type(b, &dc->key, bctl->type);
-			}
+			eblob_remove_type(b, &dc->key, bctl->type);
 
 			/*
 			 * it is still possible that we removed object in window
@@ -472,6 +510,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 
 			if (dc->flags & rem) {
 				struct eblob_disk_search_stat st;
+
 				found = eblob_find_on_disk(b, bctl, dc, eblob_find_exact_callback, &st);
 				if (found) {
 					found->flags |= rem;
@@ -485,10 +524,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		}
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, index_fd: %d, data_fd: %d: "
-			"index_offset: %llu, data_offset: %llu: %s\n",
-			bctl->index, bctl->type, bctl->index_fd, bctl->data_fd,
-			(unsigned long long)bctl->index_offset, (unsigned long long)bctl->data_offset,
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, "
+			"index-size: %llu, data-size: %llu, file: %s\n",
+			bctl->index, bctl->type, (unsigned long long)dst.size, (unsigned long long)bctl->data_offset,
 			file);
 
 	rename(file, dst_file);
@@ -498,6 +536,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	free(dst_file);
 	return 0;
 
+err_out_unmap_dst:
+	eblob_data_unmap(&dst);
 err_out_unmap_src:
 	eblob_data_unmap(&src);
 err_out_close:

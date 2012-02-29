@@ -49,6 +49,13 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl)
 	struct stat st;
 	int err;
 
+	err = fstat(ctl->index_fd, &st);
+	if (err) {
+		err = -errno;
+		goto err_out_exit;
+	}
+	ctl->index_size = st.st_size;
+
 	err = fstat(ctl->data_fd, &st);
 	if (err) {
 		err = -errno;
@@ -74,6 +81,8 @@ err_out_exit:
 
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 {
+	pthread_mutex_destroy(&ctl->dlock);
+
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_mutex_destroy(&ctl->index_blocks_lock);
 
@@ -160,13 +169,18 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		goto err_out_free;
 	}
 
+	err = pthread_mutex_init(&ctl->dlock, NULL);
+	if (err) {
+		err = -err;
+		goto err_out_destroy_lock;
+	}
+
 	ctl->index_blocks_root.rb_node = NULL;
 	err = pthread_mutex_init(&ctl->index_blocks_lock, NULL);
 	if (err) {
 		err = -err;
-		goto err_out_free;
+		goto err_out_destroy_dlock;
 	}
-
 
 	err = access(full, R_OK | W_OK);
 	if (!err || (errno != ENOENT)) {
@@ -176,14 +190,14 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 				ctl->index, ctl->type, full, strerror(-err), err);
 		if (!err)
 			err = -ENOENT;
-		goto err_out_destroy_lock;
+		goto err_out_destroy_index_lock;
 	}
 
 	sprintf(full, "%s/%s", dir_base, name);
 	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0600);
 	if (ctl->data_fd < 0) {
 		err = -errno;
-		goto err_out_destroy_lock;
+		goto err_out_destroy_index_lock;
 	}
 
 	err = eblob_base_setup_data(ctl);
@@ -220,17 +234,9 @@ again:
 
 		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index) ||
 				(st.st_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
-			ctl->index_offset = st.st_size;
-
-			err = eblob_generate_sorted_index(b, ctl);
+			err = eblob_generate_sorted_index(b, ctl, 0);
 			if (err)
 				goto err_out_close_index;
-
-			/*
-			 * eblob_generate_sorted_index() uses ctl->index_offset to find how large is index 
-			 * we set it to 0 here since iterator may read it even if we sorted index
-			 */
-			ctl->index_offset = 0;
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -297,6 +303,10 @@ err_out_unmap:
 	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
 	close(ctl->data_fd);
+err_out_destroy_index_lock:
+	pthread_mutex_destroy(&ctl->index_blocks_lock);
+err_out_destroy_dlock:
+	pthread_mutex_destroy(&ctl->dlock);
 err_out_destroy_lock:
 	pthread_mutex_destroy(&ctl->lock);
 err_out_free:
@@ -366,6 +376,11 @@ found:
 		goto err_out_free_format;
 	}
 	memset(ctl, 0, sizeof(struct eblob_base_ctl));
+
+	ctl->back = b;
+
+	ctl->old_data_fd = -1;
+	ctl->old_index_fd = -1;
 
 	ctl->type = type;
 	ctl->index = index;

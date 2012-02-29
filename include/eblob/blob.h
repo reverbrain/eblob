@@ -189,7 +189,7 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 }
 
 #define EBLOB_UNUSED			(1<<0)
-#define EBLOB_RUN_DEFRAG		(1<<1)
+#define EBLOB_RUN_UNUSED1		(1<<1)
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 
 struct eblob_config {
