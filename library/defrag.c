@@ -514,6 +514,5 @@ void *eblob_defrag(void *data)
 		sleep_time = b->cfg.defrag_timeout;
 	}
 
-err_out_exit:
 	return NULL;
 }
