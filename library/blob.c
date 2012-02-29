@@ -1489,8 +1489,7 @@ err_out_exit:
 static void *eblob_sync(void *data)
 {
 	struct eblob_backend *b = data;
-	int sleep_time = b->cfg.sync;
-	int i;
+	int i, sleep_time = b->cfg.sync;
 
 	while (!b->need_exit) {
 		if (--sleep_time != 0) {
@@ -1568,7 +1567,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	if (!c->defrag_timeout)
 		c->defrag_timeout = EBLOB_DEFAULT_DEFRAG_TIMEOUT;
-	if (!c->defrag_percentage)
+	if (!c->defrag_percentage || (c->defrag_percentage < 0) || (c->defrag_percentage > 100))
 		c->defrag_percentage = EBLOB_DEFAULT_DEFRAG_PERCENTAGE;
 
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));

@@ -502,17 +502,16 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	long i, sleep_timeout = b->cfg.defrag_timeout;
+	unsigned int sleep_time = b->cfg.defrag_timeout;
 
 	while (!b->need_exit) {
-		for (i = 0; i < sleep_timeout; ++i) {
+		if (--sleep_time != 0) {
 			sleep(1);
-
-			if (b->need_exit)
-				goto err_out_exit;
+			continue;
 		}
 
 		eblob_defrag_raw(b);
+		sleep_time = b->cfg.defrag_timeout;
 	}
 
 err_out_exit:

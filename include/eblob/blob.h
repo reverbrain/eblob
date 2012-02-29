@@ -259,7 +259,7 @@ struct eblob_config {
 	 * After defragmented blob created, it will replace original
 	 * in the next run, i.e. after next timeout
 	 *
-	 * By default it is equal to 1 hour
+	 * By default it is equal to -1 seconds, i.e. it is unlikely it will ever start
 	 */
 	int			defrag_timeout;
 
