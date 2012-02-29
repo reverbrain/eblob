@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.14.4
+Version:	0.15.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Feb 29 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.0
+- Added 'automatic' test/check tool
+- New automatic defragmentation implementation
+- Added ::key() method
+- Drop iolocks
+
 * Sun Feb 19 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.14.4
 - Added raw python blob class
 - eblob_remove_all(): when RAM lookup fails check disk
