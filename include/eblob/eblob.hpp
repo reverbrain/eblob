@@ -39,7 +39,6 @@ class eblob_logger {
 		eblob_logger(const char *log_file, const unsigned int log_mask) : file_(NULL) {
 			if (!log_file) {
 				log_file = "/dev/stdout";
-				std::cerr << "Warning: using " << log_file << " as log file" << std::endl;
 			}
 
 			log_file_ = log_file;
