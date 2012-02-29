@@ -286,8 +286,6 @@ static int eblob_defrag_rename(struct eblob_base_ctl *bctl)
 		goto err_out_free_new;
 	}
 
-	printf("%s -> %s\n", old_path, new_path);
-
 
 	snprintf(old_path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
 	snprintf(new_path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
