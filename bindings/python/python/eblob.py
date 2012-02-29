@@ -10,20 +10,22 @@ class blob:
 		self.dataf = open(path, data_mode)
 		self.index = open(path + '.index', index_mode)
 
-		self.position = 0
-		self.next_position = 0
+		self.position = 0L
+		self.next_position = 0L
 		self.id = ''
 		self.data_size = 0
 		self.disk_size = 0
 		self.flags = 0
 		self.data = ''
+		self.idata = ''
 
 	def read_index(self):
-		idata = self.index.read(self.index_size)
-		if len(idata) != self.index_size:
+		self.idata = self.index.read(self.index_size)
+		if len(self.idata) != self.index_size:
 			raise NameError('Finished index')
 
-		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, idata)
+		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, self.idata)
+		self.next_position = self.position
 		self.read_data_index()
 
 	def read_data_index(self):
@@ -33,6 +35,12 @@ class blob:
 			raise NameError('Finished data')
 
 		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, ddata)
+		#print "read from:", self.next_position, ", read pos:", self.position, ", disk-size:", self.disk_size
+
+		if self.idata != ddata:
+			raise IOError("idata mismatch")
+		if self.disk_size > 1024 * 1024 * 1024 * 10:
+			raise IOError("disk size is too big")
 		self.next_position = self.position + self.disk_size
 	
 	def removed(self):
@@ -42,6 +50,7 @@ class blob:
 		self.flags |= self.FLAGS_REMOVED
 
 	def read_data(self):
+		#print "position:", self.position
 		self.dataf.seek(self.position)
 		self.data = self.dataf.read(self.disk_size)
 
@@ -66,10 +75,15 @@ class blob:
 
 	def iterate(self, want_removed=False, over_data=False):
 		while True:
-			if over_data:
-				self.read_data_index()
-			else:
-				self.read_index()
+			try:
+				if over_data:
+					self.read_data_index()
+				else:
+					self.read_index()
+			except NameError:
+				raise
+			except:
+				continue
 
 			if want_removed:
 				yield self.id
