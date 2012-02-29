@@ -103,6 +103,7 @@ int main()
 	eblob_logger log(log_file.c_str(), 31);
 
 	cfg.sync = 30;
+	cfg.defrag_timeout = 20;
 	cfg.blob_size = 1024 * 1024 * 1024;
 	cfg.records_in_blob = test_num / 4;
 	cfg.log = log.log();

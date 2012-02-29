@@ -483,7 +483,7 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	long i, sleep_timeout = 30;
+	long i, sleep_timeout = b->cfg.defrag_timeout;
 
 	while (!b->need_exit) {
 		for (i = 0; i < sleep_timeout; ++i) {

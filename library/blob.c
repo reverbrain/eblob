@@ -1566,6 +1566,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!c->cache_size)
 		c->cache_size = EBLOB_BLOB_DEFAULT_CACHE_SIZE;
 
+	if (!c->defrag_timeout)
+		c->defrag_timeout = EBLOB_DEFAULT_DEFRAG_TIMEOUT;
+	if (!c->defrag_percentage)
+		c->defrag_percentage = EBLOB_DEFAULT_DEFRAG_PERCENTAGE;
+
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
 	b->cfg.file = strdup(c->file);

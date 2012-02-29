@@ -215,12 +215,14 @@ struct eblob_config {
 
 	/* number of threads which will iterate over
 	 * each blob file at startup
+	 * Default: 1
 	 */
 	int			iterate_threads;
 
 	/* maximum blob size
 	 * when blob file size becomes bigger than this value
 	 * library will create new file
+	 * Default: 50 Gb
 	 */
 	uint64_t		blob_size;
 
@@ -231,16 +233,19 @@ struct eblob_config {
 	 *
 	 * Its meaning is similar to above @blob_size,
 	 * except that it operates on records and not bytes.
+	 * Default: 50000000
 	 */
 	uint64_t		records_in_blob;
 
-	/* maximum number of keys that could be cached from disk */
+	/* maximum number of keys that could be cached from disk. Default: 50000000 */
 	uint64_t		cache_size;
 
 	/*
 	 * Automatic defragmentation starts when
 	 * number of removed entries in blob is higher
 	 * than this percentage (i.e. removed >= (good + removed) * defrag_percentage / 100)
+	 *
+	 * By default it is 25%
 	 */
 	int			defrag_percentage;
 
@@ -253,6 +258,8 @@ struct eblob_config {
 	 * eblob only reserves space for at most one additional blob
 	 * After defragmented blob created, it will replace original
 	 * in the next run, i.e. after next timeout
+	 *
+	 * By default it is equal to 1 hour
 	 */
 	int			defrag_timeout;
 
