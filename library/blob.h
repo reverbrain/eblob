@@ -114,7 +114,7 @@ struct eblob_base_ctl {
 	struct rb_root		index_blocks_root;
 	pthread_mutex_t		index_blocks_lock;
 
-	size_t			good, removed;
+	int			good;
 
 	char			name[0];
 };

@@ -131,7 +131,7 @@ int main()
 	types.push_back(10);
 
 	try {
-		eblob_test t(key_base, "/tmp/eblob-test-dir");
+		eblob_test t(key_base, "/tmp/eblob-test-dir", 15);
 		t.create(types);
 		t.check(types);
 		t.remove(1000);

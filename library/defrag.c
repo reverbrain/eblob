@@ -286,6 +286,8 @@ static int eblob_defrag_rename(struct eblob_base_ctl *bctl)
 		goto err_out_free_new;
 	}
 
+	
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: %s -> %s\n", old_path, new_path);
 
 	snprintf(old_path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
 	snprintf(new_path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
@@ -327,10 +329,13 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 {
 	struct eblob_base_ctl *bctl = priv;
 
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "defrag: count: %s: size: %llu: position: %llu, "
+			"flags: %llx, type: %d\n",
+			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
+			(unsigned long long)dc->flags, ctl->type);
+
 	pthread_mutex_lock(&bctl->dlock);
-	if (dc->flags & BLOB_DISK_CTL_REMOVE)
-		bctl->removed++;
-	else
+	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
 		bctl->good++;
 	pthread_mutex_unlock(&bctl->dlock);
 
@@ -341,9 +346,9 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	struct eblob_iterate_control ctl;
-	int err;
+	int err, total, removed;
 
-	bctl->good = bctl->removed = 0;
+	bctl->good = 0;
 
 	memset(&ctl, 0, sizeof(struct eblob_iterate_control));
 
@@ -364,7 +369,18 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	if (err)
 		goto err_out_exit;
 
-	return bctl->removed >= (bctl->good + bctl->removed) * b->cfg.defrag_percentage / 100;
+	total = bctl->index_size / sizeof(struct eblob_disk_control);
+	removed = total - bctl->good;
+
+	if (removed == total)
+		err = 0;
+	else if (removed >= bctl->good * b->cfg.defrag_percentage / 100)
+		err = 1;
+	else
+		err = -1;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: index: %d, type: %d, removed: %d, total: %d, percentage: %d, want-defrag: %d\n",
+			bctl->index, bctl->type, removed, total, b->cfg.defrag_percentage, err);
 
 err_out_exit:
 	return err;
@@ -373,7 +389,7 @@ err_out_exit:
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	struct eblob_iterate_control ctl;
-	int err = 0, i, no_defrag = 0;
+	int err = 0, i, no_defrag = 0, want;
 	ssize_t dsize;
 
 	memset(&ctl, 0, sizeof(ctl));
@@ -432,8 +448,13 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (no_defrag)
 				continue;
 
-			if (eblob_want_defrag(bctl) <= 0)
+			want = eblob_want_defrag(bctl);
+			if (want < 0)
 				continue;
+			if (want == 0) {
+				eblob_defrag_unlink(bctl, 0);
+				continue;
+			}
 
 			err = eblob_defrag_open(bctl);
 			if (err)
