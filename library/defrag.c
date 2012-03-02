@@ -426,12 +426,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			}
 
 			if (bctl->old_index_fd != -1) {
-				err = eblob_defrag_rename(bctl);
-				if (err) {
-					eblob_defrag_close(bctl);
-					eblob_defrag_unlink(bctl, 1);
-				}
-
 				close(bctl->old_index_fd);
 				close(bctl->old_data_fd);
 
@@ -481,6 +475,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			eblob_index_blocks_destroy(bctl);
 			eblob_index_blocks_fill(bctl);
 			eblob_defrag_unlink(bctl, 0);
+			eblob_defrag_rename(bctl);
 
 			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
 			no_defrag = 1;
