@@ -520,7 +520,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 	if (tmp)
 		*tmp = '\0';
 
-	fd = openat(AT_FDCWD, dir_base, O_RDONLY);
+	fd = open(dir_base, O_RDONLY);
 	if (fd == -1) {
 		err = -errno;
 		goto err_out_free;
