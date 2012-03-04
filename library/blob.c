@@ -26,17 +26,12 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#ifdef __linux__
-#include <linux/limits.h>
-#else
-#include <sys/limits.h>
-#endif
 
 #include "blob.h"
 #include "crypto/sha512.h"
