@@ -1,3 +1,12 @@
+eblob (0.15.1) unstable; urgency=low
+
+  * Fixed leaks
+  * Rename defragmented blobs just after they are created
+  * Include cleanups
+  * Do not use openat()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 11 Mar 2012 21:04:13 +0400
+
 eblob (0.15.0) unstable; urgency=low
 
   * Added 'automatic' test/check tool

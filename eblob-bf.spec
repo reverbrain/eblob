@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.0
+Version:	0.15.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Mar 11 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.1
+- Fixed leaks
+- Rename defragmented blobs just after they are created
+- Include cleanups
+- Do not use openat()
+
 * Wed Feb 29 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.0
 - Added 'automatic' test/check tool
 - New automatic defragmentation implementation
