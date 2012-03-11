@@ -1268,10 +1268,10 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	err = 0;
 
 err_out_unmap:
-	if (m.size > (uint64_t)alloc_size)
-		eblob_data_unmap(&m);
+	if (adata)
+		free(adata);
 	else
-		free(m.data);
+		eblob_data_unmap(&m);
 err_out_exit:
 	return err;
 }

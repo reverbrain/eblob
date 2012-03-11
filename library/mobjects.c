@@ -702,7 +702,7 @@ static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struc
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp)
 {
 	int err, size, disk = 0;
-	struct eblob_ram_control *rc;
+	struct eblob_ram_control *rc = NULL;
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
@@ -725,8 +725,8 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		}
 	}
 
-	free(rc);
 err_out_exit:
+	free(rc);
 	*diskp = disk;
 	return err;
 }
