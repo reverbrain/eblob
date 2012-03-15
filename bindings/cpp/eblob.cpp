@@ -178,3 +178,30 @@ int eblob::iterate(struct eblob_iterate_control &ctl)
 	return eblob_iterate(eblob_, &ctl);
 }
 
+void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags, const int type)
+{
+	struct eblob_write_control wc;
+	int err;
+
+	memset(&wc, 0, sizeof(struct eblob_write_control));
+
+	wc.size = size;
+	wc.flags = flags;
+	wc.type = type;
+
+	err = eblob_write_commit(eblob_, (struct eblob_key *)&key, NULL, 0, &wc);
+	if (err < 0) {
+		std::ostringstream str;
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to truncate/commit to " << size <<
+			", flags: " << flags << ", type: " << type << ", err: " << err;
+		throw std::runtime_error(str.str());
+	}
+}
+
+void eblob::truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags, const int type)
+{
+	struct eblob_key ekey;
+
+	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
+	truncate(ekey, size, flags, type);
+}

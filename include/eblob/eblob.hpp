@@ -106,6 +106,9 @@ class eblob {
 
 		void key(const std::string &key, struct eblob_key &ekey);
 
+		void truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags, const int type);
+		void truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags, const int type);
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
