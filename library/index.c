@@ -458,7 +458,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	qsort(dst.data, dst.size / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
 			eblob_disk_control_sort_with_flags);
 
-	pthread_mutex_lock(&b->lock);
+	pthread_mutex_lock(&bctl->lock);
 	if (defrag) {
 		bctl->old_data_fd = bctl->data_fd;
 		bctl->old_index_fd = bctl->index_fd;
@@ -479,7 +479,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	} else {
 		bctl->sort = dst;
 	}
-	pthread_mutex_unlock(&b->lock);
+	pthread_mutex_unlock(&bctl->lock);
 
 	if (err)
 		goto err_out_unmap_dst;
@@ -588,11 +588,18 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			if (bctl->sort.fd < 0)
 				continue;
 
+			pthread_mutex_lock(&bctl->lock);
+			if (bctl->sort.fd < 0) {
+				err = -ENOENT;
+				goto out_unlock;
+			}
+
 			dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 			if (!dc) {
+				err = -ENOENT;
 				eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
-				continue;
+				goto out_unlock;
 			}
 
 			num++;
@@ -600,7 +607,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			if (!r) {
 				free(rc);
 				err = -ENOMEM;
-				goto err_out_exit;
+				goto out_unlock;
 			}
 
 			rc = r;
@@ -624,7 +631,18 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 					(unsigned long long)r->data_offset, (unsigned long long)r->size);
 
 			eblob_convert_disk_control(dc);
-			break;
+			err = 0;
+out_unlock:
+			pthread_mutex_unlock(&bctl->lock);
+
+			if (err == -ENOENT)
+				continue;
+
+			if (err == 0)
+				break;
+
+			if (err < 0)
+				goto err_out_exit;
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
