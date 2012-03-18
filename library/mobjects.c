@@ -655,7 +655,8 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 	for (i = 0; i < num; ++i) {
 		if (rc[i].type == type) {
 			if (i < num - 1) {
-				memcpy(&rc[i], &rc[i + 1], sizeof(struct eblob_ram_control));
+				int rest = num - i - 1;
+				memcpy(&rc[i], &rc[i + 1], rest * sizeof(struct eblob_ram_control));
 			}
 			found = 1;
 			break;
