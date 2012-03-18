@@ -103,8 +103,6 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	uint64_t cache_bottom_cnt;
 	int len = 0;
 
-	eblob_hash_get_counters(b->hash, &cache_top_cnt, &cache_bottom_cnt);
-
 	pthread_mutex_lock(&b->stat.lock);
 
 	b->stat.disk += disk;
@@ -115,8 +113,8 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	len += fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
 	len += fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
 	len += fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
-	len += fprintf(b->stat.file, "cached_top: %llu\n", (unsigned long long)cache_top_cnt);
-	len += fprintf(b->stat.file, "cached_bottom: %llu\n", (unsigned long long)cache_bottom_cnt);
+	len += fprintf(b->stat.file, "cached_top: %llu\n", (unsigned long long)b->hash->cache_top_cnt);
+	len += fprintf(b->stat.file, "cached_bottom: %llu\n", (unsigned long long)b->hash->cache_bottom_cnt);
 
 	ftruncate(fileno(b->stat.file), len);
 

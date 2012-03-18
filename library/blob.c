@@ -1151,7 +1151,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	unsigned int size;
 	int err, i, on_disk;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
+	pthread_mutex_lock(&b->hash->root_lock);
+	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
 		if (err) {
@@ -1167,11 +1168,12 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
 	}
-	eblob_hash_remove(b->hash, key);
+	eblob_hash_remove_nolock(b->hash, key);
 
 	free(ctl);
 
 err_out_exit:
+	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
 }
 

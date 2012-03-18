@@ -40,11 +40,10 @@ struct eblob_hash {
 
 struct eblob_hash *eblob_hash_init(uint64_t cache_szie, int *errp);
 void eblob_hash_exit(struct eblob_hash *h);
-int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
-int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
-int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key);
+int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
+int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
 int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
-void eblob_hash_get_counters(struct eblob_hash *h, uint64_t *cache_top_cnt, uint64_t *cache_bottom_cnt);
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
 
 /* Record is cached from disk index */
 #define EBLOB_HASH_FLAGS_CACHE          (1<<0)

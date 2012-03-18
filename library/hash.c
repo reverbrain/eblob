@@ -198,25 +198,9 @@ void eblob_hash_exit(struct eblob_hash *h)
 	free(h);
 }
 
-static int eblob_hash_insert_raw(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int replace, int on_disk)
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
 {
-	int err;
-
-	pthread_mutex_lock(&h->root_lock);
-	err = eblob_hash_entry_add(h, key, data, dsize, replace, on_disk);
-	pthread_mutex_unlock(&h->root_lock);
-
-	return err;
-}
-
-int eblob_hash_insert(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
-{
-	return eblob_hash_insert_raw(h, key, data, dsize, 0, on_disk);
-}
-
-int eblob_hash_replace(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
-{
-	return eblob_hash_insert_raw(h, key, data, dsize, 1, on_disk);
+	return eblob_hash_entry_add(h, key, data, dsize, 1, on_disk);
 }
 
 static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct eblob_key *key)
@@ -240,12 +224,11 @@ static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct e
 	return NULL;
 }
 
-int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
+int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 {
 	struct eblob_hash_entry *e;
 	int err = -ENOENT;
 
-	pthread_mutex_lock(&h->root_lock);
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
 		/*
@@ -262,7 +245,6 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 		rb_erase(&e->node, &h->root);
 		err = 0;
 	}
-	pthread_mutex_unlock(&h->root_lock);
 
 	if (e)
 		eblob_hash_entry_put(h, e);
@@ -270,7 +252,7 @@ int eblob_hash_remove(struct eblob_hash *h, struct eblob_key *key)
 	return err;
 }
 
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
+int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
 {
 	struct eblob_hash_entry *e;
 	void *data;
@@ -279,7 +261,6 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 	*datap = NULL;
 	*dsizep = 0;
 
-	pthread_mutex_lock(&h->root_lock);
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
 		data = malloc(e->dsize);
@@ -305,15 +286,15 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 		}
 	}
 
-	pthread_mutex_unlock(&h->root_lock);
-
 	return err;
 }
 
-void eblob_hash_get_counters(struct eblob_hash *h, uint64_t *cache_top_cnt, uint64_t *cache_bottom_cnt)
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
 {
+	int err;
+
 	pthread_mutex_lock(&h->root_lock);
-		*cache_top_cnt = h->cache_top_cnt;
-		*cache_bottom_cnt = h->cache_bottom_cnt;
+	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep, on_diskp);
 	pthread_mutex_unlock(&h->root_lock);
+	return err;
 }

@@ -597,7 +597,8 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	int err, size, rc_free = 0, disk;
 	struct eblob_ram_control *rc;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
+	pthread_mutex_lock(&b->hash->root_lock);
+	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
 		int num, i;
 
@@ -630,12 +631,13 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		eblob_stat_update(b, 0, 0, 1);
 	}
 
-	err = eblob_hash_replace(b->hash, key, rc, size, on_disk);
+	err = eblob_hash_replace_nolock(b->hash, key, rc, size, on_disk);
 
 	if (rc_free)
 		free(rc);
 
 err_out_exit:
+	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
 }
 
@@ -644,7 +646,8 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
+	pthread_mutex_lock(&b->hash->root_lock);
+	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
 	if (err)
 		goto err_out_exit;
 
@@ -663,10 +666,10 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 	if (found) {
 		num--;
 		if (num == 0) {
-			eblob_hash_remove(b->hash, key);
+			eblob_hash_remove_nolock(b->hash, key);
 		} else {
 			size = num * sizeof(struct eblob_ram_control);
-			err = eblob_hash_replace(b->hash, key, rc, size, on_disk);
+			err = eblob_hash_replace_nolock(b->hash, key, rc, size, on_disk);
 			if (err)
 				goto err_out_free;
 		}
@@ -677,6 +680,7 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 err_out_free:
 	free(rc);
 err_out_exit:
+	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
 }
 
