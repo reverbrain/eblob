@@ -1,3 +1,15 @@
+eblob (0.15.2) unstable; urgency=low
+
+  * Fixed read-modify-write column update
+  * Fixed missed column during type remove
+  * Use correct python path
+  * Added eblob::truncate()
+  * Protect bctl->sort update - fixed defragmentation race
+  * If user does not provide config->log then use stdout logger in cpp binding
+  * Added eblob.py setup.py extra dist files
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 19 Mar 2012 00:53:13 +0400
+
 eblob (0.15.1) unstable; urgency=low
 
   * Fixed leaks

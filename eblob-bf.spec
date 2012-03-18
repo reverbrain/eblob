@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.1
+Version:	0.15.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Mar 19 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.2
+- Fixed read-modify-write column update
+- Fixed missed column during type remove
+- Use correct python path
+- Added eblob::truncate()
+- Protect bctl->sort update - fixed defragmentation race
+- If user does not provide config->log then use stdout logger in cpp binding
+- Added eblob.py setup.py extra dist files
+
 * Sun Mar 11 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.1
 - Fixed leaks
 - Rename defragmented blobs just after they are created
