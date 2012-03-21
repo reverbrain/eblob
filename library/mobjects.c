@@ -182,17 +182,6 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		goto err_out_destroy_dlock;
 	}
 
-	err = access(full, R_OK | W_OK);
-	if (!err || (errno != ENOENT)) {
-		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: WARNING: eblob_base_ctl_open() should create new base,"
-				" but tried to open existing. FORBIDDEN to open %s: %s %d\n",
-				ctl->index, ctl->type, full, strerror(-err), err);
-		if (!err)
-			err = -ENOENT;
-		goto err_out_destroy_index_lock;
-	}
-
 	sprintf(full, "%s/%s", dir_base, name);
 	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0600);
 	if (ctl->data_fd < 0) {
@@ -319,9 +308,51 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_rename_blob(const char *dir_base, const char *name_base, int index)
+{
+	char *src, *dst;
+	int len = strlen(dir_base) + strlen(name_base) + 256;
+	int err;
+
+	src = malloc(len);
+	if (!src) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	dst = malloc(len);
+	if (!dst) {
+		err = -ENOMEM;
+		goto err_out_free_src;
+	}
+
+	snprintf(src, len, "%s/%s.%d", dir_base, name_base, index);
+	snprintf(dst, len, "%s/%s-0.%d", dir_base, name_base, index);
+	err = rename(src, dst);
+	if (err)
+		goto err_out_free_dst;
+
+	snprintf(src, len, "%s/%s.%d.index", dir_base, name_base, index);
+	snprintf(dst, len, "%s/%s-0.%d.index", dir_base, name_base, index);
+	err = rename(src, dst);
+	if (err)
+		goto err_out_free_dst;
+
+	snprintf(src, len, "%s/%s.%d.index.sorted", dir_base, name_base, index);
+	snprintf(dst, len, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
+	rename(src, dst);
+
+err_out_free_dst:
+	free(dst);
+err_out_free_src:
+	free(src);
+err_out_exit:
+	return err;
+}
+
 static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 		struct eblob_base_type *types, int max_type,
-		const char *dir_base, const char *base, const char *name, int name_len, int *errp)
+		const char *dir_base, const char *base, char *name, int name_len, int *errp)
 {
 	struct eblob_base_ctl *ctl = NULL;
 	char *format, *p;
@@ -329,6 +360,7 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 	char sorted_str[] = ".sorted";
 	char tmp_str[] = ".tmp";
 	int type, err = 0, flen, index;
+	int want_free = 0;
 
 	type = -1;
 
@@ -361,6 +393,17 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 	snprintf(format, flen, "%s.%%d", base);
 	if (sscanf(name, format, &index) == 1) {
 		type = EBLOB_TYPE_DATA;
+		err = eblob_rename_blob(dir_base, base, index);
+		if (!err) {
+			name = malloc(name_len + 16);
+			if (!name) {
+				err = -ENOMEM;
+				goto err_out_free_format;
+			}
+
+			snprintf(name, name_len + 16, "%s-0.%d", base, index);
+			want_free = 1;
+		}
 		goto found;
 	}
 
@@ -402,6 +445,8 @@ found:
 		goto err_out_free_ctl;
 
 	free(format);
+	if (want_free)
+		free(name);
 
 	*errp = 0;
 	return ctl;
@@ -411,6 +456,8 @@ err_out_free_ctl:
 err_out_free_format:
 	free(format);
 err_out_exit:
+	if (want_free)
+		free(name);
 	*errp = err;
 	return NULL;
 }
@@ -894,10 +941,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 
 try_again:
 	t->index++;
-	if (type != EBLOB_TYPE_DATA)
-		snprintf(name, sizeof(name), "%s-%d.%d", base, type, t->index);
-	else
-		snprintf(name, sizeof(name), "%s.%d", base, t->index);
+	snprintf(name, sizeof(name), "%s-%d.%d", base, type, t->index);
 
 	ctl = eblob_get_base_ctl(b, b->types, b->max_type, dir_base, base, name, strlen(name), &err);
 	if (!ctl) {

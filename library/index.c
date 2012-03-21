@@ -397,13 +397,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		snprintf(file, len, "%s-defrag-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
 		snprintf(dst_file, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
 	} else {
-		if (bctl->type != EBLOB_TYPE_DATA) {
-			snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
-			snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-		} else {
-			snprintf(file, len, "%s.%d.index.tmp", b->cfg.file, bctl->index);
-			snprintf(dst_file, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
-		}
+		snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
+		snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
 	}
 
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
