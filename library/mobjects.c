@@ -237,6 +237,10 @@ again:
 			err = eblob_generate_sorted_index(b, ctl, 0);
 			if (err)
 				goto err_out_close_index;
+
+			err = eblob_index_blocks_fill(ctl);
+			if (err)
+				goto err_out_close_index;
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
