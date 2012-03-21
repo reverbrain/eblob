@@ -502,7 +502,7 @@ void *eblob_defrag(void *data)
 	unsigned int sleep_time = b->cfg.defrag_timeout;
 
 	while (!b->need_exit) {
-		if (--sleep_time != 0) {
+		if (sleep_time-- != 0) {
 			sleep(1);
 			continue;
 		}

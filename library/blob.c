@@ -1499,7 +1499,7 @@ static void *eblob_sync(void *data)
 	int i, sleep_time = b->cfg.sync;
 
 	while (!b->need_exit) {
-		if (--sleep_time != 0) {
+		if (sleep_time-- != 0) {
 			sleep(1);
 			continue;
 		}
