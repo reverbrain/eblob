@@ -60,14 +60,16 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 		void *data, void *priv, void *thread_priv __unused)
 {
 	struct eblob_base_ctl *bctl = priv;
+	struct eblob_disk_control *data_dc = data - sizeof(struct eblob_disk_control);
 	uint64_t disk_size;
 	int err;
 
-	if (dc->flags & BLOB_DISK_CTL_REMOVE)
+	if ((dc->flags & BLOB_DISK_CTL_REMOVE) && (eblob_bswap64(data_dc->flags) & BLOB_DISK_CTL_REMOVE))
 		return 0;
 
 	pthread_mutex_lock(&bctl->dlock);
 
+	dc->flags &= ~BLOB_DISK_CTL_REMOVE;
 	dc->position = lseek(bctl->df, 0, SEEK_CUR);
 	disk_size = dc->disk_size;
 	eblob_convert_disk_control(dc);

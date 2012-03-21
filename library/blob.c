@@ -592,7 +592,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		struct eblob_write_control *wc, int for_write)
 {
 	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc;
+	struct eblob_disk_control dc, data_dc;
 	ssize_t err;
 
 	ctl.type = wc->type;
@@ -628,16 +628,26 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		memset(&dc, 0, sizeof(dc));
 	}
 
+	err = pread(ctl.data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
+	if (err != sizeof(dc)) {
+		err = -errno;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
+		goto err_out_exit;
+	}
+
 	eblob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&data_dc);
+
 
 	/* workaround for old indexes, which did not set dc.disk_size */
 	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
-		err = pread(ctl.data_fd, &dc, sizeof(dc), ctl.data_offset);
-		if (err != sizeof(dc)) {
-			err = -errno;
-			eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
-			goto err_out_exit;
-		}
+		dc = data_dc;
+	}
+
+	if (data_dc.flags & BLOB_DISK_CTL_REMOVE) {
+		err = -ENOENT;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: pread-data-no-entry", err);
+		goto err_out_exit;
 	}
 
 	wc->total_data_size = dc.data_size;
@@ -1494,6 +1504,7 @@ static void *eblob_sync(void *data)
 			continue;
 		}
 
+		pthread_mutex_lock(&b->lock);
 		for (i = 0; i <= b->max_type; ++i) {
 			struct eblob_base_type *t = &b->types[i];
 			struct eblob_base_ctl *ctl;
@@ -1503,6 +1514,7 @@ static void *eblob_sync(void *data)
 				fsync(ctl->index_fd);
 			}
 		}
+		pthread_mutex_unlock(&b->lock);
 
 		sleep_time = b->cfg.sync;
 	}
