@@ -205,3 +205,40 @@ void eblob::truncate_hashed(const std::string &key, const uint64_t size, const u
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
 	truncate(ekey, size, flags, type);
 }
+
+void eblob::prepare(const struct eblob_key &key, const uint64_t prepare_size, const uint64_t flags, const int type)
+{
+	int err;
+	struct eblob_write_control wc;
+
+	memset(&wc, 0, sizeof(struct eblob_write_control));
+
+	wc.size = prepare_size;
+	wc.flags = flags;
+	wc.type = type;
+
+	err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, &wc);
+	if (err) {
+		std::ostringstream str;
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to prepare for size: " << prepare_size <<
+			", flags: " << flags << ", type: " << type << ", err: " << err;
+		throw std::runtime_error(str.str());
+	}
+}
+
+void eblob::prepare_hashed(const std::string &kdata, const uint64_t prepare_size, const uint64_t flags, const int type)
+{
+	struct eblob_key key;
+
+	eblob_hash(eblob_, key.id, sizeof(key.id), kdata.data(), kdata.size());
+	prepare(key, prepare_size, flags, type);
+}
+
+void eblob::commit(const struct eblob_key &key, const uint64_t size, const uint64_t flags, const int type)
+{
+	truncate(key, size, flags, type);
+}
+void eblob::commit_hashed(const std::string &key, const uint64_t size, const uint64_t flags, const int type)
+{
+	truncate_hashed(key, size, flags, type);
+}
