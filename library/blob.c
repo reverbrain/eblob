@@ -687,14 +687,14 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 	if (avail < size)
 		return -ENOSPC;
 
-	if ((avail < total * 0.1) || (avail < b->cfg.blob_size)) {
+	if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) || (avail < b->cfg.blob_size)) {
 		static int print_once;
 
 		if (!print_once) {
 			print_once = 1;
 
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu, total: %llu, blob size: %llu\n",
-					avail, total, (unsigned long long)b->cfg.blob_size);
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu Mb, total: %llu Mb, blob size: %llu Mb\n",
+					avail / 1048576, total / 1048576, (unsigned long long)b->cfg.blob_size / 1048576);
 		}
 		return -ENOSPC;
 	}
