@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.2
+Version:	0.15.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,14 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Mar 23 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.3
+- Only reserve 10% of free space when EBLOB_RESERVE_10_PERCENTS blob-config-flag is set
+- Added prepare/commit methods to cpp bindings
+- Unify blob names - rename existing if found
+- Generate bloom filter in case of generation sorted index during startup
+- Use sleep_time-- instead of --sleep_time to honor 1 second timeouts
+- Sync iteration must be protected by b->lock
+
 * Mon Mar 19 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.2
 - Fixed read-modify-write column update
 - Fixed missed column during type remove
