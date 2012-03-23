@@ -29,10 +29,9 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 
+#include <eblob/blob.h>
 
 namespace zbr {
-
-#include <eblob/blob.h>
 
 class eblob_logger {
 	public:
