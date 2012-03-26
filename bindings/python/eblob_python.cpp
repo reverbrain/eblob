@@ -54,9 +54,9 @@ static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 
 struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
 {
-	eblob_py_iterator() {}
+	eblob_py_iterator() {};
 
-	eblob_py_iterator(const zbr::eblob_iterate_control &ctl)
+	eblob_py_iterator(const eblob_iterate_control &ctl)
 	{
 		this->start_type = ctl.start_type;
 		this->max_type = ctl.max_type;
