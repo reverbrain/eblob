@@ -3,7 +3,6 @@ Section: net
 Priority: optional
 Maintainer: Evgeniy Polyakov <zbr@ioremap.net>
 Build-Depends: debhelper (>= 7), autotools-dev, libboost-dev, libboost-iostreams-dev, libboost-thread-dev, snappy, python-dev, libboost-python-dev,libboost-regex-dev
-
 Standards-Version: 3.8.0
 Homepage: http://www.ioremap.net/projects/eblob
 
