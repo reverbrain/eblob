@@ -1528,9 +1528,10 @@ static void *eblob_sync(void *data)
 	struct eblob_backend *b = data;
 	int i, sleep_time = b->cfg.sync;
 
-	while (!b->need_exit) {
-		if (sleep_time-- != 0) {
+	while (b->cfg.sync && !b->need_exit) {
+		if (sleep_time != 0) {
 			sleep(1);
+			--sleep_time;
 			continue;
 		}
 
