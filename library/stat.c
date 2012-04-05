@@ -99,8 +99,6 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed)
 {
-	uint64_t cache_top_cnt;
-	uint64_t cache_bottom_cnt;
 	int len = 0;
 
 	pthread_mutex_lock(&b->stat.lock);

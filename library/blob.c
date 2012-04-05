@@ -49,6 +49,8 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control dc, *dc_blob;
 	struct eblob_ram_control rc;
+	int max_subsequent_holes = 1024, holes = 0;
+	unsigned long long hole_offset = 0;
 	int err = 0;
 
 	memset(&rc, 0, sizeof(rc));
@@ -95,11 +97,28 @@ static void *eblob_blob_iterator(void *data)
 		}
 
 		if (ctl->check_index && (dc.disk_size == 0)) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is zero, pos: %llu\n",
-					(unsigned long long)dc.position);
+			if (holes == 0)
+				hole_offset = ctl->index_offset;
+
+			/* there are too many holes in a row - considering it is an end of the file */
+			if (++holes == max_subsequent_holes) {
+				ctl->index_offset = hole_offset;
+				pthread_mutex_unlock(&bc->lock);
+
+				eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: holes started at index-offset: %llu\n", ctl->index_offset);
+				break;
+			}
+
 			ctl->index_offset += sizeof(dc);
 			pthread_mutex_unlock(&bc->lock);
 			continue;
+		}
+
+		if (holes) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: hole: start-index-offset: %llu, end-index-offset: %llu\n",
+					hole_offset, ctl->index_offset);
+			holes = 0;
+			hole_offset = 0;
 		}
 
 		if (dc.disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
@@ -561,7 +580,7 @@ static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t of
 		goto err_out_exit;
 
 	while (len > 0) {
-		ssize_t chunk_size = PIPE_BUF;
+		ssize_t chunk_size = 4096;
 
 		if (chunk_size > len)
 			chunk_size = len;
@@ -710,6 +729,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	struct eblob_ram_control old;
 	int have_old = 0, disk;
 
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu\n",
+			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset);
+
 	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, prepare_disk_size > wc->size + wc->offset ?
 								prepare_disk_size :
 								wc->size + wc->offset));
@@ -789,16 +811,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 
-#ifdef __linux__
-	err = posix_fallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
-	if (err < 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: fallocate: "
-				"fd: %d, offset: %llu, size: %llu: %s %zd\n",
-				eblob_dump_id(key->id), wc->data_fd, (unsigned long long)wc->ctl_data_offset,
-				(unsigned long long)wc->total_size, strerror(-err), err);
-		goto err_out_unlock;
-	}
-#endif
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_unlock;
@@ -862,6 +874,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 	eblob_stat_update(b, 1, 0, 0);
 
+	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk: complete", 0);
 	return 0;
 
 err_out_unlock:
@@ -1019,6 +1032,7 @@ err_out_exit:
 static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, void *data)
 {
 	ssize_t err;
+	size_t size = wc->size;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (err < 0)
@@ -1033,6 +1047,11 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 		err = -errno;
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-pwrite", err);
 		goto err_out_exit;
+	}
+
+	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) && (b->cfg.blob_flags & EBLOB_OVERWRITE_COMMITS)) {
+		wc->size = size;
+		wc->total_data_size = wc->offset + wc->size;
 	}
 
 	err = eblob_write_commit_nolock(b, key, NULL, 0, wc);

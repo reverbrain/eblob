@@ -190,7 +190,8 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 
 /* when set, reserve 10% of free space and return -ENOSPC when there is not enough free space to reserve */
 #define EBLOB_RESERVE_10_PERCENTS	(1<<0)
-#define EBLOB_RUN_UNUSED1		(1<<1)
+/* overwrite with smaller size automatically commits that write, i.e. truncates record to number of bytes written */
+#define EBLOB_OVERWRITE_COMMITS		(1<<1)
 /* when set, eblob_write() allows to overwrite data in place */
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 
