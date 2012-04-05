@@ -1,3 +1,16 @@
+eblob (0.15.4) unstable; urgency=low
+
+  * Do not sync in separate thread if sync interfal is zero - we will sync on every write anyway
+  * Added no-footer blob flag
+  * Added overwrite-commits flags
+  * Removed posix_fallocate() call
+  * Added hole detection
+  * eblob_py_iterator cleanup
+  * Drop macroses which are not accessible in centos
+  * Do not include blob.h into namespace
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 6 Apr 2012 00:30:13 +0400
+
 eblob (0.15.3) unstable; urgency=low
 
   * Only reserve 10% of free space when EBLOB_RESERVE_10_PERCENTS blob-config-flag is set

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.3
+Version:	0.15.4
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -104,6 +104,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Apr 6 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.4
+- Do not sync in separate thread if sync interfal is zero - we will sync on every write anyway
+- Added no-footer blob flag
+- Added overwrite-commits flags
+- Removed posix_fallocate() call
+- Added hole detection
+- eblob_py_iterator cleanup
+- Drop macroses which are not accessible in centos
+- Do not include blob.h into namespace
+
 * Fri Mar 23 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.3
 - Only reserve 10% of free space when EBLOB_RESERVE_10_PERCENTS blob-config-flag is set
 - Added prepare/commit methods to cpp bindings
