@@ -385,7 +385,10 @@ err_out_exit:
 
 static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t offset, uint64_t size)
 {
-	uint64_t total_size = size + offset + sizeof(struct eblob_disk_control) + sizeof(struct eblob_disk_footer);
+	uint64_t total_size = size + offset + sizeof(struct eblob_disk_control);
+
+	if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER))
+		total_size += sizeof(struct eblob_disk_footer);
 
 	if (b->cfg.bsize)
 		total_size = ALIGN(total_size, b->cfg.bsize);
@@ -441,9 +444,10 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	if (b->cfg.bsize) {
 		uint64_t local_offset = wc->data_offset + wc->total_data_size;
-		unsigned int alignment = wc->total_size - wc->total_data_size -
-			sizeof(struct eblob_disk_control) -
-			sizeof(struct eblob_disk_footer);
+		unsigned int alignment = wc->total_size - wc->total_data_size - sizeof(struct eblob_disk_control);
+
+		if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER))
+			alignment -= sizeof(struct eblob_disk_footer);
 
 		while (alignment && alignment < b->cfg.bsize) {
 			unsigned int sz = alignment;
@@ -811,9 +815,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 
+
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
-		goto err_out_unlock;
+		goto err_out_rollback;
 
 	/*
 	 * We are doing early index update to prevent situations when system crashed (or even blob is closed),
@@ -821,7 +826,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 */
 	err = blob_update_index(b, key, wc);
 	if (err)
-		goto err_out_unlock;
+		goto err_out_rollback;
 
 	/*
 	 * only copy old file if APPEND or OVERWRITE flag is set,
@@ -847,7 +852,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 						(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
 						(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
 						(unsigned long long)old.size, old.data_fd, wc->data_fd, strerror(-err), err);
-					goto err_out_unlock;
+					goto err_out_rollback;
 				}
 			}
 
@@ -866,18 +871,19 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 */
 	err = eblob_commit_ram(b, key, wc);
 	if (err < 0)
-		goto err_out_unlock;
+		goto err_out_rollback;
+
+	pthread_mutex_unlock(&b->lock);
 
 	if (have_old)
 		eblob_mark_entry_removed(b, key, &old);
-	pthread_mutex_unlock(&b->lock);
 
 	eblob_stat_update(b, 1, 0, 0);
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk: complete", 0);
 	return 0;
 
-err_out_unlock:
+err_out_rollback:
 	ctl->data_offset -= wc->total_size;
 	ctl->index_offset -= sizeof(struct eblob_disk_control);
 err_out_unlock_exit:
@@ -947,7 +953,10 @@ static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, u
 {
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
-	ssize_t err;
+	ssize_t err = 0;
+
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+		goto err_out_sync;
 
 	memset(&f, 0, sizeof(f));
 
@@ -970,6 +979,8 @@ static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, u
 		err = -errno;
 		goto err_out_exit;
 	}
+
+err_out_sync:
 	if (!b->cfg.sync)
 		fsync(wc->data_fd);
 	err = 0;
@@ -1324,7 +1335,7 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 
 	compressed = err;
 
-	if (csum) {
+	if (csum && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, &wc);
 		if (err)
 			goto err_out_exit;

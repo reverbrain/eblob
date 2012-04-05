@@ -194,6 +194,8 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 #define EBLOB_OVERWRITE_COMMITS		(1<<1)
 /* when set, eblob_write() allows to overwrite data in place */
 #define EBLOB_TRY_OVERWRITE		(1<<2)
+/* do not add checksum footer */
+#define EBLOB_NO_FOOTER			(1<<3)
 
 struct eblob_config {
 	/* blob flags above */
