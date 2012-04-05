@@ -9,12 +9,13 @@ URL:		http://www.ioremap.net/projects/eblob
 Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
-BuildRequires:	snappy-devel python-devel
-BuildRequires:  python-devel, libtar-devel
 %if %{defined rhel} && 0%{?rhel} < 6
-BuildRequires:  boost141-python, boost141-devel
+BuildRequires:	python26-devel, boost141-python, boost141-devel
+BuildRequires:  boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
+
 %else
-BuildRequires:  boost-python, boost-devel
+BuildRequires:	snappy-devel python-devel
+BuildRequires:  boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
 %endif
 BuildRequires:	automake autoconf libtool
 
