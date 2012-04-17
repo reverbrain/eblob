@@ -183,7 +183,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 	}
 
 	sprintf(full, "%s/%s", dir_base, name);
-	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0600);
+	ctl->data_fd = open(full, O_RDWR | O_CREAT, 0644);
 	if (ctl->data_fd < 0) {
 		err = -errno;
 		goto err_out_destroy_index_lock;
@@ -207,7 +207,7 @@ again:
 			max_index = types[ctl->type].index;
 		}
 
-		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
+		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0644);
 		if (ctl->index_fd < 0) {
 			err = -errno;
 			goto err_out_unmap;
@@ -266,7 +266,7 @@ again:
 			goto again;
 		}
 
-		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0600);
+		ctl->index_fd = open(full, O_RDWR | O_CREAT, 0644);
 		if (ctl->index_fd < 0) {
 			err = -errno;
 			goto err_out_close_sort_fd;
