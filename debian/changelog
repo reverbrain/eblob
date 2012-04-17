@@ -1,3 +1,9 @@
+eblob (0.15.6) unstable; urgency=low
+
+  * disable defrag for now
+
+ -- Evgeniy Polyakov <zbr@ioremap.net> Wed, 18 Apr 2012 00:18:13 +0400
+
 eblob (0.15.5) unstable; urgency=low
 
   * Index and data files should be 644 by default to allow others like nginx to read data

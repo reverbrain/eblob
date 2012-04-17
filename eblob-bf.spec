@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.5
+Version:	0.15.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Apr 18 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.6
+- disable defrag for now
+
 * Tue Apr 17 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.5
 - Index and data files should be 644 by default to allow others like nginx to read data
 - Build deps update
