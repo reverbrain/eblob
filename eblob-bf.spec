@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.4
+Version:	0.15.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Apr 17 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.5
+- Index and data files should be 644 by default to allow others like nginx to read data
+- Build deps update
+
 * Fri Apr 6 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.4
 - Do not sync in separate thread if sync interfal is zero - we will sync on every write anyway
 - Added no-footer blob flag

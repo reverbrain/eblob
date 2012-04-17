@@ -1,3 +1,10 @@
+eblob (0.15.5) unstable; urgency=low
+
+  * Index and data files should be 644 by default to allow others like nginx to read data
+  * Build deps update
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 17 Apr 2012 21:05:13 +0400
+
 eblob (0.15.4) unstable; urgency=low
 
   * Do not sync in separate thread if sync interfal is zero - we will sync on every write anyway
