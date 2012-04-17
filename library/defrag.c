@@ -427,6 +427,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				}
 			}
 
+			continue;
+
 			if (bctl->old_index_fd != -1) {
 				close(bctl->old_index_fd);
 				close(bctl->old_data_fd);
