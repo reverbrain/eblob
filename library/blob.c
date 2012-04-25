@@ -710,7 +710,8 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 	if (avail < size)
 		return -ENOSPC;
 
-	if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) || (avail < b->cfg.blob_size)) {
+	if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
+			(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) & (avail < b->cfg.blob_size))) {
 		static int print_once;
 
 		if (!print_once) {
