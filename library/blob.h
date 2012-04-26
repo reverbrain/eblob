@@ -32,7 +32,7 @@ typedef long long loff_t;
 #endif
 
 #ifndef O_CLOEXEC
-#define O_CLOEXEC 0
+#define O_CLOEXEC	02000000
 #endif
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
