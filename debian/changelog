@@ -1,3 +1,10 @@
+eblob (0.15.7) unstable; urgency=low
+
+  * added O_CLOEXEC flags
+  * Do not return -ENOSPACE when EBLOB_RESERVE_10_PERCENTS is set and size is less than blob-size, but more than 0.1 of total size
+
+ -- Evgeniy Polyakov <zbr@ioremap.net> Fri, 27 Apr 2012 00:30:13 +0400
+
 eblob (0.15.6) unstable; urgency=low
 
   * disable defrag for now
