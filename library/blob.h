@@ -31,6 +31,10 @@
 typedef long long loff_t;
 #endif
 
+#ifndef O_CLOEXEC
+#define O_CLOEXEC 0
+#endif
+
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL

@@ -401,7 +401,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
 	}
 
-	fd = open(file, O_RDWR | O_TRUNC | O_CREAT, 0644);
+	fd = open(file, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0) {
 		err = -errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: open: index: %d, type: %d: %s: %s %d\n",

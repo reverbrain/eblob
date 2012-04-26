@@ -186,14 +186,14 @@ static int eblob_defrag_open(struct eblob_base_ctl *bctl)
 	}
 
 	snprintf(path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
-	bctl->df = open(path, O_RDWR | O_TRUNC | O_CREAT, 0644);
+	bctl->df = open(path, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (bctl->df < 0) {
 		err = -errno;
 		goto err_out_free;
 	}
 
 	snprintf(path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
-	bctl->dfi = open(path, O_RDWR | O_TRUNC | O_CREAT, 0644);
+	bctl->dfi = open(path, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (bctl->dfi < 0) {
 		err = -errno;
 		goto err_out_close;
