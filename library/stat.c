@@ -30,7 +30,6 @@ void eblob_stat_cleanup(struct eblob_stat *s)
 static int eblob_stat_init_new(struct eblob_stat *s, char *path, char *mode)
 {
 	int err;
-	int flags;
 
 	memset(s, 0, sizeof(struct eblob_stat));
 
@@ -46,8 +45,7 @@ static int eblob_stat_init_new(struct eblob_stat *s, char *path, char *mode)
 		goto err_out_destroy;
 	}
 
-	fcntl(fileno(s->file), F_GETFD, &flags);
-	fcntl(fileno(s->file), F_SETFD, flags | O_CLOEXEC);
+	fcntl(fileno(s->file), F_SETFD, FD_CLOEXEC);
 
 	s->need_check = 1;
 	return 0;
