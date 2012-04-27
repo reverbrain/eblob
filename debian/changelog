@@ -1,3 +1,9 @@
+eblob (0.15.8) unstable; urgency=low
+
+  * Use correct F_SETFD/FD_CLOEXEC
+
+ -- Evgeniy Polyakov <zbr@ioremap.net> Fri, 27 Apr 2012 20:58:13 +0400
+
 eblob (0.15.7) unstable; urgency=low
 
   * added O_CLOEXEC flags

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.7
+Version:	0.15.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Apr 27 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.8
+- Use correct F_SETFD/FD_CLOEXEC
+
 * Fri Apr 27 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.7
 - added O_CLOEXEC flags
 - Do not return -ENOSPACE when EBLOB_RESERVE_10_PERCENTS is set and size is less than blob-size, but more than 0.1 of total size
