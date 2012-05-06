@@ -149,6 +149,39 @@ class eblob_iterator {
 		void iter(eblob_iterator_callback *cb);
 };
 
+static inline std::string eblob_dump_control(const struct eblob_disk_control *dco, long long position, const int match, const int index)
+{
+	std::ostringstream out;
+
+	char id_str[2 * EBLOB_ID_SIZE + 1];
+	out << eblob_dump_id_len_raw(dco->key.id, EBLOB_ID_SIZE, id_str) << ": " <<
+		"read_position: " << position << ", " <<
+		"index: " << index << ", " <<
+		"data_size: " << dco->data_size << ", " <<
+		"disk_size: " << dco->disk_size << ", " <<
+		"position: " << dco->position << ", " <<
+		"flags: " << std::hex << dco->flags << std::dec;
+
+	std::string mstr = match ? ": MATCH" : ": NOT_MATCH";
+	out << mstr;
+
+	std::string flags = " [ ";
+	if (dco->flags &  BLOB_DISK_CTL_NOCSUM)
+		flags += "NO_CSUM ";
+	if (dco->flags &  BLOB_DISK_CTL_COMPRESS)
+		flags += "COMPRESS ";
+	if (dco->flags &  BLOB_DISK_CTL_REMOVE)
+		flags += "REMOVED ";
+	if (dco->flags &  BLOB_DISK_CTL_APPEND)
+		flags += "APPEND ";
+
+	if (flags.size() > 3) {
+		out << flags << "]";
+	}
+
+	return out.str();
+}
+
 }; /* namespace zbr */
 #endif /* __EBLOB_CPPDEF_H */
 
