@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.9
+Version:	0.15.10
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu May 17 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.10
+- Fixed Precise build
+
 * Sat Apr 28 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.9
 - Write 'removed' record in ->prepare(), so it can not be read in parallel. commit() will set correct bit. eblob_write() will do it too.
 
