@@ -1,3 +1,9 @@
+eblob (0.15.10) unstable; urgency=low
+
+  * Fixed build on Ubuntu 12.04 Presice
+
+ -- Anton Kortunov <toshic@yandex-team.ru>  Thu, 17 May 2012 15:11:04 +0400
+
 eblob (0.15.9) unstable; urgency=low
 
   * Write 'removed' record in ->prepare(), so it can not be read in parallel. commit() will set correct bit. eblob_write() will do it too.
