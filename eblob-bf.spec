@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.15.10
+Version:	0.16.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jun 7 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.0
+- Use ioremap::eblob namespace
+
 * Thu May 17 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.15.10
 - Fixed Precise build
 
