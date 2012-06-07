@@ -31,7 +31,7 @@
 
 #include <eblob/blob.h>
 
-namespace zbr {
+namespace ioremap { namespace eblob {
 
 class eblob_logger {
 	public:
@@ -182,6 +182,7 @@ static inline std::string eblob_dump_control(const struct eblob_disk_control *dc
 	return out.str();
 }
 
-}; /* namespace zbr */
+}}; /* namespace ioremap::eblob */
+
 #endif /* __EBLOB_CPPDEF_H */
 

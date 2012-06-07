@@ -16,7 +16,7 @@
 
 #include <eblob/eblob.hpp>
 
-using namespace zbr;
+using namespace ioremap::eblob;
 
 #include "common.hpp"
 

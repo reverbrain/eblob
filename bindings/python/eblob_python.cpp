@@ -20,7 +20,7 @@
 #include <eblob/eblob.hpp>
 
 using namespace boost::python;
-using namespace zbr;
+using namespace ioremap::eblob;
 
 struct eblob_id {
 	eblob_id() {}

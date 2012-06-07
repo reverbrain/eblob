@@ -20,7 +20,7 @@
 
 #include <eblob/eblob.hpp>
 
-using namespace zbr;
+using namespace ioremap::eblob;
 
 eblob::eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
 	logger_(log_file, log_mask)

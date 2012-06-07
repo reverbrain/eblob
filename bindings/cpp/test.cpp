@@ -6,9 +6,9 @@
 
 #include <boost/shared_ptr.hpp>
 
-#include "eblob/eblob.hpp"
+#include <eblob/eblob.hpp>
 
-using namespace zbr;
+using namespace ioremap::eblob;
 
 class eblob_test {
 	public:

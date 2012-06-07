@@ -217,7 +217,7 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
-	struct eblob_index_block *block;
+	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
 	int bloom_byte_num, bloom_bit_num;
 	uint64_t offset = 0;
@@ -262,6 +262,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	return err;
 
 err_out_drop_tree:
+	free(block);
 	eblob_index_blocks_destroy(bctl);
 	return err;
 }

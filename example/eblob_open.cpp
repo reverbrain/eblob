@@ -16,7 +16,7 @@
 
 #include <eblob/eblob.hpp>
 
-using namespace zbr;
+using namespace ioremap::eblob;
 
 int main(int argc, char *argv[])
 {

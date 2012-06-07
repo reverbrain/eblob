@@ -22,7 +22,7 @@
 
 #include <eblob/eblob.hpp>
 
-using namespace zbr;
+using namespace ioremap::eblob;
 
 eblob_iterator::eblob_iterator(const std::string &input_base, const bool index) :
 	input_base_(input_base), use_index_iter_(index)

@@ -12,6 +12,8 @@
 #include <eblob/eblob.hpp>
 #include "common.hpp"
 
+using namespace ioremap::eblob;
+
 static void copy_data(std::ifstream &src, std::ofstream &dst, size_t size)
 {
 	size_t sz = 1024 * 1024;
@@ -192,7 +194,7 @@ int main(int argc, char *argv[])
 			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 
 			if (print_all) {
-				std::cout << c.blob->path_ << ": " << zbr::eblob_dump_control(&c.dc, position, 1, 0) << std::endl;
+				std::cout << c.blob->path_ << ": " << eblob_dump_control(&c.dc, position, 1, 0) << std::endl;
 			}
 
 			if (c.dc.flags & BLOB_DISK_CTL_REMOVE) {
@@ -217,7 +219,7 @@ int main(int argc, char *argv[])
 			ddc.position = position;
 
 			if (print_all) {
-				std::cout << "out: " << zbr::eblob_dump_control(&ddc, position, 1, 0) << std::endl;
+				std::cout << "out: " << eblob_dump_control(&ddc, position, 1, 0) << std::endl;
 			}
 
 			if (size > sizeof(struct eblob_disk_control)) {
