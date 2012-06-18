@@ -1,3 +1,9 @@
+eblob (0.16.4) unstable; urgency=low
+
+  * Use libsnappy1 or snappy
+
+ -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 18 Jun 2012 14:19:13 +0400
+
 eblob (0.16.3) unstable; urgency=low
 
   * Use libsnappy1 instead of snappy

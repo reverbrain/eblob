@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.16.3
+Version:	0.16.4
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Jun 18 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.4
+- Use libsnappy1 or snappy (debian-only build)
+
 * Mon Jun 18 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.3
 - Use libsnappy1 instead of snappy (debian-only build)
 
