@@ -707,26 +707,30 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 	unsigned long long total, avail;
 	int err;
 
-	err = fstatvfs(fileno(b->stat.file), &s);
-	if (err)
-		return err;
+	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
+		err = fstatvfs(fileno(b->stat.file), &s);
+		if (err)
+			return err;
 
-	avail = s.f_bsize * s.f_bavail;
-	total = s.f_frsize * s.f_blocks;
-	if (avail < size)
-		return -ENOSPC;
+		avail = s.f_bsize * s.f_bavail;
+		total = s.f_frsize * s.f_blocks;
+		if (avail < size)
+			return -ENOSPC;
 
-	if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
-			(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) & (avail < b->cfg.blob_size))) {
-		static int print_once;
+		if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
+				(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) & (avail < b->cfg.blob_size))) {
+			static int print_once;
 
-		if (!print_once) {
-			print_once = 1;
+			if (!print_once) {
+				print_once = 1;
 
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu Mb, total: %llu Mb, blob size: %llu Mb\n",
-					avail / 1048576, total / 1048576, (unsigned long long)b->cfg.blob_size / 1048576);
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu Mb, "
+						"total: %llu Mb, blob size: %llu Mb\n",
+						avail / 1048576, total / 1048576, (unsigned long long)b->cfg.blob_size / 1048576);
+			}
+
+			return -ENOSPC;
 		}
-		return -ENOSPC;
 	}
 
 	return 0;

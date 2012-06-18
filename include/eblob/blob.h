@@ -196,6 +196,8 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 /* do not add checksum footer */
 #define EBLOB_NO_FOOTER			(1<<3)
+/* do not check whether system has enough space for the new blob */
+#define EBLOB_NO_FREE_SPACE_CHECK	(1<<4)
 
 struct eblob_config {
 	/* blob flags above */
