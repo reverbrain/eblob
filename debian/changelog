@@ -1,3 +1,9 @@
+eblob (0.16.5) unstable; urgency=low
+
+  * Dep builds update
+
+ -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 25 Jun 2012 18:19:13 +0400
+
 eblob (0.16.4) unstable; urgency=low
 
   * Use libsnappy1 or snappy
