@@ -198,6 +198,11 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 #define EBLOB_NO_FOOTER			(1<<3)
 /* do not check whether system has enough space for the new blob */
 #define EBLOB_NO_FREE_SPACE_CHECK	(1<<4)
+/*
+ * do not populate bloom-backed ranges into RAM during scan, do not load last blob into RAM.
+ * Only useful in plain data iterator, do not add this flag into server config
+ */
+#define __EBLOB_NO_STARTUP_DATA_POPULATE	(1<<5)
 
 struct eblob_config {
 	/* blob flags above */

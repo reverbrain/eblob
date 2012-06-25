@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	int check_key_len = 0;
 
 	if (argc < 5) {
-		std::cerr << "Usage: " << argv[0] << " eblob thread_num regex use_index <id>" << std::endl;
+		std::cerr << "Usage: " << argv[0] << " eblob thread_num regex <id>" << std::endl;
 		exit(-1);
 	} else if (argc > 6) {
 		memset(&key, 0, sizeof(struct eblob_key));
@@ -84,14 +84,13 @@ int main(int argc, char *argv[])
 	}
 
 	int tnum = ::atoi(argv[2]);
-	bool use_index = ::atoi(argv[4]) != 0;
 
 	std::string input_blob_name = argv[1];
 	std::string regex = argv[3];
 
 	try {
 		eblob_regex_callback cb(regex, key, check_key_len);
-		eblob_iterator eblob(input_blob_name, use_index);
+		eblob_iterator eblob(input_blob_name);
 		eblob.iterate(cb, tnum);
 	} catch (const std::exception &e) {
 		std::cerr << "caught: " << e.what() << std::endl;

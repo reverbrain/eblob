@@ -27,7 +27,7 @@
 
 #include <boost/thread.hpp>
 #include <boost/shared_ptr.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
+#include <boost/iostreams/device/file.hpp>
 
 #include <eblob/blob.h>
 
@@ -128,25 +128,24 @@ class eblob_iterator_callback {
 
 class eblob_iterator {
 	public:
-		eblob_iterator(const std::string &input_base, const bool index = false);
+		eblob_iterator(const std::string &input_base);
 		virtual ~eblob_iterator();
 
 		void iterate(eblob_iterator_callback &cb, const int tnum = 16, int index = 0, int index_max = INT_MAX);
 
 	private:
 		boost::mutex data_lock_;
-		boost::shared_ptr<boost::iostreams::mapped_file> index_file_, data_file_;
-
-		std::vector<boost::shared_ptr<boost::iostreams::mapped_file> > index_files_, data_files_;
+		std::auto_ptr<boost::iostreams::file_source> index_file_, data_file_;
 
 		int index_, index_max_;
 		off_t position_;
 		std::string input_base_;
 		uint64_t data_num_, found_num_;
-		bool use_index_iter_;
 
 		void open_next();
 		void iter(eblob_iterator_callback *cb);
+
+		size_t index_size_;
 };
 
 static inline std::string eblob_dump_control(const struct eblob_disk_control *dco, long long position, const int match, const int index)

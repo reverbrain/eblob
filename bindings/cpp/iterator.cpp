@@ -23,9 +23,10 @@
 #include <eblob/eblob.hpp>
 
 using namespace ioremap::eblob;
+namespace bio = boost::iostreams;
 
-eblob_iterator::eblob_iterator(const std::string &input_base, const bool index) :
-	input_base_(input_base), use_index_iter_(index)
+eblob_iterator::eblob_iterator(const std::string &input_base) :
+	input_base_(input_base), index_size_(0)
 {
 }
 
@@ -55,38 +56,31 @@ void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum, int in
 void eblob_iterator::iter(eblob_iterator_callback *cb) {
 	struct eblob_disk_control dc;
 	uint64_t data_num = 0, found_num = 0;
-	const void *data;
+	std::vector<char> data;
 	int index;
 
 	try {
 		while (true) {
-			boost::shared_ptr<boost::iostreams::mapped_file> index_file, data_file;
-
 			{
 				boost::mutex::scoped_lock lock(data_lock_);
 
-				if (position_ + sizeof(dc) > index_file_->size()) {
+				if (position_ + sizeof(dc) > index_size_) {
 					open_next();
 				}
 
-				index_file = index_file_;
-				data_file = data_file_;
-
-				memcpy(&dc, index_file->const_data() + position_, sizeof(dc));
+				bio::read<bio::file_source>(*index_file_, (char *)&dc, sizeof(struct eblob_disk_control));
 				eblob_convert_disk_control(&dc);
 
-				if (use_index_iter_)
-					position_ += sizeof(dc);
-				else
-					position_ += dc.disk_size;
-
+				position_ += sizeof(dc);
 				index = index_ - 1;
+
+				data.resize(dc.disk_size);
+				bio::read<bio::file_source>(*data_file_, (char *)data.data(), dc.disk_size);
 			}
 
-			data = data_file->const_data() + dc.position + sizeof(dc);
 			data_num++;
 
-			if (cb->callback((const struct eblob_disk_control *)&dc, data, index))
+			if (cb->callback((const struct eblob_disk_control *)&dc, data.data() + sizeof(struct eblob_disk_control), index))
 				found_num++;
 		}
 	} catch (const std::exception &e) {
@@ -107,14 +101,12 @@ void eblob_iterator::open_next()
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
-	data_files_.push_back(data_file_);
-	index_files_.push_back(index_file_);
+	data_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
 
-	data_file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
-	if (use_index_iter_)
-		filename << ".index";
-
-	index_file_.reset(new boost::iostreams::mapped_file(filename.str(), std::ios_base::in | std::ios_base::binary));
+	filename << ".index";
+	index_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
+	index_size_ = bio::seek<bio::file_source>(*index_file_, 0, std::ios::end);
+	bio::seek<bio::file_source>(*index_file_, 0, std::ios::beg);
 
 	++index_;
 	position_ = 0;
