@@ -108,7 +108,7 @@ class isend : public eblob_iterator_callback {
 				nodes_[pos]->write_data_wait(key, d, 0, 0, 0, 0);
 			} else {
 				d = nodes_[pos]->read_data_wait(key, 0, 0, 0, 0, 0);
-
+#if 0
 				if (d.size() != dc->data_size) {
 					std::ostringstream str;
 					str << "invalid read: " << eblob_dump_control(dc, 0, 1, index) << ": read-size-mismatch: " << d.size();
@@ -122,6 +122,7 @@ class isend : public eblob_iterator_callback {
 					std::cerr << str.str() << std::endl;
 					//throw std::runtime_error(str.str());
 				}
+#endif
 			}
 
 			return true;
