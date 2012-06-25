@@ -16,7 +16,9 @@
 #include "config.h"
 
 #define _XOPEN_SOURCE 1024
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -102,6 +104,9 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 {
 	int err, full_len;
 	char *full;
+
+	if (bctl->back->cfg.blob_flags & __EBLOB_NO_STARTUP_DATA_POPULATE)
+		return 0;
 
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
