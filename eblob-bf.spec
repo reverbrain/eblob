@@ -10,11 +10,9 @@ Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if %{defined rhel} && 0%{?rhel} < 6
-BuildRequires:	python-devel, boost141-python, boost141-devel
-BuildRequires:  boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
+BuildRequires:	boost141-devel, snappy-devel, boost141-iostreams, boost141-thread, boost141-system
 %else
-BuildRequires:	snappy-devel python-devel
-BuildRequires:  boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
+BuildRequires:	snappy-devel, boost-devel, boost-thread, boost-system, boost-iostreams
 %endif
 BuildRequires:	automake autoconf libtool
 
