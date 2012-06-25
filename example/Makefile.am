@@ -12,7 +12,7 @@ bin_PROGRAMS = eblob_index_info eblob_merge eblob_iterate_send
 eblob_index_info_SOURCES = eblob_index_info.cpp
 eblob_merge_SOURCES = merge.cpp
 eblob_iterate_send_SOURCES = iterate_send.cpp
-eblob_iterate_send_LDADD = ../bindings/cpp/libeblob_cpp.la
+eblob_iterate_send_LDADD = ../bindings/cpp/libeblob_cpp.la @BOOST_THREAD_LIB@
 
 if HAVE_BOOST_REGEX
 bin_PROGRAMS += eblob_regex_iter
