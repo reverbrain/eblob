@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.16.6
+Version:	0.16.7
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Jul 02 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.7
+- Fix removed flags in indexes
+
 * Mon Jun 25 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.6
 - Use boost::iostreams::file_source instead of
     boost::iostreams::mapped_file, since the latter leaks

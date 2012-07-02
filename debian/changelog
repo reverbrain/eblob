@@ -1,3 +1,9 @@
+eblob (0.16.7) unstable; urgency=low
+
+  * Fix removed flags in indexes
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 02 Jul 2012 20:03:06 +0400
+
 eblob (0.16.6) unstable; urgency=low
 
   * Use boost::iostreams::file_source instead of
