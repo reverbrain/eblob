@@ -624,6 +624,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	struct eblob_disk_control dc, data_dc;
 	ssize_t err;
 
+again:
 	ctl.type = wc->type;
 	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
 	if (err) {
@@ -676,7 +677,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	if (data_dc.flags & BLOB_DISK_CTL_REMOVE) {
 		err = -ENOENT;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: pread-data-no-entry", err);
-		goto err_out_exit;
+
+		eblob_mark_entry_removed(b, key, &ctl);
+		eblob_remove_type(b, key, wc->type);
+
+		goto again;
 	}
 
 	wc->total_data_size = dc.data_size;
