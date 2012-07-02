@@ -622,6 +622,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 {
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc, data_dc;
+	uint64_t orig_offset = wc->offset;
 	ssize_t err;
 
 again:
@@ -636,7 +637,7 @@ again:
 
 	/* only for write */
 	if (for_write && (wc->flags & BLOB_DISK_CTL_APPEND)) {
-		wc->offset += ctl.size;
+		wc->offset = orig_offset + ctl.size;
 	}
 
 	wc->data_fd = ctl.data_fd;
