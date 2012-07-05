@@ -102,9 +102,14 @@ void eblob_iterator::open_next()
 	filename << input_base_ << "." << index_;
 
 	data_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
+	if (!data_file_->is_open())
+		throw std::runtime_error("Completed");
 
 	filename << ".index";
 	index_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
+	if (!index_file_->is_open())
+		throw std::runtime_error("Completed");
+
 	index_size_ = bio::seek<bio::file_source>(*index_file_, 0, std::ios::end);
 	bio::seek<bio::file_source>(*index_file_, 0, std::ios::beg);
 
