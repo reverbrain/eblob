@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.16.7
+Version:	0.16.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jul 05 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.8
+- Check if file is really opened in iterator.cpp
+
 * Mon Jul 02 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.7
 - Fix removed flags in indexes
 
