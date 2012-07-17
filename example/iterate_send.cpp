@@ -1,5 +1,13 @@
+#include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
+
+#include <libxml/tree.h>
+#include <libxml/parser.h>
+
+#include <msgpack.hpp>
 
 #include <string>
 #include <iostream>
@@ -7,11 +15,17 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <elliptics/cppdef.h>
 #include <eblob/eblob.hpp>
+#include <wookie/document.hpp>
 
+using namespace ioremap;
 using namespace ioremap::eblob;
+
+typedef boost::shared_ptr<ioremap::elliptics::node> bnode_t;
 
 static int isend_usage(const char *arg)
 {
@@ -23,13 +37,136 @@ static int isend_usage(const char *arg)
 		" -g group             - group number to send data to\n" <<
 		" -a addr              - remote node address string\n" <<
 		" -p port              - remote port\n" <<
+		" -m mask              - log mask\n" <<
 		" -r                   - read test (write by default)\n" <<
+		" -x                   - parse web-chat XML messages\n" <<
 		" -w timeout           - wait timeout\n"
 		;
 	exit(-1);
 }
 
-typedef boost::shared_ptr<ioremap::elliptics::node> bnode_t;
+class webchat_parser {
+	public:
+		webchat_parser(const std::string &data, struct dnet_id &document_id) : m_doc_id(document_id) {
+			size_t pos = data.find("<route");
+			if (pos != std::string::npos) {
+				m_type = WEBCHAT_ROUTE;
+			} else {
+				pos = data.find("<iq");
+				if (pos != std::string::npos) {
+					m_type = WEBCHAT_IQ;
+				} else {
+					throw std::runtime_error("Unsupported XML document");
+				}
+			}
+
+			m_doc = xmlReadMemory(data.data() + pos, data.size() - pos, "noname.xml", NULL,
+					XML_PARSE_RECOVER | XML_PARSE_NOWARNING | XML_PARSE_NONET);
+			if (m_doc == NULL)
+				throw std::runtime_error("Invalid XML document");
+
+		}
+
+		~webchat_parser() {
+			xmlFreeDoc(m_doc);
+		}
+
+		void send(bnode_t node) {
+			if (m_type == WEBCHAT_ROUTE) {
+				process_route(node);
+			}
+		}
+
+	private:
+		struct dnet_id m_doc_id;
+		xmlDocPtr m_doc;
+		enum webchat_type {
+			WEBCHAT_ROUTE = 1,
+			WEBCHAT_IQ,
+		} m_type;
+
+		void send_document(bnode_t node, wookie::document &doc) {
+			doc.doc_id = std::string((char *)m_doc_id.id, DNET_ID_SIZE);
+			doc.type = wookie::INDEX_TYPE_ELLIPTICS_ID;
+
+			msgpack::sbuffer sbuf;
+			msgpack::pack(sbuf, doc);
+			std::string sbuf_str(sbuf.data(), sbuf.size());
+
+			struct dnet_id id;
+			node->transform(doc.index, id);
+			id.group_id = 0;
+			id.type = 0;
+
+			printf("%s: sending: %s, type: %d\n", dnet_dump_id(&m_doc_id), doc.index.c_str(), doc.type);
+
+			node->exec(&id, "wookie-search@start", sbuf_str, std::string());
+		}
+
+		void process_route(bnode_t node) {
+			xmlNodePtr cur;
+			xmlChar *ts_string;
+
+			cur = xmlDocGetRootElement(m_doc);
+			if (!cur)
+				throw std::runtime_error("route: failed to get root element");
+
+			ts_string = xmlGetProp(cur, (xmlChar *)"timestamp");
+			if (!ts_string)
+				throw std::runtime_error("route: no timestamp");
+
+			wookie::document dto, dfrom;
+
+			dto.ts = dfrom.ts = boost::lexical_cast<uint64_t>(get_attr(cur, (char *)"timestamp", NULL));
+
+			cur = cur->xmlChildrenNode;
+			while (cur) {
+				if ((!xmlStrcmp(cur->name, (const xmlChar *)"message"))) {
+					dto.index = get_attr(cur, (char *)"to", (char *)"/") + ".to";
+					dfrom.index = get_attr(cur, (char *)"from", (char *)"/") + ".from";
+
+					cur = cur->xmlChildrenNode;
+					while (cur) {
+						if ((!xmlStrcmp(cur->name, (const xmlChar *)"body"))) {
+							xmlChar *key;
+							key = xmlNodeListGetString(m_doc, cur->xmlChildrenNode, 1);
+							dto.text.assign((char *)key);
+							dfrom.text.assign((char *)key);
+
+							xmlFree(key);
+							break;
+						}
+
+						cur = cur->next;
+					}
+
+					break;
+				}
+
+				cur = cur->next;
+			}
+
+			send_document(node, dto);
+			send_document(node, dfrom);
+		}
+
+		std::string get_attr(xmlNodePtr cur, char *attr, char *split) {
+			xmlChar *tmp;
+
+			tmp = xmlGetProp(cur, (xmlChar *)attr);
+			if (!tmp)
+				throw std::runtime_error("route: could not find 'from' attribute");
+
+			if (split) {
+				std::vector<std::string> strs;
+				std::string tstr((char *)tmp);
+				boost::split(strs, tstr, boost::is_any_of(split));
+				return strs[0];
+			} else {
+				return std::string((char *)tmp);
+			}
+		}
+};
 
 class isend : public eblob_iterator_callback {
 	public:
@@ -99,15 +236,25 @@ class isend : public eblob_iterator_callback {
 			}
 			guard.unlock();
 
-			std::string key;
-			key.assign((char *)dc->key.id, EBLOB_ID_SIZE);
+			struct dnet_id key;
+			dnet_setup_id(&key, 0, (unsigned char *)dc->key.id);
+			key.type = 0;
 
 			std::string d;
 			if (write_) {
 				d.assign((const char *)data, dc->data_size);
-				nodes_[pos]->write_data_wait(key, d, 0, 0, 0, 0);
+				nodes_[pos]->write_data_wait(key, d, 0, 0, 0);
+
+				try {
+					webchat_parser parser(d, key);
+					parser.send(nodes_[pos]);
+					exit(0);
+				} catch (const std::exception &e) {
+					std::cerr << "exec failed: " << eblob_dump_control(dc, 0, 1, index) << ": "<< e.what() << std::endl;
+					throw;
+				}
 			} else {
-				d = nodes_[pos]->read_data_wait(key, 0, 0, 0, 0, 0);
+				d = nodes_[pos]->read_data_wait(key, 0, 0, 0, 0);
 #if 0
 				if (d.size() != dc->data_size) {
 					std::ostringstream str;
@@ -183,7 +330,7 @@ int main(int argc, char *argv[])
 	bool write = true;
 	int wait_timeout = 60;
 
-	while ((ch = getopt(argc, argv, "hb:i:I:t:g:a:p:m:rw:")) != -1) {
+	while ((ch = getopt(argc, argv, "hb:i:I:t:g:a:p:m:rw:x")) != -1) {
 		switch (ch) {
 			case 'b':
 				base.assign(optarg);
