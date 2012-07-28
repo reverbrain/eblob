@@ -13,8 +13,6 @@
  * GNU General Public License for more details.
  */
 
-#include "config.h"
-
 #define _XOPEN_SOURCE 1024
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
