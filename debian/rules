@@ -14,6 +14,10 @@ override_dh_auto_install:
 		--destdir="$(CURDIR)/debian/eblob"
 		--buildsystem=cmake
 
+override_dh_clean:
+	rm -rf $(CURDIR)/bindings/python/python/build
+	dh_clean
+
 override_dh_makeshlibs:
 	dh_makeshlibs -V "eblob (>= $(shell head -n1 debian/changelog |  sed -e 's/.*[(]//' | sed -e 's/[)].*//' | tr -d '\n' | cut -d . -f 1-2))"
 
