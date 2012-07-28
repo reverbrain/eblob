@@ -1,4 +1,6 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.6 FATAL_ERROR)
+cmake_policy (VERSION 2.6.0)
+
 project (eblob)
 set(EBLOB_VERSION_ABI "0")
 set(EBLOB_VERSION_MINOR "16.6")
