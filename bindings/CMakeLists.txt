@@ -1,0 +1,5 @@
+add_subdirectory(cpp)
+option(WITH_PYTHON "Build python bindings" ON)
+if(WITH_PYTHON)
+    add_subdirectory(python)
+endif()
