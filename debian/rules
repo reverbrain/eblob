@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 %:
-	dh --buildsystem=cmake $@
+	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
 	DESTDIR="$(CURDIR)/debian/eblob" dh_auto_configure \
