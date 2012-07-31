@@ -65,9 +65,9 @@ needed for developing software which uses the eblob library.
 export LDFLAGS="-Wl,-z,defs"
 %if %{defined rhel} && 0%{?rhel} < 6
 #CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
-CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DDESTDIR="%{buildroot}" -DCMAKE_INSTALL_PREFIX=/usr -DBoost_DIR=/usr/lib64/boost141 .
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DDESTDIR="%{buildroot}" -DBoost_DIR=/usr/lib64/boost141 .
 %else
-%{cmake} -DDESTDIR="%{buildroot}" -DCMAKE_INSTALL_PREFIX=/usr .
+%{cmake} -DDESTDIR="%{buildroot}" .
 %endif
 %if 0%{?rhel} <= 5
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}

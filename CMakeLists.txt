@@ -26,6 +26,7 @@ find_package(Threads REQUIRED)
 #set(Boost_USE_STLPORT ON)
 find_package(Boost REQUIRED COMPONENTS iostreams thread regex python)
 include_directories(${Boost_INCLUDE_DIRS})
+message(STATUS "Boost includes are situated in ${Boost_INCLUDE_DIRS}")
 
 # Check for snappy - unusual dependency, it doesn't use pkgconfig
 if(SNAPPY)
