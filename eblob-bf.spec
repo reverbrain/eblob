@@ -79,7 +79,7 @@ make %{?_smp_mflags}
 %install
 rm -rf %{buildroot}
 
-DESTDIR=%{buildroot} make install
+DESTDIR="%{buildroot}" make install
 rm -f %{buildroot}%{_libdir}/*.a
 rm -f %{buildroot}%{_libdir}/*.la
 
