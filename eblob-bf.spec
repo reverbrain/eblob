@@ -63,23 +63,22 @@ needed for developing software which uses the eblob library.
 
 %build
 export LDFLAGS="-Wl,-z,defs"
+export DESTDIR="%{buildroot}"
 %if %{defined rhel} && 0%{?rhel} < 6
 #CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
-CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" DESTDIR="%{buildroot}" %{cmake} -DBoost_DIR=/usr/lib64/boost141 .
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_DIR=/usr/lib64/boost141 .
 %else
-DESTDIR="%{buildroot}" %{cmake} .
+%{cmake} .
 %endif
 %if 0%{?rhel} <= 5
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 %endif
-
 make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
-
-DESTDIR="%{buildroot}" make install
+make install DESTDIR="%{buildroot}"
 rm -f %{buildroot}%{_libdir}/*.a
 rm -f %{buildroot}%{_libdir}/*.la
 
