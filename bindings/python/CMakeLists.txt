@@ -1,7 +1,7 @@
 add_subdirectory(python)
 
 find_package(PythonLibs REQUIRED)
-message(STATUS "Python includes are situated in ${PYTHON_INCLUDE_DIRS})
+message(STATUS "Python includes are situated in ${PYTHON_INCLUDE_DIRS}")
 
 include_directories(../../include)
 include_directories(${PYTHON_INCLUDE_DIRS})
