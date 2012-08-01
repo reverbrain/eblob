@@ -7,6 +7,8 @@ set(EBLOB_VERSION_MINOR "16.6")
 
 set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 if (UNIX OR MINGW)
     add_definitions(-W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
 endif()
@@ -29,13 +31,8 @@ include_directories(${Boost_INCLUDE_DIRS})
 message(STATUS "Boost includes are situated in ${Boost_INCLUDE_DIRS}")
 
 # Check for snappy - unusual dependency, it doesn't use pkgconfig
-if(SNAPPY)
-    include_directories("${SNAPPY}/include")
-endif()
-find_library(SNAPPY_LIBRARIES snappy HINTS ${SNAPPY})
-if(NOT SNAPPY_LIBRARIES)
-    message(FATAL "Cannot find Snappy. You may want to install Snappy from http://code.google.com/p/snappy/ to get compression support")
-endif()
+find_package(SNAPPY REQUIRED)
+include_directories(${SNAPPY_INCLUDE_DIR})
 add_definitions(-DHAVE_SNAPPY_SUPPORT)
 
 # Collect all libraries together
