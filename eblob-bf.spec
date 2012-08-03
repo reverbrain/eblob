@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.16.8
+Version:	0.16.9
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -103,6 +103,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Aug 03 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.9
+- Only allow names which are in form of '-.' without suffixes
+- Do not return header data in python eblob iterator
+- Misc cleanup
+- Do not compile example/iterate_send.cpp
+- Speedup eblob start using bulk index read
+
 * Thu Jul 05 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.8
 - Check if file is really opened in iterator.cpp
 

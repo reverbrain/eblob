@@ -1,3 +1,13 @@
+eblob (0.16.9) unstable; urgency=low
+
+  * Only allow names which are in form of '-.' without suffixes
+  * Do not return header data in python eblob iterator
+  * Misc cleanup
+  * Do not compile example/iterate_send.cpp
+  * Speedup eblob start using bulk index read
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 03 Aug 2012 23:56:29 +0400
+
 eblob (0.16.8) unstable; urgency=low
 
   * Check if file is really opened in iterator.cpp
