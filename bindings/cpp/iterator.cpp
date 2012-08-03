@@ -84,7 +84,7 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 				found_num++;
 		}
 	} catch (const std::exception &e) {
-		//std::cerr << "Iteration thread caught exception: " << e.what() << std::endl;
+		std::cerr << "Iteration thread caught exception: " << e.what() << std::endl;
 	} catch (...) {
 	}
 
@@ -95,20 +95,22 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 
 void eblob_iterator::open_next()
 {
-	if (index_ >= index_max_)
+	if (index_ >= index_max_) {
+		std::cout << "index: " << index_ << ", max-index: " << index_max_ << std::endl;
 		throw std::runtime_error("Completed");
+	}
 
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
 	data_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
 	if (!data_file_->is_open())
-		throw std::runtime_error("Completed");
+		throw std::runtime_error("Completed: no data file");
 
 	filename << ".index";
 	index_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
 	if (!index_file_->is_open())
-		throw std::runtime_error("Completed");
+		throw std::runtime_error("Completed: no index file");
 
 	index_size_ = bio::seek<bio::file_source>(*index_file_, 0, std::ios::end);
 	bio::seek<bio::file_source>(*index_file_, 0, std::ios::beg);
