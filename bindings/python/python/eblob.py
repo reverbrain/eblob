@@ -51,7 +51,7 @@ class blob:
 
 	def read_data(self):
 		#print "position:", self.position
-		self.dataf.seek(self.position)
+		self.dataf.seek(self.position + self.index_size)
 		self.data = self.dataf.read(self.disk_size)
 
 		if len(self.data) != self.disk_size:
