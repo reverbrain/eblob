@@ -15,6 +15,10 @@ option(WITH_EXAMPLES "Build examples" ON)
 
 include(CheckAtomic)
 include(TestBigEndian)
+include(CreateStdint)
+
+create_stdint(${CMAKE_BINARY_DIR}/include/eblob/typedefs.h)
+include_directories(${CMAKE_BINARY_DIR}/include/)
 
 # Test endianess
 test_big_endian(HAVE_BIG_ENDIAN)
@@ -73,6 +77,9 @@ add_subdirectory(library)
 add_subdirectory(example)
 add_subdirectory(bindings)
 
-install(FILES include/eblob/eblob.hpp include/eblob/blob.h
+install(FILES
+    include/eblob/eblob.hpp
+    include/eblob/blob.h
+    ${CMAKE_BINARY_DIR}/include/eblob/typedefs.h
     DESTINATION include/eblob/
     )

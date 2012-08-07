@@ -29,12 +29,16 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <limits.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#include "eblob/typedefs.h"
 #include "blob.h"
+
+#if !defined(_D_EXACT_NAMLEN) && defined(__FreeBSD__)
+#define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
+#endif
 
 static const char *eblob_get_base(const char *blob_base)
 {
