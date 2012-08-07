@@ -20,11 +20,7 @@
 extern "C" {
 #endif
 
-#ifdef HAVE_LIBATOMIC_SUPPORT
-#include <atomic/atomic.h>
-
-#define atomic_init(a, v) atomic_set(a, v)
-#elif defined HAVE_SYNC_ATOMIC_SUPPORT
+#if defined HAVE_SYNC_ATOMIC_SUPPORT
 typedef struct {
 	volatile int		val;
 } atomic_t;
