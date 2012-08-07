@@ -10,6 +10,9 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+option(WITH_PYTHON "Build python bindings" ON)
+option(WITH_EXAMPLES "Build examples" ON)
+
 include(CheckAtomic)
 include(TestBigEndian)
 
@@ -24,6 +27,9 @@ endif()
 
 if (UNIX OR MINGW)
     add_definitions(-W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
+endif()
+if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
+    add_definitions(-D__BSD_VISIBLE=1)
 endif()
 
 # Check for threads
@@ -49,8 +55,18 @@ find_package(SNAPPY REQUIRED)
 include_directories(${SNAPPY_INCLUDE_DIR})
 add_definitions(-DHAVE_SNAPPY_SUPPORT)
 
+# Check for python
+if(WITH_PYTHON)
+    find_package(PythonLibs REQUIRED)
+    message(STATUS "Python includes are situated in (${PYTHON_INCLUDE_PATH}, ${PYTHON_INCLUDE_DIRS})")
+    include_directories(${PYTHON_INCLUDE_PATH})
+    include_directories(${PYTHON_INCLUDE_DIRS})
+endif()
+
+
 # Collect all libraries together
-SET(EBLOB_LIBRARIES ${Boost_LIBRARIES} ${SNAPPY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+SET(EBLOB_LIBRARIES ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${SNAPPY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+
 
 # Build parts
 add_subdirectory(library)

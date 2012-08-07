@@ -1,4 +1,3 @@
-option(WITH_EXAMPLES "Build examples" ON)
 if(NOT WITH_EXAMPLES)
     return()
 endif()
