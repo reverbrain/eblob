@@ -1,5 +1,6 @@
 cmake_minimum_required (VERSION 2.6 FATAL_ERROR)
 cmake_policy (VERSION 2.6.0)
+set(CMAKE_SKIP_RPATH TRUE)
 
 project (eblob)
 set(EBLOB_VERSION_ABI "0")
@@ -8,6 +9,18 @@ set(EBLOB_VERSION_MINOR "16.6")
 set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
+include(CheckAtomic)
+include(TestBigEndian)
+
+# Test endianess
+test_big_endian(HAVE_BIG_ENDIAN)
+if(HAVE_BIG_ENDIAN)
+    add_definitions(-DBYTEORDER=4321)
+    add_definitions(-DWORDS_BIGENDIAN=1)
+else()
+    add_definitions(-DBYTEORDER=1234)
+endif()
 
 if (UNIX OR MINGW)
     add_definitions(-W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
@@ -22,6 +35,7 @@ endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
+include(CheckThreadSpinlock)
 
 # Check for boost
 #set(Boost_USE_STATIC_LIBS ON)

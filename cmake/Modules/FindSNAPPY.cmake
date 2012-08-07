@@ -1,7 +1,7 @@
 # Find SNAPPY - A fast compressor/decompressor
 #
 # This module defines
-#  SNAPPY_FOUND - whether the qsjon library was found
+#  SNAPPY_FOUND - whether the snappy library was found
 #  SNAPPY_LIBRARIES - the snappy library
 #  SNAPPY_INCLUDE_DIR - the include path of the snappy library
 #
