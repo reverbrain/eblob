@@ -16,12 +16,12 @@ Homepage: http://www.ioremap.net/projects/eblob
 
 Package: eblob
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
 Description: BLOB data container
-  EBLOB is append data storage with fast indexes and comprehensive API
+ EBLOB is append data storage with fast indexes and comprehensive API
 
 Package: eblob-dbg
 Architecture: any
 Depends: ${binary:Version}
 Description: BLOB data container
-  EBLOB is append data storage with fast indexes and comprehensive API
+ EBLOB is append data storage with fast indexes and comprehensive API
