@@ -12,6 +12,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
+option(WITH_SNAPPY "Enable Snappy support" ON)
 
 include(CheckAtomic)
 include(TestBigEndian)
@@ -55,9 +56,11 @@ include_directories(${Boost_INCLUDE_DIRS})
 message(STATUS "Boost includes are situated in ${Boost_INCLUDE_DIRS}")
 
 # Check for snappy - unusual dependency, it doesn't use pkgconfig
-find_package(SNAPPY REQUIRED)
-include_directories(${SNAPPY_INCLUDE_DIR})
-add_definitions(-DHAVE_SNAPPY_SUPPORT)
+if (WITH_SNAPPY)
+    find_package(SNAPPY REQUIRED)
+    include_directories(${SNAPPY_INCLUDE_DIR})
+    add_definitions(-DHAVE_SNAPPY_SUPPORT)
+endif()
 
 # Check for python
 if(WITH_PYTHON)
