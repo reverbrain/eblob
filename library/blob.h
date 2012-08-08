@@ -161,6 +161,8 @@ struct eblob_backend {
 	int			need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
+
+	int			want_defrag;
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);
