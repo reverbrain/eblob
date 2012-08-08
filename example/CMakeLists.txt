@@ -1,6 +1,3 @@
-if(NOT WITH_EXAMPLES)
-    return()
-endif()
 include_directories(../include)
 
 add_executable(eblob_open eblob_open.cpp)

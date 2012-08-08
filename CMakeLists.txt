@@ -77,7 +77,9 @@ SET(EBLOB_LIBRARIES ${Boost_LIBRARIES} ${PYTHON_LIBRARIES} ${SNAPPY_LIBRARIES} $
 
 # Build parts
 add_subdirectory(library)
-add_subdirectory(example)
+if (WITH_EXAMPLES)
+    add_subdirectory(example)
+endif()
 add_subdirectory(bindings)
 
 install(FILES
