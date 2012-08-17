@@ -32,43 +32,43 @@ eblob (0.16.6) unstable; urgency=low
     boost::iostreams::mapped_file, since the latter leaks
   * Added iterator program which sends data to elliptics
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 25 Jun 2012 20:13:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 25 Jun 2012 20:13:13 +0400
 
 eblob (0.16.5) unstable; urgency=low
 
   * Dep builds update
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 25 Jun 2012 18:19:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 25 Jun 2012 18:19:13 +0400
 
 eblob (0.16.4) unstable; urgency=low
 
   * Use libsnappy1 or snappy
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 18 Jun 2012 14:19:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 18 Jun 2012 14:19:13 +0400
 
 eblob (0.16.3) unstable; urgency=low
 
   * Use libsnappy1 instead of snappy
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 18 Jun 2012 14:12:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 18 Jun 2012 14:12:13 +0400
 
 eblob (0.16.2) unstable; urgency=low
 
   * Added flag which prevents free-space check during write
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Mon, 18 Jun 2012 11:56:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 18 Jun 2012 11:56:13 +0400
 
 eblob (0.16.1) unstable; urgency=low
 
   * Enable defragmentation
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Sat, 9 Jun 2012 17:56:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 9 Jun 2012 17:56:13 +0400
 
 eblob (0.16.0) unstable; urgency=low
 
   * Use ioremap::eblob namespace
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Thu, 7 Jun 2012 23:49:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 7 Jun 2012 23:49:13 +0400
 
 eblob (0.15.10) unstable; urgency=low
 
@@ -80,26 +80,26 @@ eblob (0.15.9) unstable; urgency=low
 
   * Write 'removed' record in ->prepare(), so it can not be read in parallel. commit() will set correct bit. eblob_write() will do it too.
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Sat, 28 Apr 2012 01:19:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 28 Apr 2012 01:19:13 +0400
 
 eblob (0.15.8) unstable; urgency=low
 
   * Use correct F_SETFD/FD_CLOEXEC
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Fri, 27 Apr 2012 20:58:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 27 Apr 2012 20:58:13 +0400
 
 eblob (0.15.7) unstable; urgency=low
 
   * added O_CLOEXEC flags
   * Do not return -ENOSPACE when EBLOB_RESERVE_10_PERCENTS is set and size is less than blob-size, but more than 0.1 of total size
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Fri, 27 Apr 2012 00:30:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 27 Apr 2012 00:30:13 +0400
 
 eblob (0.15.6) unstable; urgency=low
 
   * disable defrag for now
 
- -- Evgeniy Polyakov <zbr@ioremap.net> Wed, 18 Apr 2012 00:18:13 +0400
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 18 Apr 2012 00:18:13 +0400
 
 eblob (0.15.5) unstable; urgency=low
 

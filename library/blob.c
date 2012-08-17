@@ -13,9 +13,9 @@
  * GNU General Public License for more details.
  */
 
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
-
-#include "config.h"
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
