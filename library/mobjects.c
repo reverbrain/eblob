@@ -371,6 +371,8 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 	char tmp_str[] = ".tmp";
 	int type, err = 0, flen, index;
 	int want_free = 0;
+	int tmp_len;
+	char tmp[256];
 
 	type = -1;
 
@@ -449,6 +451,16 @@ found:
 
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
+
+	tmp_len = snprintf(tmp, sizeof(tmp), "%s-%d.%d", base, type, index);
+	if (tmp_len != name_len) {
+		err = -EINVAL;
+		goto err_out_free_ctl;
+	}
+	if (strncmp(name, tmp, tmp_len)) {
+		err = -EINVAL;
+		goto err_out_free_ctl;
+	}
 
 	err = eblob_base_ctl_open(b, types, max_type, ctl, dir_base, name, name_len);
 	if (err)
