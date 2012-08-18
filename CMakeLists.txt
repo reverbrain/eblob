@@ -16,9 +16,7 @@ option(WITH_SNAPPY "Enable Snappy support" ON)
 
 include(CheckAtomic)
 include(TestBigEndian)
-include(CreateStdint)
 
-create_stdint(${CMAKE_BINARY_DIR}/include/eblob/typedefs.h)
 include_directories(${CMAKE_BINARY_DIR}/include/)
 
 # Test endianess
