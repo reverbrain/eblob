@@ -1,3 +1,11 @@
+eblob (0.16.11) unstable; urgency=low
+
+  * Turn off timed defrag
+  * Get rid of stdint, it exists everywhere
+  * Moved to cmake from autoconf. Courtesy to Vsevolod Velichko <torkvema@gmail.com>
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 18 Aug 2012 17:07:25 +0400
+
 eblob (0.16.10) unstable; urgency=low
 
   * Added possibility to start defragmentation on demand

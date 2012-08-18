@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.16.10
+Version:	0.16.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Aug 18 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.11
+- Turn off timed defrag
+- Get rid of stdint, it exists everywhere
+- Moved to cmake from autoconf. Courtesy to Vsevolod Velichko <torkvema@gmail.com>
+
 * Wed Aug 08 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.16.10
 - Added possibility to start defragmentation on demand
 
