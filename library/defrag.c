@@ -499,6 +499,14 @@ void *eblob_defrag(void *data)
 	struct eblob_backend *b = data;
 	unsigned int sleep_time = b->cfg.defrag_timeout;
 
+	/*
+	 * XXX
+	 *
+	 * Turn off timed defrag
+	 */
+
+	sleep_time = b->cfg.defrag_timeout = -1;
+
 	while (!b->need_exit) {
 		if ((sleep_time-- != 0) && !b->want_defrag) {
 			sleep(1);
