@@ -11,12 +11,12 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if %{defined rhel} && 0%{?rhel} < 6
 BuildRequires:	python-devel, boost141-python, boost141-devel
-BuildRequires:  boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
+BuildRequires:	boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
 %else
 BuildRequires:	snappy-devel python-devel
-BuildRequires:  boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
+BuildRequires:	boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
 %endif
-BuildRequires:	automake autoconf libtool
+BuildRequires:	cmake >= 2.6
 
 %description
 libeblob is a low-level IO library which stores data in huge blob files
@@ -27,22 +27,22 @@ appending records one after another.
     * multi-threaded index reading during starup
     * O(1) data location lookup time
     * ability to lock in-memory lookup index (hash table) to eliminate
-    	memory swap
+        memory swap
     * readahead games with data and index blobs for maximum performance
     * multiple blob files support (tested with blob-file-as-block-device too)
     * optional sha256 on-disk checksumming
     * 2-stage write: prepare (which reserves the space) and commit
-    	(which calculates checksum and update in-memory and on-disk indexes).
-	One can (re)write data using pwrite() in between without locks
+        (which calculates checksum and update in-memory and on-disk indexes).
+        One can (re)write data using pwrite() in between without locks
     * usuall 1-stage write interface
     * flexible configuration of hash table size, flags, alignment
     * defragmentation tool: entries to be deleted are only marked as removed,
-    	eblob_check will iterate over specified blob files and actually
-	remove those blocks
+        eblob_check will iterate over specified blob files and actually
+        remove those blocks
     * off-line blob consistency checker: eblob_check can verify checksums
-    	for all records which have them
+        for all records which have them
     * run-time sync support - dedicated thread runs fsync on all files
-    	on timed base
+        on timed base
     * in-memory index lives in memory mapped file
 
 %package devel
@@ -63,23 +63,22 @@ needed for developing software which uses the eblob library.
 
 %build
 export LDFLAGS="-Wl,-z,defs"
-./autogen.sh
+export DESTDIR="%{buildroot}"
 %if %{defined rhel} && 0%{?rhel} < 6
-CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
+#CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %configure --with-boost-libdir=/usr/lib64/boost141
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_DIR=/usr/lib64/boost141 .
 %else
-%configure
+%{cmake} .
 %endif
 %if 0%{?rhel} <= 5
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 %endif
-
 make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
-
-make install DESTDIR=%{buildroot}
+make install DESTDIR="%{buildroot}"
 rm -f %{buildroot}%{_libdir}/*.a
 rm -f %{buildroot}%{_libdir}/*.la
 
@@ -91,7 +90,7 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%doc AUTHORS AUTHORS COPYING README
+%doc AUTHORS README
 %{_bindir}/*
 %{_libdir}/lib*.so.*
 %{python_sitelib}/eblob*
