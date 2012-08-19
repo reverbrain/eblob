@@ -22,8 +22,8 @@
 
 using namespace ioremap::eblob;
 
-eblob::eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path) :
-	logger_(log_file, log_mask)
+eblob::eblob(const char *log_file, const int log_level, const std::string &eblob_path) :
+	logger_(log_file, log_level)
 {
 	struct eblob_config cfg;
 
@@ -49,8 +49,8 @@ eblob::eblob(struct eblob_config *cfg) : logger_("/dev/stdout", EBLOB_LOG_ERROR)
 	}
 }
 
-eblob::eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg) :
-	logger_(log_file, log_mask)
+eblob::eblob(const char *log_file, const int log_level, struct eblob_config *cfg) :
+	logger_(log_file, log_level)
 {
 	cfg->log = logger_.log();
 	eblob_ = eblob_init(cfg);

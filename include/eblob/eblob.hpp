@@ -35,7 +35,7 @@ namespace ioremap { namespace eblob {
 
 class eblob_logger {
 	public:
-		eblob_logger(const char *log_file, const unsigned int log_mask) : file_(NULL) {
+		eblob_logger(const char *log_file, const int log_level) : file_(NULL) {
 			if (!log_file) {
 				log_file = "/dev/stdout";
 			}
@@ -50,12 +50,12 @@ class eblob_logger {
 			}
 
 			logger_.log_private = file_;
-			logger_.log_mask = log_mask;
+			logger_.log_level = log_level;
 			logger_.log = eblob_log_raw_formatted;
 		}
 
 		eblob_logger(const eblob_logger &l) {
-			eblob_logger(l.log_file_.c_str(), l.logger_.log_mask);
+			eblob_logger(l.log_file_.c_str(), l.logger_.log_level);
 		}
 
 		virtual ~eblob_logger() {
@@ -73,9 +73,9 @@ class eblob_logger {
 
 class eblob {
 	public:
-		eblob(const char *log_file, const unsigned int log_mask, const std::string &eblob_path);
+		eblob(const char *log_file, const int log_level, const std::string &eblob_path);
 		eblob(struct eblob_config *cfg);
-		eblob(const char *log_file, const unsigned int log_mask, struct eblob_config *cfg);
+		eblob(const char *log_file, const int log_level, struct eblob_config *cfg);
 		virtual ~eblob();
 
 		void write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize,

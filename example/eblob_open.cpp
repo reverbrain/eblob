@@ -21,7 +21,7 @@ using namespace ioremap::eblob;
 int main(int argc, char *argv[])
 {
 	if (argc < 2) {
-		std::cerr << "Usage: " << argv[0] << " eblob log log_mask" << std::endl;
+		std::cerr << "Usage: " << argv[0] << " eblob log log_level" << std::endl;
 		exit(-1);
 	}
 
@@ -31,12 +31,12 @@ int main(int argc, char *argv[])
 	if (argc > 2)
 		log_file = argv[2];
 
-	int log_mask = EBLOB_LOG_INFO | EBLOB_LOG_ERROR;
+	int log_level = EBLOB_LOG_INFO;
 	if (argc > 3)
-		log_mask = ::strtoul(argv[3], NULL, 0);
+		log_level = ::strtoul(argv[3], NULL, 0);
 
 	try {
-		eblob eblob(log_file, log_mask, input_blob_name);
+		eblob eblob(log_file, log_level, input_blob_name);
 
 		struct eblob_key ekey;
 		memset(&ekey, 0, sizeof(ekey));

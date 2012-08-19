@@ -186,7 +186,7 @@ static void *eblob_blob_iterator(void *data)
 			eblob_stat_update(b, disk, removed, 0);
 		}
 
-		eblob_log(ctl->log, EBLOB_LOG_DSA, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
+		eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
 				"stat: disk: %llu, removed: %llu, hashed: %llu\n",
 				eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
 				(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
@@ -666,7 +666,7 @@ again:
 	ctl.type = wc->type;
 	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DSA, "blob: %s: eblob_fill_write_control_from_ram: "
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: eblob_fill_write_control_from_ram: "
 				"eblob_lookup_type: type: %d: %zd, on_disk: %d\n",
 				eblob_dump_id(key->id), wc->type, err, wc->on_disk);
 		goto err_out_exit;

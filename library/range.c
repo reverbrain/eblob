@@ -85,7 +85,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 		}
 	}
 
-	if (b->cfg.log->log_mask & EBLOB_LOG_NOTICE) {
+	if (b->cfg.log->log_level > EBLOB_LOG_NOTICE) {
 		int len = 6;
 		char start_id[len*2 + 1];
 		char end_id[len*2 + 1];
@@ -256,7 +256,7 @@ int eblob_read_range(struct eblob_range_request *req)
 	while (n) {
 		e = rb_entry(n, struct eblob_hash_entry, node);
 
-		if (b->cfg.log->log_mask & EBLOB_LOG_NOTICE) {
+		if (b->cfg.log->log_level > EBLOB_LOG_NOTICE) {
 			int len = 6;
 			char start_id[2*len + 1];
 			char end_id[2*len + 1];

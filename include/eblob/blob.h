@@ -77,23 +77,26 @@ extern "C" {
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
 
-#define EBLOB_LOG_NOTICE		(1<<0)
-#define EBLOB_LOG_INFO			(1<<1)
-#define EBLOB_LOG_ERROR			(1<<3)
-#define EBLOB_LOG_DSA			(1<<4)
-
-struct eblob_log {
-	uint32_t		log_mask;
-	void			*log_private;
-	void 			(* log)(void *priv, uint32_t mask, const char *msg);
+enum eblob_log_levels {
+	EBLOB_LOG_DATA = 0,
+	EBLOB_LOG_ERROR,
+	EBLOB_LOG_INFO,
+	EBLOB_LOG_NOTICE,
+	EBLOB_LOG_DEBUG,
 };
 
-void eblob_log_raw_formatted(void *priv, uint32_t mask, const char *msg);
-void eblob_log_raw(struct eblob_log *l, uint32_t mask, const char *format, ...) EBLOB_LOG_CHECK;
-#define eblob_log(l, mask, format, a...)			\
-	do {								\
-		if (mask & (l)->log_mask)					\
-			eblob_log_raw((l), mask, format, ##a); 	\
+struct eblob_log {
+	int			log_level;
+	void			*log_private;
+	void 			(* log)(void *priv, int level, const char *msg);
+};
+
+void eblob_log_raw_formatted(void *priv, int level, const char *msg);
+void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
+#define eblob_log(l, level, format, a...)			\
+	do {							\
+		if (level < (l)->log_level)			\
+			eblob_log_raw((l), level, format, ##a); \
 	} while (0)
 
 /*

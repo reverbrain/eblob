@@ -99,7 +99,7 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 		goto err_out_unlock;
 	}
 
-	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "defrag: %s: size: %llu: position: %llu, "
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "defrag: %s: size: %llu: position: %llu, "
 			"flags: %llx, type: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
 			(unsigned long long)dc->flags, ctl->type);
@@ -329,7 +329,7 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 {
 	struct eblob_base_ctl *bctl = priv;
 
-	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DSA, "defrag: count: %s: size: %llu: position: %llu, "
+	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "defrag: count: %s: size: %llu: position: %llu, "
 			"flags: %llx, type: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
 			(unsigned long long)dc->flags, ctl->type);
