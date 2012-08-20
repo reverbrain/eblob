@@ -19,7 +19,7 @@
 #include <sys/types.h>
 
 #include <stdarg.h>
-#include <eblob/typedefs.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #ifdef __cplusplus

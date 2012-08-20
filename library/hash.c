@@ -28,7 +28,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "eblob/typedefs.h"
 #include "eblob/blob.h"
 
 #include "list.h"
