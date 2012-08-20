@@ -33,7 +33,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "eblob/typedefs.h"
 #include "blob.h"
 
 #if !defined(_D_EXACT_NAMLEN) && defined(__FreeBSD__)
