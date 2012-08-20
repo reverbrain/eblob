@@ -36,19 +36,10 @@
 #include "blob.h"
 #include "crypto/sha512.h"
 
-struct eblob_iterate_buffer {
-	struct eblob_disk_control *buffer;
-	unsigned long long         buffer_offset;
-	unsigned long long         buffer_size;
-	int                        first;
-};
-
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
 	void *thread_priv;
-	struct eblob_iterate_buffer *buffer;
 };
-
 
 static void *eblob_blob_iterator(void *data)
 {
@@ -58,7 +49,6 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control dc, *dc_blob;
 	struct eblob_ram_control rc;
-	unsigned long long buffer_pos;
 	int max_subsequent_holes = 1024, holes = 0;
 	unsigned long long hole_offset = 0;
 	int err = 0;
@@ -73,19 +63,12 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
-		if (ctl->check_index) {
-			buffer_pos = (ctl->index_offset - iter_priv->buffer->buffer_offset) / sizeof(dc);
-			if (buffer_pos > iter_priv->buffer->buffer_size || iter_priv->buffer->first) {
-				err = pread(bc->index_fd, iter_priv->buffer->buffer, sizeof(dc) * iter_priv->buffer->buffer_size, ctl->index_offset);
-				iter_priv->buffer->buffer_offset = ctl->index_offset;
-				iter_priv->buffer->first = 0;
-			}
-			memcpy(&dc, &iter_priv->buffer->buffer[buffer_pos], sizeof(dc));
-		} else {
+		if (ctl->check_index)
+			err = pread(bc->index_fd, &dc, sizeof(dc), ctl->index_offset);
+		else
 			err = pread(bc->data_fd, &dc, sizeof(dc), ctl->data_offset);
-		}
 
-		if (err % sizeof(dc)) {
+		if (err != sizeof(dc)) {
 			if (err < 0)
 				err = -errno;
 			goto err_out_unlock;
@@ -255,21 +238,6 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
-	struct eblob_iterate_buffer buffer;
-	const unsigned int buffer_size = 1000;
-
-	if (ctl->check_index) {
-		buffer.buffer_offset = 0;
-		buffer.buffer_size = buffer_size;
-		buffer.first = 1;
-
-		buffer.buffer = (struct eblob_disk_control *)malloc(sizeof(struct eblob_disk_control) * buffer_size);
-		if (!buffer.buffer) {
-			err = -ENOMEM;
-			goto err_out_exit;
-		}
-	}
-
 	err = eblob_base_setup_data(ctl->base);
 	if (err) {
 		ctl->err = err;
@@ -285,7 +253,6 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	for (i=0; i<thread_num; ++i) {
 		iter_priv[i].ctl = ctl;
 		iter_priv[i].thread_priv = NULL;
-		iter_priv[i].buffer = &buffer;
 
 		if (ctl->iterator_cb.iterator_init) {
 			err = ctl->iterator_cb.iterator_init(ctl, &iter_priv[i].thread_priv);
@@ -310,10 +277,6 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 
 	for (i = 0; ctl->iterator_cb.iterator_free && i < thread_num; ++i) {
 		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
-	}
-
-	if (ctl->check_index && buffer.buffer) {
-		free(buffer.buffer);
 	}
 
 	if ((ctl->err == -ENOENT) && eblob_total_elements(ctl->b))
