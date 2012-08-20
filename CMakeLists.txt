@@ -84,6 +84,5 @@ add_subdirectory(bindings)
 install(FILES
     include/eblob/eblob.hpp
     include/eblob/blob.h
-    ${CMAKE_BINARY_DIR}/include/eblob/typedefs.h
     DESTINATION include/eblob/
     )
