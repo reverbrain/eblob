@@ -13,9 +13,10 @@ BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	python-devel, boost141-python, boost141-devel
 BuildRequires:	boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
 %else
-BuildRequires:	snappy-devel python-devel
+BuildRequires:	python-devel
 BuildRequires:	boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
 %endif
+BuildRequires:	snappy-devel
 BuildRequires:	cmake >= 2.6
 
 %description
