@@ -60,7 +60,6 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	{
 		this->start_type = ctl.start_type;
 		this->max_type = ctl.max_type;
-		this->check_index = ctl.check_index;
 	}
 
 	virtual void process(struct eblob_id &id, std::string &data)
@@ -135,7 +134,6 @@ public:
 
 		ctl.start_type = it.start_type;
 		ctl.max_type = it.max_type;
-		ctl.check_index = it.check_index;
 
 		ctl.thread_num = 1;
 		ctl.priv = &it;
@@ -163,7 +161,6 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def("process", pure_virtual(&eblob_py_iterator::process))
 		.def_readwrite("start_type", &eblob_py_iterator::start_type)
 		.def_readwrite("max_type", &eblob_py_iterator::max_type)
-		.def_readwrite("check_index", &eblob_py_iterator::check_index)
 	;
 
 	class_<eblob_config>("eblob_config", init<>())

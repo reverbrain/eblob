@@ -911,7 +911,6 @@ int eblob_load_data(struct eblob_backend *b)
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.log = b->cfg.log;
-	ctl.check_index = 1;
 	ctl.thread_num = b->cfg.iterate_threads;
 	ctl.priv = b;
 	ctl.iterator_cb.iterator = eblob_blob_iter;

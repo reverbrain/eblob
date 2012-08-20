@@ -352,7 +352,6 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 
 	memset(&ctl, 0, sizeof(struct eblob_iterate_control));
 
-	ctl.check_index = 1;
 	ctl.thread_num = 1;
 	ctl.log = b->cfg.log;
 
@@ -394,7 +393,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 	memset(&ctl, 0, sizeof(ctl));
 
-	ctl.check_index = 1;
 	ctl.thread_num = 1;
 	ctl.log = b->cfg.log;
 

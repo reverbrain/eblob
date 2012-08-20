@@ -41,21 +41,142 @@ struct eblob_iterate_priv {
 	void *thread_priv;
 };
 
+struct eblob_iterate_local {
+	struct eblob_iterate_priv	*iter_priv;
+	struct eblob_disk_control	*dc;
+	int				num, pos;
+	long long			index_offset;
+};
+
+static int eblob_check_disk_one(struct eblob_iterate_local *loc)
+{
+	struct eblob_iterate_priv *iter_priv = loc->iter_priv;
+	struct eblob_iterate_control *ctl = iter_priv->ctl;
+	struct eblob_backend *b = ctl->b;
+	struct eblob_base_ctl *bc = ctl->base;
+	struct eblob_disk_control *dc = &loc->dc[loc->pos];
+	struct eblob_ram_control rc;
+	int err;
+
+	memset(&rc, 0, sizeof(rc));
+
+	eblob_convert_disk_control(dc);
+
+	if (dc->position + dc->disk_size > (uint64_t)ctl->data_size) {
+		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
+				"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+				(unsigned long long)dc->position, (unsigned long long)dc->disk_size, ctl->data_size);
+		err = -ESPIPE;
+		goto err_out_exit;
+	}
+
+	/*
+	 * Found a hole, drop this record
+	 */
+	if (dc->disk_size == 0) {
+		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: holes started at index-offset: %llu\n", loc->index_offset);
+		err = 1;
+		goto err_out_exit;
+	}
+
+	if (dc->disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
+		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
+				"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
+				sizeof(struct eblob_disk_control),
+				(unsigned long long)dc->position, (unsigned long long)dc->disk_size, ctl->data_size);
+		err = -ESPIPE;
+		goto err_out_exit;
+	}
+
+	rc.index_offset = loc->index_offset;
+	rc.data_offset = dc->position;
+	rc.size = dc->data_size;
+
+	rc.data_fd = bc->data_fd;
+	rc.index_fd = bc->index_fd;
+
+	rc.index = bc->index;
+	rc.type = bc->type;
+
+	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
+		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
+		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
+			dc->flags |= BLOB_DISK_CTL_REMOVE;
+			err = pwrite(bc->index_fd, dc, sizeof(struct eblob_disk_control), loc->index_offset);
+			if (err != sizeof(struct eblob_disk_control)) {
+				if (err < 0)
+					err = -errno;
+				else
+					err = -EPIPE;
+
+				goto err_out_exit;
+			}
+		}
+	}
+
+	if (b->stat.need_check) {
+		int disk, removed;
+
+		disk = removed = 0;
+
+		if (dc->flags & BLOB_DISK_CTL_REMOVE)
+			removed = 1;
+		else
+			disk = 1;
+
+		eblob_stat_update(b, disk, removed, 0);
+	}
+
+	eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
+			"stat: disk: %llu, removed: %llu, hashed: %llu\n",
+			eblob_dump_id(dc->key.id), (unsigned long long)dc->position,
+			(unsigned long long)dc->disk_size, (unsigned long long)dc->data_size,
+			(unsigned long long)dc->flags,
+			b->stat.disk, b->stat.removed, b->stat.hashed);
+
+
+	err = 0;
+	if ((dc->flags & BLOB_DISK_CTL_REMOVE) || ((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)))
+		goto err_out_exit;
+
+	err = ctl->iterator_cb.iterator(dc, &rc, bc->data + dc->position + sizeof(struct eblob_disk_control),
+			ctl->priv, iter_priv->thread_priv);
+
+err_out_exit:
+	return err;
+}
+
+static int eblob_check_disk(struct eblob_iterate_local *loc)
+{
+	int err;
+
+	for (loc->pos = 0; loc->pos < loc->num; ++loc->pos) {
+		err = eblob_check_disk_one(loc);
+		if (err < 0)
+			return err;
+
+		loc->index_offset += sizeof(struct eblob_disk_control);
+	}
+
+	return 0;
+}
+
 static void *eblob_blob_iterator(void *data)
 {
 	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
-	struct eblob_backend *b = ctl->b;
 	struct eblob_base_ctl *bc = ctl->base;
-	struct eblob_disk_control dc, *dc_blob;
-	struct eblob_ram_control rc;
-	int max_subsequent_holes = 1024, holes = 0;
-	unsigned long long hole_offset = 0;
+
+	int local_max_num = 1024;
+	struct eblob_disk_control dc[local_max_num];
+	struct eblob_iterate_local loc;
 	int err = 0;
 
-	memset(&rc, 0, sizeof(rc));
+	memset(&loc, 0, sizeof(loc));
 
-	while (ctl->thread_num > 0 && ctl->data_offset < ctl->data_size) {
+	loc.iter_priv = iter_priv;
+
+	while (ctl->thread_num > 0) {
 		pthread_mutex_lock(&bc->lock);
 
 		if (!ctl->thread_num) {
@@ -63,171 +184,92 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
-		if (ctl->check_index)
-			err = pread(bc->index_fd, &dc, sizeof(dc), ctl->index_offset);
-		else
-			err = pread(bc->data_fd, &dc, sizeof(dc), ctl->data_offset);
-
-		if (err != sizeof(dc)) {
-			if (err < 0)
+		err = pread(bc->index_fd, dc, sizeof(struct eblob_disk_control) * local_max_num, ctl->index_offset);
+		if (err != (int)sizeof(struct eblob_disk_control) * local_max_num) {
+			if (err < 0) {
 				err = -errno;
-			goto err_out_unlock;
-		}
+				goto err_out_unlock;
+			}
 
-		if (ctl->check_index) {
-			if (ctl->index_offset + sizeof(dc) > ctl->index_size) {
-				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-						"index_offset: %llu, index_size: %llu, pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-						ctl->index_offset, ctl->index_size,
-						(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
+			local_max_num = err / sizeof(struct eblob_disk_control);
+			if (local_max_num == 0) {
 				err = 0;
 				goto err_out_unlock;
 			}
-		} else {
 		}
 
-		eblob_convert_disk_control(&dc);
-
-		if (dc.position + dc.disk_size > (uint64_t)ctl->data_size) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
-					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
-			err = -ESPIPE;
+		if (ctl->index_offset + local_max_num * sizeof(struct eblob_disk_control) > ctl->index_size) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
+					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
+					"index_offset+local_max_num: %lld, but wanted less than index_size.\n",
+					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
+					ctl->index_offset + local_max_num * sizeof(struct eblob_disk_control));
+			err = 0;
 			goto err_out_unlock;
 		}
 
-		if (ctl->check_index && (dc.disk_size == 0)) {
-			if (holes == 0)
-				hole_offset = ctl->index_offset;
+		loc.index_offset = ctl->index_offset;
 
-			/* there are too many holes in a row - considering it is an end of the file */
-			if (++holes == max_subsequent_holes) {
-				ctl->index_offset = hole_offset;
-				pthread_mutex_unlock(&bc->lock);
-
-				eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: holes started at index-offset: %llu\n", ctl->index_offset);
-				break;
-			}
-
-			ctl->index_offset += sizeof(dc);
-			pthread_mutex_unlock(&bc->lock);
-			continue;
-		}
-
-		if (holes) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: hole: start-index-offset: %llu, end-index-offset: %llu\n",
-					hole_offset, ctl->index_offset);
-			holes = 0;
-			hole_offset = 0;
-		}
-
-		if (dc.disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
-					"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-					sizeof(struct eblob_disk_control),
-					(unsigned long long)dc.position, (unsigned long long)dc.disk_size, ctl->data_size);
-			err = -ESPIPE;
-			goto err_out_unlock;
-		}
-
-		rc.index_offset = ctl->index_offset;
-		rc.data_offset = dc.position;
-		rc.data_fd = bc->data_fd;
-		rc.index_fd = bc->index_fd;
-		rc.size = dc.data_size;
-		rc.index = bc->index;
-		rc.type = bc->type;
-
-		ctl->index_offset += sizeof(dc);
-		ctl->data_offset += dc.disk_size;
-
+		ctl->index_offset += sizeof(struct eblob_disk_control) * local_max_num;
 		pthread_mutex_unlock(&bc->lock);
 
-		if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc.flags & BLOB_DISK_CTL_REMOVE) && ctl->check_index) {
-			dc_blob = (struct eblob_disk_control*)(bc->data + dc.position);
-			if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
-				dc.flags |= BLOB_DISK_CTL_REMOVE;
-				err = pwrite(bc->index_fd, &dc, sizeof(dc), ctl->index_offset);
-				if (err != sizeof(dc)) {
-					if (err < 0)
-						err = -errno;
-					break;
-				}
-			}
-		}
+		loc.dc = dc;
+		loc.pos = 0;
+		loc.num = local_max_num;
 
-		if (b->stat.need_check) {
-			int disk, removed;
-
-			disk = removed = 0;
-
-			if (dc.flags & BLOB_DISK_CTL_REMOVE)
-				removed = 1;
-			else
-				disk = 1;
-
-			eblob_stat_update(b, disk, removed, 0);
-		}
-
-		eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
-				"stat: disk: %llu, removed: %llu, hashed: %llu\n",
-				eblob_dump_id(dc.key.id), (unsigned long long)dc.position,
-				(unsigned long long)dc.disk_size, (unsigned long long)dc.data_size,
-				(unsigned long long)dc.flags,
-				b->stat.disk, b->stat.removed, b->stat.hashed);
-
-
-		if ((dc.flags & BLOB_DISK_CTL_REMOVE) || ((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)))
-			continue;
-
-		err = ctl->iterator_cb.iterator(&dc, &rc, bc->data + dc.position + sizeof(struct eblob_disk_control),
-				ctl->priv, iter_priv->thread_priv);
+		err = eblob_check_disk(&loc);
+		if (err)
+			goto err_out_check;
 	}
 
 	pthread_mutex_lock(&bc->lock);
 
 err_out_unlock:
+	pthread_mutex_unlock(&bc->lock);
+err_out_check:
 	ctl->thread_num = 0;
 
-	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: iterated: data_fd: %d, index_fd: %d, "
-			"data_size: %llu, data_offset: %llu, index_offset: %llu\n",
-			bc->data_fd, bc->index_fd, ctl->data_size,
-			ctl->data_offset, ctl->index_offset);
+	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, data_size: %llu, index_offset: %llu\n",
+			bc->type, bc->index, bc->data_fd, bc->index_fd, ctl->data_size, ctl->index_offset);
 
 	if (!(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
+		pthread_mutex_lock(&bc->lock);
+
 		bc->data_offset = bc->data_size;
 		bc->index_offset = ctl->index_offset;
 
 		if (err && !ctl->err) {
 			struct eblob_disk_control data_dc;
+			struct eblob_disk_control idc;
 
-			err = pread(bc->index_fd, &dc, sizeof(dc), ctl->index_offset - sizeof(dc));
-			if (err == sizeof(dc)) {
-				eblob_convert_disk_control(&dc);
+			/*
+			 * reading last record from index, read corresponding record from blob and truncate index to blob's index
+			 */
+			err = pread(bc->index_fd, &idc, sizeof(struct eblob_disk_control), ctl->index_offset - sizeof(struct eblob_disk_control));
+			if (err == (int)sizeof(struct eblob_disk_control)) {
+				eblob_convert_disk_control(&idc);
 
-				memcpy(&data_dc, bc->data + dc.position, sizeof(struct eblob_disk_control));
+				memcpy(&data_dc, bc->data + idc.position, sizeof(struct eblob_disk_control));
 				eblob_convert_disk_control(&data_dc);
 
-				bc->data_offset = ctl->data_offset = dc.position + data_dc.disk_size;
+				bc->data_offset = idc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
 						"data_size(was): %llu, data_offset: %llu, data_position: %llu, disk_size: %llu, "
 						"index_offset: %llu\n",
 						bc->data_fd, bc->index_fd, ctl->data_size,
 						(unsigned long long)bc->data_offset,
-						(unsigned long long)dc.position, (unsigned long long)dc.disk_size,
-						(unsigned long long)ctl->index_offset - sizeof(dc));
+						(unsigned long long)idc.position, (unsigned long long)idc.disk_size,
+						(unsigned long long)ctl->index_offset - sizeof(struct eblob_disk_control));
 
-#if 0
-				err = ftruncate(bc->data_fd, bc->data_offset);
-#endif
 				err = ftruncate(bc->index_fd, ctl->index_offset);
 			} else {
 				ctl->err = err;
 			}
 		}
+
+		pthread_mutex_unlock(&bc->lock);
 	}
-	pthread_mutex_unlock(&bc->lock);
 
 	return NULL;
 }
@@ -245,7 +287,6 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	}
 
 	ctl->index_offset = 0;
-	ctl->data_offset = 0;
 
 	ctl->data_size = ctl->base->data_size;
 	ctl->index_size = ctl->base->index_size;

@@ -330,7 +330,6 @@ struct eblob_iterate_control {
 
 	struct eblob_base_ctl		*base;
 
-	int				check_index;
 	int				thread_num;
 	int				err;
 
@@ -344,7 +343,7 @@ struct eblob_iterate_control {
 	int				blob_start, blob_num;
 
 	unsigned long long		index_offset, index_size;
-	unsigned long long		data_offset, data_size;
+	unsigned long long		data_size;
 
 	void				*data;
 };
