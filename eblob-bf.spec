@@ -10,12 +10,11 @@ Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if %{defined rhel} && 0%{?rhel} < 6
-BuildRequires:	python-devel, boost141-python, boost141-devel
-BuildRequires:	boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
+BuildRequires:	boost141-devel, boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
 %else
-BuildRequires:	python-devel
 BuildRequires:	boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
 %endif
+BuildRequires:	python-devel
 BuildRequires:	snappy-devel
 BuildRequires:	cmake >= 2.6
 
@@ -66,7 +65,7 @@ needed for developing software which uses the eblob library.
 export LDFLAGS="-Wl,-z,defs"
 export DESTDIR="%{buildroot}"
 %if %{defined rhel} && 0%{?rhel} < 6
-CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_DIR=/usr/lib64/boost141 .
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_LIB_DIR=/usr/lib64/boost141 .
 %else
 %{cmake} .
 %endif
