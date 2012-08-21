@@ -65,7 +65,7 @@ needed for developing software which uses the eblob library.
 export LDFLAGS="-Wl,-z,defs"
 export DESTDIR="%{buildroot}"
 %if %{defined rhel} && 0%{?rhel} < 6
-CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_LIB_DIR=/usr/lib64/boost141 -DBoost_INCLUDE_DIR=/usr/include/boost141 .
+CXXFLAGS="-pthread -I/usr/include/boost141" LDFLAGS="-L/usr/lib64/boost141" %{cmake} -DBoost_LIB_DIR=/usr/lib64/boost141 -DBoost_INCLUDE_DIR=/usr/include/boost141 -DBoost_LIBRARYDIR=/usr/lib64/boost141 .
 %else
 %{cmake} .
 %endif
