@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.6 FATAL_ERROR)
 cmake_policy (VERSION 2.6.0)
-set(CMAKE_SKIP_RPATH TRUE)
+
+set(CMAKE_SKIP_RPATH FALSE)
+SET(CMAKE_SKIP_BUILD_RPATH  FALSE)
 
 project (eblob)
 set(EBLOB_VERSION_ABI "0.17")
