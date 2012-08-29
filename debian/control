@@ -8,6 +8,7 @@ Build-Depends: debhelper (>= 7),
                libboost-thread-dev,
                libsnappy-dev,
                python-dev,
+               python-support,
                libboost-python-dev,
                libboost-regex-dev,
                cmake (>= 2.6)
