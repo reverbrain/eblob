@@ -11,7 +11,8 @@ Build-Depends: debhelper (>= 7),
                python-support,
                libboost-python-dev,
                libboost-regex-dev,
-               cmake (>= 2.6)
+               cmake (>= 2.6),
+               python-support
 Standards-Version: 3.8.0
 Homepage: http://www.ioremap.net/projects/eblob
 
@@ -23,6 +24,6 @@ Description: BLOB data container
 
 Package: eblob-dbg
 Architecture: any
-Depends: ${binary:Version}
+Depends: eblob(=${binary:Version})
 Description: BLOB data container
  EBLOB is append data storage with fast indexes and comprehensive API
