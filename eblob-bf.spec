@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.1
+Version:	0.17.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Sep 06 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.2
+- fxd depends generation
+- Use small-lettered cmake functions
+- Added python support
+- Added rpath into binaries
+- Spec update
+- Move snappy into global build dep
+- When linking eblob_regex_iter do not use all boost libs, but only needed
+
 * Mon Aug 20 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.1
 - Fixed 1000-records defragmentation limit
 - Use bulk read in iterator
