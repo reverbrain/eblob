@@ -10,13 +10,13 @@ Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if %{defined rhel} && 0%{?rhel} < 6
-BuildRequires:	boost141-devel, boost141-iostreams, boost141-filesystem, boost141-thread, boost141-python, boost141-system, boost141-regex
+BuildRequires:	boost141-devel, boost141-filesystem, boost141-iostreams, boost141-python, boost141-regex, boost141-system, boost141-thread
 %else
-BuildRequires:	boost-python, boost-devel, boost-filesystem, boost-thread, boost-python, boost-system, boost-regex, boost-iostreams
+BuildRequires:	boost-devel, boost-filesystem, boost-iostreams, boost-python, boost-regex, boost-system, boost-thread
 %endif
+BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
 BuildRequires:	snappy-devel
-BuildRequires:	cmake >= 2.6
 
 %description
 libeblob is a low-level IO library which stores data in huge blob files
