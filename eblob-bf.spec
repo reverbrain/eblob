@@ -10,10 +10,11 @@ Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if %{defined rhel} && 0%{?rhel} < 6
-BuildRequires:	boost141-devel, boost141-filesystem, boost141-iostreams, boost141-python, boost141-regex, boost141-system, boost141-thread
+%define boost_ver 141
 %else
-BuildRequires:	boost-devel, boost-filesystem, boost-iostreams, boost-python, boost-regex, boost-system, boost-thread
+%define boost_ver %{nil}
 %endif
+BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-regex, boost%{boost_ver}-system, boost%{boost_ver}-thread
 BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
 BuildRequires:	snappy-devel
