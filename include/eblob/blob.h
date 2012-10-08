@@ -214,7 +214,7 @@ struct eblob_config {
 	/* sync interval in seconds */
 	int			sync;
 
-	/* alignment block size*/
+	/* alignment block size */
 	unsigned int		bsize;
 
 	/* logger */
@@ -297,21 +297,21 @@ struct eblob_iterate_control;
 struct eblob_iterate_callbacks {
 
 	/* Iterator callback. This function is called for each record in eblob.
-	 * priv is a private data pointer common for all threads.
-	 * thread_priv is a per-thread private data pointer.
+	 * @priv is a private data pointer common for all threads.
+	 * @thread_priv is a per-thread private data pointer.
 	 */
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
 						void *data, void *priv, void *thread_priv);
 
 	/* Initialization callback. This function is called in main thread before iterations.
-	 * Main purporse of this callback is thread_priv initialization.
+	 * Main purpose of this callback is @thread_priv initialization.
 	 */
 	int				(* iterator_init)(struct eblob_iterate_control *ctl, void **thread_priv);
 
 	/* Deinitialization callback. This function is called in main thread
 	 * after all iteration threads are stopped.
-	 * Main purporse of this callback is to free data allocated in iterator_init.
+	 * Main purpose of this callback is to free data allocated in iterator_init.
 	 */
 	int				(* iterator_free)(struct eblob_iterate_control *ctl, void **thread_priv);
 
@@ -377,16 +377,16 @@ int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 /*
  * Allocates buffer and reads data there.
  * Automatically handles compressed data.
- * @size will contain number of bytes read (0 means 
+ * @size will contain number of bytes read
  */
 int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, int type);
 
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
- * Flags can specify whether entry is removed and whether library will perform
+ * @flags can specify whether entry is removed and whether library will perform
  * data checksumming.
- * Flags are BLOB_DISK_CTL_* constants above.
+ * @flags are BLOB_DISK_CTL_* constants above.
  * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
@@ -413,7 +413,7 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
  * @size and @flags parameters. The former is used to reserve enough space
  * in blob file, the latter will be put into entry flags and will determine
  * whether given entry was removed and do we need to perform checksumming on commit.
- * @specifies type of the column we are about to write
+ * @type specifies type of the column we are about to write
  *
  * @eblob_write_prepare() will fill the rest of the parameters.
  * @data_fd/@index_fd specifies file descriptor to (re)write data to.
@@ -422,7 +422,7 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
  *
  * @ctl_data_offset is start of the control data on disk for given entry.
  * @ctl_index_offset shows where index entry has to be placed
- * @total_size is equal to aligned sum of user specified @size and sizes of header/footer 
+ * @total_size is equal to aligned sum of user specified @size and sizes of header/footer
  * structures.
  */
 struct eblob_write_control {
