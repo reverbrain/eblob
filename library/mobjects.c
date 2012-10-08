@@ -18,6 +18,12 @@
 #define _GNU_SOURCE
 #endif
 
+#if defined(__APPLE__)
+#ifndef _DARWIN_C_SOURCE
+#define _DARWIN_C_SOURCE
+#endif /* _DARWIN_C_SOURCE */
+#endif /* __APPLE__ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -35,7 +41,7 @@
 
 #include "blob.h"
 
-#if !defined(_D_EXACT_NAMLEN) && defined(__FreeBSD__)
+#if !defined(_D_EXACT_NAMLEN) && (defined(__FreeBSD__) || defined(__APPLE__))
 #define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
 #endif
 
