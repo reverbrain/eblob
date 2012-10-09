@@ -76,7 +76,7 @@ struct eblob_index_block {
 	struct eblob_key	end_key;
 
 	uint64_t		offset;
-	unsigned char		bloom[EBLOB_INDEX_BLOCK_BLOOM_LENGTH / (sizeof(unsigned char) * 8)];
+	unsigned char		bloom[EBLOB_INDEX_BLOCK_BLOOM_LENGTH / 8 ];
 };
 
 inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_num, int *bloom_bit_num)
@@ -89,8 +89,8 @@ inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_
 
 	acc = acc % EBLOB_INDEX_BLOCK_BLOOM_LENGTH;
 
-	*bloom_byte_num = acc / (sizeof(unsigned char) * 8);
-	*bloom_bit_num = acc % (sizeof(unsigned char) * 8);
+	*bloom_byte_num = acc / 8;
+	*bloom_bit_num = acc % 8;
 }
 
 
