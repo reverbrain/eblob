@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #include <errno.h>
+#include <ctime>
 
 #include <boost/shared_ptr.hpp>
 
@@ -124,16 +125,18 @@ class eblob_test {
 };
 
 
-
 int main()
 {
 	std::string key_base = "test-";
 	std::vector<int> types;
+	time_t now;
 
 	types.push_back(0);
 	types.push_back(10);
 
 	try {
+		now = time(0);
+		std::cout << "Tests started: " << ctime(&now) << std::endl;
 		eblob_test t(key_base, "/tmp/eblob-test-dir", 15);
 		t.create(types);
 		t.check(types);
@@ -144,8 +147,10 @@ int main()
 		sleep(timeout);
 
 		t.check(types);
-		std::cout << "Tests completed successfully" << std::endl;
+
+		now = time(0);
+		std::cout << "Tests completed successfully: " << ctime(&now) << std::endl;
 	} catch (const std::exception &e) {
-		std::cerr << "Got exception: " << e.what() << std::endl;
+		std::cerr << "Got an exception: " << e.what() << std::endl;
 	}
 }
