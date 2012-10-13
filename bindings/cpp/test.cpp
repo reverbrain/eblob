@@ -14,7 +14,7 @@ class eblob_test {
 	public:
 		eblob_test(const std::string &key_base_, const std::string &test_dir, int log_mask=31) :
 				key_base(key_base_),
-       				test_num(100000) {
+				test_num(100000) {
 			struct eblob_config cfg;
 
 			memset(&cfg, 0, sizeof(struct eblob_config));
@@ -24,7 +24,7 @@ class eblob_test {
 			std::string path = test_dir + "/data";
 			std::string log_path = test_dir + "/test.log";
 
-       			logger = boost::shared_ptr<eblob_logger>(new eblob_logger(log_path.c_str(), log_mask));
+			logger = boost::shared_ptr<eblob_logger>(new eblob_logger(log_path.c_str(), log_mask));
 
 			cfg.sync = 30;
 			cfg.defrag_timeout = 20;
