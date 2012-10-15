@@ -22,8 +22,8 @@ add_library(eblob_static STATIC ${EBLOB_SRCS})
 set_target_properties(eblob_static PROPERTIES
     OUTPUT_NAME eblob
     )
-target_link_libraries(eblob ${EBLOB_LIBRARIES})
-target_link_libraries(eblob_static ${EBLOB_LIBRARIES})
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES})
+target_link_libraries(eblob_static ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES})
 
 install(TARGETS eblob eblob_static
     LIBRARY DESTINATION lib${LIB_SUFFIX}
