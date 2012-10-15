@@ -3,6 +3,7 @@
 #include <sys/time.h>
 
 #include <errno.h>
+#include <ctime>
 
 #include <boost/shared_ptr.hpp>
 
@@ -14,7 +15,7 @@ class eblob_test {
 	public:
 		eblob_test(const std::string &key_base_, const std::string &test_dir, int log_mask=31) :
 				key_base(key_base_),
-       				test_num(100000) {
+				test_num(100000) {
 			struct eblob_config cfg;
 
 			memset(&cfg, 0, sizeof(struct eblob_config));
@@ -24,7 +25,7 @@ class eblob_test {
 			std::string path = test_dir + "/data";
 			std::string log_path = test_dir + "/test.log";
 
-       			logger = boost::shared_ptr<eblob_logger>(new eblob_logger(log_path.c_str(), log_mask));
+			logger = boost::shared_ptr<eblob_logger>(new eblob_logger(log_path.c_str(), log_mask));
 
 			cfg.sync = 30;
 			cfg.defrag_timeout = 20;
@@ -124,16 +125,18 @@ class eblob_test {
 };
 
 
-
 int main()
 {
 	std::string key_base = "test-";
 	std::vector<int> types;
+	time_t now;
 
 	types.push_back(0);
 	types.push_back(10);
 
 	try {
+		now = time(0);
+		std::cout << "Tests started: " << ctime(&now) << std::endl;
 		eblob_test t(key_base, "/tmp/eblob-test-dir", 15);
 		t.create(types);
 		t.check(types);
@@ -144,8 +147,10 @@ int main()
 		sleep(timeout);
 
 		t.check(types);
-		std::cout << "Tests completed successfully" << std::endl;
+
+		now = time(0);
+		std::cout << "Tests completed successfully: " << ctime(&now) << std::endl;
 	} catch (const std::exception &e) {
-		std::cerr << "Got exception: " << e.what() << std::endl;
+		std::cerr << "Got an exception: " << e.what() << std::endl;
 	}
 }
