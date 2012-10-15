@@ -21,6 +21,10 @@
 #include "lock.h"
 #include "list.h"
 
+#ifdef BINLOG
+#include "binlog.h"
+#endif
+
 #ifndef __unused
 #define __unused	__attribute__ ((unused))
 #endif
@@ -127,7 +131,13 @@ struct eblob_base_ctl {
 	pthread_mutex_t		index_blocks_lock;
 
 	int			good;
-
+#ifdef BINLOG
+	/*
+	 * If this pointer is not NULL then all operations for this base go
+	 * through a binlog.
+	 */
+	struct eblob_binlog_cfg	*binlog;
+#endif /* BINLOG */
 	char			name[0];
 };
 

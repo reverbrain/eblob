@@ -1233,6 +1233,11 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 	blob_update_index(b, key, &wc, 0);
 
+#ifdef BINLOG
+	/* TODO: binlog append */
+	binlog_append(NULL, NULL);
+#endif /* BINLOG */
+
 err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
 		memcpy(old_data, &wc, sizeof(struct eblob_write_control));
@@ -1272,6 +1277,11 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 
 	free(ctl);
 
+#ifdef BINLOG
+	/* TODO: binlog append */
+	binlog_append(NULL, NULL);
+#endif /* BINLOG */
+
 err_out_exit:
 	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
@@ -1296,6 +1306,11 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
+
+#ifdef BINLOG
+	/* TODO: binlog append */
+	binlog_append(NULL, NULL);
+#endif /* BINLOG */
 
 err_out_exit:
 	return err;

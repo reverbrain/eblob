@@ -12,6 +12,13 @@ set(EBLOB_SRCS
     stat.c
     rbtree.c
     )
+if(WITH_BINLOG)
+    add_definitions(-DBINLOG)
+    list(APPEND
+        EBLOB_SRCS
+        binlog.c
+    )
+endif()
 add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}

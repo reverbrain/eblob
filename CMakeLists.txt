@@ -15,6 +15,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
+option(WITH_BINLOG "Enable expirimental binlog support" OFF)
 
 include(CheckAtomic)
 include(TestBigEndian)
@@ -36,6 +37,8 @@ endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
+
+message(STATUS "Binlog is: ${WITH_BINLOG}")
 
 # Check for threads
 if (UNIX AND BSD)
