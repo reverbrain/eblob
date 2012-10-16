@@ -23,6 +23,7 @@
 /*
  * TODO: We are using asserts. Teach cmake to set -DNDEBUG
  */
+#include <string.h>
 #include <assert.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -52,7 +53,7 @@ static int binlog_allocate(int fd, off_t size) {
  * @path is desired name of binlog file.
  */
 struct eblob_binlog_cfg *binlog_init(char *path) {
-	int err = 0, len = 0;
+	int len, err = 0;
 	char *bl_cfg_binlog_path;
 	struct eblob_binlog_cfg *bcfg;
 
@@ -63,8 +64,8 @@ struct eblob_binlog_cfg *binlog_init(char *path) {
 	}
 
 	/* Copy path to bcfg */
-	len = strlen(path) + 1;
-	if (len <= 1 || len >= PATH_MAX) {
+	len = strlen(path);
+	if ((len == 0) || (len > PATH_MAX)) {
 		/* XXX: log */
 		err = -EINVAL;
 		goto err;
@@ -78,13 +79,12 @@ struct eblob_binlog_cfg *binlog_init(char *path) {
 	}
 	memset(bcfg, 0, sizeof(struct eblob_binlog_cfg));
 
-	bl_cfg_binlog_path = malloc(len);
+	bl_cfg_binlog_path = strndup(path, len);
 	if (bl_cfg_binlog_path == NULL) {
 		/* XXX: log */
 		err = -ENOMEM;
 		goto err_free_bcfg;
 	}
-	strncpy(bl_cfg_binlog_path, path, len);
 	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
 
 	return bcfg;
