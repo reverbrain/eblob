@@ -40,13 +40,21 @@ struct eblob_binlog_ctl;
 
 /* All data about one binlog file */
 struct eblob_binlog_cfg {
+	/* File descriptor of binlog itself. Filled by binlog_open. */
 	int			bl_cfg_binlog_fd;
-	/* */
+	/* Desired filename for binlog (full path) */
+	char			*bl_cfg_binlog_path;
+	/* File descriptor of the file bin log is applied to. */
 	int			bl_cfg_backend_fd;
 	/* Binlog-wide flags, described above */
 	uint64_t		bl_cfg_flags;
 	/* Size in bytes to preallocate for binlog */
-	uint64_t		bl_cfg_prealloc_size;
+	off_t			bl_cfg_prealloc_size;
+	/*
+	 * Log function
+	 * TODO: Make it pluggable
+	 */
+	struct eblob_log	*log;
 	/* TODO: Pluggable functions
 	 * For binlog to be extensible it would be nice to have set of function
 	 * pointers to different base routines, like:
@@ -114,7 +122,7 @@ static inline void eblob_convert_binlog_record_header(struct eblob_binlog_disk_r
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
 }
 
-int binlog_init(struct eblob_binlog_cfg *bcfg);
+struct eblob_binlog_cfg *binlog_init(char *path);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
