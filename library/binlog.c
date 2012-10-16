@@ -23,11 +23,11 @@
 /*
  * TODO: We are using asserts. Teach cmake to set -DNDEBUG
  */
-#include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
-#include <errno.h>
+#include <string.h>
 
 #include "blob.h"
 #include "binlog.h"
