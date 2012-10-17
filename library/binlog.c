@@ -85,15 +85,39 @@ err:
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	int err;
 
+	if((dhdr == NULL) || (fd < 0))
+		return -EINVAL;
+
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(dhdr))
 		return -errno;
 	return 0;
 }
 
-static int binlog_hdr_read() {
-	/* XXX: */
-	return 0;
+static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
+	int err;
+	struct eblob_binlog_disk_hdr *dhdr;
+
+	if (fd < 0)
+		goto err;
+
+	dhdr = malloc(sizeof(*dhdr));
+	if (dhdr == NULL) {
+		goto err;
+	}
+
+	err = pread(fd, dhdr, sizeof(dhdr), 0);
+	if (err != sizeof(dhdr)) {
+		goto err_free_dhdr;
+	}
+
+	/* XXX: checks. Atleast magic and version */
+
+	return eblob_convert_binlog_header(dhdr);
+err_free_dhdr:
+	free(dhdr);
+err:
+	return NULL;
 }
 
 /*
@@ -170,7 +194,12 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	}
 	bcfg->bl_cfg_binlog_fd = fd;
 
-	/* XXX: Read header */
+	/* Read header */
+	bcfg->bl_cfg_disk_hdr = binlog_hdr_read(bcfg->bl_cfg_binlog_fd);
+	if (bcfg->bl_cfg_disk_hdr == NULL) {
+		err = -EIO;
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_read: %s", __func__, bcfg->bl_cfg_binlog_path);
+	}
 err:
 	return err;
 }
