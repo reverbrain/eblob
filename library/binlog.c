@@ -37,6 +37,8 @@
  * XXX: Add cmake test for posix_fallocate
  */
 static int binlog_allocate(int fd, off_t size) {
+	if (size == 0 || fd < 0)
+		return -EINVAL;
 #ifdef WITH_POSIX_FALLOCATE
 	return -posix_fallocate(fd, 0, size);
 #else /* WITH_POSIX_FALLOCATE */
@@ -100,22 +102,24 @@ err:
 
 /*
  * Creates binlog and preallocates space for it.
- * Disable preallocation by providing @size == 0.
  */
 static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	int fd, err = 0;
 
-	if ((fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644)) == -1) {
+	/* Create */
+	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
+	if (fd == -1) {
 		err = -errno;
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open file: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err;
 	}
-
+	/* Allocate */
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
 		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: fallocate: %d", __func__, err);
 			goto err;
 		}
+	/* XXX: Save empty header */
 	return fd;
 err:
 	return err;
@@ -146,8 +150,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %d", __func__, err);
 			goto err;
 		}
-		/* Try to open if binlog_create failed with EEXIST */
-		if ((fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC)) == -1) {
+		/* Try to open if binlog_create failed with -EEXIST */
+		fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
+		if (fd  == -1) {
 			err = -errno;
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %d", __func__, err);
 			goto err;
