@@ -183,14 +183,14 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (fd < 0) {
 		if (fd != -EEXIST) {
 			err = fd;
-			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %d", __func__, err);
+			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
 			goto err;
 		}
 		/* Try to open if binlog_create failed with -EEXIST */
 		fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
 		if (fd  == -1) {
 			err = -errno;
-			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %d", __func__, err);
+			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
 			goto err;
 		}
 	}
