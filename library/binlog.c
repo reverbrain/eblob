@@ -51,37 +51,41 @@ static int binlog_allocate(int fd, off_t size) {
 /*
  * Returns pointer to cooked @eblob_binlog_cfg structure.
  * @path is desired name of binlog file.
+ * @log is logger control structure.
  */
-struct eblob_binlog_cfg *binlog_init(char *path) {
+struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	int len, err = 0;
 	char *bl_cfg_binlog_path;
 	struct eblob_binlog_cfg *bcfg;
 
 	if (path == NULL) {
-		/* XXX: log */
+		eblob_log(log, EBLOB_LOG_ERROR, "%s: path is NULL", __func__);
 		err = -EINVAL;
 		goto err;
 	}
 
-	/* Copy path to bcfg */
 	len = strlen(path);
 	if ((len == 0) || (len > PATH_MAX)) {
-		/* XXX: log */
+		eblob_log(log, EBLOB_LOG_ERROR, "%s: path length is out of bounds", __func__);
 		err = -EINVAL;
 		goto err;
 	}
 
 	bcfg = malloc(sizeof(struct eblob_binlog_cfg));
 	if (bcfg == NULL) {
-		/* XXX: log */
+		eblob_log(log, EBLOB_LOG_ERROR, "%s: malloc", __func__);
 		err = -ENOMEM;
 		goto err;
 	}
 	memset(bcfg, 0, sizeof(struct eblob_binlog_cfg));
 
+	/* Log */
+	bcfg->log = log;
+
+	/* Copy path to bcfg */
 	bl_cfg_binlog_path = strndup(path, len);
 	if (bl_cfg_binlog_path == NULL) {
-		/* XXX: log */
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: strndup", __func__);
 		err = -ENOMEM;
 		goto err_free_bcfg;
 	}
@@ -102,14 +106,14 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	int fd, err = 0;
 
 	if ((fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644)) == -1) {
-		/* XXX: log */
 		err = -errno;
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open file: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err;
 	}
 
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
 		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
-			/* XXX: log */
+			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: fallocate: %d", __func__, err);
 			goto err;
 		}
 	return fd;
@@ -138,14 +142,14 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	fd = binlog_create(bcfg);
 	if (fd < 0) {
 		if (fd != -EEXIST) {
-			/* XXX: log */
 			err = fd;
+			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %d", __func__, err);
 			goto err;
 		}
 		/* Try to open if binlog_create failed with EEXIST */
 		if ((fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC)) == -1) {
-			/* XXX: log */
 			err = -errno;
+			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %d", __func__, err);
 			goto err;
 		}
 	}

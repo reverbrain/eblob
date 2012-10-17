@@ -51,11 +51,12 @@ struct eblob_binlog_cfg {
 	/* Size in bytes to preallocate for binlog */
 	off_t			bl_cfg_prealloc_size;
 	/*
-	 * Log function
-	 * TODO: Make it pluggable
+	 * Logging
+	 * TODO: To move binlog into separate library we'll need to remove
+	 * dependency on eblob_log
 	 */
 	struct eblob_log	*log;
-	/* TODO: Pluggable functions
+	/* TODO: Pluggable data-processing functions
 	 * For binlog to be extensible it would be nice to have set of function
 	 * pointers to different base routines, like:
 	 * int (*bl_cfg_read_record)(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
@@ -122,7 +123,7 @@ static inline void eblob_convert_binlog_record_header(struct eblob_binlog_disk_r
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
 }
 
-struct eblob_binlog_cfg *binlog_init(char *path);
+struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
