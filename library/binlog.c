@@ -110,14 +110,28 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 	if (err != sizeof(dhdr)) {
 		goto err_free_dhdr;
 	}
-
-	/* XXX: checks. Atleast magic and version */
-
 	return eblob_convert_binlog_header(dhdr);
 err_free_dhdr:
 	free(dhdr);
 err:
 	return NULL;
+}
+
+/*
+ * Preform simple checks on binlog header, later in can also signal on disk
+ * data format changes or perform checksum verifications.
+ */
+static int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
+	if (strcmp(dhdr->bl_hdr_magic, EBLOB_BINLOG_MAGIC))
+		return -EINVAL;
+
+	/* Here we can request format convertion. */
+	if (dhdr->bl_hdr_version != EBLOB_BINLOG_VERSION)
+		return -ENOTSUP;
+
+	if (dhdr->bl_hdr_flags & (~EBLOB_BINLOG_FLAGS_CFG_ALL))
+		return -ENOTSUP;
+	return 0;
 }
 
 /*
@@ -201,6 +215,12 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg->bl_cfg_disk_hdr == NULL) {
 		err = -EIO;
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_read: %s", __func__, bcfg->bl_cfg_binlog_path);
+		goto err_close;
+	}
+	/* Check header */
+	err = binlog_hdr_verify(bcfg->bl_cfg_disk_hdr);
+	if (err) {
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_verify: %s", __func__, bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
 	return 0;
