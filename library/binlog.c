@@ -139,7 +139,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
 		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: fallocate: %d", __func__, err);
-			goto err;
+			goto err_close;
 		}
 
 	/* Construct header */
@@ -152,9 +152,11 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	err = binlog_hdr_write(fd, &dhdr);
 	if (err) {
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: pwrite: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
-		goto err;
+		goto err_close;
 	}
 	return fd;
+err_close:
+	close(fd);
 err:
 	return err;
 }
@@ -167,7 +169,7 @@ err:
  * binlog.
  */
 int binlog_open(struct eblob_binlog_cfg *bcfg) {
-	int fd, err = 0;
+	int fd, err;
 
 	if (bcfg == NULL) {
 		err = -EINVAL;
@@ -199,7 +201,11 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg->bl_cfg_disk_hdr == NULL) {
 		err = -EIO;
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_read: %s", __func__, bcfg->bl_cfg_binlog_path);
+		goto err_close;
 	}
+	return 0;
+err_close:
+	close(fd);
 err:
 	return err;
 }
