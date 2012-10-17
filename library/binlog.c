@@ -33,24 +33,6 @@
 #include "binlog.h"
 
 /*
- * Allocate space for binlog.
- * XXX: Add cmake test for posix_fallocate
- */
-static int binlog_allocate(int fd, off_t size) {
-	if (size == 0 || fd < 0)
-		return -EINVAL;
-#ifdef WITH_POSIX_FALLOCATE
-	return -posix_fallocate(fd, 0, size);
-#else /* WITH_POSIX_FALLOCATE */
-	/*
-	 * XXX: Crippled OSes (e.g. Darwin) go here.
-	 * Think of something like fcntl F_PREALLOCATE
-	 */
-	return 0;
-#endif /* WITH_POSIX_FALLOCATE */
-}
-
-/*
  * Returns pointer to cooked @eblob_binlog_cfg structure.
  * @path is desired name of binlog file.
  * @log is logger control structure.

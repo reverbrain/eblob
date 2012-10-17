@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include <unistd.h>
+
 #ifndef __EBLOB_BINLOG_H
 #define __EBLOB_BINLOG_H
 
@@ -123,6 +125,47 @@ static inline void eblob_convert_binlog_record_header(struct eblob_binlog_disk_r
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
+}
+
+/*
+ * Allocate space for binlog.
+ * XXX: Add cmake test for posix_fallocate
+ */
+static int binlog_allocate(int fd, off_t size) {
+	if (size == 0 || fd < 0)
+		return -EINVAL;
+#ifdef WITH_POSIX_FALLOCATE
+	return -posix_fallocate(fd, 0, size);
+#else /* WITH_POSIX_FALLOCATE */
+	/*
+	 * XXX: Crippled OSes (e.g. Darwin) go here.
+	 * Think of something like fcntl F_PREALLOCATE
+	 */
+	return 0;
+#endif /* WITH_POSIX_FALLOCATE */
+}
+
+/*
+ * Sync written data to disk
+ *
+ * On linux fdatasync call is available that syncs only data, but not metadata,
+ * which requires less disk seeks.
+ *
+ * XXX: Add cmake test for fdatasync
+ */
+static inline int binlog_sync(int fd) {
+	if (fsync(fd) == -1)
+		return -errno;
+	return 0;
+}
+static inline int binlog_datasync(int fd) {
+#ifdef WITH_FDATASYNC
+	if (fdatasync(fd) == -1)
+		return -errno;
+	return 0;
+#else /* WITH_FDATASYNC */
+	return binlog_sync(fd);
+#endif /* WITH_FDATASYNC */
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
