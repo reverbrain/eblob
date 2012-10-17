@@ -41,21 +41,23 @@ struct eblob_binlog_ctl;
 /* All data about one binlog file */
 struct eblob_binlog_cfg {
 	/* File descriptor of binlog itself. Filled by binlog_open. */
-	int			bl_cfg_binlog_fd;
+	int				bl_cfg_binlog_fd;
 	/* Desired filename for binlog (full path) */
-	char			*bl_cfg_binlog_path;
+	char				*bl_cfg_binlog_path;
 	/* File descriptor of the file bin log is applied to. */
-	int			bl_cfg_backend_fd;
+	int				bl_cfg_backend_fd;
 	/* Binlog-wide flags, described above */
-	uint64_t		bl_cfg_flags;
+	uint64_t			bl_cfg_flags;
 	/* Size in bytes to preallocate for binlog */
-	off_t			bl_cfg_prealloc_size;
+	off_t				bl_cfg_prealloc_size;
+	/* Pointer to on-disk header for this binlog */
+	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
 	/*
 	 * Logging
 	 * TODO: To move binlog into separate library we'll need to remove
 	 * dependency on eblob_log
 	 */
-	struct eblob_log	*log;
+	struct eblob_log		*log;
 	/* TODO: Pluggable data-processing functions
 	 * For binlog to be extensible it would be nice to have set of function
 	 * pointers to different base routines, like:
@@ -63,7 +65,7 @@ struct eblob_binlog_cfg {
 	 */
 };
 
-/* Control structure passed along to binlog_* functions */
+/* Control structure for binlog data encapsulation */
 struct eblob_binlog_ctl {
 	/* Pointer to corresponding cfg */
 	struct eblob_binlog_cfg	*bl_ctl_cfg;

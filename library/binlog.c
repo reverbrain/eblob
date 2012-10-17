@@ -159,6 +159,8 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		}
 	}
 	bcfg->bl_cfg_binlog_fd = fd;
+
+	/* XXX: Read header */
 err:
 	return err;
 }
