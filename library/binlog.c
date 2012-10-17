@@ -82,6 +82,20 @@ err:
 	return NULL;
 }
 
+static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
+	int err;
+
+	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
+	if (err != sizeof(dhdr))
+		return -errno;
+	return 0;
+}
+
+static int binlog_hdr_read() {
+	/* XXX: */
+	return 0;
+}
+
 /*
  * Creates binlog and preallocates space for it.
  */
@@ -96,6 +110,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open file: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err;
 	}
+
 	/* Allocate */
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
 		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
@@ -110,9 +125,8 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	dhdr.bl_hdr_flags = bcfg->bl_cfg_flags;
 
 	/* Save header */
-	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_header(&dhdr), sizeof(dhdr), 0);
-	if (err != sizeof(dhdr)) {
-		err = -errno;
+	err = binlog_hdr_write(fd, &dhdr);
+	if (err) {
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: pwrite: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err;
 	}
