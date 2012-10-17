@@ -87,6 +87,7 @@ err:
  */
 static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	int fd, err = 0;
+	struct eblob_binlog_disk_hdr dhdr;
 
 	/* Create */
 	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
@@ -101,7 +102,20 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: fallocate: %d", __func__, err);
 			goto err;
 		}
-	/* XXX: Save empty header */
+
+	/* Construct header */
+	memset(&dhdr, 0, sizeof(dhdr));
+	strncpy(dhdr.bl_hdr_magic, EBLOB_BINLOG_MAGIC, sizeof(dhdr.bl_hdr_magic));
+	dhdr.bl_hdr_version = EBLOB_BINLOG_VERSION;
+	dhdr.bl_hdr_flags = bcfg->bl_cfg_flags;
+
+	/* Save header */
+	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_header(&dhdr), sizeof(dhdr), 0);
+	if (err != sizeof(dhdr)) {
+		err = -errno;
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: pwrite: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
+	}
 	return fd;
 err:
 	return err;

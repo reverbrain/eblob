@@ -112,19 +112,29 @@ struct eblob_binlog_disk_record_hdr {
 	uint64_t		bl_record_ts;
 } __attribute__ ((packed));
 
-static inline void eblob_convert_binlog_header(struct eblob_binlog_disk_hdr *hdr)
+/*
+ * Convert binlog header to/from on-disk format
+ * Returns @hdr back.
+ */
+static inline struct eblob_binlog_disk_hdr *eblob_convert_binlog_header(struct eblob_binlog_disk_hdr *hdr)
 {
 	hdr->bl_hdr_version = eblob_bswap16(hdr->bl_hdr_version);
 	hdr->bl_hdr_flags = eblob_bswap64(hdr->bl_hdr_flags);
+	return hdr;
 }
 
-static inline void eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
+/*
+ * Convert binlog record header to/from on-disk format
+ * Returns @rhdr back.
+ */
+static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
 {
 	rhdr->bl_record_type = eblob_bswap16(rhdr->bl_record_type);
 	rhdr->bl_record_position = eblob_bswap64(rhdr->bl_record_position);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
+	return rhdr;
 }
 
 /*
