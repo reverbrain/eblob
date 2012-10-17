@@ -91,6 +91,11 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(dhdr))
 		return -errno;
+
+	err = binlog_datasync(fd);
+	if (err) {
+		return -errno;
+	}
 	return 0;
 }
 
