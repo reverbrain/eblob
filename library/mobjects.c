@@ -13,16 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#define _XOPEN_SOURCE 1024
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-#if defined(__APPLE__)
-#ifndef _DARWIN_C_SOURCE
-#define _DARWIN_C_SOURCE
-#endif /* _DARWIN_C_SOURCE */
-#endif /* __APPLE__ */
+#include "features.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
