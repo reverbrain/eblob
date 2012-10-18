@@ -18,12 +18,13 @@
  * It can be used for point in time recovery, replication or snapshots.
  */
 
-#include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
