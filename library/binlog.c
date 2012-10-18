@@ -21,9 +21,6 @@
 #include <sys/syslimits.h>
 #include <sys/types.h>
 #include <sys/uio.h>
-/*
- * TODO: We are using asserts. Teach cmake to set -DNDEBUG
- */
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
