@@ -45,6 +45,11 @@ if (UNIX OR MINGW)
     #   GCC prints warnings if compiling with -fstrict-aliasing
     #   One can increase verbosity by setting -Wstrict-aliasing=2
     #
+    # Useful warning options not implied by -Wall and -Wextra:
+    #   -Wredundant-decls
+    #   -Wmissing-declarations
+    #   -Wstrict-overflow=4
+    #
     add_definitions(-Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
 endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
