@@ -74,6 +74,12 @@ if(WITH_PYTHON)
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
+# Check for posix_fadvise
+include(CheckSymbolExists)
+check_symbol_exists(posix_fadvise "fcntl.h" HAVE_POSIX_FADVISE)
+if (HAVE_POSIX_FADVISE)
+    add_definitions(-DHAVE_POSIX_FADVISE)
+endif()
 
 # Collect all libraries together
 set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SNAPPY_LIBRARIES})
