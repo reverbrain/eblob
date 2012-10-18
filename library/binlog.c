@@ -18,6 +18,8 @@
  * It can be used for point in time recovery, replication or snapshots.
  */
 
+#include "features.h"
+
 #include <sys/types.h>
 #include <sys/uio.h>
 
