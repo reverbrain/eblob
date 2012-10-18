@@ -38,6 +38,13 @@ else()
 endif()
 
 if (UNIX OR MINGW)
+    #
+    # Strict Aliasing notes:
+    #   Currently there are couple of memory aliases represented by char** and
+    #     void** casts in blob.c and mobjects.c
+    #   GCC prints warnings if compiling with -fstrict-aliasing
+    #   One can increase verbosity by setting -Wstrict-aliasing=2
+    #
     add_definitions(-W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
 endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
