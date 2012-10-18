@@ -94,7 +94,7 @@ struct eblob_binlog_disk_hdr {
 	/* Binlog-wide flags */
 	uint64_t		bl_hdr_flags;
 	/* padding for header extensions */
-	char			bl_hdr_pad[242];
+	char			bl_hdr_pad[240];
 } __attribute__ ((packed));
 
 /* On disk header for binlog records */
