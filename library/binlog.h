@@ -146,15 +146,15 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 static inline int binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
 		return -EINVAL;
-#ifdef WITH_POSIX_FALLOCATE
+#ifdef HAVE_POSIX_FALLOCATE
 	return -posix_fallocate(fd, 0, size);
-#else /* WITH_POSIX_FALLOCATE */
+#else /* HAVE_POSIX_FALLOCATE */
 	/*
 	 * XXX: Crippled OSes (e.g. Darwin) go here.
 	 * Think of something like fcntl F_PREALLOCATE
 	 */
 	return 0;
-#endif /* WITH_POSIX_FALLOCATE */
+#endif /* HAVE_POSIX_FALLOCATE */
 }
 
 /*
@@ -171,13 +171,13 @@ static inline int binlog_sync(int fd) {
 	return 0;
 }
 static inline int binlog_datasync(int fd) {
-#ifdef WITH_FDATASYNC
+#ifdef HAVE_FDATASYNC
 	if (fdatasync(fd) == -1)
 		return -errno;
 	return 0;
-#else /* WITH_FDATASYNC */
+#else /* HAVE_FDATASYNC */
 	return binlog_sync(fd);
-#endif /* WITH_FDATASYNC */
+#endif /* HAVE_FDATASYNC */
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
