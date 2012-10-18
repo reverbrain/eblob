@@ -293,9 +293,19 @@ err:
 	return err;
 }
 
-/* Recursively destroys binlog object*/
+/* Recursively destroys binlog object */
 int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
+	/*
+	 * It's safe to free NULL but it still strange to pass it to
+	 * binlog_destroy, so return an error.
+	 */
+	if (bcfg == NULL) {
+		return -EINVAL;
+	}
+
 	free(bcfg->bl_cfg_disk_hdr);
 	free(bcfg->bl_cfg_binlog_path);
 	free(bcfg);
+
+	return 0;
 }
