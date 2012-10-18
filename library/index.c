@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include "features.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
