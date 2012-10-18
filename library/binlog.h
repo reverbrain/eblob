@@ -150,7 +150,7 @@ static inline int binlog_allocate(int fd, off_t size) {
 	return -posix_fallocate(fd, 0, size);
 #else /* HAVE_POSIX_FALLOCATE */
 	/*
-	 * XXX: Crippled OSes (e.g. Darwin) go here.
+	 * TODO: Crippled OSes (e.g. Darwin) go here.
 	 * Think of something like fcntl F_PREALLOCATE
 	 */
 	return 0;
