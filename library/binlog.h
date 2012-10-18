@@ -101,7 +101,7 @@ struct eblob_binlog_disk_hdr {
 struct eblob_binlog_disk_record_hdr {
 	/* Record type */
 	uint16_t		bl_record_type;
-	/* Position of data in  file */
+	/* Position of data in file */
 	uint64_t		bl_record_position;
 	/* Size of record starting from position */
 	uint64_t		bl_record_size;

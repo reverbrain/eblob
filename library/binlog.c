@@ -204,7 +204,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		}
 		/* Try to open if binlog_create failed with -EEXIST */
 		fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
-		if (fd  == -1) {
+		if (fd == -1) {
 			err = -errno;
 			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
 			goto err;
