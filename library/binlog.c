@@ -53,12 +53,12 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 		goto err;
 	}
 
-	bcfg = malloc(sizeof(struct eblob_binlog_cfg));
+	bcfg = malloc(sizeof(*bcfg));
 	if (bcfg == NULL) {
 		eblob_log(log, EBLOB_LOG_ERROR, "%s: malloc", __func__);
 		goto err;
 	}
-	memset(bcfg, 0, sizeof(struct eblob_binlog_cfg));
+	memset(bcfg, 0, sizeof(*bcfg));
 
 	/* Copy path to bcfg */
 	bl_cfg_binlog_path = strndup(path, len);
