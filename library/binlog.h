@@ -143,7 +143,7 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
  * Allocate space for binlog.
  * XXX: Add cmake test for posix_fallocate
  */
-static int binlog_allocate(int fd, off_t size) {
+static inline int binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
 		return -EINVAL;
 #ifdef WITH_POSIX_FALLOCATE
