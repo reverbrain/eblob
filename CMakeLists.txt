@@ -12,6 +12,7 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+option(WITH_ASSERTS "Enable asserts" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
@@ -20,6 +21,12 @@ include(CheckAtomic)
 include(TestBigEndian)
 
 include_directories(${CMAKE_BINARY_DIR}/include/)
+
+# Turn off aserts
+if(!WITH_ASSERTS)
+    add_definitions(-DNDEBUG)
+endif()
+message(STATUS "Asserts are: ${WITH_ASSERTS}")
 
 # Test endianess
 test_big_endian(HAVE_BIG_ENDIAN)
