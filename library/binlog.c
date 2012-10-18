@@ -20,6 +20,7 @@
 
 #include <sys/syslimits.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 /*
  * TODO: We are using asserts. Teach cmake to set -DNDEBUG
  */
@@ -28,6 +29,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "blob.h"
 #include "binlog.h"
