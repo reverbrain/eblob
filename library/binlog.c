@@ -38,42 +38,37 @@
  * @log is logger control structure.
  */
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
-	int len, err = 0;
+	int len;
 	char *bl_cfg_binlog_path;
 	struct eblob_binlog_cfg *bcfg;
 
 	if (path == NULL) {
 		eblob_log(log, EBLOB_LOG_ERROR, "%s: path is NULL", __func__);
-		err = -EINVAL;
 		goto err;
 	}
 
 	len = strlen(path);
 	if ((len == 0) || (len > PATH_MAX)) {
 		eblob_log(log, EBLOB_LOG_ERROR, "%s: path length is out of bounds", __func__);
-		err = -EINVAL;
 		goto err;
 	}
 
 	bcfg = malloc(sizeof(struct eblob_binlog_cfg));
 	if (bcfg == NULL) {
 		eblob_log(log, EBLOB_LOG_ERROR, "%s: malloc", __func__);
-		err = -ENOMEM;
 		goto err;
 	}
 	memset(bcfg, 0, sizeof(struct eblob_binlog_cfg));
 
-	/* Log */
-	bcfg->log = log;
-
 	/* Copy path to bcfg */
 	bl_cfg_binlog_path = strndup(path, len);
 	if (bl_cfg_binlog_path == NULL) {
-		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: strndup", __func__);
-		err = -ENOMEM;
+		eblob_log(log, EBLOB_LOG_ERROR, "%s: strndup", __func__);
 		goto err_free_bcfg;
 	}
+
 	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
+	bcfg->log = log;
 
 	return bcfg;
 err_free_bcfg:
@@ -150,7 +145,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
 	if (fd == -1) {
 		err = -errno;
-		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open file: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err;
 	}
 
@@ -222,6 +217,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_read: %s", __func__, bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
+
 	/* Check header */
 	err = binlog_hdr_verify(bcfg->bl_cfg_disk_hdr);
 	if (err) {
