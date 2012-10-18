@@ -263,5 +263,33 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd) {
  * Closes binlog and tries to flush it from OS memory.
  */
 int binlog_close(struct eblob_binlog_cfg *bcfg) {
-	return 0;
+	int err;
+
+	err = binlog_hdr_write(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_disk_hdr);
+	if (err) {
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_hdr_write: %s, err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
+	}
+
+	err = binlog_sync(bcfg->bl_cfg_binlog_fd);
+	if (err) {
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_sync: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
+	}
+
+	err = close(bcfg->bl_cfg_binlog_fd);
+	if (err == -1) {
+		err = -errno;
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: close: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
+	}
+err:
+	return err;
+}
+
+/* Recursively destroys binlog object*/
+int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
+	free(bcfg->bl_cfg_disk_hdr);
+	free(bcfg->bl_cfg_binlog_path);
+	free(bcfg);
 }

@@ -186,5 +186,6 @@ int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd);
 int binlog_close(struct eblob_binlog_cfg *bcfg);
+int binlog_destroy(struct eblob_binlog_cfg *bcfg);
 
 #endif /* __EBLOB_BINLOG_H */
