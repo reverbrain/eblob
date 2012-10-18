@@ -141,7 +141,6 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 
 /*
  * Allocate space for binlog.
- * XXX: Add cmake test for posix_fallocate
  */
 static inline int binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
@@ -162,8 +161,6 @@ static inline int binlog_allocate(int fd, off_t size) {
  *
  * On linux fdatasync call is available that syncs only data, but not metadata,
  * which requires less disk seeks.
- *
- * XXX: Add cmake test for fdatasync
  */
 static inline int binlog_sync(int fd) {
 	if (fsync(fd) == -1)
