@@ -224,6 +224,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 		struct eblob_ram_control **dst, int *dsize);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
+int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,
+		struct eblob_base_type **typesp, int *max_typep);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
