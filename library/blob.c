@@ -1233,7 +1233,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 #ifdef BINLOG
 	/* TODO: binlog append */
-	binlog_append(NULL, NULL);
+	binlog_append(NULL);
 #endif /* BINLOG */
 
 err_out_exit:
@@ -1277,7 +1277,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 
 #ifdef BINLOG
 	/* TODO: binlog append */
-	binlog_append(NULL, NULL);
+	binlog_append(NULL);
 #endif /* BINLOG */
 
 err_out_exit:
@@ -1307,7 +1307,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 
 #ifdef BINLOG
 	/* TODO: binlog append */
-	binlog_append(NULL, NULL);
+	binlog_append(NULL);
 #endif /* BINLOG */
 
 err_out_exit:

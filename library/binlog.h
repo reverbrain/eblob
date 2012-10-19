@@ -58,6 +58,8 @@ struct eblob_binlog_cfg {
 	uint64_t			bl_cfg_flags;
 	/* Size in bytes to preallocate for binlog */
 	off_t				bl_cfg_prealloc_size;
+	/* Current offset of binlog_append */
+	off_t				bl_cfg_binlog_position;
 	/* Pointer to on-disk header for this binlog */
 	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
 	/*
@@ -77,6 +79,8 @@ struct eblob_binlog_cfg {
 struct eblob_binlog_ctl {
 	/* Pointer to corresponding cfg */
 	struct eblob_binlog_cfg	*bl_ctl_cfg;
+	/* Record type */
+	uint16_t		bl_ctl_type;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
@@ -137,8 +141,8 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 {
 	rhdr->bl_record_type = eblob_bswap16(rhdr->bl_record_type);
 	rhdr->bl_record_position = eblob_bswap64(rhdr->bl_record_position);
-	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
+	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
 	return rhdr;
 }
@@ -190,7 +194,7 @@ static inline int binlog_datasync(int fd) {
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
-int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
+int binlog_append(struct eblob_binlog_ctl *bctl);
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd);
 int binlog_close(struct eblob_binlog_cfg *bcfg);

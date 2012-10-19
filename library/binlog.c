@@ -20,6 +20,7 @@
 
 #include "features.h"
 
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -150,6 +151,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
+	bcfg->bl_cfg_binlog_position = sizeof(dhdr);
 
 	/* Allocate */
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
@@ -227,6 +229,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_verify: %s", bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
+
+	/* XXX: Find current binlog position */
+
 	return 0;
 err_close:
 	close(fd);
@@ -237,8 +242,70 @@ err:
 /*
  * Append record to the end of binlog.
  */
-int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl) {
+int binlog_append(struct eblob_binlog_ctl *bctl) {
+	int err, record_len;
+	struct timeval record_ts;
+	struct eblob_binlog_cfg *bcfg;
+	struct eblob_binlog_disk_record_hdr rhdr;
+
+	if (bctl == NULL || (bcfg = bctl->bl_ctl_cfg) == NULL)
+		return -EINVAL;
+
+	/* We MUST have associated fd by that time */
+	assert(bcfg->bl_cfg_binlog_fd >= 0);
+
+	/* Check if binlog needs to be extended */
+	record_len = bctl->bl_ctl_size + sizeof(rhdr);
+	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
+		/* XXX: */;
+
+	/* Construct record header */
+	err = gettimeofday(&record_ts, NULL);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "gettimeofday");
+		goto err;
+	}
+	rhdr.bl_record_type = bctl->bl_ctl_type;
+	rhdr.bl_record_position = bcfg->bl_cfg_binlog_position + sizeof(rhdr);
+	rhdr.bl_record_size = bctl->bl_ctl_size;
+	rhdr.bl_record_flags = bctl->bl_ctl_flags;
+	rhdr.bl_record_ts = (uint64_t)record_ts.tv_sec;
+
+	/* Write header */
+	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s", bcfg->bl_cfg_binlog_path);
+		goto err;
+	}
+
+	/* Write data */
+	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, rhdr.bl_record_position);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
+		goto err;
+	}
+
+	/* Sync if not already opened with O_SYNC */
+	if (!(bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_SYNC)) {
+		err = binlog_datasync(bcfg->bl_cfg_binlog_fd);
+		if (err) {
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_datasync: %s", bcfg->bl_cfg_binlog_path);
+			goto err;
+		}
+	}
+
+	/* Finally is everything is ok - bump length */
+	bcfg->bl_cfg_binlog_position += record_len;
+
+	/* TODO: Save position to binlog header */
+	/* TODO: Add record to binlog index */
+
 	return 0;
+err:
+	return err;
 }
 
 /*
