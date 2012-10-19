@@ -45,19 +45,19 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	struct eblob_binlog_cfg *bcfg;
 
 	if (path == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "init: %s", "path is NULL");
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path is NULL");
 		goto err;
 	}
 
 	len = strlen(path);
 	if ((len == 0) || (len > PATH_MAX)) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "init: %s", "path length is out of bounds");
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path length is out of bounds");
 		goto err;
 	}
 
 	bcfg = malloc(sizeof(*bcfg));
 	if (bcfg == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "init: %s", "malloc");
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "malloc");
 		goto err;
 	}
 	memset(bcfg, 0, sizeof(*bcfg));
@@ -65,7 +65,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	/* Copy path to bcfg */
 	bl_cfg_binlog_path = strndup(path, len);
 	if (bl_cfg_binlog_path == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "init: %s", "strndup");
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "strndup");
 		goto err_free_bcfg;
 	}
 
