@@ -20,6 +20,7 @@
 
 #include "features.h"
 
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -152,6 +153,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		goto err;
 	}
 	bcfg->bl_cfg_binlog_position = sizeof(dhdr);
+	bcfg->bl_cfg_prealloc_size = bcfg->bl_cfg_prealloc_step;
 
 	/* Allocate */
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
@@ -182,11 +184,12 @@ err:
  * Opens binlog for given blob.
  *
  * @bcfg->bl_cfg_binlog_path: full path to binlog file.
- * @bcfg->bl_cfg_prealloc_size: number of bytes to preallocate on disk for
+ * @bcfg->bl_cfg_prealloc_step: number of bytes to preallocate on disk for
  * binlog.
  */
 int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	int fd, oflag, err;
+	struct stat binlog_stat;
 
 	if (bcfg == NULL) {
 		err = -EINVAL;
@@ -214,6 +217,15 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err;
 	}
 	bcfg->bl_cfg_binlog_fd = fd;
+
+	/* Stat binlog */
+	err = fstat(bcfg->bl_cfg_binlog_fd, &binlog_stat);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "fstat: %s", bcfg->bl_cfg_binlog_path);
+		goto err_close;
+	}
+	bcfg->bl_cfg_prealloc_size = binlog_stat.st_size;
 
 	/* Read header */
 	bcfg->bl_cfg_disk_hdr = binlog_hdr_read(bcfg->bl_cfg_binlog_fd);
@@ -259,7 +271,14 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Check if binlog needs to be extended */
 	record_len = bctl->bl_ctl_size + sizeof(rhdr);
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
-		/* XXX: */;
+		if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size) {
+			bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
+			err = binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
+			if (err) {
+				EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
+				goto err;
+			}
+		}
 
 	/* Construct record header */
 	err = gettimeofday(&record_ts, NULL);

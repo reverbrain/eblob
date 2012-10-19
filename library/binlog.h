@@ -56,7 +56,9 @@ struct eblob_binlog_cfg {
 	int				bl_cfg_backend_fd;
 	/* Binlog-wide flags, described above */
 	uint64_t			bl_cfg_flags;
-	/* Size in bytes to preallocate for binlog */
+	/* Preallocate space for binlog in following steps (in bytes) */
+	off_t				bl_cfg_prealloc_step;
+	/* Size (in bytes) of total preallocated space for binlog */
 	off_t				bl_cfg_prealloc_size;
 	/* Current offset of binlog_append */
 	off_t				bl_cfg_binlog_position;
