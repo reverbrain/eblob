@@ -54,9 +54,13 @@ include(CheckThreadSpinlock)
 # Check for boost
 #set(Boost_USE_STATIC_LIBS ON)
 #set(Boost_USE_STLPORT ON)
-find_package(Boost REQUIRED COMPONENTS iostreams thread regex python)
+find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python)
+message(STATUS "Boost information:")
+message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
+message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
+message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIRS})
-message(STATUS "Boost includes are situated in ${Boost_INCLUDE_DIRS}")
+link_directories(${Boost_LIBRARY_DIRS})
 
 # Check for snappy - unusual dependency, it doesn't use pkgconfig
 if (WITH_SNAPPY)

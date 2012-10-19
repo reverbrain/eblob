@@ -18,6 +18,12 @@
 #define _GNU_SOURCE
 #endif
 
+#if defined(__APPLE__)
+#ifndef _DARWIN_C_SOURCE
+#define _DARWIN_C_SOURCE
+#endif /* _DARWIN_C_SOURCE */
+#endif /* __APPLE__ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -35,7 +41,7 @@
 
 #include "blob.h"
 
-#if !defined(_D_EXACT_NAMLEN) && defined(__FreeBSD__)
+#if !defined(_D_EXACT_NAMLEN) && (defined(__FreeBSD__) || defined(__APPLE__))
 #define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
 #endif
 
@@ -571,7 +577,7 @@ void eblob_base_types_cleanup(struct eblob_backend *b)
 
 static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typesp, int *max_typep)
 {
-	int base_len, fd, err;
+	int base_len, err;
 	struct eblob_base_type *types;
 	DIR *dir;
 	struct dirent64 *d;
@@ -592,13 +598,11 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 	if (tmp)
 		*tmp = '\0';
 
-	fd = open(dir_base, O_RDONLY);
-	if (fd == -1) {
+	dir = opendir(dir_base);
+	if (dir == NULL) {
 		err = -errno;
 		goto err_out_free;
 	}
-
-	dir = fdopendir(fd);
 
 	max_type = 0;
 	types = eblob_realloc_base_type(NULL, 0, max_type);
@@ -646,7 +650,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		}
 	}
 
-	close(fd);
+	closedir(dir);
 	free(dir_base);
 
 	*typesp = types;
@@ -657,7 +661,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 err_out_free_types:
 	eblob_base_types_free(types, max_type);
 err_out_close:
-	close(fd);
+	closedir(dir);
 err_out_free:
 	free(dir_base);
 err_out_exit:

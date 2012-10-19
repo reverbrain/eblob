@@ -3,15 +3,14 @@ Section: net
 Priority: optional
 Maintainer: Evgeniy Polyakov <zbr@ioremap.net>
 Build-Depends: debhelper (>= 7),
+               cmake (>= 2.6),
                libboost-dev,
                libboost-iostreams-dev,
+               libboost-python-dev,
+               libboost-regex-dev,
                libboost-thread-dev,
                libsnappy-dev,
                python-dev,
-               python-support,
-               libboost-python-dev,
-               libboost-regex-dev,
-               cmake (>= 2.6),
                python-support
 Standards-Version: 3.8.0
 Homepage: http://www.ioremap.net/projects/eblob
