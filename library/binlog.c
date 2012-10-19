@@ -242,17 +242,10 @@ int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl) 
 }
 
 /*
- * Reads binlog entry at given position
- */
-static int _binlog_read(/* TODO: */) {
-	return 0;
-}
-
-/*
  * Reads binlog data for a key
  */
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl) {
-	return _binlog_read();
+	return 0;
 }
 
 /*
