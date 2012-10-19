@@ -253,6 +253,8 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* We MUST have associated fd by that time */
 	assert(bcfg->bl_cfg_binlog_fd >= 0);
+	/* We have header, so binlog position should be greater than zero */
+	assert(bcfg->bl_cfg_binlog_position > 0);
 
 	/* Check if binlog needs to be extended */
 	record_len = bctl->bl_ctl_size + sizeof(rhdr);
