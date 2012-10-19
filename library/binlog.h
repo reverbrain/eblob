@@ -39,8 +39,12 @@ struct eblob_binlog_ctl;
 #define EBLOB_BINLOG_FLAGS_CFG_FREEZE		(1<<0)
 /* Preallocate binlog */
 #define EBLOB_BINLOG_FLAGS_CFG_PREALLOC		(1<<1)
+/* Open binlog with O_SYNC */
+#define EBLOB_BINLOG_FLAGS_CFG_SYNC		(1<<2)
 /* All available flags */
-#define EBLOB_BINLOG_FLAGS_CFG_ALL		(EBLOB_BINLOG_FLAGS_CFG_FREEZE|EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
+#define EBLOB_BINLOG_FLAGS_CFG_ALL		(EBLOB_BINLOG_FLAGS_CFG_FREEZE | \
+						EBLOB_BINLOG_FLAGS_CFG_PREALLOC | \
+						EBLOB_BINLOG_FLAGS_CFG_SYNC)
 
 /* All data about one binlog file */
 struct eblob_binlog_cfg {

@@ -170,7 +170,6 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: pwrite: %s; err=%d", __func__, bcfg->bl_cfg_binlog_path, err);
 		goto err_close;
 	}
-	return fd;
 err_close:
 	close(fd);
 err:
@@ -185,7 +184,7 @@ err:
  * binlog.
  */
 int binlog_open(struct eblob_binlog_cfg *bcfg) {
-	int fd, err;
+	int fd, oflag, err;
 
 	if (bcfg == NULL) {
 		err = -EINVAL;
@@ -195,20 +194,22 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	assert(bcfg->bl_cfg_binlog_fd == 0);
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
-	fd = binlog_create(bcfg);
-	if (fd < 0) {
-		if (fd != -EEXIST) {
-			err = fd;
-			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
-			goto err;
-		}
-		/* Try to open if binlog_create failed with -EEXIST */
-		fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
-		if (fd == -1) {
-			err = -errno;
-			eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
-			goto err;
-		}
+	err = binlog_create(bcfg);
+	if (err != -EEXIST) {
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: binlog_create: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
+	}
+
+	oflag = O_RDWR | O_CLOEXEC;
+	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_SYNC)
+		oflag |= O_SYNC;
+
+	/* Open created/already existent binlog */
+	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
+	if (fd == -1) {
+		err = -errno;
+		eblob_log(bcfg->log, EBLOB_LOG_ERROR, "%s: open: %s, %d", __func__, bcfg->bl_cfg_binlog_path, err);
+		goto err;
 	}
 	bcfg->bl_cfg_binlog_fd = fd;
 
