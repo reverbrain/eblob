@@ -181,6 +181,13 @@ static inline int binlog_datasync(int fd) {
 #endif /* HAVE_FDATASYNC */
 }
 
+/* Logging helpers */
+#define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
+		"blob: binlog: %s: " fmt, __func__, __VA_ARGS__);
+
+#define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
+		"%s (%d); " fmt, strerror(err), err, __VA_ARGS__);
+
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
