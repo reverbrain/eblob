@@ -159,7 +159,7 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 /*
  * Allocate space for binlog.
  */
-static inline int binlog_allocate(int fd, off_t size) {
+static inline int _binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
@@ -171,6 +171,20 @@ static inline int binlog_allocate(int fd, off_t size) {
 	 */
 	return 0;
 #endif /* HAVE_POSIX_FALLOCATE */
+}
+
+static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
+	int err = 0;
+	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
+
+		bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
+		err = _binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
+		if (err) {
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
+			return err;
+		}
+	}
+	return err;
 }
 
 /*

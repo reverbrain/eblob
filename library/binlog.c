@@ -153,14 +153,10 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		goto err;
 	}
 	bcfg->bl_cfg_binlog_position = sizeof(dhdr);
-	bcfg->bl_cfg_prealloc_size = bcfg->bl_cfg_prealloc_step;
 
 	/* Allocate */
-	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
-		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
-			goto err_close;
-		}
+	if ((err = binlog_extend(bcfg)))
+		goto err_close;
 
 	/* Construct header */
 	memset(&dhdr, 0, sizeof(dhdr));
@@ -270,15 +266,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Check if binlog needs to be extended */
 	record_len = bctl->bl_ctl_size + sizeof(rhdr);
-	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
-		if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size) {
-			bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
-			err = binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
-			if (err) {
-				EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
-				goto err;
-			}
-		}
+	if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size)
+		if ((err = binlog_extend(bcfg)))
+			goto err;
 
 	/* Construct record header */
 	err = gettimeofday(&record_ts, NULL);
