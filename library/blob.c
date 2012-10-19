@@ -1644,8 +1644,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	snprintf(stat_file, sizeof(stat_file), "%s.stat", c->file);
 	err = eblob_stat_init(&b->stat, stat_file);
-	if (err)
+	if (err) {
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_stat_init failed: %s: %s %d.\n", stat_file, strerror(-err), err);
 		goto err_out_free;
+	}
 
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
