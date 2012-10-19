@@ -156,7 +156,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	/* Allocate */
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC)
 		if ((err = binlog_allocate(fd, bcfg->bl_cfg_prealloc_size))) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "fallocate: %s", bcfg->bl_cfg_binlog_path);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
 			goto err_close;
 		}
 
