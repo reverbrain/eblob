@@ -311,7 +311,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Finally is everything is ok - bump length */
 	bcfg->bl_cfg_binlog_position += record_len;
 
-	/* TODO: Save position to binlog header */
+	/* XXX: Save position to binlog header */
 	/* TODO: Add record to binlog index */
 
 	return 0;
@@ -320,14 +320,14 @@ err:
 }
 
 /*
- * Reads binlog data for a key
+ * XXX: Reads binlog data for a key
  */
 int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl) {
 	return 0;
 }
 
 /*
- * Sequentially applies given binlog to backing file.
+ * XXX: Sequentially applies given binlog to backing file.
  */
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd) {
 	return 0;
