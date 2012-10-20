@@ -158,7 +158,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 
 	/* Construct header */
 	memset(&dhdr, 0, sizeof(dhdr));
-	strncpy(dhdr.bl_hdr_magic, EBLOB_BINLOG_MAGIC, sizeof(dhdr.bl_hdr_magic));
+	memcpy(dhdr.bl_hdr_magic, EBLOB_BINLOG_MAGIC, sizeof(dhdr.bl_hdr_magic));
 	dhdr.bl_hdr_version = EBLOB_BINLOG_VERSION;
 	dhdr.bl_hdr_flags = bcfg->bl_cfg_flags;
 
