@@ -88,7 +88,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 		return -EINVAL;
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
-	if (err != sizeof(dhdr))
+	if (err != sizeof(*dhdr))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle singnal case gracefully */
 
 	err = binlog_datasync(fd);
@@ -109,8 +109,8 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 		goto err;
 	}
 
-	err = pread(fd, dhdr, sizeof(dhdr), 0);
-	if (err != sizeof(dhdr)) {
+	err = pread(fd, dhdr, sizeof(*dhdr), 0);
+	if (err != sizeof(*dhdr)) {
 		goto err_free_dhdr; /* TODO: handle singnal case gracefully */
 	}
 	return eblob_convert_binlog_header(dhdr);
