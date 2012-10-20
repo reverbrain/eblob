@@ -13,9 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
+#include "features.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1359,10 +1357,6 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	}
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
-		/* for Mac OS X */
-#ifndef EBADFD
-#define	EBADFD		77	/* File descriptor in bad state */
-#endif
 		err = -EBADFD;
 		goto err_out_unmap;
 	}
@@ -1650,8 +1644,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	snprintf(stat_file, sizeof(stat_file), "%s.stat", c->file);
 	err = eblob_stat_init(&b->stat, stat_file);
-	if (err)
+	if (err) {
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_stat_init failed: %s: %s %d.\n", stat_file, strerror(-err), err);
 		goto err_out_free;
+	}
 
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;

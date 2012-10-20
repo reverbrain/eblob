@@ -13,16 +13,7 @@
  * GNU General Public License for more details.
  */
 
-#define _XOPEN_SOURCE 1024
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
-#if defined(__APPLE__)
-#ifndef _DARWIN_C_SOURCE
-#define _DARWIN_C_SOURCE
-#endif /* _DARWIN_C_SOURCE */
-#endif /* __APPLE__ */
+#include "features.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -293,10 +284,7 @@ again:
 
 	}
 
-#ifdef __linux__
-	/* Yup, it is supposed to be POSIX call, but implemented only in Linux to date */
-	posix_fadvise(ctl->sort.fd, 0, 0, POSIX_FADV_WILLNEED);
-#endif
+	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
 
 	return 0;
 

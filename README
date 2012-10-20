@@ -1,6 +1,6 @@
 Eblob is an append-only low-level IO library, which saves data in blob files.
 It was originally created for elliptics distributed storage as low-level backend
 
-Homepage: http://www.ioremap.net/projects/libeblob
-Elliptics: http://www.ioremap.net/projects/elliptics
+Homepage: http://reverbrain.com/eblob/
+Elliptics: http://reverbrain.com/elliptics/
 
