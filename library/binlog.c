@@ -82,24 +82,23 @@ err:
 }
 
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
-	int err;
+	ssize_t err;
 
 	if((dhdr == NULL) || (fd < 0))
 		return -EINVAL;
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(dhdr))
-		return -errno;
+		return (err == -1) ? -errno : -EIO;
 
 	err = binlog_datasync(fd);
-	if (err) {
-		return -errno;
-	}
+	if (err)
+		return err;
 	return 0;
 }
 
 static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
-	int err;
+	ssize_t err;
 	struct eblob_binlog_disk_hdr *dhdr;
 
 	if (fd < 0)
@@ -167,7 +166,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	/* Save header */
 	err = binlog_hdr_write(fd, &dhdr);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_write: %s", bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
 err_close:
@@ -251,7 +250,7 @@ err:
  * Append record to the end of binlog.
  */
 int binlog_append(struct eblob_binlog_ctl *bctl) {
-	int err, record_len;
+	ssize_t err, record_len;
 	struct timeval record_ts;
 	struct eblob_binlog_cfg *bcfg;
 	struct eblob_binlog_disk_record_hdr rhdr;
@@ -285,16 +284,16 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Write header */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
-	if (err == -1) {
-		err = -errno;
+	if (err != sizeof(rhdr)) {
+		err = (err == -1) ? -errno : -EIO;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
 
 	/* Write data */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, rhdr.bl_record_position);
-	if (err == -1) {
-		err = -errno;
+	if (err != bctl->bl_ctl_size) {
+		err = (err == -1) ? -errno : -EIO;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}

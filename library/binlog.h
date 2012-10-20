@@ -86,7 +86,7 @@ struct eblob_binlog_ctl {
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
-	uint64_t		bl_ctl_size;
+	ssize_t			bl_ctl_size;
 	/* Record-wide flags */
 	uint64_t		bl_ctl_flags;
 };
@@ -129,7 +129,7 @@ struct eblob_binlog_disk_record_hdr {
 		"blob: binlog: %s: " fmt, __func__ , ## __VA_ARGS__);
 
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
-		"%s (%d); " fmt, strerror(err), err , ## __VA_ARGS__);
+		"%s (%ld); " fmt, strerror(err), (long int)err , ## __VA_ARGS__);
 
 /*
  * Convert binlog header to/from on-disk format
