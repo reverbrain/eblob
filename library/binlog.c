@@ -52,7 +52,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	}
 
 	len = strlen(path);
-	if ((len == 0) || (len > PATH_MAX)) {
+	if (len == 0 || len > PATH_MAX) {
 		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path length is out of bounds");
 		goto err;
 	}
@@ -84,7 +84,7 @@ err:
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	ssize_t err;
 
-	if((dhdr == NULL) || (fd < 0))
+	if(dhdr == NULL || fd < 0)
 		return -EINVAL;
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
