@@ -176,7 +176,6 @@ static inline int _binlog_allocate(int fd, off_t size) {
 static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
 	int err = 0;
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
-
 		bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
 		err = _binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
 		if (err) {
