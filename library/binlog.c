@@ -20,6 +20,7 @@
 
 #include "features.h"
 
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -210,6 +211,15 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
+
+	/* Lock binlog */
+	err = flock(fd, LOCK_EX | LOCK_NB);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "flock: %s", bcfg->bl_cfg_binlog_path);
+		goto err_close;
+	}
+
 	bcfg->bl_cfg_binlog_fd = fd;
 
 	/* Stat binlog */
@@ -217,7 +227,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (err == -1) {
 		err = -errno;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "fstat: %s", bcfg->bl_cfg_binlog_path);
-		goto err_close;
+		goto err_unlock;
 	}
 	bcfg->bl_cfg_prealloc_size = binlog_stat.st_size;
 
@@ -226,19 +236,21 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg->bl_cfg_disk_hdr == NULL) {
 		err = -EIO;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_read: %s", bcfg->bl_cfg_binlog_path);
-		goto err_close;
+		goto err_unlock;
 	}
 
 	/* Check header */
 	err = binlog_hdr_verify(bcfg->bl_cfg_disk_hdr);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_verify: %s", bcfg->bl_cfg_binlog_path);
-		goto err_close;
+		goto err_unlock;
 	}
 
 	/* XXX: Find current binlog position */
 
 	return 0;
+err_unlock:
+	flock(fd, LOCK_UN);
 err_close:
 	close(fd);
 err:
@@ -337,15 +349,25 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd) {
 int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	int err;
 
+	/* Write */
 	err = binlog_hdr_write(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_disk_hdr);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_write: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
 
+	/* Sync */
 	err = binlog_sync(bcfg->bl_cfg_binlog_fd);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_sync: %s", bcfg->bl_cfg_binlog_path);
+		goto err;
+	}
+
+	/* Unlock */
+	err = flock(bcfg->bl_cfg_binlog_fd, LOCK_UN);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "flock: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
 
@@ -355,6 +377,7 @@ int binlog_close(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
 	}
 
+	/* Close */
 	err = close(bcfg->bl_cfg_binlog_fd);
 	if (err == -1) {
 		err = -errno;

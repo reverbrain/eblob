@@ -24,3 +24,6 @@
 #ifndef _DARWIN_C_SOURCE
 #define _DARWIN_C_SOURCE
 #endif
+
+/* Disable BSD's sys/queue.h because it defines conflicting LIST_HEAD */
+#define _SYS_QUEUE_H_
