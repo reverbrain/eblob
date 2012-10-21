@@ -352,7 +352,7 @@ int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	/* It's not critical if hint fails, but we should log it anyway */
 	err = eblob_pagecache_hint(bcfg->bl_cfg_binlog_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
 	}
 
 	err = close(bcfg->bl_cfg_binlog_fd);
