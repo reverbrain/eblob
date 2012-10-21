@@ -339,7 +339,6 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Finally is everything is ok - bump length */
 	bcfg->bl_cfg_binlog_position += record_len;
 
-	/* XXX: Save position to binlog header */
 	/* TODO: Add record to binlog index */
 
 	return 0;
