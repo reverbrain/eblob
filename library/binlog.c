@@ -306,7 +306,6 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		goto err;
 	}
 	rhdr.bl_record_type = bctl->bl_ctl_type;
-	rhdr.bl_record_position = bcfg->bl_cfg_binlog_position + sizeof(rhdr);
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
 	rhdr.bl_record_ts = (uint64_t)record_ts.tv_sec;
@@ -320,7 +319,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	}
 
 	/* Write data */
-	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, rhdr.bl_record_position);
+	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, bcfg->bl_cfg_binlog_position + sizeof(rhdr));
 	if (err != bctl->bl_ctl_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle singnal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);

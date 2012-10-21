@@ -60,7 +60,12 @@ struct eblob_binlog_cfg {
 	off_t				bl_cfg_prealloc_step;
 	/* Size (in bytes) of total preallocated space for binlog */
 	off_t				bl_cfg_prealloc_size;
-	/* Current offset of binlog_append */
+	/*
+	 * Current offset of binlog_append
+	 *
+	 * Record position in binlog file is it's LSN.
+	 * TODO: Currently we are not detecting overflows in it.
+	 */
 	off_t				bl_cfg_binlog_position;
 	/* Pointer to on-disk header for this binlog */
 	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
@@ -107,12 +112,14 @@ struct eblob_binlog_disk_hdr {
 	char			bl_hdr_pad[240];
 } __attribute__ ((packed));
 
-/* On disk header for binlog records */
+/*
+ * On disk header for binlog records
+ *
+ * Record header position in binlog is a LSN.
+ */
 struct eblob_binlog_disk_record_hdr {
 	/* Record type */
 	uint16_t		bl_record_type;
-	/* Position of data in file */
-	uint64_t		bl_record_position;
 	/* Size of record starting from position */
 	uint64_t		bl_record_size;
 	/* Record-wide flags */
@@ -149,7 +156,6 @@ static inline struct eblob_binlog_disk_hdr *eblob_convert_binlog_header(struct e
 static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
 {
 	rhdr->bl_record_type = eblob_bswap16(rhdr->bl_record_type);
-	rhdr->bl_record_position = eblob_bswap64(rhdr->bl_record_position);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
