@@ -40,7 +40,6 @@
 
 #include <sys/file.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -348,7 +347,6 @@ err:
  */
 int binlog_append(struct eblob_binlog_ctl *bctl) {
 	ssize_t err, record_len;
-	struct timeval record_ts;
 	struct eblob_binlog_cfg *bcfg;
 	struct eblob_binlog_disk_record_hdr rhdr;
 
@@ -366,18 +364,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 			goto err;
 
 	/* Construct record header */
-	err = gettimeofday(&record_ts, NULL);
-	if (err == -1) {
-		err = -errno;
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "gettimeofday");
-		goto err;
-	}
-
 	rhdr.bl_record_type = bctl->bl_ctl_type;
 	rhdr.bl_record_key = bctl->bl_ctl_key;
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
-	rhdr.bl_record_ts = (uint64_t)record_ts.tv_sec;
 
 	/* Write header */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);

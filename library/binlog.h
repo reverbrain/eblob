@@ -137,11 +137,6 @@ struct eblob_binlog_disk_record_hdr {
 	uint64_t		bl_record_size;
 	/* Record-wide flags */
 	uint64_t		bl_record_flags;
-	/*
-	 * Record timestamp.
-	 * For now we don't need sub-second resolution so 64bit is enough.
-	 */
-	uint64_t		bl_record_ts;
 } __attribute__ ((packed));
 
 /* Logging helpers */
@@ -172,7 +167,6 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 	rhdr->bl_record_key = eblob_bswap16(rhdr->bl_record_key);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
-	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);
 	return rhdr;
 }
 
