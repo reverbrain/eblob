@@ -434,7 +434,7 @@ err:
 /*
  * XXX: Reads binlog data for a key
  */
-int binlog_read(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl) {
+int binlog_read(struct eblob_binlog_ctl *bctl) {
 	return 0;
 }
 
