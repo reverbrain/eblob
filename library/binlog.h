@@ -25,11 +25,11 @@
  * Each type of data modification should have corresponding binlog type.
  * Sentinels used for asserts.
  */
-enum eblob_binlog_types {
+enum eblob_binlog_record_types {
 	EBLOB_BINLOG_FIRST,		/* Start sentinel */
-	EBLOB_BINLOG_REMOVE,
-	EBLOB_BINLOG_REMOVE_ALL,
-	EBLOB_BINLOG_WRITE,
+	EBLOB_BINLOG_TRANSACTION_REDO_ONLY,
+	EBLOB_BINLOG_TRANSACTION_UNDO_ONLY,
+	EBLOB_BINLOG_TRANSACTION_REDO_UNDO,
 	EBLOB_BINLOG_LAST,		/* End sentinel */
 };
 
@@ -118,7 +118,7 @@ struct eblob_binlog_disk_hdr {
  * Record header position in binlog is a LSN.
  */
 struct eblob_binlog_disk_record_hdr {
-	/* Record type */
+	/* Record type from @eblob_binlog_record_types */
 	uint16_t		bl_record_type;
 	/* Size of record starting from position */
 	uint64_t		bl_record_size;
