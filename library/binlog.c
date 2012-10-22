@@ -210,7 +210,6 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		err = -EINVAL;
 		goto err;
 	}
-	/* We shouldn't have associated fd at that time */
 	assert(bcfg->bl_cfg_binlog_fd == 0);
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
@@ -296,9 +295,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		return -EINVAL;
 	bcfg = bctl->bl_ctl_cfg;
 
-	/* We MUST have associated fd by that time */
 	assert(bcfg->bl_cfg_binlog_fd >= 0);
-	/* We have header, so binlog position should be greater than zero */
 	assert(bcfg->bl_cfg_binlog_position > 0);
 
 	/* Check if binlog needs to be extended */
