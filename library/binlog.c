@@ -94,6 +94,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	bcfg->log = log;
 
 	return bcfg;
+
 err_free_bcfg:
 	free(bcfg);
 err:
@@ -124,15 +125,15 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 		goto err;
 
 	dhdr = malloc(sizeof(*dhdr));
-	if (dhdr == NULL) {
+	if (dhdr == NULL)
 		goto err;
-	}
 
 	err = pread(fd, dhdr, sizeof(*dhdr), 0);
-	if (err != sizeof(*dhdr)) {
+	if (err != sizeof(*dhdr))
 		goto err_free_dhdr; /* TODO: handle signal case gracefully */
-	}
+
 	return eblob_convert_binlog_header(dhdr);
+
 err_free_dhdr:
 	free(dhdr);
 err:
@@ -160,7 +161,7 @@ static int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
  * Creates binlog and preallocates space for it.
  */
 static int binlog_create(struct eblob_binlog_cfg *bcfg) {
-	int fd, err = 0;
+	int fd, err;
 	struct eblob_binlog_disk_hdr dhdr;
 
 	/* Create */
@@ -241,6 +242,7 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 	}
 
 	return rhdr;
+
 err_free:
 	free(rhdr);
 err:
@@ -260,10 +262,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	struct stat binlog_stat;
 	struct eblob_binlog_disk_record_hdr *rhdr;
 
-	if (bcfg == NULL) {
-		err = -EINVAL;
-		goto err;
-	}
+	if (bcfg == NULL)
+		return -EINVAL;
+
 	assert(bcfg->bl_cfg_binlog_fd == 0);
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
@@ -297,9 +298,8 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	/* It's not critical if hint fails, but we should log it anyway */
 	err = eblob_pagecache_hint(bcfg->bl_cfg_binlog_fd, EBLOB_FLAGS_HINT_WILLNEED);
-	if (err) {
+	if (err)
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
-	}
 
 	/* Stat binlog */
 	err = fstat(bcfg->bl_cfg_binlog_fd, &binlog_stat);
@@ -334,6 +334,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	bcfg->bl_cfg_binlog_position = last_lsn;
 
 	return 0;
+
 err_unlock:
 	flock(fd, LOCK_UN);
 err_close:
@@ -359,9 +360,11 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Check if binlog needs to be extended */
 	record_len = bctl->bl_ctl_size + sizeof(rhdr);
-	if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size)
-		if ((err = binlog_extend(bcfg)))
+	if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size) {
+		if ((err = binlog_extend(bcfg))) {
 			goto err;
+		}
+	}
 
 	/* Construct record header */
 	rhdr.bl_record_type = bctl->bl_ctl_type;
@@ -397,9 +400,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Finally is everything is ok - bump length */
 	bcfg->bl_cfg_binlog_position += record_len;
 
-	/* TODO: Add record to binlog index */
+	/* XXX: Add record to binlog index */
 
 	return 0;
+
 err:
 	return err;
 }
@@ -448,9 +452,8 @@ int binlog_close(struct eblob_binlog_cfg *bcfg) {
 
 	/* It's not critical if hint fails, but we should log it anyway */
 	err = eblob_pagecache_hint(bcfg->bl_cfg_binlog_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err) {
+	if (err)
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
-	}
 
 	/* Close */
 	err = close(bcfg->bl_cfg_binlog_fd);
@@ -469,9 +472,8 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
 	 * It's safe to free NULL but it still strange to pass it to
 	 * binlog_destroy, so return an error.
 	 */
-	if (bcfg == NULL) {
+	if (bcfg == NULL)
 		return -EINVAL;
-	}
 
 	free(bcfg->bl_cfg_disk_hdr);
 	free(bcfg->bl_cfg_binlog_path);

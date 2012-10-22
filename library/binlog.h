@@ -184,7 +184,7 @@ static inline int _binlog_allocate(int fd, off_t size) {
 	 * Think of something like fcntl F_PREALLOCATE
 	 */
 	return 0;
-#endif /* HAVE_POSIX_FALLOCATE */
+#endif /* !HAVE_POSIX_FALLOCATE */
 }
 
 static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
@@ -219,7 +219,7 @@ static inline int binlog_datasync(int fd) {
 	return 0;
 #else /* HAVE_FDATASYNC */
 	return binlog_sync(fd);
-#endif /* HAVE_FDATASYNC */
+#endif /* !HAVE_FDATASYNC */
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
