@@ -94,6 +94,11 @@ struct eblob_binlog_ctl {
 	struct eblob_binlog_cfg	*bl_ctl_cfg;
 	/* Record type */
 	uint16_t		bl_ctl_type;
+	/*
+	 * Records index key.
+	 * For now i.e data position in backing file.
+	 */
+	uint64_t		bl_ctl_key;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
@@ -126,6 +131,8 @@ struct eblob_binlog_disk_hdr {
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
 	uint16_t		bl_record_type;
+	/* Records index key */
+	uint64_t		bl_record_key;
 	/* Size of record starting from position */
 	uint64_t		bl_record_size;
 	/* Record-wide flags */
@@ -162,6 +169,7 @@ static inline struct eblob_binlog_disk_hdr *eblob_convert_binlog_header(struct e
 static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
 {
 	rhdr->bl_record_type = eblob_bswap16(rhdr->bl_record_type);
+	rhdr->bl_record_key = eblob_bswap16(rhdr->bl_record_key);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
 	rhdr->bl_record_ts = eblob_bswap64(rhdr->bl_record_ts);

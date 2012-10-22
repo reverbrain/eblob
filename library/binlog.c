@@ -372,7 +372,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "gettimeofday");
 		goto err;
 	}
+
 	rhdr.bl_record_type = bctl->bl_ctl_type;
+	rhdr.bl_record_key = bctl->bl_ctl_key;
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
 	rhdr.bl_record_ts = (uint64_t)record_ts.tv_sec;
