@@ -171,7 +171,6 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
-	bcfg->bl_cfg_binlog_position = sizeof(dhdr);
 
 	/* Allocate */
 	if ((err = binlog_extend(bcfg)))
@@ -196,6 +195,60 @@ err:
 }
 
 /*
+ * Performs some basic checks on record header
+ */
+static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *rhdr) {
+	assert(rhdr != NULL);
+
+	if (rhdr->bl_record_type <= EBLOB_BINLOG_TYPE_FIRST || rhdr->bl_record_type >= EBLOB_BINLOG_TYPE_LAST)
+		return -EINVAL;
+
+	/* For now we don't have any flags */
+	if (rhdr->bl_record_flags)
+		return -EINVAL;
+
+	return 0;
+}
+
+/*
+ * Reads one binlog record header starting at @offset
+ * and returns pointer to it.
+ */
+static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg, off_t offset) {
+	ssize_t err;
+	struct eblob_binlog_disk_record_hdr *rhdr;
+
+	assert(bcfg != NULL);
+	assert(bcfg->bl_cfg_binlog_fd >= 0);
+	assert(offset > 0);
+
+	rhdr = malloc(sizeof(*rhdr));
+	if (rhdr == NULL) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, errno, "malloc");
+		goto err;
+	}
+
+	err = pread(bcfg->bl_cfg_binlog_fd, rhdr, sizeof(*rhdr), offset);
+	if (err != sizeof(*rhdr)) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s", bcfg->bl_cfg_binlog_path);
+		goto err_free;
+	}
+
+	err = binlog_verify_record_hdr(rhdr);
+	if (err) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_record_hdr: %s", bcfg->bl_cfg_binlog_path);
+		goto err_free;
+	}
+
+	return rhdr;
+err_free:
+	free(rhdr);
+err:
+	return NULL;
+}
+
+/*
  * Opens binlog for given blob.
  *
  * @bcfg->bl_cfg_binlog_path: full path to binlog file.
@@ -204,7 +257,9 @@ err:
  */
 int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	int fd, oflag, err;
+	off_t last_lsn;
 	struct stat binlog_stat;
+	struct eblob_binlog_disk_record_hdr *rhdr;
 
 	if (bcfg == NULL) {
 		err = -EINVAL;
@@ -271,7 +326,13 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err_unlock;
 	}
 
-	/* XXX: Find current binlog position */
+	/* Iterate over binlog, starting right after the header */
+	for (last_lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
+		(rhdr = binlog_read_record_hdr(bcfg, last_lsn)) != NULL;
+		last_lsn += rhdr->bl_record_size, free(rhdr)) {
+			/* XXX: Add record to index */
+	}
+	bcfg->bl_cfg_binlog_position = last_lsn;
 
 	return 0;
 err_unlock:
