@@ -54,51 +54,20 @@
 #include "blob.h"
 #include "binlog.h"
 
-/*
- * Returns pointer to cooked @eblob_binlog_cfg structure.
- * @path is desired name of binlog file.
- * @log is logger control structure.
- */
-struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
-	int len;
-	char *bl_cfg_binlog_path;
-	struct eblob_binlog_cfg *bcfg;
 
-	if (path == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path is NULL");
-		goto err;
+/* Extend binlog by @bcfg->bl_cfg_prealloc_step if PREALLOC is enabled */
+static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
+	int err;
+
+	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
+		bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
+		err = _binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
+		if (err) {
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
+			return err;
+		}
 	}
-
-	len = strlen(path);
-	if (len == 0 || len > PATH_MAX) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path length is out of bounds");
-		goto err;
-	}
-
-	bcfg = calloc(1, sizeof(*bcfg));
-	if (bcfg == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "malloc");
-		goto err;
-	}
-
-	/* Copy path to bcfg */
-	bl_cfg_binlog_path = strndup(path, len);
-	if (bl_cfg_binlog_path == NULL) {
-		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "strndup");
-		goto err_free_bcfg;
-	}
-
-	bcfg->bl_cfg_flags = EBLOB_BINLOG_DEFAULTS_FLAGS;
-	bcfg->bl_cfg_prealloc_step = EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP;
-	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
-	bcfg->log = log;
-
-	return bcfg;
-
-err_free_bcfg:
-	free(bcfg);
-err:
-	return NULL;
+	return 0;
 }
 
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
@@ -245,6 +214,53 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 
 err_free:
 	free(rhdr);
+err:
+	return NULL;
+}
+
+/*
+ * Returns pointer to cooked @eblob_binlog_cfg structure.
+ * @path is desired name of binlog file.
+ * @log is logger control structure.
+ */
+struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
+	int len;
+	char *bl_cfg_binlog_path;
+	struct eblob_binlog_cfg *bcfg;
+
+	if (path == NULL) {
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path is NULL");
+		goto err;
+	}
+
+	len = strlen(path);
+	if (len == 0 || len > PATH_MAX) {
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path length is out of bounds");
+		goto err;
+	}
+
+	bcfg = calloc(1, sizeof(*bcfg));
+	if (bcfg == NULL) {
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "malloc");
+		goto err;
+	}
+
+	/* Copy path to bcfg */
+	bl_cfg_binlog_path = strndup(path, len);
+	if (bl_cfg_binlog_path == NULL) {
+		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "strndup");
+		goto err_free_bcfg;
+	}
+
+	bcfg->bl_cfg_flags = EBLOB_BINLOG_DEFAULTS_FLAGS;
+	bcfg->bl_cfg_prealloc_step = EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP;
+	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
+	bcfg->log = log;
+
+	return bcfg;
+
+err_free_bcfg:
+	free(bcfg);
 err:
 	return NULL;
 }
