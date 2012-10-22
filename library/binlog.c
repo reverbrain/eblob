@@ -109,7 +109,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr))
-		return (err == -1) ? -errno : -EINTR; /* TODO: handle singnal case gracefully */
+		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 
 	err = binlog_datasync(fd);
 	if (err)
@@ -131,7 +131,7 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 
 	err = pread(fd, dhdr, sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr)) {
-		goto err_free_dhdr; /* TODO: handle singnal case gracefully */
+		goto err_free_dhdr; /* TODO: handle signal case gracefully */
 	}
 	return eblob_convert_binlog_header(dhdr);
 err_free_dhdr:
@@ -321,7 +321,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Write header */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
 	if (err != sizeof(rhdr)) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle singnal case gracefully */
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
@@ -329,7 +329,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Write data */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, bcfg->bl_cfg_binlog_position + sizeof(rhdr));
 	if (err != bctl->bl_ctl_size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle singnal case gracefully */
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
