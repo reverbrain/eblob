@@ -16,7 +16,7 @@
 #ifndef __EBLOB_BINLOG_H
 #define __EBLOB_BINLOG_H
 
-#define EBLOB_BINLOG_MAGIC	"\x13\x37\xB3\x3F"
+#define EBLOB_BINLOG_MAGIC	"1337833"
 #define EBLOB_BINLOG_VERSION	1
 
 /*
@@ -25,9 +25,9 @@
  */
 enum eblob_binlog_record_types {
 	EBLOB_BINLOG_TYPE_FIRST,		/* Start sentinel */
-	EBLOB_BINLOG_TYPE_TRANSACTION_REDO_ONLY,
-	EBLOB_BINLOG_TYPE_TRANSACTION_UNDO_ONLY,
-	EBLOB_BINLOG_TYPE_TRANSACTION_REDO_UNDO,
+	EBLOB_BINLOG_TYPE_UPDATE,
+	EBLOB_BINLOG_TYPE_REMOVE,
+	EBLOB_BINLOG_TYPE_REMOVE_ALL,
 	EBLOB_BINLOG_TYPE_LAST,			/* End sentinel */
 };
 
@@ -93,10 +93,12 @@ struct eblob_binlog_ctl {
 	/* Record type */
 	uint16_t		bl_ctl_type;
 	/*
-	 * Records index key.
+	 * Record's original offset.
 	 * For now i.e data position in backing file.
 	 */
-	uint64_t		bl_ctl_key;
+	uint64_t		bl_ctl_origin;
+	/* Record's key */
+	char			*bl_ctl_key;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
@@ -111,15 +113,17 @@ struct eblob_binlog_ctl {
  * and for on-disk data format upgrades.
  */
 struct eblob_binlog_disk_hdr {
-	/* binlog magic */
-	char			bl_hdr_magic[5];
-	/* binlog version */
+	/* Magic */
+	char			bl_hdr_magic[8];
+	/* Version */
 	uint16_t		bl_hdr_version;
+	/* Alignment */
+	uint16_t		bl_hdr_pad1[3];
 	/* Binlog-wide flags */
 	uint64_t		bl_hdr_flags;
 	/* padding for header extensions */
-	char			bl_hdr_pad[240];
-} __attribute__ ((packed));
+	char			bl_hdr_pad2[232];
+};
 
 /*
  * On disk header for binlog records
@@ -128,14 +132,17 @@ struct eblob_binlog_disk_hdr {
  */
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
-	uint16_t		bl_record_type;
-	/* Records index key */
-	uint64_t		bl_record_key;
+	uint64_t		bl_record_type;
 	/* Size of record starting from position */
 	uint64_t		bl_record_size;
 	/* Record-wide flags */
 	uint64_t		bl_record_flags;
-} __attribute__ ((packed));
+	/* Original data offset */
+	uint64_t		bl_record_origin;
+	/* Record's key */
+	char			bl_record_key[64];
+	char			bl_record_pad[32];
+};
 
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
@@ -161,10 +168,10 @@ static inline struct eblob_binlog_disk_hdr *eblob_convert_binlog_header(struct e
  */
 static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
 {
-	rhdr->bl_record_type = eblob_bswap16(rhdr->bl_record_type);
-	rhdr->bl_record_key = eblob_bswap16(rhdr->bl_record_key);
+	rhdr->bl_record_type = eblob_bswap64(rhdr->bl_record_type);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
+	rhdr->bl_record_origin = eblob_bswap64(rhdr->bl_record_origin);
 	return rhdr;
 }
 

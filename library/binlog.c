@@ -384,9 +384,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Construct record header */
 	rhdr.bl_record_type = bctl->bl_ctl_type;
-	rhdr.bl_record_key = bctl->bl_ctl_key;
+	rhdr.bl_record_origin = bctl->bl_ctl_origin;
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
+	memcpy(&rhdr.bl_record_key, bctl->bl_ctl_key, sizeof(rhdr.bl_record_key));
 
 	/* Write header */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
