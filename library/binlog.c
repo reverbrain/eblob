@@ -70,11 +70,47 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
 	return 0;
 }
 
+/*
+ * Preform simple checks on binlog header, later in can also signal on disk
+ * data format changes or perform checksum verifications.
+ */
+static inline int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
+	if (strcmp(dhdr->bl_hdr_magic, EBLOB_BINLOG_MAGIC))
+		return -EINVAL;
+
+	/* Here we can request format convertion. */
+	if (dhdr->bl_hdr_version != EBLOB_BINLOG_VERSION)
+		return -ENOTSUP;
+
+	if (dhdr->bl_hdr_flags & (~EBLOB_BINLOG_FLAGS_CFG_ALL))
+		return -ENOTSUP;
+	return 0;
+}
+
+/*
+ * Performs some basic checks on record header
+ */
+static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *rhdr) {
+	assert(rhdr != NULL);
+
+	if (rhdr->bl_record_type <= EBLOB_BINLOG_TYPE_FIRST || rhdr->bl_record_type >= EBLOB_BINLOG_TYPE_LAST)
+		return -EINVAL;
+
+	/* For now we don't have any flags */
+	if (rhdr->bl_record_flags)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	ssize_t err;
 
 	if(dhdr == NULL || fd < 0)
 		return -EINVAL;
+
+	/* Written header MUST be verifiable by us */
+	assert(binlog_hdr_verify(dhdr) == 0);
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr))
@@ -107,23 +143,6 @@ err_free_dhdr:
 	free(dhdr);
 err:
 	return NULL;
-}
-
-/*
- * Preform simple checks on binlog header, later in can also signal on disk
- * data format changes or perform checksum verifications.
- */
-static int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
-	if (strcmp(dhdr->bl_hdr_magic, EBLOB_BINLOG_MAGIC))
-		return -EINVAL;
-
-	/* Here we can request format convertion. */
-	if (dhdr->bl_hdr_version != EBLOB_BINLOG_VERSION)
-		return -ENOTSUP;
-
-	if (dhdr->bl_hdr_flags & (~EBLOB_BINLOG_FLAGS_CFG_ALL))
-		return -ENOTSUP;
-	return 0;
 }
 
 /*
@@ -161,22 +180,6 @@ err_close:
 	close(fd);
 err:
 	return err;
-}
-
-/*
- * Performs some basic checks on record header
- */
-static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *rhdr) {
-	assert(rhdr != NULL);
-
-	if (rhdr->bl_record_type <= EBLOB_BINLOG_TYPE_FIRST || rhdr->bl_record_type >= EBLOB_BINLOG_TYPE_LAST)
-		return -EINVAL;
-
-	/* For now we don't have any flags */
-	if (rhdr->bl_record_flags)
-		return -EINVAL;
-
-	return 0;
 }
 
 /*
@@ -388,6 +391,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
 	memcpy(&rhdr.bl_record_key, bctl->bl_ctl_key, sizeof(rhdr.bl_record_key));
+
+	/* Written header MUST be verifiable by us */
+	assert(binlog_verify_record_hdr(&rhdr) == 0);
 
 	/* Write header */
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
