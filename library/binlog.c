@@ -292,8 +292,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	struct eblob_binlog_cfg *bcfg;
 	struct eblob_binlog_disk_record_hdr rhdr;
 
-	if (bctl == NULL || (bcfg = bctl->bl_ctl_cfg) == NULL)
+	if (bctl == NULL || bctl->bl_ctl_cfg == NULL)
 		return -EINVAL;
+	bcfg = bctl->bl_ctl_cfg;
 
 	/* We MUST have associated fd by that time */
 	assert(bcfg->bl_cfg_binlog_fd >= 0);
