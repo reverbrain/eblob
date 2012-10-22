@@ -89,6 +89,8 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 		goto err_free_bcfg;
 	}
 
+	bcfg->bl_cfg_flags = EBLOB_BINLOG_DEFAULTS_FLAGS;
+	bcfg->bl_cfg_prealloc_step = EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP;
 	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
 	bcfg->log = log;
 

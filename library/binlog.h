@@ -82,6 +82,12 @@ struct eblob_binlog_cfg {
 	 */
 };
 
+/*
+ * Defaults to binlog_init for @eblob_binlog_cfg
+ */
+#define EBLOB_BINLOG_DEFAULTS_FLAGS		EBLOB_BINLOG_FLAGS_CFG_PREALLOC
+#define EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP	(128 * 1<<20)
+
 /* Control structure for binlog data encapsulation */
 struct eblob_binlog_ctl {
 	/* Pointer to corresponding cfg */
