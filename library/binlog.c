@@ -240,6 +240,12 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	bcfg->bl_cfg_binlog_fd = fd;
 
+	/* It's not critical if hint fails, but we should log it anyway */
+	err = eblob_pagecache_hint(bcfg->bl_cfg_binlog_fd, EBLOB_FLAGS_HINT_WILLNEED);
+	if (err) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->bl_cfg_binlog_path);
+	}
+
 	/* Stat binlog */
 	err = fstat(bcfg->bl_cfg_binlog_fd, &binlog_stat);
 	if (err == -1) {
