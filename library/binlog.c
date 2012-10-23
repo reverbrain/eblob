@@ -83,7 +83,7 @@ static inline int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
 		return -ENOTSUP;
 
 	if (dhdr->bl_hdr_flags & (~EBLOB_BINLOG_FLAGS_CFG_ALL))
-		return -ENOTSUP;
+		return -EINVAL;
 	return 0;
 }
 
@@ -206,6 +206,10 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 		goto err_free;
 	}
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %lld, size: %lld, flags: %lld, key: %s, "
+			"offset: %lld", bcfg->bl_cfg_binlog_path, rhdr->bl_record_type, rhdr->bl_record_size,
+			rhdr->bl_record_flags, eblob_dump_id(rhdr->bl_record_key.id), offset);
 
 	err = binlog_verify_record_hdr(eblob_convert_binlog_record_header(rhdr));
 	if (err) {
@@ -394,6 +398,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 			/* XXX: Add record to index */
 	}
 	bcfg->bl_cfg_binlog_position = last_lsn;
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "last LSN: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)last_lsn);
 
 	return 0;
 
@@ -437,6 +442,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Written header MUST be verifiable by us */
 	assert(binlog_verify_record_hdr(&rhdr) == 0);
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pwrite: %s, type: %lld, size: %lld, flags: %lld, key: %s, "
+			"position: %lld", bcfg->bl_cfg_binlog_path, rhdr.bl_record_type, rhdr.bl_record_size, rhdr.bl_record_flags,
+			eblob_dump_id(rhdr.bl_record_key.id), bcfg->bl_cfg_binlog_position);
 
 	/* Write header */
 	offset = bcfg->bl_cfg_binlog_position;
