@@ -207,7 +207,7 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 		goto err_free;
 	}
 
-	err = binlog_verify_record_hdr(rhdr);
+	err = binlog_verify_record_hdr(eblob_convert_binlog_record_header(rhdr));
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_record_hdr: %s", bcfg->bl_cfg_binlog_path);
 		goto err_free;
@@ -217,6 +217,41 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 
 err_free:
 	free(rhdr);
+err:
+	return NULL;
+}
+
+/*
+ * Reads data from file into memory
+ *
+ * TODO: This process involves lots of data copying - this can be solved by
+ * using mmap(2) in case @size is bigger than some specified threshold.
+ */
+static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size) {
+	ssize_t err;
+	char *buf;
+
+	assert(bcfg != NULL);
+	assert(bcfg->bl_cfg_binlog_fd >= 0);
+	assert(offset > 0);
+	assert(size > 0);
+
+	buf = malloc(size);
+	if (buf == NULL) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "malloc: %zd", size);
+		goto err;
+	}
+
+	err = pread(bcfg->bl_cfg_binlog_fd, buf, size, offset);
+	if (err != size) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s", bcfg->bl_cfg_binlog_path);
+		goto err_free;
+	}
+	return buf;
+
+err_free:
+	free(buf);
 err:
 	return NULL;
 }
@@ -432,16 +467,71 @@ err:
 }
 
 /*
- * XXX: Reads binlog data for a key
+ * Reads binlog data for a key / offset
+ *
+ * Data is placed to @bctl->bl_ctl_data
  */
 int binlog_read(struct eblob_binlog_ctl *bctl) {
+	int err;
+	off_t hdr_offset;
+	char *data = NULL;
+	struct eblob_binlog_disk_record_hdr *rhdr;
+	struct eblob_binlog_cfg *bcfg;
+
+	if (bctl == NULL || bctl->bl_ctl_cfg == NULL)
+		return -EINVAL;
+	bcfg = bctl->bl_ctl_cfg;
+
+	/* XXX: Find entry's LSN by key/offset */
+	hdr_offset = 256;
+
+	/* Read record's header with corresponding LSN */
+	rhdr = binlog_read_record_hdr(bcfg, hdr_offset);
+	if (rhdr == NULL) {
+		err = -EIO;
+		EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_hdr: %lld", (long long)hdr_offset);
+		goto err;
+	}
+
+	/* Read data */
+	if (rhdr->bl_record_size) {
+		data = binlog_read_record_data(bcfg, hdr_offset + sizeof(*rhdr), rhdr->bl_record_size);
+		if (data == NULL) {
+			err = -EIO;
+			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(hdr_offset + sizeof(*rhdr)));
+			goto err_free_hdr;
+		}
+	}
+
+	bctl->bl_ctl_data = data;
+	bctl->bl_ctl_type = rhdr->bl_record_type;
+	bctl->bl_ctl_size = rhdr->bl_record_size;
+	bctl->bl_ctl_flags = rhdr->bl_record_flags;
+	bctl->bl_ctl_origin = rhdr->bl_record_origin;
+	memcpy(bctl->bl_ctl_key, rhdr->bl_record_key, sizeof(bctl->bl_ctl_key));
+
 	return 0;
+
+err_free_hdr:
+	free(rhdr);
+err:
+	return err;
 }
 
 /*
  * XXX: Sequentially applies given binlog to backing file.
  */
-int binlog_apply(struct eblob_binlog_cfg *bcfg, int apply_fd) {
+int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl)) {
+	if (bcfg == NULL || func == NULL)
+		return -EINVAL;
+
+	/*
+	 * From start to current position:
+	 *  - Read log header
+	 *  - Optionally check that LSN is in index (to rule out multiple rewrites of same data)
+	 *  - Run function that applies given LSN to blob
+	 */
+
 	return 0;
 }
 
