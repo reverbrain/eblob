@@ -394,7 +394,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	 */
 	for (last_lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
 		(rhdr = binlog_read_record_hdr(bcfg, last_lsn)) != NULL;
-		last_lsn += rhdr->bl_record_size, free(rhdr)) {
+		last_lsn += rhdr->bl_record_size + sizeof(*rhdr), free(rhdr)) {
 			/* XXX: Add record to index */
 	}
 	bcfg->bl_cfg_binlog_position = last_lsn;
