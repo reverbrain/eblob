@@ -1232,8 +1232,22 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	blob_update_index(b, key, &wc, 0);
 
 #ifdef BINLOG
-	/* TODO: binlog append */
-	binlog_append(NULL);
+	if (b->binlog != NULL) {
+		struct eblob_binlog_ctl bctl;
+		memset(&bctl, 0, sizeof(bctl));
+
+		bctl.bl_ctl_cfg = b->binlog;
+		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_UPDATE;
+		bctl.bl_ctl_key = key;
+		bctl.bl_ctl_meta = &wc;
+		bctl.bl_ctl_meta_size = sizeof(wc);
+
+		err = binlog_append(&bctl);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: bilog append failed\n", eblob_dump_id(key->id));
+			goto err_out_exit;
+		}
+	}
 #endif /* BINLOG */
 
 err_out_exit:
@@ -1276,8 +1290,20 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	free(ctl);
 
 #ifdef BINLOG
-	/* TODO: binlog append */
-	binlog_append(NULL);
+	if (b->binlog != NULL) {
+		struct eblob_binlog_ctl bctl;
+		memset(&bctl, 0, sizeof(bctl));
+
+		bctl.bl_ctl_cfg = b->binlog;
+		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_REMOVE_ALL;
+		bctl.bl_ctl_key = key;
+
+		err = binlog_append(&bctl);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: bilog append failed\n", eblob_dump_id(key->id));
+			goto err_out_exit;
+		}
+	}
 #endif /* BINLOG */
 
 err_out_exit:
@@ -1306,8 +1332,22 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
 
 #ifdef BINLOG
-	/* TODO: binlog append */
-	binlog_append(NULL);
+	if (b->binlog != NULL) {
+		struct eblob_binlog_ctl bctl;
+		memset(&bctl, 0, sizeof(bctl));
+
+		bctl.bl_ctl_cfg = b->binlog;
+		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_REMOVE;
+		bctl.bl_ctl_key = key;
+		bctl.bl_ctl_meta = &type;
+		bctl.bl_ctl_meta_size = sizeof(type);
+
+		err = binlog_append(&bctl);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: bilog append failed\n", eblob_dump_id(key->id));
+			goto err_out_exit;
+		}
+	}
 #endif /* BINLOG */
 
 err_out_exit:
