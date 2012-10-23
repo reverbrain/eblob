@@ -176,6 +176,8 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 
 /*
  * Allocate space for binlog.
+ *
+ * FIXME: Does not work on some filesystems - write fallback code.
  */
 static inline int _binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
