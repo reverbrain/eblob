@@ -92,17 +92,16 @@ struct eblob_binlog_ctl {
 	struct eblob_binlog_cfg	*bl_ctl_cfg;
 	/* Record type */
 	uint16_t		bl_ctl_type;
-	/*
-	 * Record's original offset.
-	 * For now i.e data position in backing file.
-	 */
-	uint64_t		bl_ctl_origin;
 	/* Record's key */
 	struct eblob_key	*bl_ctl_key;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
 	ssize_t			bl_ctl_size;
+	/* Pointer to metadata location */
+	void			*bl_ctl_meta;
+	/* Size of metadata */
+	ssize_t			bl_ctl_meta_size;
 	/* Record-wide flags */
 	uint64_t		bl_ctl_flags;
 };
@@ -133,12 +132,12 @@ struct eblob_binlog_disk_hdr {
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
 	uint64_t		bl_record_type;
-	/* Size of record starting from position */
+	/* Size of record starting right after header */
 	uint64_t		bl_record_size;
+	/* How much of it given to metadata */
+	uint64_t		bl_record_meta_size;
 	/* Record-wide flags */
 	uint64_t		bl_record_flags;
-	/* Original data offset */
-	uint64_t		bl_record_origin;
 	/* Record's key */
 	struct eblob_key	bl_record_key;
 	char			bl_record_pad[32];
@@ -170,8 +169,8 @@ static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_h
 {
 	rhdr->bl_record_type = eblob_bswap64(rhdr->bl_record_type);
 	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
+	rhdr->bl_record_meta_size = eblob_bswap64(rhdr->bl_record_meta_size);
 	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
-	rhdr->bl_record_origin = eblob_bswap64(rhdr->bl_record_origin);
 	return rhdr;
 }
 

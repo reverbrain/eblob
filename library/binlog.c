@@ -402,6 +402,7 @@ err:
  */
 int binlog_append(struct eblob_binlog_ctl *bctl) {
 	ssize_t err, record_len;
+	off_t offset;
 	struct eblob_binlog_cfg *bcfg;
 	struct eblob_binlog_disk_record_hdr rhdr;
 
@@ -413,7 +414,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	assert(bcfg->bl_cfg_binlog_position > 0);
 
 	/* Check if binlog needs to be extended */
-	record_len = bctl->bl_ctl_size + sizeof(rhdr);
+	record_len = sizeof(rhdr) + bctl->bl_ctl_meta_size + bctl->bl_ctl_size;
 	if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size) {
 		if ((err = binlog_extend(bcfg))) {
 			goto err;
@@ -422,8 +423,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Construct record header */
 	rhdr.bl_record_type = bctl->bl_ctl_type;
-	rhdr.bl_record_origin = bctl->bl_ctl_origin;
-	rhdr.bl_record_size = bctl->bl_ctl_size;
+	rhdr.bl_record_size = bctl->bl_ctl_meta_size + bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
 	memcpy(&rhdr.bl_record_key.id, bctl->bl_ctl_key->id, sizeof(rhdr.bl_record_key.id));
 
@@ -431,19 +431,34 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	assert(binlog_verify_record_hdr(&rhdr) == 0);
 
 	/* Write header */
-	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), bcfg->bl_cfg_binlog_position);
+	offset = bcfg->bl_cfg_binlog_position;
+	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), offset);
 	if (err != sizeof(rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
 
+	/* Write metadata */
+	if (bctl->bl_ctl_meta_size > 0) {
+		offset += sizeof(rhdr);
+		err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_meta, bctl->bl_ctl_meta_size, offset);
+		if (err != bctl->bl_ctl_meta_size) {
+			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s", bcfg->bl_cfg_binlog_path);
+			goto err;
+		}
+	}
+
 	/* Write data */
-	err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, bcfg->bl_cfg_binlog_position + sizeof(rhdr));
-	if (err != bctl->bl_ctl_size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
-		goto err;
+	if (bctl->bl_ctl_size > 0) {
+		offset += bctl->bl_ctl_meta_size;
+		err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, offset);
+		if (err != bctl->bl_ctl_size) {
+			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
+			goto err;
+		}
 	}
 
 	/* Sync if not already opened with O_SYNC */
@@ -503,12 +518,18 @@ int binlog_read(struct eblob_binlog_ctl *bctl) {
 		}
 	}
 
-	bctl->bl_ctl_data = data;
 	bctl->bl_ctl_type = rhdr->bl_record_type;
-	bctl->bl_ctl_size = rhdr->bl_record_size;
 	bctl->bl_ctl_flags = rhdr->bl_record_flags;
-	bctl->bl_ctl_origin = rhdr->bl_record_origin;
 	memcpy(bctl->bl_ctl_key->id, rhdr->bl_record_key.id, sizeof(bctl->bl_ctl_key->id));
+
+	/* Record starts with metadata */
+	bctl->bl_ctl_meta_size = rhdr->bl_record_meta_size;
+	if (bctl->bl_ctl_meta_size > 0)
+		bctl->bl_ctl_meta = data;
+	/* Then goes data itself */
+	bctl->bl_ctl_size = rhdr->bl_record_size - rhdr->bl_record_meta_size;
+	if (bctl->bl_ctl_size > 0)
+		bctl->bl_ctl_data = data + bctl->bl_ctl_meta_size;
 
 	return 0;
 
