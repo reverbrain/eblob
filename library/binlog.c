@@ -378,7 +378,13 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err_unlock;
 	}
 
-	/* Iterate over binlog, starting right after the header */
+	/*
+	 * Iterate over binlog, starting right after the header
+	 *
+	 * FIXME: There are too many cycles of allocation/deallocation - we
+	 * should provide our own place for header, and not to torture
+	 * malloc(3)
+	 */
 	for (last_lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
 		(rhdr = binlog_read_record_hdr(bcfg, last_lsn)) != NULL;
 		last_lsn += rhdr->bl_record_size, free(rhdr)) {
