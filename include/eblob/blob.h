@@ -492,6 +492,8 @@ void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
 
+int eblob_start_binlog(struct eblob_backend *b, char *filename);
+
 #ifdef __cplusplus
 }
 #endif

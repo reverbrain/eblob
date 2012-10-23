@@ -1741,6 +1741,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_lock_destroy;
 	}
 
+	/* XXX */
+	eblob_start_binlog(b, b->cfg.file);
+
 	err = eblob_load_data(b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index iteration failed: %d.\n", err);
@@ -1837,3 +1840,40 @@ int eblob_get_types(struct eblob_backend *b, int **typesp) {
 	return types_num;
 }
 
+int eblob_start_binlog(struct eblob_backend *b, char *filename) {
+#ifdef BINLOG
+	int err;
+	struct eblob_binlog_cfg *bcfg;
+	char binlog_filename[PATH_MAX];
+	const char binlog_suffix[] = ".binlog";
+
+	strncpy(binlog_filename, filename, PATH_MAX - 1);
+	if (strlen(binlog_filename) + strlen(binlog_suffix) > PATH_MAX - 1)
+		return -EINVAL;
+	strcat(binlog_filename, binlog_suffix);
+
+	pthread_mutex_lock(&b->lock);
+	bcfg = binlog_init(binlog_filename, b->cfg.log);
+	if (bcfg == NULL) {
+		err = -ENOMEM;
+		goto out_unlock;
+	}
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
+
+	err = binlog_open(bcfg);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: eblob_start_binlog failed: %d.\n", err);
+		goto err_destroy;
+	}
+	b->binlog = bcfg;
+	goto out_unlock;
+
+err_destroy:
+	binlog_destroy(bcfg);
+out_unlock:
+	pthread_mutex_unlock(&b->lock);
+	return err;
+#else /* BINLOG */
+	return -ENOTSUP;
+#endif /* !BINLOG */
+}
