@@ -425,7 +425,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	rhdr.bl_record_origin = bctl->bl_ctl_origin;
 	rhdr.bl_record_size = bctl->bl_ctl_size;
 	rhdr.bl_record_flags = bctl->bl_ctl_flags;
-	memcpy(&rhdr.bl_record_key, bctl->bl_ctl_key, sizeof(rhdr.bl_record_key));
+	memcpy(&rhdr.bl_record_key.id, bctl->bl_ctl_key->id, sizeof(rhdr.bl_record_key.id));
 
 	/* Written header MUST be verifiable by us */
 	assert(binlog_verify_record_hdr(&rhdr) == 0);
@@ -508,7 +508,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl) {
 	bctl->bl_ctl_size = rhdr->bl_record_size;
 	bctl->bl_ctl_flags = rhdr->bl_record_flags;
 	bctl->bl_ctl_origin = rhdr->bl_record_origin;
-	memcpy(bctl->bl_ctl_key, rhdr->bl_record_key, sizeof(bctl->bl_ctl_key));
+	memcpy(bctl->bl_ctl_key->id, rhdr->bl_record_key.id, sizeof(bctl->bl_ctl_key->id));
 
 	return 0;
 

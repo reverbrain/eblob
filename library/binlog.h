@@ -98,7 +98,7 @@ struct eblob_binlog_ctl {
 	 */
 	uint64_t		bl_ctl_origin;
 	/* Record's key */
-	char			*bl_ctl_key;
+	struct eblob_key	*bl_ctl_key;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
 	/* Size of data */
@@ -140,7 +140,7 @@ struct eblob_binlog_disk_record_hdr {
 	/* Original data offset */
 	uint64_t		bl_record_origin;
 	/* Record's key */
-	char			bl_record_key[64];
+	struct eblob_key	bl_record_key;
 	char			bl_record_pad[32];
 };
 
