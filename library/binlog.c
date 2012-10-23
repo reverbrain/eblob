@@ -381,6 +381,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	/*
 	 * Iterate over binlog, starting right after the header
 	 *
+	 * FIXME: Last record o fbinlog can be truncated / corupted so we
+	 * really need checksumming
+	 *
 	 * FIXME: There are too many cycles of allocation/deallocation - we
 	 * should provide our own place for header, and not to torture
 	 * malloc(3)
