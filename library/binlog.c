@@ -63,7 +63,7 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
 		bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
 		err = _binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
 		if (err) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s", bcfg->bl_cfg_binlog_path);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_prealloc_size);
 			return err;
 		}
 	}
@@ -203,7 +203,7 @@ static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_
 	err = pread(bcfg->bl_cfg_binlog_fd, rhdr, sizeof(*rhdr), offset);
 	if (err != sizeof(*rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 		goto err_free;
 	}
 
@@ -244,7 +244,7 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 
 	err = pread(bcfg->bl_cfg_binlog_fd, buf, size, offset);
 	if (err != size) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, (err == -1) ? errno : (long)EINTR, "pread: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, (err == -1) ? errno : (long)EINTR, "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 		goto err_free;
 	}
 	return buf;
@@ -434,7 +434,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), offset);
 	if (err != sizeof(rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 		goto err;
 	}
 
@@ -444,7 +444,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_meta, bctl->bl_ctl_meta_size, offset);
 		if (err != bctl->bl_ctl_meta_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s", bcfg->bl_cfg_binlog_path);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 			goto err;
 		}
 	}
@@ -455,7 +455,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		err = pwrite(bcfg->bl_cfg_binlog_fd, bctl->bl_ctl_data, bctl->bl_ctl_size, offset);
 		if (err != bctl->bl_ctl_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s", bcfg->bl_cfg_binlog_path);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 			goto err;
 		}
 	}
