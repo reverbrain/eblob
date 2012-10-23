@@ -322,7 +322,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
 	err = binlog_create(bcfg);
-	if (err != -EEXIST) {
+	if (err && err != -EEXIST) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_create: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
 	}
