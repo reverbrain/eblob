@@ -238,14 +238,13 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 
 	buf = malloc(size);
 	if (buf == NULL) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "malloc: %zd", size);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, errno, "malloc: %zd", size);
 		goto err;
 	}
 
 	err = pread(bcfg->bl_cfg_binlog_fd, buf, size, offset);
 	if (err != size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, (err == -1) ? errno : (long)EINTR, "pread: %s", bcfg->bl_cfg_binlog_path);
 		goto err_free;
 	}
 	return buf;
