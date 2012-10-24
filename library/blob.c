@@ -1752,13 +1752,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
 		goto err_out_cleanup;
 	}
 
 	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: history iteration failed: %d.\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
 		goto err_out_join_sync;
 	}
 
