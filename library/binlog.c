@@ -113,7 +113,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	/* Written header MUST be verifiable by us */
 	assert(binlog_verify_hdr(dhdr) == 0);
 
-	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
+	err = pwrite(fd, dhdr, sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 
@@ -138,7 +138,7 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 	if (err != sizeof(*dhdr))
 		goto err_free_dhdr; /* TODO: handle signal case gracefully */
 
-	return eblob_convert_binlog_header(dhdr);
+	return dhdr;
 
 err_free_dhdr:
 	free(dhdr);
@@ -207,8 +207,7 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 			"offset: %lld", bcfg->bl_cfg_binlog_path, rhdr->bl_record_type, rhdr->bl_record_size,
 			rhdr->bl_record_flags, eblob_dump_id(rhdr->bl_record_key.id), offset);
 
-	/* XXX: Not bigendian safe */
-	err = binlog_verify_record_hdr(eblob_convert_binlog_record_header(rhdr));
+	err = binlog_verify_record_hdr(rhdr);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_record_hdr: %s", bcfg->bl_cfg_binlog_path);
 		goto err;
@@ -482,7 +481,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Write header */
 	offset = bcfg->bl_cfg_binlog_position;
-	err = pwrite(bcfg->bl_cfg_binlog_fd, eblob_convert_binlog_record_header(&rhdr), sizeof(rhdr), offset);
+	err = pwrite(bcfg->bl_cfg_binlog_fd, &rhdr, sizeof(rhdr), offset);
 	if (err != sizeof(rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
@@ -520,10 +519,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		}
 	}
 
-	/*
-	 * Add record to binlog index
-	 * XXX: Not big endian safe!
-	 */
+	/* Add record to binlog index */
 	err = binlog_insert_index(bcfg, &rhdr, bcfg->bl_cfg_binlog_position);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_insert_index: %s", bcfg->bl_cfg_binlog_path);

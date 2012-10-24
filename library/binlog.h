@@ -113,6 +113,15 @@ struct eblob_binlog_ctl {
 };
 
 /*
+ * NB!
+ * It's not currently safe to transfer binlogs between bigendian and little
+ * endian machines. Support for this feature existed in early versions of
+ * binlog code but was removed due to lack of testing.
+ *
+ * It's better to not have feature at all than to have buggy one.
+ */
+
+/*
  * On disk header for binlog files.
  * May be used for storing additional data in binlog files
  * and for on-disk data format upgrades.
@@ -163,30 +172,6 @@ struct eblob_binlog_index_record {
 
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
 		"%s (%ld); " fmt, strerror(err), (long int)err , ## __VA_ARGS__);
-
-/*
- * Convert binlog header to/from on-disk format
- * Returns @hdr back.
- */
-static inline struct eblob_binlog_disk_hdr *eblob_convert_binlog_header(struct eblob_binlog_disk_hdr *hdr)
-{
-	hdr->bl_hdr_version = eblob_bswap16(hdr->bl_hdr_version);
-	hdr->bl_hdr_flags = eblob_bswap64(hdr->bl_hdr_flags);
-	return hdr;
-}
-
-/*
- * Convert binlog record header to/from on-disk format
- * Returns @rhdr back.
- */
-static inline struct eblob_binlog_disk_record_hdr *eblob_convert_binlog_record_header(struct eblob_binlog_disk_record_hdr *rhdr)
-{
-	rhdr->bl_record_type = eblob_bswap64(rhdr->bl_record_type);
-	rhdr->bl_record_size = eblob_bswap64(rhdr->bl_record_size);
-	rhdr->bl_record_meta_size = eblob_bswap64(rhdr->bl_record_meta_size);
-	rhdr->bl_record_flags = eblob_bswap64(rhdr->bl_record_flags);
-	return rhdr;
-}
 
 /*
  * Allocate space for binlog.
