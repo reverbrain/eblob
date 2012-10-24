@@ -73,6 +73,12 @@ struct eblob_binlog_cfg {
 	 * dependency on eblob_log
 	 */
 	struct eblob_log		*log;
+	/*
+	 * Binlog index
+	 *
+	 * Mapping between key and binlog offset.
+	 */
+	struct rb_root			bl_cfg_index;
 	/* TODO: Pluggable data-processing functions
 	 * For binlog to be extensible it would be nice to have set of function
 	 * pointers to different base routines, like:
@@ -141,6 +147,14 @@ struct eblob_binlog_disk_record_hdr {
 	/* Record's key */
 	struct eblob_key	bl_record_key;
 	char			bl_record_pad[32];
+};
+
+/* Binlog index record */
+struct eblob_binlog_index_record {
+	struct rb_node		node;
+
+	struct eblob_key	key;
+	off_t			offset;
 };
 
 /* Logging helpers */
@@ -212,6 +226,65 @@ static inline int binlog_datasync(int fd) {
 #else /* HAVE_FDATASYNC */
 	return binlog_sync(fd);
 #endif /* !HAVE_FDATASYNC */
+}
+
+static inline struct eblob_binlog_index_record *rb_search_binlog_index(struct eblob_binlog_cfg *bcfg,
+									struct eblob_key *key) {
+	struct rb_node *n = bcfg->bl_cfg_index.rb_node;
+	struct eblob_binlog_index_record *record;
+	int cmp;
+
+	while (n)
+	{
+		record = rb_entry(n, struct eblob_binlog_index_record, node);
+
+		cmp = eblob_id_cmp(record->key.id, key->id);
+		if (cmp < 0)
+			n = n->rb_left;
+		else if (cmp > 0)
+			n = n->rb_right;
+		else
+			return record;
+	}
+	return NULL;
+}
+
+static inline struct eblob_binlog_index_record *__rb_insert_binlog_index(struct eblob_binlog_cfg *bcfg,
+									struct eblob_key *key,
+									struct rb_node *new_node) {
+	struct rb_node **n = &bcfg->bl_cfg_index.rb_node;
+	struct rb_node *parent = NULL;
+	struct eblob_binlog_index_record *record;
+	int cmp;
+
+	while (*n)
+	{
+		parent = *n;
+		record = rb_entry(parent, struct eblob_binlog_index_record, node);
+
+		cmp = eblob_id_cmp(record->key.id, key->id);
+		if (cmp < 0)
+			n = &(*n)->rb_left;
+		else if (cmp > 0)
+			n = &(*n)->rb_right;
+		else
+			return record;
+	}
+
+	rb_link_node(new_node, parent, n);
+
+	return NULL;
+}
+
+static inline struct eblob_binlog_index_record *rb_insert_binlog_index(struct eblob_binlog_cfg *bcfg,
+									struct eblob_key *key,
+									struct rb_node *new_node) {
+	struct eblob_binlog_index_record *ret;
+	if ((ret = __rb_insert_binlog_index(bcfg, key, new_node)))
+		goto out;
+	rb_insert_color(new_node, &bcfg->bl_cfg_index);
+out:
+	return ret;
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
