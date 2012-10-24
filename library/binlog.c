@@ -123,7 +123,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	return 0;
 }
 
-static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
+static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp) {
 	ssize_t err;
 	struct eblob_binlog_disk_hdr *dhdr;
 
@@ -135,15 +135,22 @@ static struct eblob_binlog_disk_hdr *binlog_hdr_read(int fd) {
 		goto err;
 
 	err = pread(fd, dhdr, sizeof(*dhdr), 0);
-	if (err != sizeof(*dhdr))
-		goto err_free_dhdr; /* TODO: handle signal case gracefully */
+	if (err != sizeof(*dhdr)) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		goto err_free_dhdr;
+	}
 
-	return dhdr;
+	err = binlog_verify_hdr(dhdr);
+	if (err)
+		goto err_free_dhdr;
+
+	*dhdrp = dhdr;
+	return 0;
 
 err_free_dhdr:
 	free(dhdr);
 err:
-	return NULL;
+	return err;
 }
 
 /*
@@ -408,17 +415,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	bcfg->bl_cfg_prealloc_size = binlog_stat.st_size;
 
 	/* Read header */
-	bcfg->bl_cfg_disk_hdr = binlog_hdr_read(bcfg->bl_cfg_binlog_fd);
-	if (bcfg->bl_cfg_disk_hdr == NULL) {
-		err = -EIO;
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_read: %s", bcfg->bl_cfg_binlog_path);
-		goto err_unlock;
-	}
-
-	/* Check header */
-	err = binlog_verify_hdr(bcfg->bl_cfg_disk_hdr);
+	err = binlog_hdr_read(bcfg->bl_cfg_binlog_fd, &bcfg->bl_cfg_disk_hdr);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_hdr: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_read: %s", bcfg->bl_cfg_binlog_path);
 		goto err_unlock;
 	}
 
