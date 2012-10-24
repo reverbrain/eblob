@@ -262,10 +262,11 @@ err:
 
 
 /*
- * Adds record to index
+ * Adds record to index. If entry for that key already existed it's get
+ * replaced.
  */
 static int binlog_insert_index(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_disk_record_hdr *rhdr, off_t lsn) {
-	struct eblob_binlog_index_record *idx;
+	struct eblob_binlog_index_record *idx, *old;
 
 	idx = malloc(sizeof(*idx));
 	if (idx == NULL)
@@ -273,8 +274,11 @@ static int binlog_insert_index(struct eblob_binlog_cfg *bcfg, struct eblob_binlo
 
 	idx->offset = lsn;
 	idx->key = rhdr->bl_record_key;
-	/* XXX: Duplicate keys */
-	rb_insert_binlog_index(bcfg, &rhdr->bl_record_key, &idx->node);
+	old = rb_insert_binlog_index(bcfg, &rhdr->bl_record_key, &idx->node);
+
+	/* If there is already entry for this key - replace it's offset with */
+	if (old != NULL)
+		old->offset = lsn;
 
 	return 0;
 }
