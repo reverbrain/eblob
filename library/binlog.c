@@ -74,7 +74,7 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
  * Preform simple checks on binlog header, later in can also signal on disk
  * data format changes or perform checksum verifications.
  */
-static inline int binlog_hdr_verify(struct eblob_binlog_disk_hdr *dhdr) {
+static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr) {
 	if (strcmp(dhdr->bl_hdr_magic, EBLOB_BINLOG_MAGIC))
 		return -EINVAL;
 
@@ -110,7 +110,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 		return -EINVAL;
 
 	/* Written header MUST be verifiable by us */
-	assert(binlog_hdr_verify(dhdr) == 0);
+	assert(binlog_verify_hdr(dhdr) == 0);
 
 	err = pwrite(fd, eblob_convert_binlog_header(dhdr), sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr))
@@ -376,9 +376,9 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	}
 
 	/* Check header */
-	err = binlog_hdr_verify(bcfg->bl_cfg_disk_hdr);
+	err = binlog_verify_hdr(bcfg->bl_cfg_disk_hdr);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_verify: %s", bcfg->bl_cfg_binlog_path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_hdr: %s", bcfg->bl_cfg_binlog_path);
 		goto err_unlock;
 	}
 
