@@ -84,6 +84,7 @@ static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr) {
 
 	if (dhdr->bl_hdr_flags & (~EBLOB_BINLOG_FLAGS_CFG_ALL))
 		return -EINVAL;
+
 	return 0;
 }
 
