@@ -287,6 +287,13 @@ out:
 	return ret;
 }
 
+static inline void rb_destroy_binlog_index(struct eblob_binlog_cfg *bcfg) {
+	struct rb_node *n;
+
+	while((n = bcfg->bl_cfg_index.rb_node))
+		rb_erase(n, &bcfg->bl_cfg_index);
+}
+
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_ctl *bctl);

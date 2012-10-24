@@ -434,7 +434,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	return 0;
 err_destroy_index:
-	// XXX: leak
+	rb_destroy_binlog_index(bcfg);
 err_unlock:
 	flock(fd, LOCK_UN);
 err_close:
@@ -669,6 +669,7 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg == NULL)
 		return -EINVAL;
 
+	rb_destroy_binlog_index(bcfg);
 	free(bcfg->bl_cfg_disk_hdr);
 	free(bcfg->bl_cfg_binlog_path);
 	free(bcfg);
