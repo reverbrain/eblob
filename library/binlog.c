@@ -260,6 +260,56 @@ err:
 	return NULL;
 }
 
+
+/*
+ * Adds record to index
+ */
+static int binlog_insert_index(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_disk_record_hdr *rhdr, off_t lsn) {
+	struct eblob_binlog_index_record *idx;
+
+	idx = malloc(sizeof(*idx));
+	if (idx == NULL)
+		return -ENOMEM;
+
+	idx->offset = lsn;
+	idx->key = rhdr->bl_record_key;
+	/* XXX: Duplicate keys */
+	rb_insert_binlog_index(bcfg, &rhdr->bl_record_key, &idx->node);
+
+	return 0;
+}
+
+/*
+ * Iterate over binlog, starting right after the header, add each found record
+ * to index.
+ *
+ * Returns negative value on error.
+ *
+ * FIXME: Last record of binlog can be truncated / corupted so we
+ * really need checksumming
+ *
+ * FIXME: There are too many cycles of allocation/deallocation - we
+ * should provide our own place for header, and not to torture
+ * malloc(3)
+ *
+ * XXX: leak
+ */
+static off_t binlog_fill_index(struct eblob_binlog_cfg *bcfg) {
+	int err;
+	off_t lsn;
+	struct eblob_binlog_disk_record_hdr *rhdr;
+
+	for (lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
+			(rhdr = binlog_read_record_hdr(bcfg, lsn)) != NULL;
+			lsn += rhdr->bl_record_size + sizeof(*rhdr), free(rhdr)) {
+		err = binlog_insert_index(bcfg, rhdr, lsn);
+		if (err)
+			return err;
+	}
+
+	return lsn;
+}
+
 /*
  * Returns pointer to cooked @eblob_binlog_cfg structure.
  * @path is desired name of binlog file.
@@ -316,9 +366,7 @@ err:
  */
 int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	int fd, oflag, err;
-	off_t last_lsn;
 	struct stat binlog_stat;
-	struct eblob_binlog_disk_record_hdr *rhdr;
 
 	if (bcfg == NULL)
 		return -EINVAL;
@@ -383,26 +431,18 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err_unlock;
 	}
 
-	/*
-	 * Iterate over binlog, starting right after the header
-	 *
-	 * FIXME: Last record o fbinlog can be truncated / corupted so we
-	 * really need checksumming
-	 *
-	 * FIXME: There are too many cycles of allocation/deallocation - we
-	 * should provide our own place for header, and not to torture
-	 * malloc(3)
-	 */
-	for (last_lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
-		(rhdr = binlog_read_record_hdr(bcfg, last_lsn)) != NULL;
-		last_lsn += rhdr->bl_record_size + sizeof(*rhdr), free(rhdr)) {
-			/* XXX: Add record to index */
+	/* Fill index */
+	bcfg->bl_cfg_binlog_position = binlog_fill_index(bcfg);
+	if (bcfg->bl_cfg_binlog_position < 0) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -errno, "binlog_fill_index: %s", bcfg->bl_cfg_binlog_path);
+		goto err_destroy_index;
 	}
-	bcfg->bl_cfg_binlog_position = last_lsn;
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "last LSN: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)last_lsn);
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_binlog_position);
 
 	return 0;
-
+err_destroy_index:
+	// XXX: leak
 err_unlock:
 	flock(fd, LOCK_UN);
 err_close:
@@ -488,10 +528,17 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		}
 	}
 
+	/*
+	 * Add record to binlog index
+	 * XXX: Not big endian safe!
+	 */
+	err = binlog_insert_index(bcfg, &rhdr, bcfg->bl_cfg_binlog_position);
+	if (err) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_insert_index: %s", bcfg->bl_cfg_binlog_path);
+	}
+
 	/* Finally is everything is ok - bump length */
 	bcfg->bl_cfg_binlog_position += record_len;
-
-	/* XXX: Add record to binlog index */
 
 	return 0;
 
@@ -509,14 +556,22 @@ int binlog_read(struct eblob_binlog_ctl *bctl) {
 	off_t hdr_offset;
 	char *data = NULL;
 	struct eblob_binlog_disk_record_hdr *rhdr;
+	struct eblob_binlog_index_record *idx;
 	struct eblob_binlog_cfg *bcfg;
 
 	if (bctl == NULL || bctl->bl_ctl_cfg == NULL)
 		return -EINVAL;
 	bcfg = bctl->bl_ctl_cfg;
 
-	/* XXX: Find entry's LSN by key/offset */
-	hdr_offset = 256;
+	/* Find entry's LSN by key/offset */
+	idx = rb_search_binlog_index(bcfg, bctl->bl_ctl_key);
+	if (idx == NULL) {
+		err = -ESRCH;
+		goto err;
+	}
+	hdr_offset = idx->offset;
+
+	assert(hdr_offset >= (off_t)sizeof(struct eblob_binlog_disk_hdr));
 
 	/* Read record's header with corresponding LSN */
 	rhdr = binlog_read_record_hdr(bcfg, hdr_offset);
