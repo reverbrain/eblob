@@ -535,7 +535,7 @@ err:
 }
 
 /*
- * Reads binlog data for a key / offset
+ * Reads binlog data for a key
  *
  * Data is placed to @bctl->bl_ctl_data
  */
