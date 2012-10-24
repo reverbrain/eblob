@@ -249,7 +249,7 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 
 	err = pread(bcfg->bl_cfg_binlog_fd, buf, size, offset);
 	if (err != size) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, (err == -1) ? errno : (long)EINTR, "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, ((err == -1) ? errno : EINTR), "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
 		goto err_free;
 	}
 	return buf;
