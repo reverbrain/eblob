@@ -187,43 +187,35 @@ err:
  * Reads one binlog record header starting at @offset
  * and returns pointer to it.
  */
-static struct eblob_binlog_disk_record_hdr *binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg, off_t offset) {
+static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
+		struct eblob_binlog_disk_record_hdr *rhdr, off_t offset) {
 	ssize_t err;
-	struct eblob_binlog_disk_record_hdr *rhdr;
 
 	assert(bcfg != NULL);
+	assert(rhdr != NULL);
 	assert(bcfg->bl_cfg_binlog_fd >= 0);
 	assert(offset > 0);
-
-	rhdr = malloc(sizeof(*rhdr));
-	if (rhdr == NULL) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, errno, "malloc");
-		goto err;
-	}
 
 	err = pread(bcfg->bl_cfg_binlog_fd, rhdr, sizeof(*rhdr), offset);
 	if (err != sizeof(*rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %lld", bcfg->bl_cfg_binlog_path, (long long)offset);
-		goto err_free;
+		goto err;
 	}
 
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %lld, size: %lld, flags: %lld, key: %s, "
 			"offset: %lld", bcfg->bl_cfg_binlog_path, rhdr->bl_record_type, rhdr->bl_record_size,
 			rhdr->bl_record_flags, eblob_dump_id(rhdr->bl_record_key.id), offset);
 
+	/* XXX: Not bigendian safe */
 	err = binlog_verify_record_hdr(eblob_convert_binlog_record_header(rhdr));
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_record_hdr: %s", bcfg->bl_cfg_binlog_path);
-		goto err_free;
+		goto err;
 	}
 
-	return rhdr;
-
-err_free:
-	free(rhdr);
 err:
-	return NULL;
+	return err;
 }
 
 /*
@@ -231,6 +223,8 @@ err:
  *
  * TODO: This process involves lots of data copying - this can be solved by
  * using mmap(2) in case @size is bigger than some specified threshold.
+ *
+ * TODO: unify style acording to binlog_read_record_hdr()
  */
 static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size) {
 	ssize_t err;
@@ -291,22 +285,16 @@ static int binlog_insert_index(struct eblob_binlog_cfg *bcfg, struct eblob_binlo
  *
  * FIXME: Last record of binlog can be truncated / corupted so we
  * really need checksumming
- *
- * FIXME: There are too many cycles of allocation/deallocation - we
- * should provide our own place for header, and not to torture
- * malloc(3)
- *
- * XXX: leak
  */
 static off_t binlog_fill_index(struct eblob_binlog_cfg *bcfg) {
 	int err;
 	off_t lsn;
-	struct eblob_binlog_disk_record_hdr *rhdr;
+	struct eblob_binlog_disk_record_hdr rhdr;
 
 	for (lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
-			(rhdr = binlog_read_record_hdr(bcfg, lsn)) != NULL;
-			lsn += rhdr->bl_record_size + sizeof(*rhdr), free(rhdr)) {
-		err = binlog_insert_index(bcfg, rhdr, lsn);
+			binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0;
+			lsn += rhdr.bl_record_size + sizeof(rhdr)) {
+		err = binlog_insert_index(bcfg, &rhdr, lsn);
 		if (err)
 			return err;
 	}
@@ -559,7 +547,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl) {
 	int err;
 	off_t hdr_offset;
 	char *data = NULL;
-	struct eblob_binlog_disk_record_hdr *rhdr;
+	struct eblob_binlog_disk_record_hdr rhdr;
 	struct eblob_binlog_index_record *idx;
 	struct eblob_binlog_cfg *bcfg;
 
@@ -578,40 +566,35 @@ int binlog_read(struct eblob_binlog_ctl *bctl) {
 	assert(hdr_offset >= (off_t)sizeof(struct eblob_binlog_disk_hdr));
 
 	/* Read record's header with corresponding LSN */
-	rhdr = binlog_read_record_hdr(bcfg, hdr_offset);
-	if (rhdr == NULL) {
-		err = -EIO;
-		EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_hdr: %lld", (long long)hdr_offset);
+	err = binlog_read_record_hdr(bcfg, &rhdr, hdr_offset);
+	if (err) {
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_read_record_hdr: %lld", (long long)hdr_offset);
 		goto err;
 	}
 
 	/* Read data */
-	if (rhdr->bl_record_size) {
-		data = binlog_read_record_data(bcfg, hdr_offset + sizeof(*rhdr), rhdr->bl_record_size);
+	if (rhdr.bl_record_size) {
+		data = binlog_read_record_data(bcfg, hdr_offset + sizeof(rhdr), rhdr.bl_record_size);
 		if (data == NULL) {
 			err = -EIO;
-			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(hdr_offset + sizeof(*rhdr)));
-			goto err_free_hdr;
+			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(hdr_offset + sizeof(rhdr)));
+			goto err;
 		}
 	}
 
-	bctl->bl_ctl_type = rhdr->bl_record_type;
-	bctl->bl_ctl_flags = rhdr->bl_record_flags;
-	memcpy(bctl->bl_ctl_key->id, rhdr->bl_record_key.id, sizeof(bctl->bl_ctl_key->id));
+	bctl->bl_ctl_type = rhdr.bl_record_type;
+	bctl->bl_ctl_flags = rhdr.bl_record_flags;
+	memcpy(bctl->bl_ctl_key->id, rhdr.bl_record_key.id, sizeof(bctl->bl_ctl_key->id));
 
 	/* Record starts with metadata */
-	bctl->bl_ctl_meta_size = rhdr->bl_record_meta_size;
+	bctl->bl_ctl_meta_size = rhdr.bl_record_meta_size;
 	if (bctl->bl_ctl_meta_size > 0)
 		bctl->bl_ctl_meta = data;
 	/* Then goes data itself */
-	bctl->bl_ctl_size = rhdr->bl_record_size - rhdr->bl_record_meta_size;
+	bctl->bl_ctl_size = rhdr.bl_record_size - rhdr.bl_record_meta_size;
 	if (bctl->bl_ctl_size > 0)
 		bctl->bl_ctl_data = data + bctl->bl_ctl_meta_size;
 
-	return 0;
-
-err_free_hdr:
-	free(rhdr);
 err:
 	return err;
 }
