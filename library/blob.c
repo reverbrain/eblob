@@ -1172,7 +1172,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
 {
 	struct eblob_write_control wc;
-	int compress_err = -1;
+	int compress_err = -1, overwrite = 0;
 	void *old_data = data;
 	ssize_t err;
 
@@ -1202,6 +1202,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	wc.index = -1;
 
 	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META) || (flags & BLOB_DISK_CTL_OVERWRITE)) {
+		overwrite = 1;
 		err = eblob_try_overwrite(b, key, &wc, data);
 		if (!err)
 			/* ok, we have overwritten old data, got out */
@@ -1233,7 +1234,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_binlog:
 #ifdef BINLOG
-	if (err == 0 && b->binlog != NULL) {
+	if (err == 0 && overwrite && b->binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
 		memset(&bctl, 0, sizeof(bctl));
 
