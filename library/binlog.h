@@ -67,18 +67,8 @@ struct eblob_binlog_cfg {
 	off_t				bl_cfg_binlog_position;
 	/* Pointer to on-disk header for this binlog */
 	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
-	/*
-	 * Logging
-	 * TODO: To move binlog into separate library we'll need to remove
-	 * dependency on eblob_log
-	 */
+	/* Logging */
 	struct eblob_log		*log;
-	/*
-	 * Binlog index
-	 *
-	 * Mapping between key and binlog offset.
-	 */
-	struct rb_root			bl_cfg_index;
 	/* TODO: Pluggable data-processing functions
 	 * For binlog to be extensible it would be nice to have set of function
 	 * pointers to different base routines, like:
@@ -158,14 +148,6 @@ struct eblob_binlog_disk_record_hdr {
 	char			bl_record_pad[32];
 };
 
-/* Binlog index record */
-struct eblob_binlog_index_record {
-	struct rb_node		node;
-
-	struct eblob_key	key;
-	off_t			offset;
-};
-
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
 		"blob: binlog: %s: " fmt "\n", __func__ , ## __VA_ARGS__);
@@ -213,76 +195,10 @@ static inline int binlog_datasync(int fd) {
 #endif /* !HAVE_FDATASYNC */
 }
 
-static inline struct eblob_binlog_index_record *rb_search_binlog_index(struct eblob_binlog_cfg *bcfg,
-									struct eblob_key *key) {
-	struct rb_node *n = bcfg->bl_cfg_index.rb_node;
-	struct eblob_binlog_index_record *record;
-	int cmp;
-
-	while (n)
-	{
-		record = rb_entry(n, struct eblob_binlog_index_record, node);
-
-		cmp = eblob_id_cmp(record->key.id, key->id);
-		if (cmp < 0)
-			n = n->rb_left;
-		else if (cmp > 0)
-			n = n->rb_right;
-		else
-			return record;
-	}
-	return NULL;
-}
-
-static inline struct eblob_binlog_index_record *__rb_insert_binlog_index(struct eblob_binlog_cfg *bcfg,
-									struct eblob_key *key,
-									struct rb_node *new_node) {
-	struct rb_node **n = &bcfg->bl_cfg_index.rb_node;
-	struct rb_node *parent = NULL;
-	struct eblob_binlog_index_record *record;
-	int cmp;
-
-	while (*n)
-	{
-		parent = *n;
-		record = rb_entry(parent, struct eblob_binlog_index_record, node);
-
-		cmp = eblob_id_cmp(record->key.id, key->id);
-		if (cmp < 0)
-			n = &(*n)->rb_left;
-		else if (cmp > 0)
-			n = &(*n)->rb_right;
-		else
-			return record;
-	}
-
-	rb_link_node(new_node, parent, n);
-
-	return NULL;
-}
-
-static inline struct eblob_binlog_index_record *rb_insert_binlog_index(struct eblob_binlog_cfg *bcfg,
-									struct eblob_key *key,
-									struct rb_node *new_node) {
-	struct eblob_binlog_index_record *ret;
-	if ((ret = __rb_insert_binlog_index(bcfg, key, new_node)))
-		goto out;
-	rb_insert_color(new_node, &bcfg->bl_cfg_index);
-out:
-	return ret;
-}
-
-static inline void rb_destroy_binlog_index(struct eblob_binlog_cfg *bcfg) {
-	struct rb_node *n;
-
-	while((n = bcfg->bl_cfg_index.rb_node))
-		rb_erase(n, &bcfg->bl_cfg_index);
-}
-
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_ctl *bctl);
-int binlog_read(struct eblob_binlog_ctl *bctl);
+int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset);
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl));
 int binlog_close(struct eblob_binlog_cfg *bcfg);
 int binlog_destroy(struct eblob_binlog_cfg *bcfg);

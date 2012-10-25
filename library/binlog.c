@@ -184,6 +184,7 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_write: %s", bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
+
 err_close:
 	close(fd);
 err:
@@ -260,49 +261,19 @@ err:
 	return NULL;
 }
 
-
 /*
- * Adds record to index. If entry for that key already existed it's get
- * replaced.
- */
-static int binlog_insert_index(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_disk_record_hdr *rhdr, off_t lsn) {
-	struct eblob_binlog_index_record *idx, *old;
-
-	idx = malloc(sizeof(*idx));
-	if (idx == NULL)
-		return -ENOMEM;
-
-	idx->offset = lsn;
-	idx->key = rhdr->bl_record_key;
-	old = rb_insert_binlog_index(bcfg, &rhdr->bl_record_key, &idx->node);
-
-	/* If there is already entry for this key - replace it's offset with */
-	if (old != NULL)
-		old->offset = lsn;
-
-	return 0;
-}
-
-/*
- * Iterate over binlog, starting right after the header, add each found record
- * to index.
- *
- * Returns negative value on error.
+ * Iterate over binlog, starting right after the header and find next LSN.
  *
  * FIXME: Last record of binlog can be truncated / corupted so we
  * really need checksumming
  */
-static off_t binlog_fill_index(struct eblob_binlog_cfg *bcfg) {
-	int err;
+static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg) {
 	off_t lsn;
 	struct eblob_binlog_disk_record_hdr rhdr;
 
-	for (lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
-			binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0;
-			lsn += rhdr.bl_record_size + sizeof(rhdr)) {
-		err = binlog_insert_index(bcfg, &rhdr, lsn);
-		if (err)
-			return err;
+	lsn = sizeof(*bcfg->bl_cfg_disk_hdr);
+	while(binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0) {
+		lsn += rhdr.bl_record_size + sizeof(rhdr);
 	}
 
 	return lsn;
@@ -421,18 +392,12 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err_unlock;
 	}
 
-	/* Fill index */
-	bcfg->bl_cfg_binlog_position = binlog_fill_index(bcfg);
-	if (bcfg->bl_cfg_binlog_position < 0) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -errno, "binlog_fill_index: %s", bcfg->bl_cfg_binlog_path);
-		goto err_destroy_index;
-	}
-
+	/* Find last LSN */
+	bcfg->bl_cfg_binlog_position = binlog_get_next_lsn(bcfg);
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_binlog_position);
 
 	return 0;
-err_destroy_index:
-	rb_destroy_binlog_index(bcfg);
+
 err_unlock:
 	flock(fd, LOCK_UN);
 err_close:
@@ -518,12 +483,6 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		}
 	}
 
-	/* Add record to binlog index */
-	err = binlog_insert_index(bcfg, &rhdr, bcfg->bl_cfg_binlog_position);
-	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_insert_index: %s", bcfg->bl_cfg_binlog_path);
-	}
-
 	/* Finally is everything is ok - bump length */
 	bcfg->bl_cfg_binlog_position += record_len;
 
@@ -534,45 +493,35 @@ err:
 }
 
 /*
- * Reads binlog data for a key
+ * Reads binlog data for from an offset
  *
  * Data is placed to @bctl->bl_ctl_data
  */
-int binlog_read(struct eblob_binlog_ctl *bctl) {
+int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset) {
 	int err;
-	off_t hdr_offset;
 	char *data = NULL;
 	struct eblob_binlog_disk_record_hdr rhdr;
-	struct eblob_binlog_index_record *idx;
 	struct eblob_binlog_cfg *bcfg;
 
 	if (bctl == NULL || bctl->bl_ctl_cfg == NULL)
 		return -EINVAL;
 	bcfg = bctl->bl_ctl_cfg;
 
-	/* Find entry's LSN by key/offset */
-	idx = rb_search_binlog_index(bcfg, bctl->bl_ctl_key);
-	if (idx == NULL) {
-		err = -ESRCH;
-		goto err;
-	}
-	hdr_offset = idx->offset;
-
-	assert(hdr_offset >= (off_t)sizeof(struct eblob_binlog_disk_hdr));
+	assert(offset >= (off_t)sizeof(struct eblob_binlog_disk_hdr));
 
 	/* Read record's header with corresponding LSN */
-	err = binlog_read_record_hdr(bcfg, &rhdr, hdr_offset);
+	err = binlog_read_record_hdr(bcfg, &rhdr, offset);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_read_record_hdr: %lld", (long long)hdr_offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_read_record_hdr: %lld", (long long)offset);
 		goto err;
 	}
 
 	/* Read data */
 	if (rhdr.bl_record_size) {
-		data = binlog_read_record_data(bcfg, hdr_offset + sizeof(rhdr), rhdr.bl_record_size);
+		data = binlog_read_record_data(bcfg, offset + sizeof(rhdr), rhdr.bl_record_size);
 		if (data == NULL) {
 			err = -EIO;
-			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(hdr_offset + sizeof(rhdr)));
+			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(offset + sizeof(rhdr)));
 			goto err;
 		}
 	}
@@ -664,7 +613,6 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg == NULL)
 		return -EINVAL;
 
-	rb_destroy_binlog_index(bcfg);
 	free(bcfg->bl_cfg_disk_hdr);
 	free(bcfg->bl_cfg_binlog_path);
 	free(bcfg);
