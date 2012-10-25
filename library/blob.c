@@ -1741,9 +1741,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_lock_destroy;
 	}
 
-	/* XXX */
-	eblob_start_binlog(b, b->cfg.file);
-
 	err = eblob_load_data(b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index iteration failed: %d.\n", err);
