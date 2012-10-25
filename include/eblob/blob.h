@@ -288,6 +288,8 @@ struct eblob_ram_control {
 	uint64_t		size;
 
 	short			index, type;
+	/* binlog pointer is not NULL if binary log is turned on for that base */
+	struct eblob_binlog_cfg *binlog;
 };
 
 struct eblob_backend *eblob_init(struct eblob_config *c);
@@ -492,7 +494,7 @@ void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
 
-int eblob_start_binlog(struct eblob_backend *b, char *filename);
+int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 #ifdef __cplusplus
 }

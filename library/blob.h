@@ -131,6 +131,13 @@ struct eblob_base_ctl {
 	pthread_mutex_t		index_blocks_lock;
 
 	int			good;
+#ifdef BINLOG
+	/*
+	 * If this pointer is not NULL then all operations for this base go
+	 * through a binlog.
+	 */
+	struct eblob_binlog_cfg	*binlog;
+#endif /* BINLOG */
 	char			name[0];
 };
 
@@ -203,13 +210,6 @@ struct eblob_backend {
 	pthread_t		sync_tid;
 
 	int			want_defrag;
-#ifdef BINLOG
-	/*
-	 * If this pointer is not NULL then all operations for this base go
-	 * through a binlog.
-	 */
-	struct eblob_binlog_cfg	*binlog;
-#endif /* BINLOG */
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);
