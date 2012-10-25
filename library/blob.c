@@ -1205,7 +1205,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		err = eblob_try_overwrite(b, key, &wc, data);
 		if (!err)
 			/* ok, we have overwritten old data, got out */
-			goto err_out_exit;
+			goto err_out_binlog;
 
 		/* it could be modified if EBLOB_DISK_CTL_APPEND flag is set */
 		wc.offset = offset;
@@ -1231,8 +1231,9 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 	blob_update_index(b, key, &wc, 0);
 
+err_out_binlog:
 #ifdef BINLOG
-	if (b->binlog != NULL) {
+	if (err == 0 && b->binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
 		memset(&bctl, 0, sizeof(bctl));
 
@@ -1244,13 +1245,13 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 		err = binlog_append(&bctl);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: bilog append failed\n", eblob_dump_id(key->id));
+			eblob_dump_wc(b, key, &wc, "binlog: append failed", err);
 			goto err_out_exit;
 		}
 	}
 #endif /* BINLOG */
-
 err_out_exit:
+
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
 		memcpy(old_data, &wc, sizeof(struct eblob_write_control));
 	}
