@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -1843,19 +1844,25 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 #ifdef BINLOG
 	int err;
 	struct eblob_binlog_cfg *bcfg;
-	char binlog_filename[PATH_MAX];
-	static const char binlog_suffix[] = ".binlog";
+	char binlog_filename[PATH_MAX], *path_copy;
+	static const char binlog_suffix[] = "binlog";
 
-	strncpy(binlog_filename, bctl->name, PATH_MAX - 1);
-	if (strlen(binlog_filename) + strlen(binlog_suffix) > PATH_MAX - 1)
-		return -EINVAL;
-	strcat(binlog_filename, binlog_suffix);
+	path_copy = strdup(b->cfg.file);
+	if (path_copy == NULL) {
+		err = -errno;
+		goto err;
+	}
 
-	pthread_mutex_lock(&b->lock);
+	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s", dirname(path_copy), bctl->name, binlog_suffix);
+	if (strlen(binlog_filename) >= PATH_MAX) {
+		err = -ENAMETOOLONG;
+		goto err_free;
+	}
+
 	bcfg = binlog_init(binlog_filename, b->cfg.log);
 	if (bcfg == NULL) {
 		err = -ENOMEM;
-		goto out_unlock;
+		goto err_destroy;
 	}
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
 
@@ -1865,12 +1872,13 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 		goto err_destroy;
 	}
 	bctl->binlog = bcfg;
-	goto out_unlock;
+	goto err_free;
 
 err_destroy:
 	binlog_destroy(bcfg);
-out_unlock:
-	pthread_mutex_unlock(&b->lock);
+err_free:
+	free(path_copy);
+err:
 	return err;
 #else /* BINLOG */
 	return -ENOTSUP;
