@@ -24,6 +24,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <libgen.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -351,6 +352,8 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 
 static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
 {
+	int err;
+
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		eblob_dump_id(key->id),
@@ -361,6 +364,24 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 
 	blob_mark_index_removed(old->index_fd, old->index_offset);
 	blob_mark_index_removed(old->data_fd, old->data_offset);
+
+#ifdef BINLOG
+	if (old->binlog != NULL) {
+		struct eblob_binlog_ctl bctl;
+		memset(&bctl, 0, sizeof(bctl));
+
+		bctl.bl_ctl_cfg = old->binlog;
+		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_REMOVE;
+		bctl.bl_ctl_key = key;
+
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: eblob_mark_entry_removed: %s\n",
+				eblob_dump_id(key->id));
+		err = binlog_append(&bctl);
+		if (err)
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
+					__func__, eblob_dump_id(key->id));
+	}
+#endif /* BINLOG */
 
 	eblob_stat_update(b, -1, 1, 0);
 
@@ -453,6 +474,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.index_offset = wc->ctl_index_offset;
 	ctl.type = wc->type;
 	ctl.index = wc->index;
+	ctl.binlog = NULL;
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
@@ -742,6 +764,26 @@ again:
 	}
 
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+
+#ifdef BINLOG
+	if (for_write && ctl.binlog != NULL) {
+		struct eblob_binlog_ctl bctl;
+		memset(&bctl, 0, sizeof(bctl));
+
+		bctl.bl_ctl_cfg = ctl.binlog;
+		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_UPDATE;
+		bctl.bl_ctl_key = key;
+		bctl.bl_ctl_meta = wc;
+		bctl.bl_ctl_meta_size = sizeof(*wc);
+
+		err = binlog_append(&bctl);
+		if (err) {
+			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
+			goto err_out_exit;
+		}
+		eblob_dump_wc(b, key, wc, "binlog: eblob_fill_write_control_from_ram", err);
+	}
+#endif /* BINLOG */
 err_out_exit:
 	return err;
 }
@@ -1232,6 +1274,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	blob_update_index(b, key, &wc, 0);
 
 err_out_exit:
+
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
 		memcpy(old_data, &wc, sizeof(struct eblob_write_control));
 	}
@@ -1269,6 +1312,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	eblob_hash_remove_nolock(b->hash, key);
 
 	free(ctl);
+
 
 err_out_exit:
 	pthread_mutex_unlock(&b->hash->root_lock);
@@ -1782,3 +1826,47 @@ int eblob_get_types(struct eblob_backend *b, int **typesp) {
 	return types_num;
 }
 
+int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
+#ifdef BINLOG
+	int err;
+	struct eblob_binlog_cfg *bcfg;
+	char binlog_filename[PATH_MAX], *path_copy;
+	static const char binlog_suffix[] = "binlog";
+
+	path_copy = strdup(b->cfg.file);
+	if (path_copy == NULL) {
+		err = -errno;
+		goto err;
+	}
+
+	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s", dirname(path_copy), bctl->name, binlog_suffix);
+	if (strlen(binlog_filename) >= PATH_MAX) {
+		err = -ENAMETOOLONG;
+		goto err_free;
+	}
+
+	bcfg = binlog_init(binlog_filename, b->cfg.log);
+	if (bcfg == NULL) {
+		err = -ENOMEM;
+		goto err_destroy;
+	}
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
+
+	err = binlog_open(bcfg);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: eblob_start_binlog failed: %d.\n", err);
+		goto err_destroy;
+	}
+	bctl->binlog = bcfg;
+	goto err_free;
+
+err_destroy:
+	binlog_destroy(bcfg);
+err_free:
+	free(path_copy);
+err:
+	return err;
+#else /* BINLOG */
+	return -ENOTSUP;
+#endif /* !BINLOG */
+}

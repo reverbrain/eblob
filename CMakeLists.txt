@@ -19,6 +19,7 @@ option(WITH_ASSERTS "Enable asserts" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
+option(WITH_BINLOG "Enable expirimental binlog support" OFF)
 
 include(CheckAtomic)
 include(TestBigEndian)
@@ -59,6 +60,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
 
+message(STATUS "Binlog is: ${WITH_BINLOG}")
+
 # Check for threads
 if (UNIX AND BSD)
     set(CMAKE_THREAD_LIBS -pthread)
@@ -96,11 +99,24 @@ if(WITH_PYTHON)
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
-# Check for posix_fadvise
 include(CheckSymbolExists)
+
+# Check for posix_fadvise
 check_symbol_exists(posix_fadvise "fcntl.h" HAVE_POSIX_FADVISE)
 if (HAVE_POSIX_FADVISE)
     add_definitions(-DHAVE_POSIX_FADVISE)
+endif()
+
+# Check for posix_fallocate
+check_symbol_exists(posix_fallocate "fcntl.h" HAVE_POSIX_FALLOCATE)
+if (HAVE_POSIX_FALLOCATE)
+    add_definitions(-DHAVE_POSIX_FALLOCATE)
+endif()
+
+# Check for fdatasync
+check_symbol_exists(fdatasync "unistd.h" HAVE_FDATASYNC)
+if (HAVE_FDATASYNC)
+    add_definitions(-DHAVE_FDATASYNC)
 endif()
 
 # Collect all libraries together
