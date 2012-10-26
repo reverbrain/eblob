@@ -465,9 +465,6 @@ found:
 
 	*errp = 0;
 
-	/* XXX: */
-	eblob_start_binlog(b, ctl);
-
 	return ctl;
 
 err_out_free_ctl:
