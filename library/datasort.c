@@ -26,6 +26,11 @@
 #include "binlog.h"
 #include "datasort.h"
 
+/*
+ * Start binlog for given base
+ *
+ * bctl MUST be "closed" by that moment, i.e no new writes are allowed.
+ */
 static int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
@@ -75,6 +80,18 @@ err:
 #endif /* !BINLOG */
 }
 
+/*
+ * Sorts data in base by key.
+ *
+ * Sorting consists of following steps:
+ *  - Enable binlog for original base
+ *  - Split base into chunks
+ *  - Sort each chunk in ram
+ *  - Merge-sort resulted chunks
+ *  - Lock original base
+ *  - Apply binlog ontop of sorted base
+ *  - Swap original and sorted bases
+ */
 int eblob_generate_sorted_data(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	int err;
 
