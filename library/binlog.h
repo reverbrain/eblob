@@ -156,21 +156,16 @@ struct eblob_binlog_disk_record_hdr {
 
 /*
  * Allocate space for binlog.
- *
- * FIXME: Does not work on some filesystems - write fallback code.
  */
 static inline int _binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
-	return -posix_fallocate(fd, 0, size);
-#else /* HAVE_POSIX_FALLOCATE */
-	/*
-	 * TODO: Crippled OSes (e.g. Darwin) go here.
-	 * Think of something like fcntl F_PREALLOCATE
-	 */
-	return 0;
+	if (!posix_fallocate(fd, 0, size))
+		return 0;
 #endif /* !HAVE_POSIX_FALLOCATE */
+	/* Crippled OSes/FSes go here */
+	return -ftruncate(fd, size);
 }
 
 /*
