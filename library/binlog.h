@@ -27,7 +27,6 @@ enum eblob_binlog_record_types {
 	EBLOB_BINLOG_TYPE_FIRST,		/* Start sentinel */
 	EBLOB_BINLOG_TYPE_UPDATE,
 	EBLOB_BINLOG_TYPE_REMOVE,
-	EBLOB_BINLOG_TYPE_REMOVE_ALL,
 	EBLOB_BINLOG_TYPE_LAST,			/* End sentinel */
 };
 
