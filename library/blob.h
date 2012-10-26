@@ -24,6 +24,9 @@
 #ifdef BINLOG
 #include "binlog.h"
 #endif
+#ifdef DATASORT
+#include "datasort.h"
+#endif
 
 #ifndef __unused
 #define __unused	__attribute__ ((unused))
@@ -131,6 +134,8 @@ struct eblob_base_ctl {
 	pthread_mutex_t		index_blocks_lock;
 
 	int			good;
+	/* Blob is closed and we shoould sort data in it by key */
+	int			need_data_sorting;
 #ifdef BINLOG
 	/*
 	 * If this pointer is not NULL then all operations for this base go

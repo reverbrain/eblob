@@ -414,6 +414,15 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				goto err_out_exit;
 			}
 
+#ifdef DATASORT
+			if (bctl->need_data_sorting) {
+				err = eblob_generate_sorted_data(b, bctl);
+				if (err) {
+					goto err_out_exit;
+				}
+			}
+#endif /* DATASORT */
+
 			if (bctl->need_sorting) {
 				err = eblob_generate_sorted_index(b, bctl, 0);
 				if (!err) {

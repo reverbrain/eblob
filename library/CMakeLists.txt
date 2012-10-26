@@ -19,6 +19,13 @@ if(WITH_BINLOG)
         binlog.c
     )
 endif()
+if(WITH_DATASORT)
+    add_definitions(-DDATASORT)
+    list(APPEND
+        EBLOB_SRCS
+        datasort.c
+    )
+endif()
 add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}

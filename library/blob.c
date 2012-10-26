@@ -865,6 +865,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		if (err)
 			goto err_out_unlock_exit;
 
+		/* TODO: checks */
+		ctl->need_data_sorting = 1;
+
 		if (ctl->sort.fd < 0)
 			ctl->need_sorting = 1;
 
@@ -1824,49 +1827,4 @@ int eblob_get_types(struct eblob_backend *b, int **typesp) {
 	*typesp = types;
 
 	return types_num;
-}
-
-int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
-#ifdef BINLOG
-	int err;
-	struct eblob_binlog_cfg *bcfg;
-	char binlog_filename[PATH_MAX], *path_copy;
-	static const char binlog_suffix[] = "binlog";
-
-	path_copy = strdup(b->cfg.file);
-	if (path_copy == NULL) {
-		err = -errno;
-		goto err;
-	}
-
-	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s", dirname(path_copy), bctl->name, binlog_suffix);
-	if (strlen(binlog_filename) >= PATH_MAX) {
-		err = -ENAMETOOLONG;
-		goto err_free;
-	}
-
-	bcfg = binlog_init(binlog_filename, b->cfg.log);
-	if (bcfg == NULL) {
-		err = -ENOMEM;
-		goto err_destroy;
-	}
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
-
-	err = binlog_open(bcfg);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: eblob_start_binlog failed: %d.\n", err);
-		goto err_destroy;
-	}
-	bctl->binlog = bcfg;
-	goto err_free;
-
-err_destroy:
-	binlog_destroy(bcfg);
-err_free:
-	free(path_copy);
-err:
-	return err;
-#else /* BINLOG */
-	return -ENOTSUP;
-#endif /* !BINLOG */
 }
