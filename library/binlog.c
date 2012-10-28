@@ -394,7 +394,8 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	/* Find last LSN */
 	bcfg->bl_cfg_binlog_position = binlog_get_next_lsn(bcfg);
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_binlog_position);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s(%d): %lld", bcfg->bl_cfg_binlog_path,
+			bcfg->bl_cfg_binlog_fd, (long long)bcfg->bl_cfg_binlog_position);
 
 	return 0;
 
@@ -565,6 +566,9 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_
  */
 int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	int err;
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d)", bcfg->bl_cfg_binlog_path,
+			bcfg->bl_cfg_binlog_fd);
 
 	/* Write */
 	err = binlog_hdr_write(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_disk_hdr);
