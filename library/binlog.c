@@ -286,6 +286,9 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	char *bl_cfg_binlog_path;
 	struct eblob_binlog_cfg *bcfg;
 
+	if (log == NULL)
+		goto err;
+
 	if (path == NULL) {
 		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path is NULL");
 		goto err;
