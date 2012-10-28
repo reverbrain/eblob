@@ -142,7 +142,6 @@ static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp) {
 
 err_free_dhdr:
 	free(dhdr);
-err:
 	return err;
 }
 
