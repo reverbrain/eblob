@@ -14,26 +14,19 @@
  */
 
 /*
- * This is implementation of simple statement-based binary log.
- * It can be used for point in time recovery, replication or snapshots.
+ * This is implementation of very simple statement-based binary log conformig
+ * to following blueprint:
+ * - http://doc.ioremap.net/blueprints:eblob:binlog
+ *
+ * For now it's used only for data sorting.
  *
  * Useful information:
- *
- * - Transaction Log Architecture
- *   http://msdn.microsoft.com/en-us/library/ms345419.aspx
- *
  * - Write-Ahead Logging
- *   http://www.sqlite.org/wal.html
- *
- * - HBase Architecture 101 - Write-ahead-Log
- *   http://www.larsgeorge.com/2010/01/hbase-architecture-101-write-ahead-log.html
- *
+ *     http://www.sqlite.org/wal.html
  * - Algorithms for Recovery and Isolation Exploiting Semantics (ARIES)
- *   http://www.cs.berkeley.edu/~brewer/cs262/Aries.pdf
- *
+ *     http://www.cs.berkeley.edu/~brewer/cs262/Aries.pdf
  * - Repeating History Beyond ARIES
- *   http://www.vldb.org/conf/1999/P1.pdf
- *
+ *     http://www.vldb.org/conf/1999/P1.pdf
  */
 
 #include "features.h"
