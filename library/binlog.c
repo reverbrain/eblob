@@ -127,12 +127,12 @@ static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp) {
 	ssize_t err;
 	struct eblob_binlog_disk_hdr *dhdr;
 
-	if (fd < 0)
-		goto err;
+	assert(dhdrp != NULL);
+	assert(fd >= 0);
 
 	dhdr = malloc(sizeof(*dhdr));
 	if (dhdr == NULL)
-		goto err;
+		return -ENOMEM;
 
 	err = pread(fd, dhdr, sizeof(*dhdr), 0);
 	if (err != sizeof(*dhdr)) {
