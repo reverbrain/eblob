@@ -13,11 +13,53 @@
  * GNU General Public License for more details.
  */
 
+#include "eblob/blob.h"
+#include "lock.h"
+#include "list.h"
+
 #ifndef __EBLOB_DATASORT_H
 #define __EBLOB_DATASORT_H
 
-struct eblob_datasort_cfg {
+/* This is also size of initial sort buffer */
+#define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
+/* Used in split iterator */
+#define EBLOB_DATASORT_DEFAULTS_THREAD_NUM	(1)
+
+/*
+ * One chunk of blob.
+ *
+ * Data private for each iterator thread.
+ */
+struct datasort_split_chunk {
+	int				fd;
+	off_t				offset;
+	struct list_head		list;
 };
 
-int eblob_generate_sorted_data(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+/* Thread local structure for */
+struct datasort_split_chunk_local {
+	struct datasort_split_chunk	*current;
+};
+
+/* Config for datasort routine */
+struct datasort_cfg {
+	/* Size of initial chunks for data sort */
+	uint64_t			chunk_size;
+	/* Number of threads for data iteration */
+	unsigned int			thread_num;
+	/* Thread synchronization lock */
+	pthread_mutex_t			lock;
+	/* List of chunks */
+	struct list_head		chunks;
+	/* Datasort directory */
+	char				*path;
+	/* Pointer to backend */
+	struct eblob_backend		*b;
+	/* Logging */
+	struct eblob_log		*log;
+	/* Pointer to base control */
+	struct eblob_base_ctl		*bctl;
+};
+
+int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
 #endif /* __EBLOB_DATASORT_H */

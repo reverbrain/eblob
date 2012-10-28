@@ -416,8 +416,15 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 #ifdef DATASORT
 			if (bctl->need_data_sorting) {
-				err = eblob_generate_sorted_data(b, bctl);
+				struct datasort_cfg dcfg = {
+					.b = b,
+					.bctl = bctl,
+					.log = b->cfg.log,
+				};
+
+				err = eblob_generate_sorted_data(&dcfg);
 				if (err) {
+					eblob_log(ctl.log, EBLOB_LOG_ERROR, "defrag: datasort: FAILED: %d, %d, index: %d\n", err, bctl->type, bctl->index);
 					goto err_out_exit;
 				}
 			}
