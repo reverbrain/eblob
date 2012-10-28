@@ -566,6 +566,9 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_
 int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	int err;
 
+	if (bcfg == NULL || bcfg->bl_cfg_binlog_fd < 0)
+		return -EINVAL;
+
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d)", bcfg->bl_cfg_binlog_path,
 			bcfg->bl_cfg_binlog_fd);
 
