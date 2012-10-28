@@ -308,6 +308,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	bcfg->bl_cfg_flags = EBLOB_BINLOG_DEFAULTS_FLAGS;
 	bcfg->bl_cfg_prealloc_step = EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP;
 	bcfg->bl_cfg_binlog_path = bl_cfg_binlog_path;
+	bcfg->bl_cfg_binlog_fd = -1;
 	bcfg->log = log;
 
 	return bcfg;
@@ -332,7 +333,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg == NULL)
 		return -EINVAL;
 
-	assert(bcfg->bl_cfg_binlog_fd == 0);
+	assert(bcfg->bl_cfg_binlog_fd == -1);
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
 	err = binlog_create(bcfg);
