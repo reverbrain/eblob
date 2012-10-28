@@ -48,15 +48,17 @@
 #include "binlog.h"
 
 
-/* Extend binlog by @bcfg->bl_cfg_prealloc_step if PREALLOC is enabled */
-static inline int binlog_extend(struct eblob_binlog_cfg *bcfg) {
+/* Extend fd by @bcfg->bl_cfg_prealloc_step if PREALLOC is enabled */
+static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd) {
 	int err;
 
 	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
 		bcfg->bl_cfg_prealloc_size += bcfg->bl_cfg_prealloc_step;
-		err = _binlog_allocate(bcfg->bl_cfg_binlog_fd, bcfg->bl_cfg_prealloc_size);
+
+		err = _binlog_allocate(fd, bcfg->bl_cfg_prealloc_size);
 		if (err) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s: %lld", bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_prealloc_size);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s: %lld",
+					bcfg->bl_cfg_binlog_path, (long long)bcfg->bl_cfg_prealloc_size);
 			return err;
 		}
 	}
@@ -161,7 +163,8 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	}
 
 	/* Allocate */
-	if ((err = binlog_extend(bcfg)))
+	err = binlog_extend(bcfg, fd);
+	if (err)
 		goto err_close;
 
 	/* Construct header */
@@ -419,9 +422,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Check if binlog needs to be extended */
 	record_len = sizeof(rhdr) + bctl->bl_ctl_meta_size + bctl->bl_ctl_size;
 	if (bcfg->bl_cfg_binlog_position + record_len >= bcfg->bl_cfg_prealloc_size) {
-		if ((err = binlog_extend(bcfg))) {
+		err = binlog_extend(bcfg, bcfg->bl_cfg_binlog_fd);
+		if (err)
 			goto err;
-		}
 	}
 
 	/* Construct record header */
