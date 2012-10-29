@@ -268,6 +268,14 @@ err:
 	return err;
 }
 
+/* In-memory sort all chunks and move them to sorted list */
+static int datasort_sort(struct datasort_cfg *dcfg) {
+
+	assert(dcfg != NULL);
+
+	return 0;
+}
+
 /* Recursively destroys dcfg */
 static void datasort_destroy(struct datasort_cfg *dcfg) {
 	pthread_mutex_destroy(&dcfg->lock);
@@ -346,16 +354,21 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", path);
-		goto err;
+		goto err_free_split;
 	}
 
+	/* In-memory sort each chunk */
+	err = datasort_sort(dcfg);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", path);
+		goto err_free_sort;
+	}
 	/*
-	datasort_sort();
 	datasort_merge();
-	datasort_lock();
+	datasort_lock_base();
 	binlog_apply();
-	datasort_unlock();
 	datasort_swap();
+	datasort_unlock_base();
 	*/
 
 	/* Destroy binlog */
@@ -369,6 +382,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 	return 0;
 
+err_free_sort:
+	/* XXX: Remove sorted chunks */
+err_free_split:
+	/* XXX: Remove unsorted chunks, Remove temp dir */
 err_free_path:
 	free(path);
 err:
