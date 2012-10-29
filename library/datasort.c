@@ -291,7 +291,7 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	int err;
 	char *path;
-	static const char tpl_suffix[] = ".datasort.XXXXXX";
+	static const char tpl_suffix[] = "datasort.XXXXXX";
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -328,19 +328,19 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	 * TODO: Separate function
 	 * FIXME: cleanup stale datasort files on blob open
 	 */
-	path = strndup(dcfg->b->cfg.file, PATH_MAX);
+	path = malloc(PATH_MAX);
 	if (path == NULL) {
 		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "strndup");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "malloc");
 		goto err;
 	}
-	path = mkdtemp(strcat(path, tpl_suffix));
-	if (path == NULL) {
+	snprintf(path, PATH_MAX, "%s-%d.%d.%s", dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
+	dcfg->path = mkdtemp(path);
+	if (dcfg->path == NULL) {
 		err = -errno;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkdtemp: %s", path);
 		goto err_free_path;
 	}
-	dcfg->path = path;
 
 	/* Split blob into chunks */
 	err = datasort_split(dcfg);
