@@ -216,6 +216,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 
 	/* No current chunk or exceeded chunk's limit */
 	if (local->current == NULL || local->current->offset + dc->disk_size >= dcfg->chunk_size) {
+		// TODO: here we can plug sort for speedup
 		local->current = datasort_split_add_chunk(dcfg);
 		if (local->current == NULL) {
 			err = -ENXIO;
