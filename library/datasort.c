@@ -150,8 +150,6 @@ static struct datasort_split_chunk *datasort_split_add_chunk(struct datasort_cfg
 
 	return chunk;
 
-err_free:
-	free(chunk);
 err_unlink:
 	if (unlink(path))
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink: %s", path);
@@ -167,8 +165,8 @@ err:
  * Then
  * - copy new entry to current chunk
  */
-static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rctl,
-		void *data, void *priv, void *thread_priv) {
+static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rctl __unused,
+		void *data __unused, void *priv, void *thread_priv) {
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
 	struct datasort_split_chunk_local *local = thread_priv;
@@ -177,7 +175,12 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	assert(priv != NULL);
 	assert(local != NULL);
 
-	pthread_mutex_lock(&dcfg->lock);
+	err = pthread_mutex_lock(&dcfg->lock);
+	if (err) {
+		err = -err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+		goto err;
+	}
 
 	/* No current chunk or exceeded it's limit */
 	if (local->current == NULL || local->current->offset + dc->disk_size >= dcfg->chunk_size) {
@@ -213,7 +216,7 @@ err:
 /*
  * Iterator callbacks
  */
-static int datasort_split_iterator_init(struct eblob_iterate_control *ictl, void **priv_thread) {
+static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
 	struct datasort_split_chunk_local *local;
 	local = calloc(1, sizeof(*local));
 	if (local == NULL)
@@ -221,7 +224,7 @@ static int datasort_split_iterator_init(struct eblob_iterate_control *ictl, void
 	*priv_thread = local;
 	return 0;
 }
-static int datasort_split_iterator_free(struct eblob_iterate_control *ictl, void **priv_thread) {
+static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
 	free(*priv_thread);
 	return 0;
 }
@@ -254,13 +257,8 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	err = eblob_blob_iterate(&ictl);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
-		goto err_destroy;
+		goto err;
 	}
-
-	return 0;
-
-err_destroy:
-	pthread_mutex_destroy(&dcfg->lock);
 err:
 	return err;
 }
@@ -282,6 +280,8 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
  *  - Lock original base
  *  - Apply binlog ontop of sorted base
  *  - Swap original and sorted bases
+ *
+ *  XXX: Proper cleanup in failure scenarios.
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	int err;
