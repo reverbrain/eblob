@@ -87,24 +87,25 @@ err:
 #endif /* !BINLOG */
 }
 
-/* Blose and destroy binlog */
+/* Close and destroy binlog */
 static int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
-	if (strlen(b->cfg.file) == 0 || strlen(bctl->name) == 0)
-		return -EINVAL;
-	if (bctl->binlog == NULL)
+	if (bctl->binlog == NULL || bctl->binlog->bl_cfg_binlog_path == 0)
 		return -EINVAL;
 #ifdef BINLOG
 	int err;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: stop\n");
 
+	/* First remove, then close. This avoids unlink/unlock race */
+	err = unlink(bctl->binlog->bl_cfg_binlog_path);
+	if (err == -1)
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: unlink: %s: %d\n", bctl->binlog->bl_cfg_binlog_path, errno);
+
 	err = binlog_close(bctl->binlog);
 	if (err)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: binlog_close failed: %d\n", err);
-
-	/* XXX: Unlink binlog */
 
 	err = binlog_destroy(bctl->binlog);
 	return err;
@@ -114,8 +115,7 @@ static int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bct
 }
 
 /*
- * Creates new file on disk, initializes datasort_split_chunk and adds it to
- * the list.
+ * Creates new chunk on disk, initializes it and adds to the list.
  *
  * NB! dcfg->lock MUST be held by calling routine.
  */
@@ -145,8 +145,8 @@ static struct datasort_split_chunk *datasort_split_add_chunk(struct datasort_cfg
 	}
 	chunk->fd = fd;
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s", path);
 	list_add_tail(&chunk->list, &dcfg->chunks);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s", path);
 
 	return chunk;
 
@@ -160,8 +160,8 @@ err:
 /*
  * Split data in ~chunk_size byte pieces.
  *
- * If size of current chunk + new entry > chunk size:
- * - close current chunk, start new one, make it current
+ * If size of current chunk + new entry >= chunk_size:
+ * - start new one, add it to linked list, make it current
  * Then
  * - copy new entry to current chunk
  */
@@ -182,7 +182,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 		goto err;
 	}
 
-	/* No current chunk or exceeded it's limit */
+	/* No current chunk or exceeded chunk's limit */
 	if (local->current == NULL || local->current->offset + dc->disk_size >= dcfg->chunk_size) {
 		local->current = datasort_split_add_chunk(dcfg);
 		if (local->current == NULL) {
@@ -195,13 +195,13 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: fd: %d, offset: %lld, size: %lld",
 			local->current->fd, local->current->offset, dc->disk_size);
 
-	/* FIXME: Writes here can be huge - think of something like splice(2) */
 	err = pwrite(local->current->fd, dc, dc->disk_size, local->current->offset);
 	if (err != (ssize_t)dc->disk_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite");
 		goto err_unlock;
 	}
+	err = 0;
 
 	local->current->offset += dc->disk_size;
 
@@ -218,9 +218,11 @@ err:
  */
 static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
 	struct datasort_split_chunk_local *local;
+
 	local = calloc(1, sizeof(*local));
 	if (local == NULL)
 		return 1;
+
 	*priv_thread = local;
 	return 0;
 }
@@ -234,8 +236,10 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	int err;
 	struct eblob_iterate_control ictl;
 
+	assert(dcfg);
 	assert(dcfg->b);
 	assert(dcfg->bctl);
+	assert(dcfg->thread_num > 0);
 
 	/*
 	 * Init iterator config
@@ -259,6 +263,7 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 		goto err;
 	}
+
 err:
 	return err;
 }
