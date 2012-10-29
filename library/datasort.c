@@ -297,15 +297,52 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	}
 
 err:
+	/* XXX: ROLLBACK */
 	return err;
 }
 
-/* In-memory sort all unsorted chunks and move them to sorted list */
+/*
+ * Sort one chunk of eblob.
+ *
+ * - Open sorted chunk chunk
+ * - Prefetch unsorted one into pagecahe
+ * - mmap
+ * - Fill index
+ * - Quicksort
+ * - Save
+ * - Evict unsorted data from pagecache
+ * - Closee unsorted chunk
+ *
+ * TODO: sort step can be merged into split step for speedup
+ */
+static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_chunk *chunk) {
+
+	assert(dcfg);
+	assert(chunk);
+
+	return 0;
+}
+
+/* In-memory sorts all unsorted chunks and move them to sorted list */
 static int datasort_sort(struct datasort_cfg *dcfg) {
+	int err;
+	struct datasort_split_chunk *chunk, *tmp;
 
 	assert(dcfg != NULL);
 
+	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
+		err = datasort_sort_chunk(dcfg, chunk);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort_chunk");
+			goto err;
+		}
+		list_move(&chunk->list, &dcfg->sorted_chunks);
+	}
 	return 0;
+
+err:
+	/* XXX: ROLLBACK */
+	return err;
 }
 
 /* Recursively destroys dcfg */
@@ -374,14 +411,14 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->path);
-		goto err_free_split;
+		goto err_unlink;
 	}
 
 	/* In-memory sort each chunk */
 	err = datasort_sort(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->path);
-		goto err_free_sort;
+		goto err_unlink;
 	}
 
 	/*
@@ -396,17 +433,16 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
-		goto err;
+		goto err_unlink;
 	}
 	datasort_destroy(dcfg);
 
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 	return 0;
 
-err_free_sort:
-	/* XXX: Remove sorted chunks */
-err_free_split:
-	/* XXX: Remove unsorted chunks, Remove temp dir */
+err_unlink:
+	if (rmdir(dcfg->path) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->path);
 err:
 	return err;
 }
