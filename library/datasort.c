@@ -115,6 +115,38 @@ static int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bct
 }
 
 /*
+ * Create directory for sorting
+ * FIXME: cleanup stale datasort files on blob open
+ */
+static char *datasort_mkdtemp(struct datasort_cfg *dcfg) {
+	int err;
+	char *path, *tmppath;
+	static const char tpl_suffix[] = "datasort.XXXXXX";
+
+	path = malloc(PATH_MAX);
+	if (path == NULL) {
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "malloc");
+		goto err;
+	}
+
+	snprintf(path, PATH_MAX, "%s-%d.%d.%s", dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
+	tmppath = mkdtemp(path);
+	if (tmppath == NULL) {
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkdtemp: %s", path);
+		goto err_free_path;
+	}
+
+	return tmppath;
+
+err_free_path:
+	free(path);
+err:
+	return NULL;
+}
+
+/*
  * Creates new chunk on disk, initializes it and adds to the list.
  *
  * NB! dcfg->lock MUST be held by calling routine.
@@ -298,8 +330,6 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	int err;
-	char *path;
-	static const char tpl_suffix[] = "datasort.XXXXXX";
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -332,38 +362,28 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err;
 	}
 
-	/*
-	 * Create directory for sorting
-	 * TODO: Separate function
-	 * FIXME: cleanup stale datasort files on blob open
-	 */
-	path = malloc(PATH_MAX);
-	if (path == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "malloc");
-		goto err;
-	}
-	snprintf(path, PATH_MAX, "%s-%d.%d.%s", dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
-	dcfg->path = mkdtemp(path);
+	/* Create tmp directory */
+	dcfg->path = datasort_mkdtemp(dcfg);
 	if (dcfg->path == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkdtemp: %s", path);
-		goto err_free_path;
+		err = -ENXIO;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_mkdtemp");
+		goto err;
 	}
 
 	/* Split blob into unsorted chunks */
 	err = datasort_split(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->path);
 		goto err_free_split;
 	}
 
 	/* In-memory sort each chunk */
 	err = datasort_sort(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->path);
 		goto err_free_sort;
 	}
+
 	/*
 	datasort_merge();
 	datasort_lock_base();
@@ -387,8 +407,6 @@ err_free_sort:
 	/* XXX: Remove sorted chunks */
 err_free_split:
 	/* XXX: Remove unsorted chunks, Remove temp dir */
-err_free_path:
-	free(path);
 err:
 	return err;
 }
