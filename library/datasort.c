@@ -145,7 +145,7 @@ static struct datasort_split_chunk *datasort_split_add_chunk(struct datasort_cfg
 	}
 	chunk->fd = fd;
 
-	list_add_tail(&chunk->list, &dcfg->chunks);
+	list_add_tail(&chunk->list, &dcfg->unsorted_chunks);
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s", path);
 
 	return chunk;
@@ -268,7 +268,7 @@ err:
 	return err;
 }
 
-/* In-memory sort all chunks and move them to sorted list */
+/* In-memory sort all unsorted chunks and move them to sorted list */
 static int datasort_sort(struct datasort_cfg *dcfg) {
 
 	assert(dcfg != NULL);
@@ -287,9 +287,9 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
  *
  * Sorting consists of following steps:
  *  - Enable binlog for original base
- *  - Split base into chunks
+ *  - Split base into unsorted chunks
  *  - Sort each chunk in ram
- *  - Merge-sort resulted chunks
+ *  - Merge-sort resulted sorted chunks
  *  - Lock original base
  *  - Apply binlog ontop of sorted base
  *  - Swap original and sorted bases
@@ -317,7 +317,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_init");
 		goto err;
 	}
-	INIT_LIST_HEAD(&dcfg->chunks);
+	INIT_LIST_HEAD(&dcfg->unsorted_chunks);
+	INIT_LIST_HEAD(&dcfg->sorted_chunks);
 
 	/* Soon we'll be using it */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_WILLNEED);
@@ -350,7 +351,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_free_path;
 	}
 
-	/* Split blob into chunks */
+	/* Split blob into unsorted chunks */
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", path);

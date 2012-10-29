@@ -49,8 +49,10 @@ struct datasort_cfg {
 	unsigned int			thread_num;
 	/* Thread synchronization lock */
 	pthread_mutex_t			lock;
-	/* List of chunks */
-	struct list_head		chunks;
+	/* Splitter chunks */
+	struct list_head		unsorted_chunks;
+	/* Sorter/merger chunks */
+	struct list_head		sorted_chunks;
 	/* Datasort directory */
 	char				*path;
 	/* Pointer to backend */
