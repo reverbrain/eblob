@@ -352,8 +352,6 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 
 static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
 {
-	int err;
-
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		eblob_dump_id(key->id),
@@ -374,10 +372,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_REMOVE;
 		bctl.bl_ctl_key = key;
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: eblob_mark_entry_removed: %s\n",
-				eblob_dump_id(key->id));
-		err = binlog_append(&bctl);
-		if (err)
+		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
 	}
@@ -781,7 +776,6 @@ again:
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
 			goto err_out_exit;
 		}
-		eblob_dump_wc(b, key, wc, "binlog: eblob_fill_write_control_from_ram", err);
 	}
 #endif /* BINLOG */
 err_out_exit:

@@ -120,6 +120,8 @@ struct eblob_base_ctl {
 	unsigned long long	index_size;
 
 	int			need_sorting;
+	/* Blob is closed and we shoould sort data in it by key */
+	int			need_data_sorting;
 
 	pthread_mutex_t		dlock;
 	int			df, dfi;
@@ -134,15 +136,11 @@ struct eblob_base_ctl {
 	pthread_mutex_t		index_blocks_lock;
 
 	int			good;
-	/* Blob is closed and we shoould sort data in it by key */
-	int			need_data_sorting;
-#ifdef BINLOG
 	/*
 	 * If this pointer is not NULL then all operations for this base go
 	 * through a binlog.
 	 */
 	struct eblob_binlog_cfg	*binlog;
-#endif /* BINLOG */
 	char			name[0];
 };
 

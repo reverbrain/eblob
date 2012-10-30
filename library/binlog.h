@@ -149,28 +149,23 @@ struct eblob_binlog_disk_record_hdr {
 
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
-		"blob: binlog: %s: " fmt "\n", __func__ , ## __VA_ARGS__);
+		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);
 
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
-		"%s (%ld); " fmt, strerror(err), (long int)err , ## __VA_ARGS__);
+		"%s (%ld); " fmt, strerror(err), (long int)err, ## __VA_ARGS__);
 
 /*
  * Allocate space for binlog.
- *
- * FIXME: Does not work on some filesystems - write fallback code.
  */
 static inline int _binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
-	return -posix_fallocate(fd, 0, size);
-#else /* HAVE_POSIX_FALLOCATE */
-	/*
-	 * TODO: Crippled OSes (e.g. Darwin) go here.
-	 * Think of something like fcntl F_PREALLOCATE
-	 */
-	return 0;
+	if (!posix_fallocate(fd, 0, size))
+		return 0;
 #endif /* !HAVE_POSIX_FALLOCATE */
+	/* Crippled OSes/FSes go here */
+	return -ftruncate(fd, size);
 }
 
 /*

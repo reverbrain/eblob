@@ -154,6 +154,10 @@ static int binlog_create(struct eblob_binlog_cfg *bcfg) {
 	int fd, err;
 	struct eblob_binlog_disk_hdr dhdr;
 
+	assert(bcfg != NULL);
+	assert(bcfg->bl_cfg_binlog_path != NULL);
+	assert(strlen(bcfg->bl_cfg_binlog_path) != 0);
+
 	/* Create */
 	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0644);
 	if (fd == -1) {
@@ -283,6 +287,9 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	int len;
 	char *bl_cfg_binlog_path;
 	struct eblob_binlog_cfg *bcfg;
+
+	if (log == NULL)
+		goto err;
 
 	if (path == NULL) {
 		EBLOB_WARNX(log, EBLOB_LOG_ERROR, "path is NULL");
