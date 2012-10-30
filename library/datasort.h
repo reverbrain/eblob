@@ -22,6 +22,8 @@
 
 /* This is also size of initial sort buffer */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
+/* Maximum number of records in chunk */
+#define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 16)
 /* Used in split iterator */
 #define EBLOB_DATASORT_DEFAULTS_THREAD_NUM	(1)
 
@@ -32,7 +34,8 @@
  */
 struct datasort_split_chunk {
 	int				fd;
-	off_t				offset;
+	uint64_t			offset;
+	uint64_t			count;
 	struct list_head		list;
 };
 
@@ -45,6 +48,8 @@ struct datasort_split_chunk_local {
 struct datasort_cfg {
 	/* Size of initial chunks for data sort */
 	uint64_t			chunk_size;
+	/* Limit on number of records in one chunk */
+	uint64_t			chunk_limit;
 	/* Number of threads for data iteration */
 	unsigned int			thread_num;
 	/* Thread synchronization lock */

@@ -31,7 +31,7 @@
 
 #include "blob.h"
 
-static int eblob_disk_control_sort(const void *d1, const void *d2)
+int eblob_disk_control_sort(const void *d1, const void *d2)
 {
 	const struct eblob_disk_control *dc1 = d1;
 	const struct eblob_disk_control *dc2 = d2;
@@ -39,7 +39,7 @@ static int eblob_disk_control_sort(const void *d1, const void *d2)
 	return eblob_id_cmp(dc1->key.id, dc2->key.id);
 }
 
-static int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
+int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 {
 	const struct eblob_disk_control *dc1 = d1;
 	const struct eblob_disk_control *dc2 = d2;
