@@ -413,10 +413,8 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 	}
 
 	snprintf(format, flen, "%s-%%d.%%d", base);
-	if (sscanf(name, format, &type, &index) == 2) {
-		type = type;
+	if (sscanf(name, format, &type, &index) == 2)
 		goto found;
-	}
 
 	if (type == -1)
 		goto err_out_free_format;
@@ -663,7 +661,7 @@ err_out_exit:
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk)
 {
 	int err, size, rc_free = 0, disk;
-	struct eblob_ram_control *rc;
+	struct eblob_ram_control *rc, *rc_old;
 
 	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
@@ -681,9 +679,11 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		if (i == num) {
 			size += sizeof(struct eblob_ram_control);
 
+			rc_old = rc;
 			rc = realloc(rc, size);
 			if (!rc) {
 				err = -ENOMEM;
+				free(rc_old);
 				goto err_out_exit;
 			}
 
