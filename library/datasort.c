@@ -407,23 +407,26 @@ static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkstemp: %s", path);
 		goto err_free;
 	}
+	/* Remove file, but we still holding a handle */
+	if (unlink(path) == -1) {
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "unlink: %s", path);
+		goto err_free;
+	}
 
 	/* Save entires in sorted order */
-	for (offset = 0, i = 0; i < count; offset += dctls[i]->disk_size, i++) {
-		assert(dctls[i]->disk_size != 0);
-		assert(offset + dctls[i]->disk_size <= chunk->offset);
+	for (offset = 0, i = 0; i < count; offset += dctls[i]->disk_size, i++)
 		write(fd, dctls[i], dctls[i]->disk_size);
-	}
 
 	if (eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", chunk->fd);
 
-	/* Close unsorted chunk, this should close last reference of unlinked file */
+	/* Close unsorted chunk, this should remove last reference to unlinked file */
 	err = close(chunk->fd);
 	if (err == -1) {
 		err = -errno;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "close: %d", chunk->fd);
-		goto err_unlink;
+		goto err_free;
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorted chunk: fd: %d, count: %lld, size: %lld", fd, count, offset);
@@ -438,11 +441,10 @@ static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_
 	 * FIXME: return new chunk object instead of modifying inplace
 	 */
 	chunk->fd = fd;
+	chunk->hdr_index = dctls;
 
-err_unlink:
-	/* Remove file, but we still holding a handle */
-	if (unlink(path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink: %s", path);
+	return 0;
+
 err_free:
 	free(dctls);
 err_unmap:
