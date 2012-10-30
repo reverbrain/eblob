@@ -357,7 +357,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		oflag |= O_SYNC;
 
 	/* Open created/already existent binlog */
-	fd = open(bcfg->bl_cfg_binlog_path, O_RDWR | O_CLOEXEC);
+	fd = open(bcfg->bl_cfg_binlog_path, oflag);
 	if (fd == -1) {
 		err = -errno;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", bcfg->bl_cfg_binlog_path);
