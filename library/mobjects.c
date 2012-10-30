@@ -413,10 +413,8 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 	}
 
 	snprintf(format, flen, "%s-%%d.%%d", base);
-	if (sscanf(name, format, &type, &index) == 2) {
-		type = type;
+	if (sscanf(name, format, &type, &index) == 2)
 		goto found;
-	}
 
 	if (type == -1)
 		goto err_out_free_format;
