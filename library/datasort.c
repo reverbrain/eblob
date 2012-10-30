@@ -369,7 +369,7 @@ static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_
 	}
 
 	/* Read all headers */
-	dctls = calloc(chunk->count, sizeof(**dctls));
+	dctls = calloc(chunk->count, sizeof(*dctls));
 	if (dctls == NULL) {
 		err = -errno;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "calloc: %lld", chunk->count * sizeof(**dctls));
@@ -386,7 +386,7 @@ static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_
 			err = -EINVAL;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "chunk is inconsistient: %d",
 					chunk->fd);
-			goto err_unmap;
+			goto err_free;
 		}
 
 		/* FIXME: here we can also skip removed entries */
