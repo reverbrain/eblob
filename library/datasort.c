@@ -460,6 +460,8 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 	struct datasort_split_chunk *chunk, *tmp;
 
 	assert(dcfg != NULL);
+	assert(list_empty(&dcfg->sorted_chunks) == 1);
+	assert(list_empty(&dcfg->unsorted_chunks) == 0);
 
 	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
 		err = datasort_sort_chunk(dcfg, chunk);
@@ -474,6 +476,22 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 err:
 	/* XXX: ROLLBACK */
 	return err;
+}
+
+/*
+ * Merges sorted chunks
+ *
+ * Try to get 2 chunks from sorted list:
+ *  - Failed: chunks are already sorted
+ *  - Succeded: merge chunks and put result to the end of sorted list.
+ */
+static int datasort_merge(struct datasort_cfg *dcfg) {
+
+	assert(dcfg != NULL);
+	assert(list_empty(&dcfg->sorted_chunks) == 0);
+	assert(list_empty(&dcfg->unsorted_chunks) == 1);
+
+	return 0;
 }
 
 /* Recursively destroys dcfg */
@@ -554,8 +572,14 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_unlink;
 	}
 
+	/* Merge sorted chunks */
+	err = datasort_merge(dcfg);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->path);
+		goto err_unlink;
+	}
+
 	/*
-	datasort_merge();
 	datasort_lock_base();
 	binlog_apply();
 	datasort_swap();
