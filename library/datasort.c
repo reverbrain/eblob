@@ -316,6 +316,7 @@ static int eblob_disk_control_sort_p(const void *d1, const void *d2)
 {
 	return eblob_disk_control_sort(*(void **)d1, *(void **)d2);
 }
+
 /*
  * Sort one chunk of eblob.
  *
@@ -562,6 +563,13 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->path);
+		goto err_unlink;
+	}
+
+	/* If unsorted list is empty - we should exit gracefuly */
+	if (list_empty(&dcfg->unsorted_chunks)) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
+				"datasort_split: no records passed through iteration process. Aborting gracefuly.");
 		goto err_unlink;
 	}
 
