@@ -196,7 +196,7 @@ err:
 	return NULL;
 }
 
-static void destroy_chunk(struct datasort_cfg *dcfg, struct datasort_split_chunk *chunk) {
+static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_split_chunk *chunk) {
 	assert(chunk != NULL);
 	assert(chunk->path != NULL);
 
@@ -495,7 +495,7 @@ static struct datasort_split_chunk *datasort_sort_chunk(struct datasort_cfg *dcf
 	return sorted_chunk;
 
 err_destroy_chunk:
-	destroy_chunk(dcfg, sorted_chunk);
+	datasort_destroy_chunk(dcfg, sorted_chunk);
 err:
 	return NULL;
 }
@@ -516,7 +516,7 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 		}
 		list_add_tail(&sorted_chunk->list, &dcfg->sorted_chunks);
 		list_del(&chunk->list);
-		destroy_chunk(dcfg, chunk);
+		datasort_destroy_chunk(dcfg, chunk);
 	}
 	return 0;
 
@@ -607,7 +607,7 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 	return chunk_merge;
 
 err_destroy_chunk:
-	destroy_chunk(dcfg, chunk_merge);
+	datasort_destroy_chunk(dcfg, chunk_merge);
 err:
 	return NULL;
 }
@@ -648,8 +648,8 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 			goto err;
 		}
 
-		destroy_chunk(dcfg, chunk1);
-		destroy_chunk(dcfg, chunk2);
+		datasort_destroy_chunk(dcfg, chunk1);
+		datasort_destroy_chunk(dcfg, chunk2);
 		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
 	}
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
