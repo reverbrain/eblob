@@ -574,7 +574,7 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 				chunk1->offset, chunk2->offset);
 
 		chunk_merge = datasort_merge_chunks(dcfg, chunk1, chunk2);
-		if (chunk_merge != NULL) {
+		if (chunk_merge == NULL) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_merge_chunks: FAILED");
 			goto err;
 		}
