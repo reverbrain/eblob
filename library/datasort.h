@@ -36,9 +36,8 @@ struct datasort_split_chunk {
 	int				fd;
 	uint64_t			offset;
 	uint64_t			count;
-	char				*map;
 	char				*path;
-	struct eblob_disk_control	**hdr_index;
+	struct eblob_disk_control	*index;
 	struct list_head		list;
 };
 

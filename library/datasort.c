@@ -148,49 +148,67 @@ err:
 	return NULL;
 }
 
-/*
- * Creates new chunk on disk, initializes it and adds to the list.
- *
- * NB! dcfg->lock MUST be held by calling routine.
- */
+/* Creates new chunk on disk */
 static struct datasort_split_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg) {
-	int fd, err;
-	char path[PATH_MAX] = "";
+	int fd;
+	char *path;
 	struct datasort_split_chunk *chunk;
-	static const char tpl_suffix[] = "unsorted.chunk.XXXXXX";
+	static const char tpl_suffix[] = ".chunk.XXXXXX";
 
 	assert(dcfg);
 	assert(dcfg->path);
-	assert(pthread_mutex_trylock(&dcfg->lock) == EBUSY);
+
+	/*
+	 * Create sorted temp file
+	 */
+	path = malloc(PATH_MAX);
+	if (path == NULL) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "malloc: %s", path);
+		goto err;
+	}
 
 	snprintf(path, PATH_MAX, "%s/%s", dcfg->path, tpl_suffix);
-	/* TODO: FD_CLOEXEC */
+	/* FIXME: FD_CLOEXEC */
 	fd = mkstemp(path);
 	if (fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mkstemp: %s", path);
-		goto err;
-	}
-	/* Unlinking file while still keeping reference to it */
-	err = unlink(path);
-	if (err == -1) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink: %s", path);
-		goto err;
+		goto err_free;
 	}
 
 	chunk = calloc(1, sizeof(*chunk));
 	if (chunk == NULL) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "calloc");
-		goto err;
+		goto err_unlink;
 	}
 	chunk->fd = fd;
+	chunk->path = path;
 
-	list_add_tail(&chunk->list, &dcfg->unsorted_chunks);
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s", path);
 
 	return chunk;
 
+err_unlink:
+	if (unlink(path) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink");
+err_free:
+	free(path);
 err:
 	return NULL;
+}
+
+static void destroy_chunk(struct datasort_split_chunk *chunk) {
+	assert(chunk != NULL);
+
+	/* XXX: Error check */
+	if (chunk->path != NULL)
+		unlink(chunk->path);
+	if (chunk->fd >= 0) {
+		eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_DONTNEED);
+		close(chunk->fd);
+	}
+	free(chunk->index);
+	free(chunk->path);
+	free(chunk);
 }
 
 /*
@@ -227,6 +245,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 			|| (dcfg->chunk_limit > 0 && local->current->count >= dcfg->chunk_limit)) {
 		// TODO: here we can plug sort for speedup
 		local->current = datasort_split_add_chunk(dcfg);
+		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
 		if (local->current == NULL) {
 			err = -ENXIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split_add_chunk failed");
@@ -312,184 +331,154 @@ err:
 	return err;
 }
 
-static int eblob_disk_control_sort_p(const void *d1, const void *d2)
-{
-	return eblob_disk_control_sort(*(void **)d1, *(void **)d2);
-}
-
 /*
  * Sort one chunk of eblob.
  *
- * - Open sorted chunk chunk
+ * - Create sorted chunk
  * - Prefetch unsorted chunk into pagecahe
- * - mmap(2) unsorted chunk
- * - Read headers
- * - Quicksort
- * - Save
+ * - Read headers and make index based on them
+ * - Sort index
+ * - Save to sorted chunk based on index
  * - Evict unsorted data from pagecache
- * - Close unsorted chunk
- * - Swap fd
+ * - Destroy unsorted chunk
+ * - Return sorted chunk
  *
  * TODO: sort step can be merged into split step for speedup
  */
-static int datasort_sort_chunk(struct datasort_cfg *dcfg, struct datasort_split_chunk *chunk) {
-	int err, fd, flags;
-	uint64_t count, i, offset;
-	struct eblob_disk_control **dctls, *hdr;
-	char *path, *chunk_map;
-	static const char tpl_suffix[] = "sorted.chunk.XXXXXX";
+static struct datasort_split_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
+		struct datasort_split_chunk *unsorted_chunk) {
+	ssize_t err;
+	uint64_t i, offset;
+	struct eblob_disk_control *index, *hdrp, hdr;
+	struct datasort_split_chunk *sorted_chunk;
+	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
-	assert(dcfg);
-	assert(dcfg->path);
-	assert(chunk);
-	assert(chunk->fd);
+	assert(dcfg != NULL);
+	assert(dcfg->path != NULL);
+	assert(unsorted_chunk != NULL);
+	assert(unsorted_chunk->fd >= 0);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorting chunk: fd: %d, count: %lld, size: %lld", chunk->fd, chunk->count, chunk->offset);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorting chunk: fd: %d, count: %lld, size: %lld",
+			unsorted_chunk->fd, unsorted_chunk->count, unsorted_chunk->offset);
 
-	/* Hint */
-	if (eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_WILLNEED))
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", chunk->fd);
-
-	/*
-	 * mmap(2)
-	 *
-	 * TODO: madvise: MADV_HUGEPAGE and MADV_NOCORE
-	 */
-	flags = MAP_SHARED;
-#ifdef HAVE_MAP_POPULATE
-	flags |= MAP_POPULATE;
-#endif
-#ifdef HAVE_MAP_PREFAULT_READ
-	flags |= MAP_PREFAULT_READ;
-#endif
-	chunk_map = mmap(NULL, chunk->offset, PROT_READ, flags, chunk->fd, 0);
-	if (chunk_map == MAP_FAILED) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mmap: %d, size: %lld", chunk->fd, chunk->offset);
+	/* Create new sorted chunk */
+	sorted_chunk = datasort_split_add_chunk(dcfg);
+	if (sorted_chunk == NULL) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_split_add_chunk: FAILED");
 		goto err;
 	}
 
-	/* Read all headers */
-	dctls = calloc(chunk->count, sizeof(*dctls));
-	if (dctls == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "calloc: %lld", chunk->count * sizeof(**dctls));
-		goto err_unmap;
-	}
+	/* Hint unsorted */
+	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_WILLNEED))
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", unsorted_chunk->fd);
 
-	offset = count = 0;
-	while (offset < chunk->offset) {
-		hdr = (struct eblob_disk_control *)(chunk_map + offset);
-		/* Basic consistency checks */
-		if (hdr->disk_size <= hdr->data_size
-				|| offset + hdr->disk_size > chunk->offset
-				|| hdr->disk_size == 0) {
-			err = -EINVAL;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "chunk is inconsistient: %d",
-					chunk->fd);
-			goto err_free;
+	/* Space for all headers */
+	index = calloc(unsorted_chunk->count, hdr_size);
+	if (index == NULL) {
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "calloc: %lld", unsorted_chunk->count * hdr_size);
+		goto err_destroy_chunk;
+	}
+	sorted_chunk->index = index;
+
+	/* Read all headers */
+	while (sorted_chunk->offset < unsorted_chunk->offset) {
+		hdrp = &index[sorted_chunk->count];
+
+		err = pread(unsorted_chunk->fd, hdrp, hdr_size, sorted_chunk->offset);
+		if (err != hdr_size) {
+			/* XXX: */
+			goto err_destroy_chunk;
 		}
 
-		offset += hdr->disk_size;
-		dctls[count] = hdr;
-		count++;
+		/* Basic consistency checks */
+		if (hdrp->disk_size <= hdrp->data_size
+				|| sorted_chunk->offset + hdrp->disk_size > unsorted_chunk->offset
+				|| hdrp->disk_size < hdr_size) {
+			err = -EINVAL;
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "chunk is inconsistient: %d, offset: %lld",
+					unsorted_chunk->fd, sorted_chunk->offset);
+			goto err_destroy_chunk;
+		}
+
+		sorted_chunk->offset += hdrp->disk_size;
+		sorted_chunk->count++;
 	}
 
 	/* Sort pointer array based on key */
-	qsort(dctls, count, sizeof(*dctls), eblob_disk_control_sort_p);
+	qsort(index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 
-	/*
-	 * Create sorted temp file
-	 *
-	 * FIXME: Move to separate subroutine
-	 */
-	path = malloc(PATH_MAX);
-	if (path == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "malloc: %s", path);
-		goto err_free;
-	}
-	snprintf(path, PATH_MAX, "%s/%s", dcfg->path, tpl_suffix);
-	/* TODO: FD_CLOEXEC */
-	fd = mkstemp(path);
-	if (fd == -1) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkstemp: %s", path);
-		goto err_free_path;
+	/* Preallocate space for sorted chunk */
+	err = _binlog_allocate(sorted_chunk->fd, sorted_chunk->offset);
+	if (err) {
+		/* XXX: */
+		goto err_destroy_chunk;
 	}
 
 	/*
 	 * Save entires in sorted order
-	 *
-	 * XXX: Rewrite position in header
-	 * XXX: Error checking
-	 * FIXME: File preallocation
 	 */
-	for (offset = 0, i = 0; i < count; offset += dctls[i]->disk_size, i++)
-		write(fd, dctls[i], dctls[i]->disk_size);
-
-	if (eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", chunk->fd);
-
-	/* Close unsorted chunk, this should remove last reference to unlinked file */
-	err = close(chunk->fd);
-	if (err == -1) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "close: %d", chunk->fd);
-		goto err_free_path;
+	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, i++) {
+		/* Save original header */
+		hdr = index[i];
+		/* Rewrite position */
+		index[i].position = offset;
+		/* Write header */
+		err = pwrite(sorted_chunk->fd, &index[i], hdr_size, offset);
+		if (err != hdr_size) {
+			/* XXX: */
+			goto err_destroy_chunk;
+		}
+		/* Splice data */
+		err = eblob_splice_data(unsorted_chunk->fd, hdr.position + hdr_size,
+				sorted_chunk->fd, offset + hdr_size, index[i].disk_size - hdr_size);
+		if (err) {
+			/* XXX: */
+			goto err_destroy_chunk;
+		}
 	}
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorted chunk: fd: %d, count: %lld, size: %lld", fd, count, offset);
+	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", unsorted_chunk->fd);
 
-	assert(fd != chunk->fd);
-	assert(count == chunk->count);
-	assert(offset == chunk->offset);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorted chunk: fd: %d, count: %lld, size: %lld",
+			sorted_chunk->fd, sorted_chunk->count, sorted_chunk->offset);
 
-	/*
-	 * Swap fd
-	 *
-	 * FIXME: return new chunk object instead of modifying inplace
-	 */
-	chunk->fd = fd;
-	chunk->hdr_index = dctls;
-	chunk->path = path;
-	chunk->map = chunk_map;
+	assert(sorted_chunk->fd != unsorted_chunk->fd);
+	assert(sorted_chunk->count == unsorted_chunk->count);
+	assert(sorted_chunk->offset == unsorted_chunk->offset);
 
-	return 0;
+	return sorted_chunk;
 
-err_free_path:
-	free(path);
-err_free:
-	free(dctls);
-err_unmap:
-	if(munmap(chunk_map, chunk->offset) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "munmap");
+err_destroy_chunk:
+	destroy_chunk(sorted_chunk);
 err:
-	return err;
+	return NULL;
 }
 
 /* In-memory sorts all unsorted chunks and move them to sorted list */
 static int datasort_sort(struct datasort_cfg *dcfg) {
-	int err;
-	struct datasort_split_chunk *chunk, *tmp;
+	struct datasort_split_chunk *chunk, *sorted_chunk, *tmp;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 1);
 	assert(list_empty(&dcfg->unsorted_chunks) == 0);
 
 	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
-		err = datasort_sort_chunk(dcfg, chunk);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort_chunk");
+		sorted_chunk = datasort_sort_chunk(dcfg, chunk);
+		if (sorted_chunk == NULL) {
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_sort_chunk: FAILED");
 			goto err;
 		}
-		list_move(&chunk->list, &dcfg->sorted_chunks);
+		list_add_tail(&sorted_chunk->list, &dcfg->sorted_chunks);
+		list_del(&chunk->list);
+		destroy_chunk(chunk);
 	}
 	return 0;
 
 err:
 	/* XXX: ROLLBACK */
-	return err;
+	return 1;
 }
 
 /* Merge two sorted chunks together, return pointer to merged result */
@@ -497,22 +486,19 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 		struct datasort_split_chunk *chunk1, struct datasort_split_chunk *chunk2) {
 	struct datasort_split_chunk *chunk_merge;
 	uint64_t i, j;
-	int err = 0;
 
 	assert(dcfg != NULL);
 	assert(chunk1 != NULL);
-	assert(chunk1->map != NULL);
-	assert(chunk1->hdr_index != NULL);
+	assert(chunk1->index != NULL);
 	assert(chunk2 != NULL);
-	assert(chunk2->map != NULL);
-	assert(chunk2->hdr_index != NULL);
+	assert(chunk2->index != NULL);
 
 	/* XXX: init chunk merge */
-	chunk_merge = NULL;
+	chunk_merge = datasort_split_add_chunk(dcfg);
 
 	i = j = 0;
 	while (i < chunk1->count && j < chunk2->count) {
-		if (eblob_disk_control_sort((const void *)chunk1->hdr_index[i], (const void *)chunk2->hdr_index[j])) {
+		if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j])) {
 			// write chunk2 record
 			j++;
 		} else {
@@ -531,19 +517,6 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 
 err:
 	return NULL;
-}
-
-static void destroy_chunk(struct datasort_split_chunk *chunk) {
-	assert(chunk != NULL);
-
-	/* XXX: Error check */
-	if (chunk->map != NULL)
-		munmap(chunk->map, chunk->offset);
-	if (chunk->path != NULL)
-		unlink(chunk->path);
-	free(chunk->hdr_index);
-	free(chunk->path);
-	free(chunk);
 }
 
 /*
@@ -565,6 +538,7 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort_merge: start");
 
+	/* XXX: rewrite for simplicity */
 	list_for_each_entry_safe(chunk1, tmp, &dcfg->sorted_chunks, list) {
 		if (list_is_last(&chunk1->list, &dcfg->sorted_chunks))
 			break;
@@ -582,10 +556,7 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 		}
 		destroy_chunk(chunk1);
 		destroy_chunk(chunk2);
-		/*
-		XXX:
 		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
-		*/
 	}
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_sort_merge: stop: fd: %d, count: %lld, size: %lld, path: %s",

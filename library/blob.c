@@ -595,7 +595,7 @@ err_out_exit:
  * file descriptors are the same or refer to the same file
  */
 
-static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
+int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
 		int fd_out, uint64_t *off_out, ssize_t len)
 {
 	int err;
@@ -667,7 +667,7 @@ err_out_exit:
 	return err;
 }
 #else
-static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
+int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
 	return eblob_copy_data(fd_in, off_in, fd_out, off_out, len);
 }
