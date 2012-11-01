@@ -510,6 +510,7 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 		struct datasort_split_chunk *chunk1, struct datasort_split_chunk *chunk2) {
 	struct datasort_split_chunk *chunk_merge;
 	uint64_t i, j;
+	int err;
 
 	assert(dcfg != NULL);
 	assert(chunk1 != NULL);
@@ -517,28 +518,55 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 	assert(chunk2 != NULL);
 	assert(chunk2->index != NULL);
 
-	/* XXX: init chunk merge */
 	chunk_merge = datasort_split_add_chunk(dcfg);
+	if (chunk_merge == NULL) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "datasort_split_add_chunk: FAILED");
+		goto err;
+	}
 
+	/* Allocate index */
+	chunk_merge->index = calloc(chunk1->count + chunk2->count, sizeof(struct eblob_disk_control));
+	if (chunk_merge->index == NULL) {
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+		goto err_destroy_chunk;
+	}
+
+	/* Allocate data */
+	err = _binlog_allocate(chunk_merge->fd, chunk1->offset + chunk2->offset);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
+		goto err_free_index;
+	}
+
+	/* Merge chunks till one of them becomes empty */
 	i = j = 0;
 	while (i < chunk1->count && j < chunk2->count) {
-		if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j])) {
+		if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j]) > 0) {
 			// write chunk2 record
+			chunk_merge->offset += chunk2->index[j].disk_size;
 			j++;
 		} else {
 			// write chunk1 record
+			chunk_merge->offset += chunk1->index[i].disk_size;
 			i++;
 		}
 	}
-	for (; i < chunk1->count; i++) {
+	for (; i < chunk1->count; chunk_merge->offset += chunk1->index[i].disk_size, i++) {
 		// write all chunk1 records
 	}
-	for (; j < chunk2->count; j++) {
+	for (; j < chunk2->count; chunk_merge->offset += chunk2->index[j].disk_size, j++) {
 		// write all chunk2 records
 	}
 
+	chunk_merge->count = i + j;
+
 	return chunk_merge;
 
+err_free_index:
+	free(chunk_merge->index);
+err_destroy_chunk:
+	destroy_chunk(dcfg, chunk_merge);
 err:
 	return NULL;
 }
@@ -554,7 +582,7 @@ err:
  * XXX: ROLLBACK
  */
 static int datasort_merge(struct datasort_cfg *dcfg) {
-	struct datasort_split_chunk *chunk1, *chunk2, *chunk_merge, *tmp;
+	struct datasort_split_chunk *chunk1, *chunk2, *chunk_merge;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 0);
@@ -583,6 +611,14 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_merge_chunks: FAILED");
 			goto err;
 		}
+
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+				"merged: path: %s, count %lld, size: %lld",
+				chunk_merge->path, chunk_merge->count, chunk_merge->offset);
+
+		assert(chunk_merge->count == chunk1->count + chunk2->count);
+		assert(chunk_merge->offset == chunk1->offset + chunk2->offset);
+
 		destroy_chunk(dcfg, chunk1);
 		destroy_chunk(dcfg, chunk2);
 		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
