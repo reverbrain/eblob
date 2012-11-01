@@ -153,7 +153,7 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	int fd;
 	char *path;
 	struct datasort_chunk *chunk;
-	static const char tpl_suffix[] = ".chunk.XXXXXX";
+	static const char tpl_suffix[] = "chunk.XXXXXX";
 
 	assert(dcfg);
 	assert(dcfg->path);
