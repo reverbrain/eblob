@@ -518,6 +518,11 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 	assert(chunk2 != NULL);
 	assert(chunk2->index != NULL);
 
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"merging: path: %s <-> %s, count %lld <-> %lld, size: %lld <-> %lld",
+			chunk1->path, chunk2->path, chunk1->count, chunk2->count,
+			chunk1->offset, chunk2->offset);
+
 	chunk_merge = datasort_split_add_chunk(dcfg);
 	if (chunk_merge == NULL) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "datasort_split_add_chunk: FAILED");
@@ -561,6 +566,13 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 
 	chunk_merge->count = i + j;
 
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"merged: path: %s, count %lld, size: %lld",
+			chunk_merge->path, chunk_merge->count, chunk_merge->offset);
+
+	assert(chunk_merge->count == chunk1->count + chunk2->count);
+	assert(chunk_merge->offset == chunk1->offset + chunk2->offset);
+
 	return chunk_merge;
 
 err_free_index:
@@ -601,23 +613,12 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_split_chunk, list);
 		list_del(&chunk2->list);
 
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-				"merging: path: %s <-> %s, count %lld <-> %lld, size: %lld <-> %lld",
-				chunk1->path, chunk2->path, chunk1->count, chunk2->count,
-				chunk1->offset, chunk2->offset);
 
 		chunk_merge = datasort_merge_chunks(dcfg, chunk1, chunk2);
 		if (chunk_merge == NULL) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_merge_chunks: FAILED");
 			goto err;
 		}
-
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-				"merged: path: %s, count %lld, size: %lld",
-				chunk_merge->path, chunk_merge->count, chunk_merge->offset);
-
-		assert(chunk_merge->count == chunk1->count + chunk2->count);
-		assert(chunk_merge->offset == chunk1->offset + chunk2->offset);
 
 		destroy_chunk(dcfg, chunk1);
 		destroy_chunk(dcfg, chunk2);
