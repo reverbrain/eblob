@@ -722,58 +722,55 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	if (dcfg->path == NULL) {
 		err = -ENXIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_mkdtemp");
-		goto err;
+		goto err_stop;
 	}
 
 	/* Split blob into unsorted chunks */
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->path);
-		goto err_unlink;
+		goto err_rmdir;
 	}
 
 	/* If unsorted list is empty - we should exit gracefuly */
 	if (list_empty(&dcfg->unsorted_chunks)) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
 				"datasort_split: no records passed through iteration process. Aborting gracefuly.");
-		goto err_unlink;
+		goto err_rmdir;
 	}
 
 	/* In-memory sort each chunk */
 	err = datasort_sort(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->path);
-		goto err_unlink;
+		goto err_rmdir;
 	}
 
 	/* Merge sorted chunks */
 	err = datasort_merge(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->path);
-		goto err_unlink;
+		goto err_rmdir;
 	}
 
 	/*
 	datasort_lock_base();
 	binlog_apply();
 	datasort_swap();
+	XXX: chmod
 	datasort_unlock_base();
 	*/
-
-	/* Destroy binlog */
-	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
-	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
-		goto err_unlink;
-	}
-	datasort_destroy(dcfg);
-
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
-	return 0;
 
-err_unlink:
+err_rmdir:
 	if (rmdir(dcfg->path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->path);
+err_stop:
+	/* Destroy binlog */
+	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+	datasort_destroy(dcfg);
 err:
 	return err;
 }
