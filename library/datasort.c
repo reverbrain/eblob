@@ -249,12 +249,12 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 			|| (dcfg->chunk_limit > 0 && local->current->count >= dcfg->chunk_limit)) {
 		// TODO: here we can plug sort for speedup
 		local->current = datasort_split_add_chunk(dcfg);
-		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
 		if (local->current == NULL) {
 			err = -ENXIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split_add_chunk failed");
 			goto err_unlock;
 		}
+		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: fd: %d, offset: %lld, size: %lld",
