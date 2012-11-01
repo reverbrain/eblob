@@ -562,11 +562,16 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort_merge: start");
 
-	/* XXX: rewrite for simplicity */
-	list_for_each_entry_safe(chunk1, tmp, &dcfg->sorted_chunks, list) {
-		if (list_is_last(&chunk1->list, &dcfg->sorted_chunks))
+	while (1) {
+		/* Isolate first chunk */
+		chunk1 = list_first_entry(&dcfg->sorted_chunks, struct datasort_split_chunk, list);
+		list_del(&chunk1->list);
+		/* If there is no more chunks to merge - break */
+		if (list_empty(&dcfg->sorted_chunks))
 			break;
-		chunk2 = list_entry(chunk1->list.next, struct datasort_split_chunk, list);
+		/* Isolate second chunk */
+		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_split_chunk, list);
+		list_del(&chunk2->list);
 
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 				"merging: path: %s <-> %s, count %lld <-> %lld, size: %lld <-> %lld",
