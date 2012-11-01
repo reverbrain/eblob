@@ -260,6 +260,9 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: fd: %d, offset: %lld, size: %lld",
 			local->current->fd, local->current->offset, dc->disk_size);
 
+	/* Rewrite position */
+	dc->position = local->current->offset;
+
 	err = pwrite(local->current->fd, dc, dc->disk_size, local->current->offset);
 	if (err != (ssize_t)dc->disk_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
@@ -432,6 +435,9 @@ static struct datasort_split_chunk *datasort_sort_chunk(struct datasort_cfg *dcf
 		hdr = index[i];
 		/* Rewrite position */
 		index[i].position = offset;
+
+		assert(offset + hdr_size < sorted_chunk->offset);
+
 		/* Write header */
 		err = pwrite(sorted_chunk->fd, &index[i], hdr_size, offset);
 		if (err != hdr_size) {
@@ -439,6 +445,10 @@ static struct datasort_split_chunk *datasort_sort_chunk(struct datasort_cfg *dcf
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite");
 			goto err_destroy_chunk;
 		}
+
+		assert(hdr.position + hdr_size <= unsorted_chunk->offset);
+		assert(offset + index[i].disk_size <= sorted_chunk->offset);
+
 		/* Splice data */
 		err = eblob_splice_data(unsorted_chunk->fd, hdr.position + hdr_size,
 				sorted_chunk->fd, offset + hdr_size, index[i].disk_size - hdr_size);
