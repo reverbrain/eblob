@@ -32,7 +32,7 @@
  *
  * Data private for each iterator thread.
  */
-struct datasort_split_chunk {
+struct datasort_chunk {
 	int				fd;
 	uint64_t			offset;
 	uint64_t			count;
@@ -42,8 +42,8 @@ struct datasort_split_chunk {
 };
 
 /* Thread local structure for */
-struct datasort_split_chunk_local {
-	struct datasort_split_chunk	*current;
+struct datasort_chunk_local {
+	struct datasort_chunk	*current;
 };
 
 /* Config for datasort routine */

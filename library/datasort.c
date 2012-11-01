@@ -149,10 +149,10 @@ err:
 }
 
 /* Creates new chunk on disk */
-static struct datasort_split_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg) {
+static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg) {
 	int fd;
 	char *path;
-	struct datasort_split_chunk *chunk;
+	struct datasort_chunk *chunk;
 	static const char tpl_suffix[] = ".chunk.XXXXXX";
 
 	assert(dcfg);
@@ -196,7 +196,7 @@ err:
 	return NULL;
 }
 
-static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_split_chunk *chunk) {
+static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk) {
 	assert(chunk != NULL);
 	assert(chunk->path != NULL);
 
@@ -227,7 +227,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 		void *data __unused, void *priv, void *thread_priv) {
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
-	struct datasort_split_chunk_local *local = thread_priv;
+	struct datasort_chunk_local *local = thread_priv;
 
 	assert(dc != NULL);
 	assert(priv != NULL);
@@ -286,7 +286,7 @@ err:
  * Iterator callbacks
  */
 static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
-	struct datasort_split_chunk_local *local;
+	struct datasort_chunk_local *local;
 
 	local = calloc(1, sizeof(*local));
 	if (local == NULL)
@@ -339,8 +339,8 @@ err:
 }
 
 static int datasort_move_record(struct datasort_cfg *dcfg,
-		struct datasort_split_chunk *from_chunk,
-		struct datasort_split_chunk *to_chunk,
+		struct datasort_chunk *from_chunk,
+		struct datasort_chunk *to_chunk,
 		struct eblob_disk_control *dc, uint64_t offset) {
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 	struct eblob_disk_control hdr;
@@ -396,12 +396,12 @@ err:
  *
  * TODO: sort step can be merged into split step for speedup
  */
-static struct datasort_split_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
-		struct datasort_split_chunk *unsorted_chunk) {
+static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
+		struct datasort_chunk *unsorted_chunk) {
 	ssize_t err;
 	uint64_t i, offset;
 	struct eblob_disk_control *index, *hdrp;
-	struct datasort_split_chunk *sorted_chunk;
+	struct datasort_chunk *sorted_chunk;
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
 	assert(dcfg != NULL);
@@ -502,7 +502,7 @@ err:
 
 /* In-memory sorts all unsorted chunks and move them to sorted list */
 static int datasort_sort(struct datasort_cfg *dcfg) {
-	struct datasort_split_chunk *chunk, *sorted_chunk, *tmp;
+	struct datasort_chunk *chunk, *sorted_chunk, *tmp;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 1);
@@ -526,9 +526,9 @@ err:
 }
 
 /* Merge two sorted chunks together, return pointer to merged result */
-static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
-		struct datasort_split_chunk *chunk1, struct datasort_split_chunk *chunk2) {
-	struct datasort_split_chunk *chunk_merge, *chunk;
+static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
+		struct datasort_chunk *chunk1, struct datasort_chunk *chunk2) {
+	struct datasort_chunk *chunk_merge, *chunk;
 	uint64_t *idx, i, j;
 	int err;
 
@@ -623,7 +623,7 @@ err:
  * XXX: ROLLBACK
  */
 static int datasort_merge(struct datasort_cfg *dcfg) {
-	struct datasort_split_chunk *chunk1, *chunk2, *chunk_merge;
+	struct datasort_chunk *chunk1, *chunk2, *chunk_merge;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 0);
@@ -633,13 +633,13 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 
 	while (1) {
 		/* Isolate first chunk */
-		chunk1 = list_first_entry(&dcfg->sorted_chunks, struct datasort_split_chunk, list);
+		chunk1 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
 		list_del(&chunk1->list);
 		/* If there is no more chunks to merge - break */
 		if (list_empty(&dcfg->sorted_chunks))
 			break;
 		/* Isolate second chunk */
-		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_split_chunk, list);
+		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
 		list_del(&chunk2->list);
 
 		chunk_merge = datasort_merge_chunks(dcfg, chunk1, chunk2);
