@@ -347,9 +347,9 @@ static int datasort_move_record(struct datasort_cfg *dcfg,
 	ssize_t err;
 
 	assert(dc != NULL);
+	assert(dcfg != NULL);
 	assert(to_chunk != NULL);
 	assert(from_chunk != NULL);
-	assert(offset + hdr_size < to_chunk->offset);
 
 	/* Save original header */
 	hdr = *dc;
@@ -358,15 +358,14 @@ static int datasort_move_record(struct datasort_cfg *dcfg,
 	dc->position = offset;
 
 	/* Write header */
-	err = pwrite(from_chunk->fd, dc, hdr_size, offset);
+	err = pwrite(to_chunk->fd, dc, hdr_size, offset);
 	if (err != hdr_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite: %s(%d)", to_chunk->path, to_chunk->fd);
 		goto err;
 	}
 
 	assert(hdr.position + hdr_size <= from_chunk->offset);
-	assert(offset + hdr.disk_size <= to_chunk->offset);
 
 	/* Splice data */
 	err = eblob_splice_data(from_chunk->fd, hdr.position + hdr_size,
@@ -529,8 +528,8 @@ err:
 /* Merge two sorted chunks together, return pointer to merged result */
 static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 		struct datasort_split_chunk *chunk1, struct datasort_split_chunk *chunk2) {
-	struct datasort_split_chunk *chunk_merge;
-	uint64_t i, j;
+	struct datasort_split_chunk *chunk_merge, *chunk;
+	uint64_t count, *idx, i, j;
 	int err;
 
 	assert(dcfg != NULL);
@@ -562,29 +561,40 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 	err = _binlog_allocate(chunk_merge->fd, chunk1->offset + chunk2->offset);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
-		goto err_free_index;
+		goto err_destroy_chunk;
 	}
 
 	/* Merge chunks till one of them becomes empty */
 	i = j = 0;
-	while (i < chunk1->count && j < chunk2->count) {
-		if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j]) > 0) {
-			// write chunk2 record
-			chunk_merge->offset += chunk2->index[j].disk_size;
-			j++;
+	while (i < chunk1->count || j < chunk2->count) {
+		if (i < chunk1->count && j < chunk2->count) {
+			if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j]) > 0) {
+				/* select chunk2 record */
+				idx = &j;
+				chunk = chunk2;
+			} else {
+				/* select chunk1 record */
+				idx = &i;
+				chunk = chunk1;
+			}
+		} else if (i < chunk1->count) {
+			/* select chunk1 record */
+			idx = &i;
+			chunk = chunk1;
 		} else {
-			// write chunk1 record
-			chunk_merge->offset += chunk1->index[i].disk_size;
-			i++;
+			/* select chunk2 record */
+			idx = &j;
+			chunk = chunk2;
 		}
+		chunk_merge->index[i + j] = chunk->index[*idx];
+		err = datasort_move_record(dcfg, chunk, chunk_merge, &chunk_merge->index[i + j], chunk_merge->offset);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_move_record");
+			goto err_destroy_chunk;
+		}
+		chunk_merge->offset += chunk->index[*idx].disk_size;
+		(*idx)++;
 	}
-	for (; i < chunk1->count; chunk_merge->offset += chunk1->index[i].disk_size, i++) {
-		// write all chunk1 records
-	}
-	for (; j < chunk2->count; chunk_merge->offset += chunk2->index[j].disk_size, j++) {
-		// write all chunk2 records
-	}
-
 	chunk_merge->count = i + j;
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
@@ -596,8 +606,6 @@ static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *d
 
 	return chunk_merge;
 
-err_free_index:
-	free(chunk_merge->index);
 err_destroy_chunk:
 	destroy_chunk(dcfg, chunk_merge);
 err:
