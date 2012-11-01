@@ -529,7 +529,7 @@ err:
 static struct datasort_split_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 		struct datasort_split_chunk *chunk1, struct datasort_split_chunk *chunk2) {
 	struct datasort_split_chunk *chunk_merge, *chunk;
-	uint64_t count, *idx, i, j;
+	uint64_t *idx, i, j;
 	int err;
 
 	assert(dcfg != NULL);
