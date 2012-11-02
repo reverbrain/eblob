@@ -567,6 +567,7 @@ err:
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl)) {
 	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
 	struct eblob_binlog_ctl bctl;
+	uint64_t count = 0;
 	int err = 0;
 
 	if (bcfg == NULL || func == NULL)
@@ -592,8 +593,10 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_
 			goto err;
 		}
 		offset += bctl.bl_ctl_size + sizeof(struct eblob_binlog_disk_record_hdr);
+		count++;
 	}
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: finished", bcfg->bl_cfg_binlog_path);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: finished, offset: %lld, applied: %lld",
+			bcfg->bl_cfg_binlog_path, offset, count);
 
 err:
 	return err;
