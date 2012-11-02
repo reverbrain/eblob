@@ -674,8 +674,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/* Enable binlog */
 	err = eblob_start_binlog(dcfg->b, dcfg->bctl);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog");
-		goto err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
+		goto err_mutex;
 	}
 
 	/* Create tmp directory */
@@ -757,6 +757,7 @@ err_stop:
 	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+err_mutex:
 	datasort_destroy(dcfg);
 err:
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: finished\n");
