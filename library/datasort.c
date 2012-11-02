@@ -318,7 +318,7 @@ static int datasort_copy_record(struct datasort_cfg *dcfg,
 			to_chunk->fd, offset + hdr_size, hdr.disk_size - hdr_size);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_splice_data: fd_in: %d, off_in: %lld, "
+				"eblob_splice_data: FAILED, fd_in: %d, off_in: %lld, "
 				"fd_out: %d, off_out: %lld, size: %lld",
 				from_chunk->fd, hdr.position + hdr_size,
 				to_chunk->fd, offset + hdr_size, hdr.disk_size - hdr_size);
