@@ -153,6 +153,7 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
 	}
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroyed list of chunks");
 }
+
 /*
  * Split data in ~chunk_size byte pieces.
  *
@@ -168,7 +169,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	struct datasort_chunk_local *local = thread_priv;
 
 	assert(dc != NULL);
-	assert(priv != NULL);
+	assert(dcfg != NULL);
 	assert(local != NULL);
 
 	err = pthread_mutex_lock(&dcfg->lock);
@@ -179,8 +180,10 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	}
 
 	/*
-	 * No current chunk or exceeded chunk's size limit or exceeded chunk's
-	 * count limit
+	 * Create new chunk if:
+	 *   - No current chunk
+	 *   - Exceeded chunk's size limit
+	 *   - Exceeded chunk's count limit
 	 */
 	if (local->current == NULL
 			|| (dcfg->chunk_size > 0 && local->current->offset + dc->disk_size >= dcfg->chunk_size)
@@ -188,8 +191,8 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 		// TODO: here we can plug sort for speedup
 		local->current = datasort_split_add_chunk(dcfg);
 		if (local->current == NULL) {
-			err = -ENXIO;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split_add_chunk failed");
+			err = -EIO;
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split_add_chunk: FAILED");
 			goto err_unlock;
 		}
 		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
@@ -207,12 +210,10 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite");
 		goto err_unlock;
 	}
-	err = 0;
 
 	local->current->offset += dc->disk_size;
 	local->current->count++;
-
-	/* FIXME: Bump global counters */
+	err = 0;
 
 err_unlock:
 	pthread_mutex_unlock(&dcfg->lock);
