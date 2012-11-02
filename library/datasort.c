@@ -205,8 +205,10 @@ static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_ch
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroying chunk: %s (%d)", chunk->path, chunk->fd);
 
-	if (unlink(chunk->path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink");
+	if (chunk->path != NULL) {
+		if (unlink(chunk->path) == -1)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink");
+	}
 	if (chunk->fd >= 0) {
 		if (eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint");
@@ -683,6 +685,7 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
 	free(dcfg->path);
 };
 
+/* This routine called by @binlog_apply one time for each binlog entry */
 int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
 	if (bctl == NULL)
 		return -EINVAL;
@@ -780,19 +783,28 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/*
 	XXX: datasort_lock_base();
 	*/
+
 	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->path);
-		/* XXX: unlink result */
-		goto err_rmdir;
+		goto err_destroy;
 	}
+
 	/*
 	XXX: datasort_swap();
 	XXX: chmod
 	XXX: datasort_unlock_base();
 	*/
+
+	/* Prepare chunk for destroy */
+	free(result->path);
+	result->fd = -1;
+	result->path = NULL;
+
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 
+err_destroy:
+	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
 	if (rmdir(dcfg->path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->path);
