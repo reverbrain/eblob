@@ -76,9 +76,6 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	assert(dcfg);
 	assert(dcfg->dir);
 
-	/*
-	 * Create sorted temp file
-	 */
 	path = malloc(PATH_MAX);
 	if (path == NULL) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "malloc: %s", path);
@@ -749,7 +746,7 @@ err_destroy:
 	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->dir);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
 	/* Destroy binlog */
 	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
