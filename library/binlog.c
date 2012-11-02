@@ -557,20 +557,41 @@ err:
 }
 
 /*
- * XXX: Sequentially applies given binlog to backing file.
+ * Sequentially applies given binlog to backing file.
+ * From binlog header to current binlog position:
+ *  - Read log record
+ *  - Run function that applies given record to blob
+ *
+ * NB! Caller should prevent binlog from beeing modified.
  */
 int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl)) {
+	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
+	struct eblob_binlog_ctl bctl;
+	int err;
+
 	if (bcfg == NULL || func == NULL)
 		return -EINVAL;
 
-	/*
-	 * From start to current position:
-	 *  - Read log header
-	 *  - Optionally check that LSN is in index (to rule out multiple rewrites of same data)
-	 *  - Run function that applies given LSN to blob
-	 */
+	assert(bcfg->bl_cfg_binlog_position <= offset);
 
-	return 0;
+	while (offset < bcfg->bl_cfg_binlog_position) {
+		memset(&bctl, 0, sizeof(bctl));
+		bctl.bl_ctl_cfg = bcfg;
+
+		err = binlog_read(&bctl, offset);
+		if (err) {
+			/* XXX: */
+			goto err;
+		}
+		err = func(&bctl);
+		if (err) {
+			/* XXX: */
+			goto err;
+		}
+	}
+
+err:
+	return err;
 }
 
 /*
