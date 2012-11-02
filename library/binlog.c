@@ -371,6 +371,15 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "flock: %s", bcfg->bl_cfg_binlog_path);
 		goto err_close;
 	}
+	/* Truncate binlog if requested */
+	if (bcfg->bl_cfg_flags & EBLOB_BINLOG_FLAGS_CFG_TRUNCATE) {
+		err = ftruncate(fd, sizeof(struct eblob_binlog_disk_hdr));
+		if (err == -1) {
+			err = -errno;
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "ftruncate: %s", bcfg->bl_cfg_binlog_path);
+			goto err_unlock;
+		}
+	}
 
 	bcfg->bl_cfg_binlog_fd = fd;
 
