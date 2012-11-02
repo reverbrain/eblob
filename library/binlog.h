@@ -71,11 +71,6 @@ struct eblob_binlog_cfg {
 	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
 	/* Logging */
 	struct eblob_log		*log;
-	/* TODO: Pluggable data-processing functions
-	 * For binlog to be extensible it would be nice to have set of function
-	 * pointers to different base routines, like:
-	 * int (*bl_cfg_read_record)(struct eblob_binlog_cfg *bcfg, struct eblob_binlog_ctl *bctl);
-	 */
 };
 
 /*
@@ -94,9 +89,9 @@ struct eblob_binlog_ctl {
 	struct eblob_key	*bl_ctl_key;
 	/* Pointer to data location */
 	void			*bl_ctl_data;
-	/* Size of data */
+	/* Size of data, including metadata */
 	ssize_t			bl_ctl_size;
-	/* Pointer to metadata location */
+	/* Pointer to metadata location within data */
 	void			*bl_ctl_meta;
 	/* Size of metadata */
 	ssize_t			bl_ctl_meta_size;
