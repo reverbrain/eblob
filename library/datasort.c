@@ -464,10 +464,10 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 err:
 	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
 	datasort_destroy_chunks(dcfg, &dcfg->unsorted_chunks);
-	return 1;
+	return -EIO;
 }
 
-/* Merge two sorted chunks together, return pointer to merged result */
+/* Merge two sorted chunks together, return pointer to result */
 static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 		struct datasort_chunk *chunk1, struct datasort_chunk *chunk2) {
 	struct datasort_chunk *chunk_merge, *chunk;
