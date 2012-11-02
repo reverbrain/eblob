@@ -37,25 +37,23 @@
 
 
 /*
- * Create directory for sorting
+ * Create temp directory for sorting
  */
 static char *datasort_mkdtemp(struct datasort_cfg *dcfg) {
-	int err;
 	char *path, *tmppath;
 	static const char tpl_suffix[] = "datasort.XXXXXX";
 
 	path = malloc(PATH_MAX);
 	if (path == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "malloc");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "malloc");
 		goto err;
 	}
 
-	snprintf(path, PATH_MAX, "%s-%d.%d.%s", dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
+	snprintf(path, PATH_MAX, "%s-%d.%d.%s",
+			dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
 	tmppath = mkdtemp(path);
 	if (tmppath == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "mkdtemp: %s", path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mkdtemp: %s", path);
 		goto err_free_path;
 	}
 
@@ -67,7 +65,9 @@ err:
 	return NULL;
 }
 
-/* Creates new chunk on disk */
+/*
+ * Creates new chunk on disk
+ */
 static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg) {
 	int fd;
 	char *path;
