@@ -244,9 +244,9 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	int err;
 	struct eblob_iterate_control ictl;
 
-	assert(dcfg);
-	assert(dcfg->b);
-	assert(dcfg->bctl);
+	assert(dcfg != NULL);
+	assert(dcfg->b != NULL);
+	assert(dcfg->bctl != NULL);
 	assert(dcfg->thread_num > 0);
 
 	/* Init iterator config */
@@ -261,7 +261,8 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	ictl.iterator_cb.iterator_init = datasort_split_iterator_init;
 	ictl.iterator_cb.iterator_free = datasort_split_iterator_free;
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "split: threads: %d", ictl.thread_num);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "split: start, name: %s, threads: %d",
+			ictl.base->name, ictl.thread_num);
 
 	/* Run iteration */
 	err = eblob_blob_iterate(&ictl);
@@ -269,6 +270,8 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 		goto err;
 	}
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "split: stop");
 	return 0;
 
 err:
