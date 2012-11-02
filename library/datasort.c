@@ -494,8 +494,8 @@ static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 	/* Allocate index */
 	chunk_merge->index = calloc(chunk1->count + chunk2->count, sizeof(struct eblob_disk_control));
 	if (chunk_merge->index == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "calloc: %lld",
+				(chunk1->count + chunk2->count) * sizeof(struct eblob_disk_control));
 		goto err_destroy_chunk;
 	}
 
