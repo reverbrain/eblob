@@ -143,10 +143,15 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
 	assert(dcfg != NULL);
 	assert(head != NULL);
 
+	if (list_empty(head))
+		return;
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroying list of chunks");
 	list_for_each_entry_safe(chunk, tmp, head, list) {
 		list_del(&chunk->list);
 		datasort_destroy_chunk(dcfg, chunk);
 	}
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroyed list of chunks");
 }
 /*
  * Split data in ~chunk_size byte pieces.
