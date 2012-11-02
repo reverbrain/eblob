@@ -154,6 +154,9 @@ struct eblob_binlog_disk_record_hdr {
 
 /*
  * Allocate space for binlog.
+ *
+ * TODO: Rename function.
+ * TODO: Move to ebelob code.
  */
 static inline int _binlog_allocate(int fd, off_t size) {
 	if (size == 0 || fd < 0)
