@@ -20,7 +20,7 @@
 #ifndef __EBLOB_DATASORT_H
 #define __EBLOB_DATASORT_H
 
-/* This is also size of initial sort buffer */
+/* Aproximate size of sort chunk +- one record */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 16)
@@ -31,7 +31,7 @@
  * One chunk of blob.
  */
 struct datasort_chunk {
-	/* Opened fd, or -1 */
+	/* fd, or -1 */
 	int				fd;
 	/* Size of chunk */
 	uint64_t			offset;
@@ -76,4 +76,5 @@ struct datasort_cfg {
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
 int datasort_binlog_apply(struct eblob_binlog_ctl *bctl);
+
 #endif /* __EBLOB_DATASORT_H */
