@@ -815,5 +815,6 @@ err_stop:
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
 	datasort_destroy(dcfg);
 err:
+	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: finished\n");
 	return err;
 }
