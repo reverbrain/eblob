@@ -215,6 +215,17 @@ static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_ch
 	free(chunk);
 }
 
+static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head *head) {
+	struct datasort_chunk *chunk, *tmp;
+
+	assert(dcfg != NULL);
+	assert(head != NULL);
+
+	list_for_each_entry_safe(chunk, tmp, head, list) {
+		list_del(&chunk->list);
+		datasort_destroy_chunk(dcfg, chunk);
+	}
+}
 /*
  * Split data in ~chunk_size byte pieces.
  *
@@ -310,9 +321,7 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	assert(dcfg->bctl);
 	assert(dcfg->thread_num > 0);
 
-	/*
-	 * Init iterator config
-	 */
+	/* Init iterator config */
 	memset(&ictl, 0, sizeof(ictl));
 	ictl.priv = dcfg;
 	ictl.b = dcfg->b;
@@ -332,9 +341,10 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 		goto err;
 	}
+	return 0;
 
 err:
-	/* XXX: ROLLBACK */
+	datasort_destroy_chunks(dcfg, &dcfg->unsorted_chunks);
 	return err;
 }
 
@@ -521,7 +531,8 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 	return 0;
 
 err:
-	/* XXX: ROLLBACK */
+	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
+	datasort_destroy_chunks(dcfg, &dcfg->unsorted_chunks);
 	return 1;
 }
 
