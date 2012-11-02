@@ -688,11 +688,33 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
 int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
 	if (bctl == NULL)
 		return -EINVAL;
+
+	switch (bctl->bl_ctl_type) {
+		case EBLOB_BINLOG_TYPE_UPDATE:
+			/* XXX: */
+			break;
+		case EBLOB_BINLOG_TYPE_REMOVE:
+			/*
+			err = eblob_remove(dcfg->b, bctl->bl_ctl_key, dcfg->bctl->type);
+			if (err) {
+				goto err;
+			}
+			*/
+			break;
+		default:
+			return -ENOTSUP;
+	}
+
 	return 0;
 }
 
 /*
  * Sorts data in base by key.
+ *
+ * Inputs are:
+ *  @dcfg->b
+ *  @dcfg->log
+ *  @dcfg->bctl
  *
  * Sorting consists of following steps:
  *  - Enable binlog for original base
@@ -701,9 +723,8 @@ int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
  *  - Merge-sort resulted sorted chunks
  *  - Lock original base
  *  - Apply binlog ontop of sorted base
- *  - Swap original and sorted bases
- *
- *  XXX: Proper cleanup in failure scenarios.
+ *  - Replace original base with sorted one
+ *  - Unlock now-sorted base
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	int err;
@@ -783,6 +804,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	XXX: datasort_lock_base();
 	*/
 
+	/*
+	 * Rewind all records that have been modified since data-sort was
+	 * started
+	 */
 	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->path);
@@ -790,8 +815,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	}
 
 	/*
-	XXX: datasort_swap();
 	XXX: chmod
+	XXX: datasort_swap();
 	XXX: datasort_unlock_base();
 	*/
 
