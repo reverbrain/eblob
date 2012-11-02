@@ -385,7 +385,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		err = pread(unsorted_chunk->fd, hdrp, hdr_size, sorted_chunk->offset);
 		if (err != hdr_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pread");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pread: fd: %d", unsorted_chunk->fd);
 			goto err_destroy_chunk;
 		}
 
@@ -393,8 +393,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		if (hdrp->disk_size <= hdrp->data_size
 				|| sorted_chunk->offset + hdrp->disk_size > unsorted_chunk->offset
 				|| hdrp->disk_size < hdr_size) {
-			err = -EINVAL;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "chunk is inconsistient: %d, offset: %lld",
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "chunk is inconsistient: %d, offset: %lld",
 					unsorted_chunk->fd, sorted_chunk->offset);
 			goto err_destroy_chunk;
 		}
@@ -406,20 +405,14 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	/* Sort pointer array based on key */
 	qsort(index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 
-	/*
-	 * Preallocate space for sorted chunk
-	 *
-	 * TODO: Rename function
-	 */
+	/* Preallocate space for sorted chunk */
 	err = _binlog_allocate(sorted_chunk->fd, sorted_chunk->offset);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
 		goto err_destroy_chunk;
 	}
 
-	/*
-	 * Save entires in sorted order
-	 */
+	/* Save entires in sorted order */
 	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, i++) {
 		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
 		if (err) {
