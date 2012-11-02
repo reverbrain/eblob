@@ -633,8 +633,6 @@ err:
  *  - Failed: last chunk is already sorted
  *  - Succeded: merge chunks via datasort_merge_chunks and put result to the
  *  end of sorted list.
- *
- * XXX: ROLLBACK
  */
 static int datasort_merge(struct datasort_cfg *dcfg) {
 	struct datasort_chunk *chunk1, *chunk2, *chunk_merge;
@@ -672,6 +670,7 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 	return 0;
 
 err:
+	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
 	return 1;
 }
 
