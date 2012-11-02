@@ -439,7 +439,7 @@ err:
 	return NULL;
 }
 
-/* In-memory sorts all unsorted chunks and move them to sorted list */
+/* Sort all chunks from unsorted list and move them to sorted one */
 static int datasort_sort(struct datasort_cfg *dcfg) {
 	struct datasort_chunk *chunk, *sorted_chunk, *tmp;
 
