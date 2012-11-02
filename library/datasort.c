@@ -279,7 +279,11 @@ err:
 	return err;
 }
 
-static int datasort_move_record(struct datasort_cfg *dcfg,
+/*
+ * Copies record specified by header @dc from @from_chunk chunk to @offset
+ * position of @to_chunk
+ */
+static int datasort_copy_record(struct datasort_cfg *dcfg,
 		struct datasort_chunk *from_chunk,
 		struct datasort_chunk *to_chunk,
 		struct eblob_disk_control *dc, uint64_t offset) {
@@ -302,7 +306,8 @@ static int datasort_move_record(struct datasort_cfg *dcfg,
 	err = pwrite(to_chunk->fd, dc, hdr_size, offset);
 	if (err != hdr_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite: %s(%d)", to_chunk->path, to_chunk->fd);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite: %s, fd: %d, offset: %lld",
+				to_chunk->path, to_chunk->fd, offset);
 		goto err;
 	}
 
@@ -416,9 +421,9 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	 * Save entires in sorted order
 	 */
 	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, i++) {
-		err = datasort_move_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
+		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
 		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_move_record: FAILED");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_copy_record: FAILED");
 			goto err_destroy_chunk;
 		}
 	}
@@ -531,9 +536,9 @@ static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 			chunk = chunk2;
 		}
 		chunk_merge->index[i + j] = chunk->index[*idx];
-		err = datasort_move_record(dcfg, chunk, chunk_merge, &chunk_merge->index[i + j], chunk_merge->offset);
+		err = datasort_copy_record(dcfg, chunk, chunk_merge, &chunk_merge->index[i + j], chunk_merge->offset);
 		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_move_record");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_copy_record");
 			goto err_destroy_chunk;
 		}
 		chunk_merge->offset += chunk->index[*idx].disk_size;
