@@ -29,32 +29,36 @@
 
 /*
  * One chunk of blob.
- *
- * Data private for each iterator thread.
  */
 struct datasort_chunk {
+	/* Opened fd, or -1 */
 	int				fd;
+	/* Size of chunk */
 	uint64_t			offset;
+	/* Number of records in chunk */
 	uint64_t			count;
+	/* Full path to chunk file */
 	char				*path;
+	/* Array of dc's for sorting and merging */
 	struct eblob_disk_control	*index;
+	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
 };
 
-/* Thread local structure for */
+/* Thread local structure for each iterator thread */
 struct datasort_chunk_local {
 	struct datasort_chunk	*current;
 };
 
 /* Config for datasort routine */
 struct datasort_cfg {
-	/* Size of initial chunks for data sort */
+	/* Limit on size of one chunk +- one record */
 	uint64_t			chunk_size;
 	/* Limit on number of records in one chunk */
 	uint64_t			chunk_limit;
-	/* Number of threads for data iteration */
+	/* Split iterator threads */
 	unsigned int			thread_num;
-	/* Thread synchronization lock */
+	/* Lock used by blob iterator */
 	pthread_mutex_t			lock;
 	/* Splitter chunks */
 	struct list_head		unsorted_chunks;
