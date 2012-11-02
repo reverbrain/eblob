@@ -201,7 +201,6 @@ err:
 
 static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk) {
 	assert(chunk != NULL);
-	assert(chunk->path != NULL);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroying chunk: %s (%d)", chunk->path, chunk->fd);
 
