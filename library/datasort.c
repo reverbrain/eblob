@@ -581,7 +581,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 		/* Isolate second chunk */
 		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
 		list_del(&chunk2->list);
-
+		/* Two-way merge chunks */
 		chunk_merge = datasort_merge_chunks(dcfg, chunk1, chunk2);
 		if (chunk_merge == NULL) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_merge_chunks: FAILED");
@@ -592,10 +592,10 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 		datasort_destroy_chunk(dcfg, chunk2);
 		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
 	}
+
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_sort_merge: stop: fd: %d, count: %lld, size: %lld, path: %s",
 			chunk1->fd, chunk1->count, chunk1->offset, chunk1->path);
-
 	return chunk1;
 
 err:
