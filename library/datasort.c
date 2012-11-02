@@ -765,7 +765,6 @@ err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
-	/* Destroy binlog */
 	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
