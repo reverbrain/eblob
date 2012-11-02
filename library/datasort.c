@@ -101,13 +101,13 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	chunk->fd = fd;
 	chunk->path = path;
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s", path);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "added new chunk: %s, fd: %d", path, fd);
 
 	return chunk;
 
 err_unlink:
 	if (unlink(path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink: %s", path);
 err_free:
 	free(path);
 err:
