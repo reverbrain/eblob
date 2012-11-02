@@ -729,6 +729,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_destroy;
 	}
 
+	/* We don't need it anymore */
+	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+
 	/*
 	XXX: chmod
 	XXX: datasort_swap();
