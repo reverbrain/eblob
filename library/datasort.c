@@ -168,10 +168,13 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	}
 
 	snprintf(path, PATH_MAX, "%s/%s", dcfg->path, tpl_suffix);
-	/* FIXME: FD_CLOEXEC */
 	fd = mkstemp(path);
 	if (fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mkstemp: %s", path);
+		goto err_free;
+	}
+	if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fcntl: %s", path);
 		goto err_free;
 	}
 
