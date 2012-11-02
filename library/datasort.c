@@ -521,6 +521,7 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 	assert(list_empty(&dcfg->sorted_chunks) == 1);
 	assert(list_empty(&dcfg->unsorted_chunks) == 0);
 
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort: start");
 	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
 		sorted_chunk = datasort_sort_chunk(dcfg, chunk);
 		if (sorted_chunk == NULL) {
@@ -531,6 +532,7 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 		list_del(&chunk->list);
 		datasort_destroy_chunk(dcfg, chunk);
 	}
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort: stop");
 	return 0;
 
 err:
@@ -634,7 +636,7 @@ err:
  *  - Succeded: merge chunks via datasort_merge_chunks and put result to the
  *  end of sorted list.
  */
-static int datasort_merge(struct datasort_cfg *dcfg) {
+static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 	struct datasort_chunk *chunk1, *chunk2, *chunk_merge;
 
 	assert(dcfg != NULL);
@@ -667,11 +669,12 @@ static int datasort_merge(struct datasort_cfg *dcfg) {
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_sort_merge: stop: fd: %d, count: %lld, size: %lld, path: %s",
 			chunk1->fd, chunk1->count, chunk1->offset, chunk1->path);
-	return 0;
+
+	return chunk1;
 
 err:
 	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
-	return 1;
+	return NULL;
 }
 
 /* Recursively destroys dcfg */
@@ -679,6 +682,12 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
 	pthread_mutex_destroy(&dcfg->lock);
 	free(dcfg->path);
 };
+
+int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
+	if (bctl == NULL)
+		return -EINVAL;
+	return 0;
+}
 
 /*
  * Sorts data in base by key.
@@ -696,6 +705,7 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	int err;
+	struct datasort_chunk *result;
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -760,18 +770,26 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	}
 
 	/* Merge sorted chunks */
-	err = datasort_merge(dcfg);
-	if (err) {
+	result = datasort_merge(dcfg);
+	if (result == NULL) {
+		err = -ENXIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->path);
 		goto err_rmdir;
 	}
 
 	/*
-	datasort_lock_base();
-	binlog_apply();
-	datasort_swap();
+	XXX: datasort_lock_base();
+	*/
+	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->path);
+		/* XXX: unlink result */
+		goto err_rmdir;
+	}
+	/*
+	XXX: datasort_swap();
 	XXX: chmod
-	datasort_unlock_base();
+	XXX: datasort_unlock_base();
 	*/
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 
