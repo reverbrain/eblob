@@ -669,7 +669,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/* Soon we'll be using it */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_WILLNEED);
 	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
 
 	/* Enable binlog */
 	err = eblob_start_binlog(dcfg->b, dcfg->bctl);
@@ -710,7 +710,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/* Merge sorted chunks */
 	result = datasort_merge(dcfg);
 	if (result == NULL) {
-		err = -ENXIO;
+		err = -EIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->dir);
 		goto err_rmdir;
 	}
@@ -721,7 +721,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 
 	/*
 	 * Rewind all records that have been modified since data-sort was
-	 * started
+	 * started.
+	 *
+	 * XXX: Add priv data to binlog_apply
 	 */
 	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
 	if (err) {
