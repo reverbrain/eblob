@@ -261,7 +261,7 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 	ictl.iterator_cb.iterator_init = datasort_split_iterator_init;
 	ictl.iterator_cb.iterator_free = datasort_split_iterator_free;
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "split: start, name: %s, threads: %d",
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "split: start, name: %s, threads: %d",
 			ictl.base->name, ictl.thread_num);
 
 	/* Run iteration */
@@ -271,7 +271,7 @@ static int datasort_split(struct datasort_cfg *dcfg) {
 		goto err;
 	}
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "split: stop");
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "split: stop");
 	return 0;
 
 err:
@@ -487,7 +487,7 @@ static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 
 	chunk_merge = datasort_split_add_chunk(dcfg);
 	if (chunk_merge == NULL) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "datasort_split_add_chunk: FAILED");
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_split_add_chunk: FAILED");
 		goto err;
 	}
 
