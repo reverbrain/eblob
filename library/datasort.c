@@ -90,7 +90,7 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	}
 	if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fcntl: %s", path);
-		goto err_free;
+		goto err_unlink;
 	}
 
 	chunk = calloc(1, sizeof(*chunk));
