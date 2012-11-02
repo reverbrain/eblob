@@ -75,7 +75,7 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 	static const char tpl_suffix[] = "chunk.XXXXXX";
 
 	assert(dcfg);
-	assert(dcfg->path);
+	assert(dcfg->dir);
 
 	/*
 	 * Create sorted temp file
@@ -86,7 +86,7 @@ static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg
 		goto err;
 	}
 
-	snprintf(path, PATH_MAX, "%s/%s", dcfg->path, tpl_suffix);
+	snprintf(path, PATH_MAX, "%s/%s", dcfg->dir, tpl_suffix);
 	fd = mkstemp(path);
 	if (fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mkstemp: %s", path);
@@ -338,7 +338,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
 	assert(dcfg != NULL);
-	assert(dcfg->path != NULL);
+	assert(dcfg->dir != NULL);
 	assert(unsorted_chunk != NULL);
 	assert(unsorted_chunk->fd >= 0);
 
@@ -600,7 +600,7 @@ err:
 /* Recursively destroys dcfg */
 static void datasort_destroy(struct datasort_cfg *dcfg) {
 	pthread_mutex_destroy(&dcfg->lock);
-	free(dcfg->path);
+	free(dcfg->dir);
 };
 
 /* This routine called by @binlog_apply one time for each binlog entry */
@@ -683,8 +683,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	}
 
 	/* Create tmp directory */
-	dcfg->path = datasort_mkdtemp(dcfg);
-	if (dcfg->path == NULL) {
+	dcfg->dir = datasort_mkdtemp(dcfg);
+	if (dcfg->dir == NULL) {
 		err = -ENXIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_mkdtemp");
 		goto err_stop;
@@ -693,7 +693,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/* Split blob into unsorted chunks */
 	err = datasort_split(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -707,7 +707,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/* In-memory sort each chunk */
 	err = datasort_sort(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -715,7 +715,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	result = datasort_merge(dcfg);
 	if (result == NULL) {
 		err = -ENXIO;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -729,7 +729,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	 */
 	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->path);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 		goto err_destroy;
 	}
 
@@ -749,8 +749,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 err_destroy:
 	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
-	if (rmdir(dcfg->path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->path);
+	if (rmdir(dcfg->dir) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "rmdir: %s", dcfg->dir);
 err_stop:
 	/* Destroy binlog */
 	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);

@@ -65,7 +65,7 @@ struct datasort_cfg {
 	/* Sorter/merger chunks */
 	struct list_head		sorted_chunks;
 	/* Datasort directory */
-	char				*path;
+	char				*dir;
 	/* Pointer to backend */
 	struct eblob_backend		*b;
 	/* Logging */
