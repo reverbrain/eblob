@@ -114,26 +114,29 @@ err:
 	return NULL;
 }
 
+/* Recursively destroys all initialized fields of one chunk */
 static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk) {
+	assert(dcfg != NULL);
 	assert(chunk != NULL);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroying chunk: %s (%d)", chunk->path, chunk->fd);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "destroying chunk: %s, fd: %d", chunk->path, chunk->fd);
 
 	if (chunk->path != NULL) {
 		if (unlink(chunk->path) == -1)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "unlink: %s", chunk->path);
 	}
 	if (chunk->fd >= 0) {
 		if (eblob_pagecache_hint(chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint");
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", chunk->fd);
 		if (close(chunk->fd) == -1)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "close");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "close: %d", chunk->fd);
 	}
 	free(chunk->index);
 	free(chunk->path);
 	free(chunk);
 }
 
+/* Destroys all chunks in given list */
 static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head *head) {
 	struct datasort_chunk *chunk, *tmp;
 
