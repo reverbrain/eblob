@@ -99,6 +99,7 @@ static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *
 	return 0;
 }
 
+/* Write binlog file header header */
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	ssize_t err;
 
@@ -118,6 +119,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	return 0;
 }
 
+/* Read binlog file header header */
 static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp) {
 	ssize_t err;
 	struct eblob_binlog_disk_hdr *dhdr;
@@ -564,7 +566,8 @@ err:
  *
  * NB! Caller should prevent binlog from beeing modified.
  */
-int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl)) {
+int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
+		int (*func)(void * priv, struct eblob_binlog_ctl *bctl)) {
 	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
 	struct eblob_binlog_ctl bctl;
 	uint64_t count = 0;
@@ -586,7 +589,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_
 					"binlog_read: %s, offset: %lld", bcfg->path, offset);
 			goto err;
 		}
-		err = func(&bctl);
+		err = func(priv, &bctl);
 		if (err) {
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
 					"(*func): %s, offset: %lld", bcfg->path, offset);
