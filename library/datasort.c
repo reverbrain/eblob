@@ -392,7 +392,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		/* Basic consistency checks */
 		if (hdrp->disk_size <= hdrp->data_size
 				|| sorted_chunk->offset + hdrp->disk_size > unsorted_chunk->offset
-				|| hdrp->disk_size < hdr_size) {
+				|| hdrp->disk_size < (unsigned long long)hdr_size) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "chunk is inconsistient: %d, offset: %lld",
 					unsorted_chunk->fd, sorted_chunk->offset);
 			goto err_destroy_chunk;
@@ -662,10 +662,13 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	snprintf(index_path, PATH_MAX, "%s-%d.%d.index.sorted", dcfg->b->cfg.file, bctl->type, bctl->index);
 	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", index_path);
 
-	/* Init index map */
+	/*
+	 * Init index map
+	 *
+	 * FIXME: Copy permissions from original fd
+	 */
 	memset(&index, 0, sizeof(index));
 	index.size = result->count * sizeof(struct eblob_disk_control);
-	/* FIXME: Copy permissions from original fd */
 	index.fd = open(tmp_index_path, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
 	if (index.fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "open: %s", tmp_index_path);
@@ -680,7 +683,9 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 		goto err;
 	}
 
-	/* Save data */
+	/* XXX: Save index on disk */
+
+	/* Backup data */
 	bctl->old_data_fd = bctl->data_fd;
 	bctl->old_index_fd = bctl->index_fd;
 	bctl->old_sort = bctl->sort;
