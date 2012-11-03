@@ -200,10 +200,10 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 
 	assert(bcfg != NULL);
 	assert(rhdr != NULL);
-	assert(bcfg->binlog_fd >= 0);
+	assert(bcfg->fd >= 0);
 	assert(offset > 0);
 
-	err = pread(bcfg->binlog_fd, rhdr, sizeof(*rhdr), offset);
+	err = pread(bcfg->fd, rhdr, sizeof(*rhdr), offset);
 	if (err != sizeof(*rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %lld", bcfg->binlog_path, (long long)offset);
@@ -237,7 +237,7 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 	char *buf;
 
 	assert(bcfg != NULL);
-	assert(bcfg->binlog_fd >= 0);
+	assert(bcfg->fd >= 0);
 	assert(offset > 0);
 	assert(size > 0);
 
@@ -247,7 +247,7 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 		goto err;
 	}
 
-	err = pread(bcfg->binlog_fd, buf, size, offset);
+	err = pread(bcfg->fd, buf, size, offset);
 	if (err != size) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, ((err == -1) ? errno : EINTR), "pread: %s, offset: %lld", bcfg->binlog_path, (long long)offset);
 		goto err_free;
@@ -318,7 +318,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
 	bcfg->flags = EBLOB_BINLOG_DEFAULTS_FLAGS;
 	bcfg->prealloc_step = EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP;
 	bcfg->binlog_path = binlog_path;
-	bcfg->binlog_fd = -1;
+	bcfg->fd = -1;
 	bcfg->log = log;
 
 	return bcfg;
@@ -343,7 +343,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	if (bcfg == NULL)
 		return -EINVAL;
 
-	assert(bcfg->binlog_fd == -1);
+	assert(bcfg->fd == -1);
 
 	/* Creating binlog if it does not exist and use fd provided by binlog_create */
 	err = binlog_create(bcfg);
@@ -381,15 +381,15 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		}
 	}
 
-	bcfg->binlog_fd = fd;
+	bcfg->fd = fd;
 
 	/* It's not critical if hint fails, but we should log it anyway */
-	err = eblob_pagecache_hint(bcfg->binlog_fd, EBLOB_FLAGS_HINT_WILLNEED);
+	err = eblob_pagecache_hint(bcfg->fd, EBLOB_FLAGS_HINT_WILLNEED);
 	if (err)
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->binlog_path);
 
 	/* Stat binlog */
-	err = fstat(bcfg->binlog_fd, &binlog_stat);
+	err = fstat(bcfg->fd, &binlog_stat);
 	if (err == -1) {
 		err = -errno;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "fstat: %s", bcfg->binlog_path);
@@ -398,7 +398,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	bcfg->prealloc_size = binlog_stat.st_size;
 
 	/* Read header */
-	err = binlog_hdr_read(bcfg->binlog_fd, &bcfg->disk_hdr);
+	err = binlog_hdr_read(bcfg->fd, &bcfg->disk_hdr);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_read: %s", bcfg->binlog_path);
 		goto err_unlock;
@@ -407,7 +407,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	/* Find last LSN */
 	bcfg->binlog_position = binlog_get_next_lsn(bcfg);
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s(%d): %lld", bcfg->binlog_path,
-			bcfg->binlog_fd, (long long)bcfg->binlog_position);
+			bcfg->fd, (long long)bcfg->binlog_position);
 
 	return 0;
 
@@ -432,13 +432,13 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		return -EINVAL;
 	bcfg = bctl->cfg;
 
-	assert(bcfg->binlog_fd >= 0);
+	assert(bcfg->fd >= 0);
 	assert(bcfg->binlog_position > 0);
 
 	/* Check if binlog needs to be extended */
 	record_len = sizeof(rhdr) + bctl->meta_size + bctl->size;
 	if (bcfg->binlog_position + record_len >= bcfg->prealloc_size) {
-		err = binlog_extend(bcfg, bcfg->binlog_fd);
+		err = binlog_extend(bcfg, bcfg->fd);
 		if (err)
 			goto err;
 	}
@@ -458,7 +458,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Write header */
 	offset = bcfg->binlog_position;
-	err = pwrite(bcfg->binlog_fd, &rhdr, sizeof(rhdr), offset);
+	err = pwrite(bcfg->fd, &rhdr, sizeof(rhdr), offset);
 	if (err != sizeof(rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s, offset: %lld", bcfg->binlog_path, (long long)offset);
@@ -468,7 +468,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Write metadata */
 	if (bctl->meta_size > 0) {
 		offset += sizeof(rhdr);
-		err = pwrite(bcfg->binlog_fd, bctl->meta, bctl->meta_size, offset);
+		err = pwrite(bcfg->fd, bctl->meta, bctl->meta_size, offset);
 		if (err != bctl->meta_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s, offset: %lld", bcfg->binlog_path, (long long)offset);
@@ -479,7 +479,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Write data */
 	if (bctl->size > 0) {
 		offset += bctl->meta_size;
-		err = pwrite(bcfg->binlog_fd, bctl->data, bctl->size, offset);
+		err = pwrite(bcfg->fd, bctl->data, bctl->size, offset);
 		if (err != bctl->size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s, offset: %lld", bcfg->binlog_path, (long long)offset);
@@ -489,7 +489,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 
 	/* Sync if not already opened with O_SYNC */
 	if (!(bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_SYNC)) {
-		err = binlog_datasync(bcfg->binlog_fd);
+		err = binlog_datasync(bcfg->fd);
 		if (err) {
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_datasync: %s", bcfg->binlog_path);
 			goto err;
@@ -608,28 +608,28 @@ err:
 int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	int err;
 
-	if (bcfg == NULL || bcfg->binlog_fd < 0)
+	if (bcfg == NULL || bcfg->fd < 0)
 		return -EINVAL;
 
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d)", bcfg->binlog_path,
-			bcfg->binlog_fd);
+			bcfg->fd);
 
 	/* Write */
-	err = binlog_hdr_write(bcfg->binlog_fd, bcfg->disk_hdr);
+	err = binlog_hdr_write(bcfg->fd, bcfg->disk_hdr);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_hdr_write: %s", bcfg->binlog_path);
 		goto err;
 	}
 
 	/* Sync */
-	err = binlog_sync(bcfg->binlog_fd);
+	err = binlog_sync(bcfg->fd);
 	if (err) {
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_sync: %s", bcfg->binlog_path);
 		goto err;
 	}
 
 	/* Unlock */
-	err = flock(bcfg->binlog_fd, LOCK_UN);
+	err = flock(bcfg->fd, LOCK_UN);
 	if (err == -1) {
 		err = -errno;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "flock: %s", bcfg->binlog_path);
@@ -637,12 +637,12 @@ int binlog_close(struct eblob_binlog_cfg *bcfg) {
 	}
 
 	/* It's not critical if hint fails, but we should log it anyway */
-	err = eblob_pagecache_hint(bcfg->binlog_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	err = eblob_pagecache_hint(bcfg->fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_INFO, -err, "binlog_pgecache_hint: %s", bcfg->binlog_path);
 
 	/* Close */
-	err = close(bcfg->binlog_fd);
+	err = close(bcfg->fd);
 	if (err == -1) {
 		err = -errno;
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "close: %s", bcfg->binlog_path);
