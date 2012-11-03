@@ -640,6 +640,7 @@ int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
  * - mmap it
  * - swap index and data fd
  * - rename index and data
+ * - XXX: flush cache
  */
 static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result) {
 	struct eblob_map_fd index;
@@ -742,7 +743,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 err_unmap:
 	eblob_data_unmap(&index);
 err:
-	return -1;
+	return -EIO;
 }
 
 /*
@@ -853,9 +854,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_destroy;
 	}
 
+	/* Swap fd's and other internal structures */
 	err = datasort_swap(dcfg, result);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap: %s", dcfg->dir);
 		goto err_destroy;
 	}
 
