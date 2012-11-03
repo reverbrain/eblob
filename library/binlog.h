@@ -51,20 +51,20 @@ struct eblob_binlog_cfg {
 	/* File descriptor of binlog itself. Filled by binlog_open. */
 	int				fd;
 	/* Desired filename for binlog (full path) */
-	char				*binlog_path;
+	char				*path;
 	/* Binlog-wide flags, described above */
 	uint64_t			flags;
 	/* Preallocate space for binlog in following steps (in bytes) */
 	off_t				prealloc_step;
 	/* Size (in bytes) of total preallocated space for binlog */
-	off_t				prealloc_size;
+	off_t				size;
 	/*
 	 * Current offset of binlog_append
 	 *
 	 * Record position in binlog file is it's LSN.
 	 * TODO: Currently we are not detecting overflows in it.
 	 */
-	off_t				binlog_position;
+	off_t				position;
 	/* Pointer to on-disk header for this binlog */
 	struct eblob_binlog_disk_hdr	*disk_hdr;
 	/* Logging */
