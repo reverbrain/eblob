@@ -49,11 +49,9 @@ struct eblob_binlog_ctl;
 /* All data about one binlog file */
 struct eblob_binlog_cfg {
 	/* File descriptor of binlog itself. Filled by binlog_open. */
-	int				binlog_fd;
+	int				fd;
 	/* Desired filename for binlog (full path) */
 	char				*binlog_path;
-	/* File descriptor of the file bin log is applied to. */
-	int				backend_fd;
 	/* Binlog-wide flags, described above */
 	uint64_t			flags;
 	/* Preallocate space for binlog in following steps (in bytes) */
