@@ -175,7 +175,7 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
 int binlog_open(struct eblob_binlog_cfg *bcfg);
 int binlog_append(struct eblob_binlog_ctl *bctl);
 int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset);
-int binlog_apply(struct eblob_binlog_cfg *bcfg, int (*func)(struct eblob_binlog_ctl *bctl));
+int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv, int (*func)(void *priv, struct eblob_binlog_ctl *bctl));
 int binlog_close(struct eblob_binlog_cfg *bcfg);
 int binlog_destroy(struct eblob_binlog_cfg *bcfg);
 
