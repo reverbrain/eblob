@@ -49,26 +49,26 @@ struct eblob_binlog_ctl;
 /* All data about one binlog file */
 struct eblob_binlog_cfg {
 	/* File descriptor of binlog itself. Filled by binlog_open. */
-	int				bl_cfg_binlog_fd;
+	int				binlog_fd;
 	/* Desired filename for binlog (full path) */
-	char				*bl_cfg_binlog_path;
+	char				*binlog_path;
 	/* File descriptor of the file bin log is applied to. */
-	int				bl_cfg_backend_fd;
+	int				backend_fd;
 	/* Binlog-wide flags, described above */
-	uint64_t			bl_cfg_flags;
+	uint64_t			flags;
 	/* Preallocate space for binlog in following steps (in bytes) */
-	off_t				bl_cfg_prealloc_step;
+	off_t				prealloc_step;
 	/* Size (in bytes) of total preallocated space for binlog */
-	off_t				bl_cfg_prealloc_size;
+	off_t				prealloc_size;
 	/*
 	 * Current offset of binlog_append
 	 *
 	 * Record position in binlog file is it's LSN.
 	 * TODO: Currently we are not detecting overflows in it.
 	 */
-	off_t				bl_cfg_binlog_position;
+	off_t				binlog_position;
 	/* Pointer to on-disk header for this binlog */
-	struct eblob_binlog_disk_hdr	*bl_cfg_disk_hdr;
+	struct eblob_binlog_disk_hdr	*disk_hdr;
 	/* Logging */
 	struct eblob_log		*log;
 };
@@ -82,21 +82,21 @@ struct eblob_binlog_cfg {
 /* Control structure for binlog data encapsulation */
 struct eblob_binlog_ctl {
 	/* Pointer to corresponding cfg */
-	struct eblob_binlog_cfg	*bl_ctl_cfg;
+	struct eblob_binlog_cfg	*cfg;
 	/* Record type */
-	uint16_t		bl_ctl_type;
+	uint16_t		type;
 	/* Record's key */
-	struct eblob_key	*bl_ctl_key;
+	struct eblob_key	*key;
 	/* Pointer to data location */
-	void			*bl_ctl_data;
+	void			*data;
 	/* Size of data, including metadata */
-	ssize_t			bl_ctl_size;
+	ssize_t			size;
 	/* Pointer to metadata location within data */
-	void			*bl_ctl_meta;
+	void			*meta;
 	/* Size of metadata */
-	ssize_t			bl_ctl_meta_size;
+	ssize_t			meta_size;
 	/* Record-wide flags */
-	uint64_t		bl_ctl_flags;
+	uint64_t		flags;
 };
 
 /*
@@ -115,15 +115,15 @@ struct eblob_binlog_ctl {
  */
 struct eblob_binlog_disk_hdr {
 	/* Magic */
-	char			bl_hdr_magic[8];
+	char			magic[8];
 	/* Version */
-	uint16_t		bl_hdr_version;
+	uint16_t		version;
 	/* Alignment */
-	uint16_t		bl_hdr_pad1[3];
+	uint16_t		pad1[3];
 	/* Binlog-wide flags */
-	uint64_t		bl_hdr_flags;
+	uint64_t		flags;
 	/* padding for header extensions */
-	char			bl_hdr_pad2[232];
+	char			pad2[232];
 };
 
 /*
@@ -133,16 +133,16 @@ struct eblob_binlog_disk_hdr {
  */
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
-	uint64_t		bl_record_type;
+	uint64_t		type;
 	/* Size of record starting right after header */
-	uint64_t		bl_record_size;
+	uint64_t		size;
 	/* How much of it given to metadata */
-	uint64_t		bl_record_meta_size;
+	uint64_t		meta_size;
 	/* Record-wide flags */
-	uint64_t		bl_record_flags;
+	uint64_t		flags;
 	/* Record's key */
-	struct eblob_key	bl_record_key;
-	char			bl_record_pad[32];
+	struct eblob_key	key;
+	char			pad[32];
 };
 
 /* Logging helpers */
