@@ -859,9 +859,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		if (err)
 			goto err_out_unlock_exit;
 
-		/* TODO: checks */
-		ctl->need_data_sorting = 1;
-
 		if (ctl->sort.fd < 0)
 			ctl->need_sorting = 1;
 

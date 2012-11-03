@@ -119,9 +119,8 @@ struct eblob_base_ctl {
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
-	int			need_sorting;
 	/* Blob is closed and we shoould sort data in it by key */
-	int			need_data_sorting;
+	int			need_sorting;
 
 	pthread_mutex_t		dlock;
 	int			df, dfi;
