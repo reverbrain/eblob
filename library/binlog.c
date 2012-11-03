@@ -727,15 +727,15 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
-	if (bctl->binlog == NULL || bctl->binlog->bl_cfg_binlog_path == 0)
+	if (bctl->binlog == NULL || bctl->binlog->path == 0)
 		return -EINVAL;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: stop\n");
 
 	/* First remove, then close. This avoids unlink/unlock race */
-	err = unlink(bctl->binlog->bl_cfg_binlog_path);
+	err = unlink(bctl->binlog->path);
 	if (err == -1)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: unlink: %s: %d\n", bctl->binlog->bl_cfg_binlog_path, errno);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: unlink: %s: %d\n", bctl->binlog->path, errno);
 
 	err = binlog_close(bctl->binlog);
 	if (err)

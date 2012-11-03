@@ -614,13 +614,13 @@ int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
 	if (bctl == NULL)
 		return -EINVAL;
 
-	switch (bctl->bl_ctl_type) {
+	switch (bctl->type) {
 		case EBLOB_BINLOG_TYPE_UPDATE:
 			/* XXX: */
 			break;
 		case EBLOB_BINLOG_TYPE_REMOVE:
 			/*
-			err = eblob_remove(dcfg->b, bctl->bl_ctl_key, dcfg->bctl->type);
+			err = eblob_remove(dcfg->b, bctl->key, dcfg->bctl->type);
 			if (err) {
 				goto err;
 			}
