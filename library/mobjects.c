@@ -229,7 +229,17 @@ again:
 
 		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index) ||
 				(st.st_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
+#ifdef DATASORT
+			struct datasort_cfg dcfg = {
+				.b = b,
+				.bctl = ctl,
+				.log = b->cfg.log,
+			};
+
+			err = eblob_generate_sorted_data(&dcfg);
+#else /* DATASORT */
 			err = eblob_generate_sorted_index(b, ctl, 0);
+#endif /* !DATASORT */
 			if (err)
 				goto err_out_close_index;
 
