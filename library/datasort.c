@@ -614,8 +614,10 @@ static void datasort_destroy(struct datasort_cfg *dcfg) {
 };
 
 /* This routine called by @binlog_apply one time for each binlog entry */
-int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
-	if (bctl == NULL)
+int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
+	struct datasort_cfg *dcfg = priv;
+
+	if (bctl == NULL || dcfg == NULL)
 		return -EINVAL;
 
 	switch (bctl->type) {
@@ -863,10 +865,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	/*
 	 * Rewind all records that have been modified since data-sort was
 	 * started.
-	 *
-	 * XXX: Add priv data to binlog_apply
 	 */
-	err = binlog_apply(dcfg->bctl->binlog, datasort_binlog_apply);
+	err = binlog_apply((void *)dcfg, dcfg->bctl->binlog, datasort_binlog_apply);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 		goto err_destroy;

@@ -75,6 +75,6 @@ struct datasort_cfg {
 };
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
-int datasort_binlog_apply(struct eblob_binlog_ctl *bctl);
+int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
 
 #endif /* __EBLOB_DATASORT_H */
