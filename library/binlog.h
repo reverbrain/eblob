@@ -151,23 +151,6 @@ struct eblob_binlog_disk_record_hdr {
 		"%s (%ld); " fmt, strerror(err), (long int)err, ## __VA_ARGS__);
 
 /*
- * Allocate space for binlog.
- *
- * TODO: Rename function.
- * TODO: Move to ebelob code.
- */
-static inline int _binlog_allocate(int fd, off_t size) {
-	if (size == 0 || fd < 0)
-		return -EINVAL;
-#ifdef HAVE_POSIX_FALLOCATE
-	if (!posix_fallocate(fd, 0, size))
-		return 0;
-#endif /* !HAVE_POSIX_FALLOCATE */
-	/* Crippled OSes/FSes go here */
-	return -ftruncate(fd, size);
-}
-
-/*
  * Sync written data to disk
  *
  * On linux fdatasync call is available that syncs only data, but not metadata,

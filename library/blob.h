@@ -257,4 +257,6 @@ int eblob_disk_control_sort_with_flags(const void *d1, const void *d2);
 
 int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
 
+int eblob_preallocate(int fd, off_t size);
+
 #endif /* __EBLOB_BLOB_H */

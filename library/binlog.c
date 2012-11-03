@@ -56,9 +56,9 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd) {
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
 		bcfg->size += bcfg->prealloc_step;
 
-		err = _binlog_allocate(fd, bcfg->size);
+		err = eblob_preallocate(fd, bcfg->size);
 		if (err) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate: %s: %lld",
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "eblob_preallocate: %s: size: %lld",
 					bcfg->path, (long long)bcfg->size);
 			return err;
 		}

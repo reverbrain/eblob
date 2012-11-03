@@ -406,9 +406,11 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	qsort(index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 
 	/* Preallocate space for sorted chunk */
-	err = _binlog_allocate(sorted_chunk->fd, sorted_chunk->offset);
+	err = eblob_preallocate(sorted_chunk->fd, sorted_chunk->offset);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_preallocate: fd: %d, size: %lld",
+				sorted_chunk->fd, sorted_chunk->offset);
 		goto err_destroy_chunk;
 	}
 
@@ -500,9 +502,11 @@ static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
 	}
 
 	/* Allocate data */
-	err = _binlog_allocate(chunk_merge->fd, chunk1->offset + chunk2->offset);
+	err = eblob_preallocate(chunk_merge->fd, chunk1->offset + chunk2->offset);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_preallocate: fd: %d, size: %lld",
+				chunk_merge->fd, chunk1->offset + chunk2->offset);
 		goto err_destroy_chunk;
 	}
 
@@ -676,9 +680,10 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	}
 
 	/* Preallocate space for index */
-	err = _binlog_allocate(index.fd, index.size);
+	err = eblob_preallocate(index.fd, index.size);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_preallocate: fd: %d, size: %lld", index.fd, index.size);
 		goto err;
 	}
 	/* mmap index */
