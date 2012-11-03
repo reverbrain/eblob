@@ -704,6 +704,8 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	}
 	/*
 	 * At this point we can't rollback, so fall through
+	 *
+	 * TODO: Think of some way of rollback
 	 */
 
 	/*
@@ -733,8 +735,8 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"datasort_swap: swapped: data: %s <- %s, data_fd: %d <- %d, index_fd: %d <- %d",
-			data_path, result->path, bctl->old_data_fd, result->fd, bctl->old_index_fd, index.fd);
+			"datasort_swap: swapped: data: %s -> %s, data_fd: %d -> %d, index_fd: %d -> %d",
+			result->path, data_path, bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
 err_unmap:
