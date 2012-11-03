@@ -368,9 +368,9 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		struct eblob_binlog_ctl bctl;
 		memset(&bctl, 0, sizeof(bctl));
 
-		bctl.bl_ctl_cfg = old->binlog;
-		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_REMOVE;
-		bctl.bl_ctl_key = key;
+		bctl.cfg = old->binlog;
+		bctl.type = EBLOB_BINLOG_TYPE_REMOVE;
+		bctl.key = key;
 
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
@@ -765,11 +765,11 @@ again:
 		struct eblob_binlog_ctl bctl;
 		memset(&bctl, 0, sizeof(bctl));
 
-		bctl.bl_ctl_cfg = ctl.binlog;
-		bctl.bl_ctl_type = EBLOB_BINLOG_TYPE_UPDATE;
-		bctl.bl_ctl_key = key;
-		bctl.bl_ctl_meta = wc;
-		bctl.bl_ctl_meta_size = sizeof(*wc);
+		bctl.cfg = ctl.binlog;
+		bctl.type = EBLOB_BINLOG_TYPE_UPDATE;
+		bctl.key = key;
+		bctl.meta = wc;
+		bctl.meta_size = sizeof(*wc);
 
 		err = binlog_append(&bctl);
 		if (err) {
