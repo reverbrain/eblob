@@ -634,6 +634,116 @@ int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
 }
 
 /*
+ * Swaps original base with new shiny sorted one.
+ *
+ * - Save index to file
+ * - mmap it
+ * - swap index and data fd
+ * - rename index and data
+ */
+static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result) {
+	struct eblob_map_fd index;
+	struct eblob_base_ctl *bctl;
+	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], data_path[PATH_MAX];
+	int err;
+
+	assert(dcfg != NULL);
+	assert(dcfg->bctl != NULL);
+	assert(result != NULL);
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_swap: start");
+
+	/* Shortcut */
+	bctl = dcfg->bctl;
+
+	/* Costruct index pathes */
+	snprintf(data_path, PATH_MAX, "%s-%d.%d", dcfg->b->cfg.file, bctl->type, bctl->index);
+	snprintf(index_path, PATH_MAX, "%s-%d.%d.index.sorted", dcfg->b->cfg.file, bctl->type, bctl->index);
+	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", index_path);
+
+	/* Init index map */
+	memset(&index, 0, sizeof(index));
+	index.size = result->count * sizeof(struct eblob_disk_control);
+	/* FIXME: Copy permissions from original fd */
+	index.fd = open(tmp_index_path, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
+	if (index.fd == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "open: %s", tmp_index_path);
+		goto err;
+	}
+
+	/* mmap index */
+	err = eblob_data_map(&index);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_data_map: fd: %d, size: %lld", index.fd, index.size);
+		goto err;
+	}
+
+	/* Save data */
+	bctl->old_data_fd = bctl->data_fd;
+	bctl->old_index_fd = bctl->index_fd;
+	bctl->old_sort = bctl->sort;
+
+	/* Swap data */
+	bctl->data_fd = result->fd;
+	bctl->index_fd = index.fd;
+	bctl->sort = index;
+
+	/* Try to setup new base */
+	err = eblob_base_setup_data(bctl);
+	if (!err) {
+		/* Everything is ok */
+		bctl->data_offset = bctl->data_size;
+	} else {
+		/* Rollback */
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
+		bctl->data_fd = bctl->old_data_fd;
+		bctl->index_fd = bctl->old_index_fd;
+		bctl->sort = bctl->old_sort;
+		goto err_unmap;
+	}
+	/*
+	 * At this point we can't rollback, so fall through
+	 */
+
+	/*
+	 * Original file created by mkstemp may have too restrictive
+	 * permissions for use.
+	 *
+	 * FIXME: Copy permissions from original file
+	 */
+	if (fchmod(result->fd, 0644) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", result->fd);
+	}
+	/*
+	 * Prevent race by removing sorted index first - in case of crash it'll
+	 * be regenerated.
+	 * Index may not be created at this time - so error is not critical.
+	 */
+	if (unlink(index_path) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", index_path);
+	}
+	if (rename(result->path, data_path) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
+				result->path, data_path);
+	}
+	if (rename(tmp_index_path, index_path) == -1) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
+				tmp_index_path, index_path);
+	}
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"datasort_swap: swapped: data: %s <- %s, data_fd: %d <- %d, index_fd: %d <- %d",
+			data_path, result->path, bctl->old_data_fd, result->fd, bctl->old_index_fd, index.fd);
+	return 0;
+
+err_unmap:
+	eblob_data_unmap(&index);
+err:
+	return -1;
+}
+
+/*
  * Sorts data in base by key.
  *
  * Inputs are:
@@ -652,8 +762,8 @@ int datasort_binlog_apply(struct eblob_binlog_ctl *bctl) {
  *  - Unlock now-sorted base
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
-	int err;
 	struct datasort_chunk *result;
+	int err;
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -741,14 +851,18 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_destroy;
 	}
 
+	err = datasort_swap(dcfg, result);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap");
+		goto err_destroy;
+	}
+
 	/* We don't need it anymore */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
 
 	/*
-	XXX: chmod
-	XXX: datasort_swap();
 	XXX: datasort_unlock_base();
 	*/
 
