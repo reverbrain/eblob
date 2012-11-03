@@ -675,6 +675,12 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 		goto err;
 	}
 
+	/* Preallocate space for index */
+	err = _binlog_allocate(index.fd, index.size);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "_binlog_allocate");
+		goto err;
+	}
 	/* mmap index */
 	err = eblob_data_map(&index);
 	if (err) {
@@ -683,7 +689,8 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 		goto err;
 	}
 
-	/* XXX: Save index on disk */
+	/* Save index on disk */
+	memcpy(index.data, result->index, index.size);
 
 	/* Backup data */
 	bctl->old_data_fd = bctl->data_fd;
@@ -700,6 +707,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	if (!err) {
 		/* Everything is ok */
 		bctl->data_offset = bctl->data_size;
+		bctl->index_offset = bctl->index_size;
 	} else {
 		/* Rollback */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
