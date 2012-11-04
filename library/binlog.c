@@ -724,7 +724,9 @@ err:
 	return err;
 }
 
-/* Close and destroy binlog */
+/*
+ * Close and destroy binlog
+ */
 int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	int err;
 
@@ -736,14 +738,16 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: stop\n");
 
 	/* First remove, then close. This avoids unlink/unlock race */
-	err = unlink(bctl->binlog->path);
-	if (err == -1)
+	if (unlink(bctl->binlog->path) == -1)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: unlink: %s: %d\n", bctl->binlog->path, errno);
 
-	err = binlog_close(bctl->binlog);
-	if (err)
+	if ((err = binlog_close(bctl->binlog)) != 0)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: binlog_close failed: %d\n", err);
 
-	err = binlog_destroy(bctl->binlog);
+	if ((err = binlog_destroy(bctl->binlog)) != 0)
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: binlog_destroy failed: %d\n", err);
+
+	bctl->binlog = NULL;
+
 	return err;
 }
