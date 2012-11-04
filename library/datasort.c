@@ -646,7 +646,7 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
  * - mmap it
  * - swap index and data fd
  * - rename index and data
- * - XXX: flush cache
+ * - flush cache
  */
 static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result) {
 	struct eblob_map_fd index;
@@ -723,6 +723,10 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 		bctl->sort = bctl->old_sort;
 		goto err_unmap;
 	}
+
+	/* Flush cache */
+	eblob_index_blocks_destroy(bctl);
+
 	/*
 	 * At this point we can't rollback, so fall through
 	 *
