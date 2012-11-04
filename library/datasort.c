@@ -875,7 +875,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	 * started.
 	 */
 	if (dcfg->use_binlog) {
-		err = binlog_apply((void *)dcfg, dcfg->bctl->binlog, datasort_binlog_apply);
+		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 			goto err_destroy;
