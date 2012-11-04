@@ -32,17 +32,14 @@ enum eblob_binlog_record_types {
 
 struct eblob_binlog_ctl;
 
-/* Make backend read-only - redirect all writes to binlog instead of copying them */
-#define EBLOB_BINLOG_FLAGS_CFG_FREEZE		(1<<0)
 /* Preallocate binlog */
-#define EBLOB_BINLOG_FLAGS_CFG_PREALLOC		(1<<1)
+#define EBLOB_BINLOG_FLAGS_CFG_PREALLOC		(1<<0)
 /* Open binlog with O_SYNC */
-#define EBLOB_BINLOG_FLAGS_CFG_SYNC		(1<<2)
+#define EBLOB_BINLOG_FLAGS_CFG_SYNC		(1<<1)
 /* Truncate binlog on open */
-#define EBLOB_BINLOG_FLAGS_CFG_TRUNCATE		(1<<3)
+#define EBLOB_BINLOG_FLAGS_CFG_TRUNCATE		(1<<2)
 /* All available flags */
-#define EBLOB_BINLOG_FLAGS_CFG_ALL		(EBLOB_BINLOG_FLAGS_CFG_FREEZE | \
-						EBLOB_BINLOG_FLAGS_CFG_PREALLOC | \
+#define EBLOB_BINLOG_FLAGS_CFG_ALL		(EBLOB_BINLOG_FLAGS_CFG_PREALLOC | \
 						EBLOB_BINLOG_FLAGS_CFG_SYNC | \
 						EBLOB_BINLOG_FLAGS_CFG_TRUNCATE)
 
