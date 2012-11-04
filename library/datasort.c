@@ -651,7 +651,7 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
 static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result) {
 	struct eblob_map_fd index;
 	struct eblob_base_ctl *bctl;
-	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], data_path[PATH_MAX];
+	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], sorted_index_path[PATH_MAX], data_path[PATH_MAX];
 	uint64_t i, offset;
 	int err;
 
@@ -666,8 +666,9 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 
 	/* Costruct index pathes */
 	snprintf(data_path, PATH_MAX, "%s-%d.%d", dcfg->b->cfg.file, bctl->type, bctl->index);
-	snprintf(index_path, PATH_MAX, "%s-%d.%d.index.sorted", dcfg->b->cfg.file, bctl->type, bctl->index);
-	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", index_path);
+	snprintf(index_path, PATH_MAX, "%s.index", data_path);
+	snprintf(sorted_index_path, PATH_MAX, "%s.sorted", index_path);
+	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", sorted_index_path);
 
 	/*
 	 * Init index map
@@ -749,22 +750,26 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	if (fchmod(result->fd, 0644) == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", result->fd);
 	}
-	/*
-	 * Prevent race by removing sorted index first - in case of crash it'll
-	 * be regenerated.
-	 * Index may not be created at this time - so error is not critical.
-	 */
-	if (unlink(index_path) == -1) {
+
+	/* Remove old indexes */
+	if (unlink(index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", index_path);
-	}
-	if (rename(result->path, data_path) == -1) {
+	if (access(sorted_index_path, R_OK | W_OK) == 0)
+		if (unlink(sorted_index_path) == -1)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", sorted_index_path);
+
+	/* Swap files */
+	if (rename(result->path, data_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
 				result->path, data_path);
-	}
-	if (rename(tmp_index_path, index_path) == -1) {
+	if (rename(tmp_index_path, sorted_index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
-				tmp_index_path, index_path);
-	}
+				tmp_index_path, sorted_index_path);
+
+	/* Hardlink sorted index to unsorted one */
+	if (link(sorted_index_path, index_path) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "link: %s -> %s",
+				sorted_index_path, index_path);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_swap: swapped: data: %s -> %s, data_fd: %d -> %d, index_fd: %d -> %d",
