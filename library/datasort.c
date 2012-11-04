@@ -652,6 +652,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	struct eblob_map_fd index;
 	struct eblob_base_ctl *bctl;
 	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], data_path[PATH_MAX];
+	uint64_t i, offset;
 	int err;
 
 	assert(dcfg != NULL);
@@ -726,6 +727,10 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 
 	/* Flush cache */
 	eblob_index_blocks_destroy(bctl);
+	for (offset = 0, i = 0; offset < result->offset; offset += result->index[i++].disk_size)
+		eblob_hash_remove_nolock(dcfg->b->hash, &result->index[i].key);
+
+	assert(i == result->count);
 
 	/*
 	 * At this point we can't rollback, so fall through
