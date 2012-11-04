@@ -622,8 +622,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->index = bctl->index;
 			r->type = bctl->type;
 			/*
-			 * XXX: Do not store pointer to binlog in ram control.
-			 * Store only flag.
+			 * FIXME: Protect pointer with lock
 			 */
 			r->binlog = bctl->binlog;
 
