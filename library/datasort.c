@@ -282,6 +282,8 @@ err:
 /*
  * Copies record specified by header @dc from @from_chunk chunk to @offset
  * position of @to_chunk
+ *
+ * XXX: Checksum
  */
 static int datasort_copy_record(struct datasort_cfg *dcfg,
 		struct datasort_chunk *from_chunk,
