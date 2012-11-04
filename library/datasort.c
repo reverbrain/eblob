@@ -725,11 +725,13 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 		goto err_unmap;
 	}
 
-	/* Flush cache */
+	/* Flush index */
 	eblob_index_blocks_destroy(bctl);
-	for (offset = 0, i = 0; offset < result->offset; offset += result->index[i++].disk_size)
-		eblob_hash_remove_nolock(dcfg->b->hash, &result->index[i].key);
+	eblob_index_blocks_fill(bctl);
 
+	/* Flush hash */
+	for (offset = 0, i = 0; offset < result->offset; offset += result->index[i++].disk_size)
+		eblob_remove_type(dcfg->b, &result->index[i].key, bctl->type);
 	assert(i == result->count);
 
 	/*
