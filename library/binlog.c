@@ -567,13 +567,13 @@ err:
  * NB! Caller should prevent binlog from beeing modified.
  */
 int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
-		int (*func)(void * priv, struct eblob_binlog_ctl *bctl)) {
+		int (*callback)(void *priv, struct eblob_binlog_ctl *bctl)) {
 	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
 	struct eblob_binlog_ctl bctl;
 	uint64_t count = 0;
 	int err = 0;
 
-	if (bcfg == NULL || func == NULL)
+	if (bcfg == NULL || callback == NULL)
 		return -EINVAL;
 
 	assert(bcfg->position <= offset);
@@ -589,10 +589,10 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 					"binlog_read: %s, offset: %lld", bcfg->path, offset);
 			goto err;
 		}
-		err = func(priv, &bctl);
+		err = callback(priv, &bctl);
 		if (err) {
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
-					"(*func): %s, offset: %lld", bcfg->path, offset);
+					"(*callback): %s, offset: %lld", bcfg->path, offset);
 			goto err;
 		}
 		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
