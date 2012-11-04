@@ -815,10 +815,14 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
 
 	/* Enable binlog */
-	err = eblob_start_binlog(dcfg->b, dcfg->bctl);
-	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
-		goto err_mutex;
+	if (dcfg->use_binlog) {
+		err = eblob_start_binlog(dcfg->b, dcfg->bctl);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
+			goto err_mutex;
+		}
+	} else {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for data-sort");
 	}
 
 	/* Create tmp directory */
@@ -866,10 +870,12 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	 * Rewind all records that have been modified since data-sort was
 	 * started.
 	 */
-	err = binlog_apply((void *)dcfg, dcfg->bctl->binlog, datasort_binlog_apply);
-	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
-		goto err_destroy;
+	if (dcfg->use_binlog) {
+		err = binlog_apply((void *)dcfg, dcfg->bctl->binlog, datasort_binlog_apply);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
+			goto err_destroy;
+		}
 	}
 
 	/* Swap fd's and other internal structures */
@@ -901,9 +907,11 @@ err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
-	err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+	if (dcfg->use_binlog) {
+		err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
+		if (err)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+	}
 err_mutex:
 	datasort_destroy(dcfg);
 err:

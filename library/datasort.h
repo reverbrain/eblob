@@ -60,6 +60,14 @@ struct datasort_cfg {
 	unsigned int			thread_num;
 	/* Lock used by blob iterator */
 	pthread_mutex_t			lock;
+	/*
+	 * Set if binlog is needed for sorting operation.
+	 *
+	 * MUST be set to one if data in base can be modified while sorting.
+	 * Should not be set when, for example, datasort is started as part of
+	 * blob opening procedure.
+	 */
+	int				use_binlog;
 	/* Splitter chunks */
 	struct list_head		unsorted_chunks;
 	/* Sorter/merger chunks */
