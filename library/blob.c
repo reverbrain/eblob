@@ -1391,8 +1391,10 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 
 	if (csum && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, &wc);
-		if (err)
+		if (err) {
+			eblob_dump_wc(b, key, &wc, "eblob_read_nolock: checksum verification failed", err);
 			goto err_out_exit;
+		}
 	}
 
 	if (!wc.on_disk) {
