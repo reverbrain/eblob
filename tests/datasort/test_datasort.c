@@ -36,6 +36,7 @@ struct shadow {
 	char		key[32];	/* Unhashed key */
 	void		*value;		/* Pointer to data */
 	int		size;		/* Size of data */
+	int		type;		/* Column of data */
 	int		flags;		/* Is entry eblob flags */
 };
 
@@ -104,6 +105,7 @@ item_init(struct shadow *item, int idx)
 	snprintf(item->key, sizeof(item->key), "key-%d", idx);
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
+	item->type = 0; /* NOT USED*/
 }
 
 /*
@@ -111,11 +113,33 @@ item_init(struct shadow *item, int idx)
  */
 static int
 item_check(struct shadow *item, struct eblob_backend *b) {
+	struct eblob_key key;
+	uint64_t size;
+	int error;
+	char *data;
 
 	assert(item != NULL);
 	assert(b != NULL);
 
-	/* XXX: */
+	/* Prepare hashed key */
+	eblob_hash(b, key.id, sizeof(key.id), item->key, sizeof(item->key));
+
+	/* Read hashed key */
+	error = eblob_read_data(b, &key, 0, &data, &size, item->type);
+	if (item->flags & BLOB_DISK_CTL_REMOVE) {
+		/* Item is removed and read MUST fail */
+		if (error == 0)
+			errc(EX_SOFTWARE, -error, "key NOT supposed to exist: %s", item->key);
+	} else {
+		/* Check data consistency */
+		if (error != 0)
+			errc(EX_SOFTWARE, -error, "key supposed to exist: %s", item->key);
+
+		assert(item->size > 0);
+		error = memcmp(data, item->value, item->size);
+		if (error != 0)
+			err(EX_SOFTWARE, "data verification failed for: %s", item->key);
+	}
 
 	return 0;
 }
@@ -146,7 +170,7 @@ item_generate_random(struct shadow *item)
 		if ((item->value = calloc(1, item->size)) == NULL) {
 			return ENOMEM;
 		}
-		memset_pattern16(item->value, item->idx, item->size);
+		memset_pattern16(item->value, item->key, item->size);
 	}
 
 	return 0;
