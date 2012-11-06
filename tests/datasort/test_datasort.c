@@ -44,9 +44,10 @@ struct shadow {
 };
 
 /* Default values for test config below */
-#define DEFAULT_TEST_ITEMS	(10)
-#define DEFAULT_TEST_DELAY	(100)
-#define DEFAULT_TEST_ITERATIONS	(10)
+#define DEFAULT_TEST_DELAY	(10)
+#define DEFAULT_TEST_ITEMS	(10000)
+#define DEFAULT_TEST_ITERATIONS	(100000)
+#define DEFAULT_TEST_MILESTONE	(100)
 
 /*
  * Test configuration
@@ -56,6 +57,7 @@ struct test_cfg {
 	int		delay;		/* Delay in miliseconds between
 					   iterations */
 	int		iterations;	/* Number of modify/read iterations */
+	int		milestone;	/* Print message each "milestone" iterations */
 	struct shadow	*shadow;	/* Shadow storage pointer */
 };
 
@@ -132,7 +134,7 @@ item_check(struct shadow *item, struct eblob_backend *b) {
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
-			errc(EX_SOFTWARE, -error, "key NOT supposed to exist: %s", item->key);
+			errx(EX_SOFTWARE, "key NOT supposed to exist: %s", item->key);
 	} else {
 		/* Check data consistency */
 		if (error != 0)
@@ -141,7 +143,7 @@ item_check(struct shadow *item, struct eblob_backend *b) {
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
-			errx(EX_SOFTWARE, "data verification failed for: %s", item->key);
+			errx(EX_SOFTWARE, "data verification failed for: %s, flags: %d", item->key, item->flags);
 	}
 
 	return 0;
@@ -239,6 +241,7 @@ main(void)
 	cfg.delay = DEFAULT_TEST_DELAY;
 	cfg.items = DEFAULT_TEST_ITEMS;
 	cfg.iterations = DEFAULT_TEST_ITERATIONS;
+	cfg.milestone = DEFAULT_TEST_MILESTONE;
 	cfg.shadow = calloc(cfg.items, sizeof(struct shadow));
 	if (cfg.shadow == NULL)
 		err(EX_TEMPFAIL, "calloc: %zu", cfg.items * sizeof(struct shadow));
@@ -260,7 +263,7 @@ main(void)
 	for (i = 0; i < cfg.iterations; i++) {
 		/* Pick random item */
 		uint32_t rnd;
-		struct timespec ts = {0, cfg.delay * 1000};
+		struct timespec ts = {0, cfg.delay * 1000000};
 		rnd = arc4random_uniform(cfg.items);
 		item = &cfg.shadow[rnd];
 
@@ -273,6 +276,8 @@ main(void)
 		if ((error = item_sync(item, &b)) != 0) {
 			errc(EX_TEMPFAIL, error, "item_sync");
 		}
+		if ((i % cfg.milestone) == 0)
+			warnx("iteration: %d", i);
 		nanosleep(&ts, NULL);
 	}
 
