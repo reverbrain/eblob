@@ -108,6 +108,9 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
 	item->type = 0; /* NOT USED*/
+
+	/* Remove entry in case it's left from previous test */
+	eblob_remove(b, &item->ekey, item->type);
 }
 
 /*
@@ -152,8 +155,14 @@ item_generate_random(struct shadow *item)
 	assert(item != NULL);
 	assert(item->idx >= 0);
 
-	/* Randomize flags */
-	item->flags = generate_random_flags();
+	/*
+	 * Randomize flags
+	 * If entry was removed then we can only add it, so set flags to 0
+	 */
+	if (item->flags & BLOB_DISK_CTL_REMOVE)
+		item->flags = 0;
+	else
+		item->flags = generate_random_flags();
 
 	/* Free old data */
 	item->size = 0;
@@ -178,11 +187,14 @@ item_generate_random(struct shadow *item)
  */
 static int
 item_sync(struct shadow *item, struct eblob_backend *b) {
+	int error;
 
 	assert(item != NULL);
 	assert(b != NULL);
 
-	/* XXX: */
+	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, item->flags);
+	if (error != 0)
+		errc(EX_SOFTWARE, -error, "writing ky failed: %s", item->key);
 
 	return 0;
 }
@@ -258,6 +270,7 @@ main(void)
 		if ((error = item_sync(item, &b)) != 0) {
 			errc(EX_TEMPFAIL, error, "item_sync");
 		}
+		/* XXX: Delay */
 	}
 
 	errx(EX_OK, "finished");
