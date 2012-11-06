@@ -22,9 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "eblob/blob.h"
-#include "../library/blob.h"
+#include "../../library/blob.h"
 
 /*
  * Shadow storage for eblob
@@ -139,7 +141,7 @@ item_check(struct shadow *item, struct eblob_backend *b) {
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
-			err(EX_SOFTWARE, "data verification failed for: %s", item->key);
+			errx(EX_SOFTWARE, "data verification failed for: %s", item->key);
 	}
 
 	return 0;
@@ -258,6 +260,7 @@ main(void)
 	for (i = 0; i < cfg.iterations; i++) {
 		/* Pick random item */
 		uint32_t rnd;
+		struct timespec ts = {0, cfg.delay * 1000};
 		rnd = arc4random_uniform(cfg.items);
 		item = &cfg.shadow[rnd];
 
@@ -270,7 +273,7 @@ main(void)
 		if ((error = item_sync(item, &b)) != 0) {
 			errc(EX_TEMPFAIL, error, "item_sync");
 		}
-		/* XXX: Delay */
+		nanosleep(&ts, NULL);
 	}
 
 	errx(EX_OK, "finished");
