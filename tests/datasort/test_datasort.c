@@ -100,7 +100,8 @@ static void
 item_init(struct shadow *item, int idx)
 {
 
-	snprintf(item->key, sizeof(item->key), "key-%d", item->idx);
+	memset(item->key, 0, sizeof(item->key));
+	snprintf(item->key, sizeof(item->key), "key-%d", idx);
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
 }
@@ -132,13 +133,21 @@ item_generate_random(struct shadow *item)
 	/* Randomize flags */
 	item->flags = generate_random_flags();
 
-	/* XXX: Free old data */
+	/* Free old data */
 	item->size = 0;
 	free(item->value);
 
-	/* XXX: Randomize data */
-	item->size = 0;
-	item->value = NULL;
+	/*
+	 * Randomize data
+	 * If new entry not removed
+	 */
+	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
+		item->size = 1 + arc4random_uniform(ITEM_AVG_SIZE * 2);
+		if ((item->value = calloc(1, item->size)) == NULL) {
+			return ENOMEM;
+		}
+		memset_pattern16(item->value, item->idx, item->size);
+	}
 
 	return 0;
 }
