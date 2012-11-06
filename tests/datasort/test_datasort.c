@@ -32,12 +32,13 @@
  * exactly the same way.
  */
 struct shadow {
-	int		idx;		/* Index in shadow array */
-	char		key[32];	/* Unhashed key */
-	void		*value;		/* Pointer to data */
-	int		size;		/* Size of data */
-	int		type;		/* Column of data */
-	int		flags;		/* Is entry eblob flags */
+	int			idx;		/* Index in shadow array */
+	char			key[32];	/* Unhashed key */
+	struct eblob_key	ekey;		/* Hashed key */
+	void			*value;		/* Pointer to data */
+	int			size;		/* Size of data */
+	int			type;		/* Column of data */
+	int			flags;		/* Is entry eblob flags */
 };
 
 /* Default values for test config below */
@@ -98,11 +99,12 @@ generate_random_flags(void)
  * Initialize shadow item to default values
  */
 static void
-item_init(struct shadow *item, int idx)
+item_init(struct shadow *item, struct eblob_backend *b, int idx)
 {
 
 	memset(item->key, 0, sizeof(item->key));
 	snprintf(item->key, sizeof(item->key), "key-%d", idx);
+	eblob_hash(b, item->ekey.id, sizeof(item->ekey.id), item->key, sizeof(item->key));
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
 	item->type = 0; /* NOT USED*/
@@ -113,7 +115,6 @@ item_init(struct shadow *item, int idx)
  */
 static int
 item_check(struct shadow *item, struct eblob_backend *b) {
-	struct eblob_key key;
 	uint64_t size;
 	int error;
 	char *data;
@@ -121,11 +122,8 @@ item_check(struct shadow *item, struct eblob_backend *b) {
 	assert(item != NULL);
 	assert(b != NULL);
 
-	/* Prepare hashed key */
-	eblob_hash(b, key.id, sizeof(key.id), item->key, sizeof(item->key));
-
 	/* Read hashed key */
-	error = eblob_read_data(b, &key, 0, &data, &size, item->type);
+	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
@@ -167,9 +165,8 @@ item_generate_random(struct shadow *item)
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
 		item->size = 1 + arc4random_uniform(ITEM_AVG_SIZE * 2);
-		if ((item->value = calloc(1, item->size)) == NULL) {
+		if ((item->value = calloc(1, item->size)) == NULL)
 			return ENOMEM;
-		}
 		memset_pattern16(item->value, item->key, item->size);
 	}
 
@@ -234,7 +231,7 @@ main(void)
 
 	/* Init shadow storage with some set of key-values */
 	for (i = 0; i <= cfg.items; i++)
-		item_init(&cfg.shadow[i], i);
+		item_init(&cfg.shadow[i], &b, i);
 
 	/*
 	 * Test loop
