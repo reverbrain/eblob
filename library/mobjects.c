@@ -716,12 +716,11 @@ err_out_exit:
 	return err;
 }
 
-int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
+int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
 
-	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
 	if (err)
 		goto err_out_exit;
@@ -756,6 +755,15 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 err_out_free:
 	free(rc);
 err_out_exit:
+	return err;
+}
+
+int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
+{
+	int err;
+
+	pthread_mutex_lock(&b->hash->root_lock);
+	err = eblob_remove_type_nolock(b, key, type);
 	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
 }
