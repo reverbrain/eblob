@@ -227,7 +227,7 @@ main(void)
 
 	/* Init logger */
 	memset(&logger, 0, sizeof(logger));
-	logger.log_level = 10;
+	logger.log_level = EBLOB_LOG_DEBUG;
 	logger.log = eblob_log_raw_formatted;
 	/* FIXME: mktemp + atexit */
 	if ((logger.log_private = fopen(DEFAULT_TEST_LOG, "a")) == NULL)
