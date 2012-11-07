@@ -224,6 +224,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		item->flags = generate_random_flags(FLAG_TYPE_REMOVED);
 	else
 		item->flags = generate_random_flags(FLAG_TYPE_EXISTING);
+	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
 	/* Free old data */
 	free(item->value);
@@ -234,21 +235,21 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
 		int max;
+
 		/* If it's overwrite we should not generate bigger entry */
 		if (item->flags & BLOB_DISK_CTL_OVERWRITE)
 			max = item->size;
 		else
 			max = ITEM_MAX_SIZE;
-
 		item->size = 1 + arc4random_uniform(max);
-		if ((item->value = calloc(1, item->size)) == NULL)
-			return ENOMEM;
+
+		if ((item->value = malloc(item->size)) == NULL)
+			return errno;
 		memset_pattern16(item->value, item->key, item->size);
 	} else {
 		item->size = 0;
 		item->value = NULL;
 	}
-	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced item: %s: flags %s -> %s\n",
 	    item->key, old_item.hflags, item->hflags);
