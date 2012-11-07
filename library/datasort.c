@@ -175,7 +175,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	assert(dcfg != NULL);
 	assert(local != NULL);
 	assert(data != NULL);
-	assert(dc->disk_size >= hdr_size);
+	assert(dc->disk_size >= (uint64_t)hdr_size);
 
 	err = pthread_mutex_lock(&dcfg->lock);
 	if (err) {
