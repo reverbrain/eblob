@@ -636,7 +636,7 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
+int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
 	int fds[2];
 	int err;
