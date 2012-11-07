@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,6 +60,8 @@ struct test_cfg {
 	int		iterations;	/* Number of modify/read iterations */
 	int		milestone;	/* Print message each "milestone"
 					   iterations */
+	uint64_t	seed;		/* Random seed for reproducable
+					   test-cases */
 	struct shadow	*shadow;	/* Shadow storage pointer */
 };
 
@@ -120,7 +123,7 @@ generate_random_flags(int type)
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
-	rnd = arc4random() % 3;
+	rnd = random() % 3;
 	if (type == FLAG_TYPE_REMOVED) {
 		switch (rnd) {
 		/* Removed entry can not be removed or overwritten */
@@ -242,7 +245,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 			max = item->size;
 		else
 			max = ITEM_MAX_SIZE;
-		item->size = 1 + arc4random() % max;
+		item->size = 1 + random() % max;
 
 		if ((item->value = malloc(item->size)) == NULL)
 			return errno;
@@ -320,6 +323,7 @@ main(void)
 	cfg.items = DEFAULT_TEST_ITEMS;
 	cfg.iterations = DEFAULT_TEST_ITERATIONS;
 	cfg.milestone = DEFAULT_TEST_MILESTONE;
+	cfg.seed = time(0);
 	cfg.shadow = calloc(cfg.items, sizeof(struct shadow));
 	if (cfg.shadow == NULL)
 		err(EX_TEMPFAIL, "calloc: %zu", cfg.items * sizeof(struct shadow));
@@ -338,11 +342,13 @@ main(void)
 	 *
 	 * TODO: Can be moved to separate thread(s)
 	 */
+	srandom(cfg.seed);
+	warnx("seed is: %" PRIu64, cfg.seed);
 	for (i = 0; i < cfg.iterations; i++) {
 		/* Pick random item */
 		uint32_t rnd;
 		struct timespec ts = {0, cfg.delay * 1000000};
-		rnd = arc4random() % cfg.items;
+		rnd = random() % cfg.items;
 		item = &cfg.shadow[rnd];
 
 		if ((error = item_check(item, &b)) != 0) {
