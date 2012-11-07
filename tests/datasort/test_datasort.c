@@ -85,18 +85,20 @@ enum rnd_flags_types {
 /* Declarations */
 static int item_sync(struct shadow *item, struct eblob_backend *b);
 
-/* Generate human-readable flag name and put it to the @buf */
+
+/* Generate human-readable flag names and put it to the @buf */
 static void
-humanize_flags(int flags, char *buf, unsigned int size)
+humanize_flags(int flags, char *buf)
 {
 
 	assert(buf != NULL);
-	memset(buf, 0, size);
 
 	if (flags == 0) {
 		strcpy(buf, "none");
 		return;
 	}
+
+	*buf = '\0';
 	if (flags & BLOB_DISK_CTL_REMOVE)
 		strcat(buf, "remove,");
 	if (flags & BLOB_DISK_CTL_NOCSUM)
@@ -105,6 +107,8 @@ humanize_flags(int flags, char *buf, unsigned int size)
 		strcat(buf, "compress,");
 	if (flags & BLOB_DISK_CTL_OVERWRITE)
 		strcat(buf, "overwrite,");
+
+	assert(strlen(buf) >= 1);
 
 	/* Remove last ',' */
 	buf[strlen(buf) - 1] = '\0';
@@ -155,13 +159,16 @@ static void
 item_init(struct shadow *item, struct eblob_backend *b, int idx)
 {
 
+	assert(item != NULL);
+	assert(b != NULL);
+	assert(idx >= 0);
+
 	/* Init item */
-	memset(item->key, 0, sizeof(item->key));
 	snprintf(item->key, sizeof(item->key), "key-%d", idx);
 	eblob_hash(b, item->ekey.id, sizeof(item->ekey.id), item->key, sizeof(item->key));
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
-	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
+	humanize_flags(item->flags, item->hflags);
 
 	/* Remove any leftovers from previous tests */
 	eblob_remove(b, &item->ekey, 0);
@@ -176,7 +183,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 static int
 item_check(struct shadow *item, struct eblob_backend *b)
 {
-	uint64_t size;
+	uint64_t size = 0;
 	int error;
 	char *data = NULL;
 
@@ -214,6 +221,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 {
 	struct shadow old_item;
 
+	assert(b != NULL);
 	assert(item != NULL);
 	assert(item->idx >= 0);
 
@@ -228,7 +236,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		item->flags = generate_random_flags(FLAG_TYPE_REMOVED);
 	else
 		item->flags = generate_random_flags(FLAG_TYPE_EXISTING);
-	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
+	humanize_flags(item->flags, item->hflags);
 
 	/* Free old data */
 	free(item->value);
