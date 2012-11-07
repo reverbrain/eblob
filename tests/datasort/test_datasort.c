@@ -39,8 +39,8 @@ struct shadow {
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
 	int			size;		/* Size of data */
-	int			type;		/* Column of data */
-	int			flags;		/* Is entry eblob flags */
+	int			flags;		/* Entry's eblob flags */
+	char			hflags[64];	/* Human readable flags */
 };
 
 /* Default values for test config below */
@@ -69,6 +69,28 @@ struct test_cfg {
 /* Randomizer config */
 #define ITEM_MAX_SIZE		(10)
 
+static void
+humanize_flags(int flags, char *buf, unsigned int size)
+{
+
+	assert(buf != NULL);
+	memset(buf, 0, size);
+
+	if (flags == 0) {
+		strcpy(buf, "none");
+		return;
+	}
+	if (flags & BLOB_DISK_CTL_REMOVE)
+		strcat(buf, "remove,");
+	if (flags & BLOB_DISK_CTL_NOCSUM)
+		strcat(buf, "nocsum,");
+	if (flags & BLOB_DISK_CTL_COMPRESS)
+		strcat(buf, "compress,");
+	if (flags & BLOB_DISK_CTL_OVERWRITE)
+		strcat(buf, "overwrite,");
+	/* Remove last "," */
+	buf[strlen(buf) - 1] = '\0';
+}
 /*
  * Generates rendom flag for item
  * 10% probability for each flag
@@ -109,10 +131,10 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	eblob_hash(b, item->ekey.id, sizeof(item->ekey.id), item->key, sizeof(item->key));
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
-	item->type = 0; /* NOT USED*/
+	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
 	/* Remove entry in case it's left from previous test */
-	eblob_remove(b, &item->ekey, item->type);
+	eblob_remove(b, &item->ekey, 0);
 }
 
 /*
@@ -129,7 +151,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	assert(b != NULL);
 
 	/* Read hashed key */
-	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
+	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 0);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
@@ -152,11 +174,15 @@ item_check(struct shadow *item, struct eblob_backend *b)
  * Generated one random test item
  */
 static int
-item_generate_random(struct shadow *item, struct eblob_backend *b __unused)
+item_generate_random(struct shadow *item, struct eblob_backend *b)
 {
+	struct shadow old_item;
 
 	assert(item != NULL);
 	assert(item->idx >= 0);
+
+	/* Save item */
+	old_item = *item;
 
 	/*
 	 * Randomize flags
@@ -189,6 +215,10 @@ item_generate_random(struct shadow *item, struct eblob_backend *b __unused)
 	} else {
 		item->size = 0;
 	}
+	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced item: %s: flags %s -> %s\n",
+	    item->key, old_item.hflags, item->hflags);
 
 	return 0;
 }
