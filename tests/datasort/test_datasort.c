@@ -119,7 +119,8 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
  * Reads data from blob and compares it to shadow copy
  */
 static int
-item_check(struct shadow *item, struct eblob_backend *b) {
+item_check(struct shadow *item, struct eblob_backend *b)
+{
 	uint64_t size;
 	int error;
 	char *data;
@@ -151,7 +152,7 @@ item_check(struct shadow *item, struct eblob_backend *b) {
  * Generated one random test item
  */
 static int
-item_generate_random(struct shadow *item)
+item_generate_random(struct shadow *item, struct eblob_backend *b __unused)
 {
 
 	assert(item != NULL);
@@ -196,7 +197,8 @@ item_generate_random(struct shadow *item)
  * "Syncs" item from shadow list to blob by removing or updating it
  */
 static int
-item_sync(struct shadow *item, struct eblob_backend *b) {
+item_sync(struct shadow *item, struct eblob_backend *b)
+{
 	int error;
 
 	assert(item != NULL);
@@ -276,7 +278,7 @@ main(void)
 		if ((error = item_check(item, &b)) != 0) {
 			errc(EX_TEMPFAIL, error, "item_check");
 		}
-		if ((error = item_generate_random(item)) != 0) {
+		if ((error = item_generate_random(item, &b)) != 0) {
 			errc(EX_TEMPFAIL, error, "item_generate_random");
 		}
 		if ((error = item_sync(item, &b)) != 0) {
