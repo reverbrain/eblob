@@ -39,6 +39,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <libgen.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -58,7 +59,7 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd) {
 
 		err = eblob_preallocate(fd, bcfg->size);
 		if (err) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "eblob_preallocate: %s: size: %lld",
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "eblob_preallocate: %s: size: %" PRIu64,
 					bcfg->path, (long long)bcfg->size);
 			return err;
 		}
@@ -209,12 +210,12 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 	err = pread(bcfg->fd, rhdr, sizeof(*rhdr), offset);
 	if (err != sizeof(*rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %lld", bcfg->path, (long long)offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %" PRIu64, bcfg->path, (long long)offset);
 		goto err;
 	}
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %lld, size: %lld, flags: %lld, key: %s, "
-			"offset: %lld", bcfg->path, rhdr->type, rhdr->size,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %" PRIu64 ", size: %" PRIu64 ", flags: %" PRIu64 ", key: %s, "
+			"offset: %" PRIu64, bcfg->path, rhdr->type, rhdr->size,
 			rhdr->flags, eblob_dump_id(rhdr->key.id), offset);
 
 	err = binlog_verify_record_hdr(rhdr);
@@ -252,7 +253,7 @@ static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset
 
 	err = pread(bcfg->fd, buf, size, offset);
 	if (err != size) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, ((err == -1) ? errno : EINTR), "pread: %s, offset: %lld", bcfg->path, (long long)offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, ((err == -1) ? errno : EINTR), "pread: %s, offset: %" PRIu64, bcfg->path, (long long)offset);
 		goto err_free;
 	}
 	return buf;
@@ -409,7 +410,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 
 	/* Find last LSN */
 	bcfg->position = binlog_get_next_lsn(bcfg);
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s(%d): %lld", bcfg->path,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "next LSN: %s(%d): %" PRIu64, bcfg->path,
 			bcfg->fd, (long long)bcfg->position);
 
 	return 0;
@@ -455,8 +456,8 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	/* Written header MUST be verifiable by us */
 	assert(binlog_verify_record_hdr(&rhdr) == 0);
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pwrite: %s, type: %lld, size: %lld, flags: %lld, key: %s, "
-			"position: %lld", bcfg->path, rhdr.type, rhdr.size, rhdr.flags,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pwrite: %s, type: %" PRIu64 ", size: %" PRIu64 ", flags: %" PRIu64 ", key: %s, "
+			"position: %" PRIu64, bcfg->path, rhdr.type, rhdr.size, rhdr.flags,
 			eblob_dump_id(rhdr.key.id), bcfg->position);
 
 	/* Write header */
@@ -464,7 +465,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 	err = pwrite(bcfg->fd, &rhdr, sizeof(rhdr), offset);
 	if (err != sizeof(rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s, offset: %lld", bcfg->path, (long long)offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite header: %s, offset: %" PRIu64, bcfg->path, (long long)offset);
 		goto err;
 	}
 
@@ -474,7 +475,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		err = pwrite(bcfg->fd, bctl->meta, bctl->meta_size, offset);
 		if (err != bctl->meta_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s, offset: %lld", bcfg->path, (long long)offset);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite metadata: %s, offset: %" PRIu64, bcfg->path, (long long)offset);
 			goto err;
 		}
 	}
@@ -485,7 +486,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl) {
 		err = pwrite(bcfg->fd, bctl->data, bctl->size, offset);
 		if (err != bctl->size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s, offset: %lld", bcfg->path, (long long)offset);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pwrite data: %s, offset: %" PRIu64, bcfg->path, (long long)offset);
 			goto err;
 		}
 	}
@@ -528,7 +529,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset) {
 	/* Read record's header with corresponding LSN */
 	err = binlog_read_record_hdr(bcfg, &rhdr, offset);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_read_record_hdr: %lld", (long long)offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_read_record_hdr: %" PRIu64, (long long)offset);
 		goto err;
 	}
 
@@ -537,7 +538,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset) {
 		data = binlog_read_record_data(bcfg, offset + sizeof(rhdr), rhdr.size);
 		if (data == NULL) {
 			err = -EIO;
-			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %lld", (long long)(offset + sizeof(rhdr)));
+			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %" PRIu64, (long long)(offset + sizeof(rhdr)));
 			goto err;
 		}
 	}
@@ -587,19 +588,19 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 		err = binlog_read(&bctl, offset);
 		if (err) {
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
-					"binlog_read: %s, offset: %lld", bcfg->path, offset);
+					"binlog_read: %s, offset: %" PRIu64, bcfg->path, offset);
 			goto err;
 		}
 		err = callback(priv, &bctl);
 		if (err) {
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
-					"(*callback): %s, offset: %lld", bcfg->path, offset);
+					"(*callback): %s, offset: %" PRIu64, bcfg->path, offset);
 			goto err;
 		}
 		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
 		count++;
 	}
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: finished, offset: %lld, applied: %lld",
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
 			bcfg->path, offset, count);
 
 err:
