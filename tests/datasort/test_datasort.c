@@ -67,7 +67,7 @@ struct test_cfg {
 #define DEFAULT_TEST_LOG	"./test.log"
 
 /* Randomizer config */
-#define ITEM_MAX_SIZE		(10)
+#define ITEM_MAX_SIZE		(10)	/* Max sitem size in bytes*/
 
 /* Declarations */
 static int item_sync(struct shadow *item, struct eblob_backend *b);
@@ -219,6 +219,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		memset_pattern16(item->value, item->key, item->size);
 	} else {
 		item->size = 0;
+		item->value = NULL;
 	}
 	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
@@ -264,7 +265,7 @@ main(void)
 
 	/* Init logger */
 	memset(&logger, 0, sizeof(logger));
-	logger.log_level = EBLOB_LOG_DEBUG;
+	logger.log_level = EBLOB_LOG_DEBUG + 1;
 	logger.log = eblob_log_raw_formatted;
 	/* FIXME: mktemp + atexit */
 	if ((logger.log_private = fopen(DEFAULT_TEST_LOG, "a")) == NULL)
@@ -274,6 +275,9 @@ main(void)
 	memset(&bcfg, 0, sizeof(bcfg));
 	bcfg.log = &logger;
 	bcfg.iterate_threads = 16;
+	bcfg.defrag_timeout = 20;
+	bcfg.blob_size = 1024 * 1024;
+	bcfg.records_in_blob = DEFAULT_TEST_ITEMS / 4;
 	bcfg.sync = 30;
 	/* FIXME: mktemp + atexit */
 	bcfg.file = DEFAULT_TEST_BLOB;
