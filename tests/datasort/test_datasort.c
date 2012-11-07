@@ -86,7 +86,7 @@ enum rnd_flags_types {
 static int item_sync(struct shadow *item, struct eblob_backend *b);
 
 
-/* Generate human-readable flag names and put it to the @buf */
+/* Generate human-readable flag names and put them to the @buf */
 static void
 humanize_flags(int flags, char *buf)
 {
@@ -337,7 +337,7 @@ main(void)
 		err(EX_TEMPFAIL, "calloc: %zu", cfg.items * sizeof(struct shadow));
 
 	/* Init shadow storage with some set of key-values */
-	for (i = 0; i <= cfg.items; i++)
+	for (i = 0; i < cfg.items; i++)
 		item_init(&cfg.shadow[i], &b, i);
 
 	/*
