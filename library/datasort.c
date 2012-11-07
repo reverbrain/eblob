@@ -462,7 +462,7 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 	assert(list_empty(&dcfg->sorted_chunks) == 1);
 	assert(list_empty(&dcfg->unsorted_chunks) == 0);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort: start");
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sort: start");
 	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
 		sorted_chunk = datasort_sort_chunk(dcfg, chunk);
 		if (sorted_chunk == NULL) {
@@ -472,8 +472,13 @@ static int datasort_sort(struct datasort_cfg *dcfg) {
 		list_add_tail(&sorted_chunk->list, &dcfg->sorted_chunks);
 		list_del(&chunk->list);
 		datasort_destroy_chunk(dcfg, chunk);
+
+		if (dcfg->b->need_exit) {
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "exit requested - aborting sort");
+			goto err;
+		}
 	}
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort: stop");
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sort: stop");
 	return 0;
 
 err:
@@ -586,7 +591,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 	assert(list_empty(&dcfg->sorted_chunks) == 0);
 	assert(list_empty(&dcfg->unsorted_chunks) == 1);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort_merge: start");
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "merge: start");
 
 	for (;;) {
 		/* Isolate first chunk */
@@ -607,10 +612,15 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 			goto err;
 		}
 		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
+
+		if (dcfg->b->need_exit) {
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "exit requested - aborting merge");
+			goto err;
+		}
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"datasort_sort_merge: stop: fd: %d, count: %lld, size: %lld, path: %s",
+			"merge: stop: fd: %d, count: %lld, size: %lld, path: %s",
 			chunk1->fd, chunk1->count, chunk1->offset, chunk1->path);
 	return chunk1;
 
