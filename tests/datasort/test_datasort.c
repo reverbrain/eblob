@@ -161,7 +161,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
 	/* Remove any leftovers from previous tests */
-	item_sync(item, b);
+	eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "init: %s\n", item->key);
