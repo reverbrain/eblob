@@ -754,7 +754,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 
 	/* Flush hash */
 	for (offset = 0, i = 0; offset < result->offset; offset += result->index[i++].disk_size)
-		eblob_remove_type(dcfg->b, &result->index[i].key, bctl->type);
+		eblob_remove_type_nolock(dcfg->b, &result->index[i].key, bctl->type);
 	assert(i == result->count);
 
 	/*
@@ -900,9 +900,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_rmdir;
 	}
 
-	/*
-	XXX: datasort_lock_base();
-	*/
+	/* Lock base */
+	pthread_mutex_lock(&dcfg->b->lock);
+	pthread_mutex_lock(&dcfg->b->hash->root_lock);
 
 	/*
 	 * Rewind all records that have been modified since data-sort was
@@ -912,7 +912,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
-			goto err_destroy;
+			goto err_unlock;
 		}
 	}
 
@@ -920,17 +920,13 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	err = datasort_swap(dcfg, result);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap: %s", dcfg->dir);
-		goto err_destroy;
+		goto err_unlock;
 	}
 
 	/* We don't need it anymore */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
-
-	/*
-	XXX: datasort_unlock_base();
-	*/
 
 	/* Prepare chunk for destroy */
 	free(result->path);
@@ -939,6 +935,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 
+err_unlock:
+	/* Unlock base */
+	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
+	pthread_mutex_unlock(&dcfg->b->lock);
 err_destroy:
 	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
