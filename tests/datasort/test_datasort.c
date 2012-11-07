@@ -365,5 +365,8 @@ main(void)
 		nanosleep(&ts, NULL);
 	}
 
+	/* Cleanups */
+	fclose(logger.log_private);
+
 	errx(EX_OK, "finished");
 }
