@@ -880,7 +880,12 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 		goto err_rmdir;
 	}
 
-	/* If unsorted list is empty - we should exit gracefuly */
+	/*
+	 * If unsorted list is empty - we should exit gracefuly
+	 *
+	 * FIXME: In case there is no data in blob we should save empty file
+	 * and index, so it can be removed with eblob_defrag_unlink
+	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
 				"datasort_split: no records passed through iteration process. Aborting gracefuly.");
