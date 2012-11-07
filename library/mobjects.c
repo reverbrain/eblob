@@ -1024,3 +1024,29 @@ int eblob_preallocate(int fd, off_t size) {
 		return -errno;
 	return 0;
 }
+
+/*
+ * OS pagecache hints
+ */
+int eblob_pagecache_hint(int fd, uint64_t flag) {
+	if (fd < 0)
+		return -EINVAL;
+	if (flag & (~EBLOB_FLAGS_HINT_ALL))
+		return -EINVAL;
+	if (flag == 0 || flag == EBLOB_FLAGS_HINT_ALL)
+		return -EINVAL;
+#ifdef HAVE_POSIX_FADVISE
+	int advise;
+
+	if (flag & EBLOB_FLAGS_HINT_WILLNEED)
+		advise = POSIX_FADV_WILLNEED;
+	else if (flag & EBLOB_FLAGS_HINT_DONTNEED)
+		advise = POSIX_FADV_DONTNEED;
+	return -posix_fadvise(fd, 0, 0, advise);
+#else /* HAVE_POSIX_FADVISE */
+	/*
+	 * TODO: On Darwin/FreeBSD(old ones) we should mmap file and use msync with MS_INVALIDATE
+	 */
+	return 0;
+#endif /* HAVE_POSIX_FADVISE */
+}
