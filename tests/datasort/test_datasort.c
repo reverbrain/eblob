@@ -57,7 +57,8 @@ struct test_cfg {
 	int		delay;		/* Delay in miliseconds between
 					   iterations */
 	int		iterations;	/* Number of modify/read iterations */
-	int		milestone;	/* Print message each "milestone" iterations */
+	int		milestone;	/* Print message each "milestone"
+					   iterations */
 	struct shadow	*shadow;	/* Shadow storage pointer */
 };
 
@@ -164,12 +165,14 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	} else {
 		/* Check data consistency */
 		if (error != 0)
-			errc(EX_SOFTWARE, -error, "key supposed to exist: %s", item->key);
+			errc(EX_SOFTWARE, -error, "key supposed to exist: %s, flags: %s",
+			    item->key, item->hflags);
 
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
-			errx(EX_SOFTWARE, "data verification failed for: %s, flags: %d", item->key, item->flags);
+			errx(EX_SOFTWARE, "data verification failed for: %s, flags: %s",
+			    item->key, item->hflags);
 	}
 
 	return 0;
