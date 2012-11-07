@@ -120,7 +120,7 @@ generate_random_flags(int type)
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
-	rnd = arc4random_uniform(3);
+	rnd = arc4random() % 3;
 	if (type == FLAG_TYPE_REMOVED) {
 		switch (rnd) {
 		/* Removed entry can not be removed or overwritten */
@@ -189,8 +189,8 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	} else {
 		/* Check data consistency */
 		if (error != 0)
-			errc(EX_SOFTWARE, -error, "key supposed to exist: %s, flags: %s",
-			    item->key, item->hflags);
+			errx(EX_SOFTWARE, "key supposed to exist: %s, flags: %s, error: %d",
+			    item->key, item->hflags, -error);
 
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
@@ -242,11 +242,11 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 			max = item->size;
 		else
 			max = ITEM_MAX_SIZE;
-		item->size = 1 + arc4random_uniform(max);
+		item->size = 1 + arc4random() % max;
 
 		if ((item->value = malloc(item->size)) == NULL)
 			return errno;
-		memset_pattern16(item->value, item->key, item->size);
+		memset(item->value, item->idx, item->size);
 	} else {
 		item->size = 0;
 		item->value = NULL;
@@ -272,8 +272,8 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	/* TODO: Do not store the value itself - only hash of it */
 	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
 	if (error != 0)
-		errc(EX_SOFTWARE, -error, "writing key failed: %s: flags: %s",
-		    item->key, item->hflags);
+		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
+		    item->key, item->hflags, -error);
 
 	return 0;
 }
@@ -342,17 +342,17 @@ main(void)
 		/* Pick random item */
 		uint32_t rnd;
 		struct timespec ts = {0, cfg.delay * 1000000};
-		rnd = arc4random_uniform(cfg.items);
+		rnd = arc4random() % cfg.items;
 		item = &cfg.shadow[rnd];
 
 		if ((error = item_check(item, &b)) != 0) {
-			errc(EX_TEMPFAIL, error, "item_check");
+			errx(EX_TEMPFAIL, "item_check: %d", error);
 		}
 		if ((error = item_generate_random(item, &b)) != 0) {
-			errc(EX_TEMPFAIL, error, "item_generate_random");
+			errx(EX_TEMPFAIL, "item_generate_random: %d", error);
 		}
 		if ((error = item_sync(item, &b)) != 0) {
-			errc(EX_TEMPFAIL, error, "item_sync");
+			errx(EX_TEMPFAIL, "item_sync: %d", error);
 		}
 		if ((i % cfg.milestone) == 0)
 			warnx("iteration: %d", i);
