@@ -67,7 +67,7 @@ struct test_cfg {
 #define DEFAULT_TEST_LOG	"./test.log"
 
 /* Randomizer config */
-#define ITEM_AVG_SIZE	(10)
+#define ITEM_MAX_SIZE		(10)
 
 /*
  * Generates rendom flag for item
@@ -89,8 +89,6 @@ generate_random_flags(void)
 	case 2:
 		return BLOB_DISK_CTL_COMPRESS;
 	case 3:
-		return BLOB_DISK_CTL_APPEND;
-	case 4:
 		return BLOB_DISK_CTL_OVERWRITE;
 	default:
 		return 0;
@@ -169,7 +167,6 @@ item_generate_random(struct shadow *item)
 		item->flags = generate_random_flags();
 
 	/* Free old data */
-	item->size = 0;
 	free(item->value);
 
 	/*
@@ -177,10 +174,19 @@ item_generate_random(struct shadow *item)
 	 * If new entry not removed
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
-		item->size = 1 + arc4random_uniform(ITEM_AVG_SIZE * 2);
+		int max;
+		/* If it's overwrite we should not generate bigger entry */
+		if (item->flags & BLOB_DISK_CTL_OVERWRITE)
+			max = item->size;
+		else
+			max = ITEM_MAX_SIZE;
+
+		item->size = 1 + arc4random_uniform(max);
 		if ((item->value = calloc(1, item->size)) == NULL)
 			return ENOMEM;
 		memset_pattern16(item->value, item->key, item->size);
+	} else {
+		item->size = 0;
 	}
 
 	return 0;
