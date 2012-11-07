@@ -378,6 +378,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 	}
 	/* Truncate binlog if requested */
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_TRUNCATE) {
+		bcfg->position = sizeof(struct eblob_binlog_disk_hdr);
 		err = ftruncate(fd, sizeof(struct eblob_binlog_disk_hdr));
 		if (err == -1) {
 			err = -errno;
@@ -409,10 +410,15 @@ int binlog_open(struct eblob_binlog_cfg *bcfg) {
 		goto err_unlock;
 	}
 
-	/* Find last LSN */
-	bcfg->position = binlog_get_next_lsn(bcfg);
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "next LSN: %s (%d): %" PRId64, bcfg->path,
-			bcfg->fd, bcfg->position);
+	/*
+	 * Find last LSN
+	 * Only if not already found by truncation
+	 */
+	if (bcfg->position == 0) {
+		bcfg->position = binlog_get_next_lsn(bcfg);
+		EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "next LSN: %s (%d): %" PRId64, bcfg->path,
+				bcfg->fd, bcfg->position);
+	}
 
 	return 0;
 
@@ -711,6 +717,8 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 		err = -ENOMEM;
 		goto err_destroy;
 	}
+	bcfg->flags = EBLOB_BINLOG_FLAGS_CFG_TRUNCATE;
+
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
 
 	err = binlog_open(bcfg);
