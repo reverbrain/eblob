@@ -588,7 +588,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_sort_merge: start");
 
-	while (1) {
+	for (;;) {
 		/* Isolate first chunk */
 		chunk1 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
 		list_del(&chunk1->list);
