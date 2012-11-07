@@ -928,7 +928,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
 
-	/* Prepare chunk for destroy */
+	/*
+	 * Prepare chunk for destroy
+	 * We need it because we don't want to remove resulted chunk we've just
+	 * created
+	 */
 	free(result->path);
 	result->fd = -1;
 	result->path = NULL;
@@ -939,7 +943,7 @@ err_unlock:
 	/* Unlock base */
 	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
-err_destroy:
+	/* Free merged chunk memory, but leave data */
 	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
