@@ -175,7 +175,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 {
 	uint64_t size;
 	int error;
-	char *data;
+	char *data = NULL;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -198,6 +198,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 			errx(EX_SOFTWARE, "data verification failed for: %s, flags: %s",
 			    item->key, item->hflags);
 	}
+	free(data);
 
 	return 0;
 }
