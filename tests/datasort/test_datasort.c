@@ -69,6 +69,10 @@ struct test_cfg {
 /* Randomizer config */
 #define ITEM_MAX_SIZE		(10)
 
+/* Declarations */
+static int item_sync(struct shadow *item, struct eblob_backend *b);
+
+
 static void
 humanize_flags(int flags, char *buf, unsigned int size)
 {
@@ -133,8 +137,9 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->idx = idx;
 	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "init: %s", item->key);
 	/* Remove entry in case it's left from previous test */
-	eblob_remove(b, &item->ekey, 0);
+	item_sync(item, b);
 }
 
 /*
@@ -234,9 +239,9 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	assert(item != NULL);
 	assert(b != NULL);
 
-	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, item->flags);
+	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
 	if (error != 0)
-		errc(EX_SOFTWARE, -error, "writing ky failed: %s", item->key);
+		errc(EX_SOFTWARE, -error, "writing key failed: %s", item->key);
 
 	return 0;
 }
