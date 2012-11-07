@@ -62,6 +62,15 @@ struct test_cfg {
 	struct shadow	*shadow;	/* Shadow storage pointer */
 };
 
+/* Types for flag random generator */
+enum rnd_flags_types {
+	FLAG_TYPE_MIN,			/* Start sentinel */
+	FLAG_TYPE_REMOVED,		/* Generate flags for removed entry */
+	FLAG_TYPE_EXISTING,		/* Generate flags for existing record */
+	FLAG_TYPE_MAX,			/* Stop sentinel */
+
+};
+
 /* Default path to blob */
 #define DEFAULT_TEST_BLOB	"./test.blob"
 /* Default path to log */
@@ -73,7 +82,7 @@ struct test_cfg {
 /* Declarations */
 static int item_sync(struct shadow *item, struct eblob_backend *b);
 
-
+/* Generate human-readable flag name and put it to the @buf */
 static void
 humanize_flags(int flags, char *buf, unsigned int size)
 {
@@ -93,9 +102,11 @@ humanize_flags(int flags, char *buf, unsigned int size)
 		strcat(buf, "compress,");
 	if (flags & BLOB_DISK_CTL_OVERWRITE)
 		strcat(buf, "overwrite,");
-	/* Remove last "," */
+
+	/* Remove last ',' */
 	buf[strlen(buf) - 1] = '\0';
 }
+
 /*
  * Generates rendom flag for item
  * 10% probability for each flag
@@ -103,25 +114,35 @@ humanize_flags(int flags, char *buf, unsigned int size)
  * TODO: Add composite flags
  */
 static int
-generate_random_flags(void)
+generate_random_flags(int type)
 {
 	uint32_t rnd;
 
-	rnd = arc4random_uniform(10);
-	switch (rnd) {
-	case 0:
-		return BLOB_DISK_CTL_REMOVE;
-	case 1:
-		return BLOB_DISK_CTL_NOCSUM;
-	case 2:
-		return BLOB_DISK_CTL_COMPRESS;
-	case 3:
-		return BLOB_DISK_CTL_OVERWRITE;
-	default:
-		return 0;
+	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
+
+	rnd = arc4random_uniform(3);
+	if (type == FLAG_TYPE_REMOVED) {
+		switch (rnd) {
+		/* Removed entry can not be removed or overwritten */
+		case 0:
+			return BLOB_DISK_CTL_NOCSUM;
+		case 1:
+			return BLOB_DISK_CTL_COMPRESS;
+		default:
+			return 0;
+		}
+	} else if (type == FLAG_TYPE_EXISTING) {
+		/* Existing entry can be rewritten or removed */
+		switch (rnd) {
+		case 0:
+			return BLOB_DISK_CTL_OVERWRITE;
+		default:
+			return BLOB_DISK_CTL_REMOVE;
+		}
+	} else {
+		/* NOT REACHED */
+		assert(0);
 	}
-	/* NOTREACHED */
-	assert(0);
 }
 
 /*
@@ -131,6 +152,7 @@ static void
 item_init(struct shadow *item, struct eblob_backend *b, int idx)
 {
 
+	/* Init item */
 	memset(item->key, 0, sizeof(item->key));
 	snprintf(item->key, sizeof(item->key), "key-%d", idx);
 	eblob_hash(b, item->ekey.id, sizeof(item->ekey.id), item->key, sizeof(item->key));
@@ -138,9 +160,11 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->idx = idx;
 	humanize_flags(item->flags, item->hflags, sizeof(item->hflags));
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "init: %s", item->key);
-	/* Remove entry in case it's left from previous test */
+	/* Remove any leftovers from previous tests */
 	item_sync(item, b);
+
+	/* Log */
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "init: %s\n", item->key);
 }
 
 /*
@@ -197,9 +221,9 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	 * If entry was removed then we can only add it, so set flags to 0
 	 */
 	if (item->flags & BLOB_DISK_CTL_REMOVE)
-		item->flags = 0;
+		item->flags = generate_random_flags(FLAG_TYPE_REMOVED);
 	else
-		item->flags = generate_random_flags();
+		item->flags = generate_random_flags(FLAG_TYPE_EXISTING);
 
 	/* Free old data */
 	free(item->value);
@@ -243,9 +267,11 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	assert(item != NULL);
 	assert(b != NULL);
 
+	/* TODO: Do not store the value itself - only hash of it */
 	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
 	if (error != 0)
-		errc(EX_SOFTWARE, -error, "writing key failed: %s", item->key);
+		errc(EX_SOFTWARE, -error, "writing key failed: %s: flags: %s",
+		    item->key, item->hflags);
 
 	return 0;
 }
