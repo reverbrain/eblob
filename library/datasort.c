@@ -163,14 +163,17 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
  * - copy new entry to current chunk
  */
 static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rctl __unused,
-		void *data __unused, void *priv, void *thread_priv) {
+		void *data, void *priv, void *thread_priv) {
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
 	struct datasort_chunk_local *local = thread_priv;
+	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
 	assert(dc != NULL);
 	assert(dcfg != NULL);
 	assert(local != NULL);
+	assert(data != NULL);
+	assert(dc->disk_size >= hdr_size);
 
 	err = pthread_mutex_lock(&dcfg->lock);
 	if (err) {
@@ -204,14 +207,24 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	/* Rewrite position */
 	dc->position = local->current->offset;
 
-	err = pwrite(local->current->fd, dc, dc->disk_size, local->current->offset);
-	if (err != (ssize_t)dc->disk_size) {
+	/* Write header */
+	err = pwrite(local->current->fd, dc, hdr_size, local->current->offset);
+	if (err != hdr_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-hdr");
+		goto err_unlock;
+	}
+	local->current->offset += hdr_size;
+
+	/* Write data */
+	err = pwrite(local->current->fd, data, dc->disk_size - hdr_size, local->current->offset);
+	if (err != (ssize_t)(dc->disk_size - hdr_size)) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-data");
 		goto err_unlock;
 	}
 
-	local->current->offset += dc->disk_size;
+	local->current->offset += dc->disk_size - hdr_size;
 	local->current->count++;
 	err = 0;
 
