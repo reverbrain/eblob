@@ -31,7 +31,7 @@
  * Prints usage and exits
  *
  * If user requested help explicitly via --help option - make it easily
- * grepable and do not indicate error in exit code.
+ * "grepable" and do not indicate error in exit code.
  */
 void
 options_usage(char *progname, int eval, FILE *stream)
@@ -124,7 +124,7 @@ options_get(int argc, char **argv)
 			options_get_l(&cfg.test_delay, optarg);
 			break;
 		case 'h':
-			options_usage(argv[0], 0, stdout);
+			options_usage(argv[0], EX_OK, stdout);
 		case 'i':
 			options_get_ll(&cfg.test_items, optarg);
 			break;
@@ -176,7 +176,7 @@ options_dump(void)
 	printf("sync(2) period in seconds: %ld\n", cfg.blob_sync);
 	printf("Number of iterator threads: %ld\n", cfg.blob_threads);
 	printf("Log level for eblog_log: %ld\n", cfg.log_level);
-	printf("Delay in miliseconds between iterations: %ld\n", cfg.test_delay);
+	printf("Delay in milliseconds between iterations: %ld\n", cfg.test_delay);
 	printf("Maximum size of test item: %lld\n", cfg.test_item_size);
 	printf("Number of test items: %lld\n", cfg.test_items);
 	printf("Number of modify/read iterations: %lld\n", cfg.test_iterations);

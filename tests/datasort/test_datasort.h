@@ -18,10 +18,14 @@
 
 #ifndef __EBLOB_TEST_DATASORT_H
 #define __EBLOB_TEST_DATASORT_H
+
 /*
  * Shadow storage for eblob
  * Each item that is present in shadow array should be present in blob file in
  * exactly the same way.
+ *
+ * TODO: For small items storing whole data is OK, but for bigger ones we need
+ * to store only hashes data.
  */
 struct shadow {
 	int			idx;		/* Index in shadow array */
@@ -36,8 +40,8 @@ struct shadow {
 /* Types for flag random generator */
 enum rnd_flags_types {
 	FLAG_TYPE_MIN,				/* Start sentinel */
-	FLAG_TYPE_REMOVED,			/* Generate flags for removed entry */
-	FLAG_TYPE_EXISTING,			/* Generate flags for existing record */
+	FLAG_TYPE_REMOVED,			/* Generate flags for removed item */
+	FLAG_TYPE_EXISTING,			/* Generate flags for existing item */
 	FLAG_TYPE_MAX,				/* Stop sentinel */
 
 };
@@ -53,7 +57,7 @@ struct test_cfg {
 	long		blob_threads;		/* Number of iterator threads */
 	long		log_level;		/* Log level for eblog_log */
 	long		log_fd;			/* Opened log file descriptor */
-	long		test_delay;		/* Delay in miliseconds between
+	long		test_delay;		/* Delay in milliseconds between
 						   iterations */
 	long long	test_item_size;		/* Maximum size of test item */
 	long long	test_items;		/* Number of test items */
@@ -62,7 +66,7 @@ struct test_cfg {
 	long		test_milestone;		/* Print message each
 						   "milestone" iterations */
 	char		*test_path;		/* Path to test directory */
-	long long	test_rnd_seed;		/* Random seed for reproducable
+	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
 	struct shadow	*shadow;		/* Shadow storage pointer */
 };
@@ -71,7 +75,7 @@ struct test_cfg {
 extern struct test_cfg cfg;
 
 /*
- * Defaults for test_cfg abowe
+ * Defaults for test_cfg above
  */
 #define DEFAULT_BLOB_DEFRAG	(10)
 #define DEFAULT_BLOB_RECORDS	(10000)

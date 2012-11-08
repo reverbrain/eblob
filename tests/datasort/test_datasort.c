@@ -29,6 +29,7 @@
 
 #include "test_datasort.h"
 
+/* Global variable for test config config */
 struct test_cfg cfg;
 
 /* Generate human-readable flag names and put them to the @buf */
@@ -61,7 +62,6 @@ humanize_flags(int flags, char *buf)
 
 /*
  * Generates rendom flag for item
- * 10% probability for each flag
  *
  * TODO: Add composite flags
  */
@@ -119,7 +119,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "init: %s\n", item->key);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "inited: %s\n", item->key);
 }
 
 /*
@@ -155,11 +155,13 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	}
 	free(data);
 
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checked: %s\n", item->key);
+
 	return 0;
 }
 
 /*
- * Generated one random test item
+ * Generate one random test item
  */
 static int
 item_generate_random(struct shadow *item, struct eblob_backend *b)
@@ -202,13 +204,17 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 
 		if ((item->value = malloc(item->size)) == NULL)
 			return errno;
+		/*
+		 * TODO: BSD has memset_pattern calls which looks like better
+		 * solution for filling memory region
+		 */
 		memset(item->value, item->idx, item->size);
 	} else {
 		item->size = 0;
 		item->value = NULL;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced item: %s: flags %s -> %s\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "generated item: %s: flags %s -> %s\n",
 	    item->key, old_item.hflags, item->hflags);
 
 	return 0;
@@ -230,6 +236,8 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	if (error != 0)
 		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s\n", item->key);
 
 	return 0;
 }
@@ -288,10 +296,10 @@ main(int argc, char **argv)
 	/*
 	 * Test loop
 	 *
-	 * Get random item
+	 * Get random item from shadow list
 	 * Check it
-	 * Regenerate it
-	 * Sync it
+	 * Regenerate random one on it's place
+	 * Sync it back to blob
 	 *
 	 * TODO: Can be moved to separate thread(s)
 	 */
