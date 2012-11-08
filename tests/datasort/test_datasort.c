@@ -44,14 +44,10 @@ struct shadow {
 	char			hflags[64];	/* Human readable flags */
 };
 
-/* Default values for test config below */
-#define DEFAULT_TEST_DELAY	(10)
-#define DEFAULT_TEST_ITEMS	(10000)
-#define DEFAULT_TEST_ITERATIONS	(100000)
-#define DEFAULT_TEST_MILESTONE	(100)
-
 /*
  * Test configuration
+ *
+ * Global variable.
  */
 struct test_cfg {
 	int		items;		/* Number of test items */
@@ -63,7 +59,7 @@ struct test_cfg {
 	uint64_t	seed;		/* Random seed for reproducable
 					   test-cases */
 	struct shadow	*shadow;	/* Shadow storage pointer */
-};
+} cfg;
 
 /* Types for flag random generator */
 enum rnd_flags_types {
@@ -74,13 +70,28 @@ enum rnd_flags_types {
 
 };
 
-/* Default path to blob */
-#define DEFAULT_TEST_BLOB	"./test.blob"
-/* Default path to log */
-#define DEFAULT_TEST_LOG	"./test.log"
+/*
+ * Defaults
+ */
 
-/* Randomizer config */
-#define ITEM_MAX_SIZE		(10)	/* Max sitem size in bytes*/
+/* Log */
+#define DEFAULT_LOG_LEVEL	(EBLOB_LOG_DEBUG + 1)	/* Log level for eblog_log */
+#define DEFAULT_LOG_PATH	"./test.log"		/* Path to log */
+
+/* Blob */
+#define DEFAULT_BLOB_THREADS	(16)			/* Number of iterate threads */
+#define DEFAULT_BLOB_PATH	"./test.blob"		/* Path to blob */
+#define DEFAULT_BLOB_DEFRAG_T	(10)			/* Defrag timeout in seconds */
+#define DEFAULT_BLOB_SIZE	(100 * 1<<20)		/* Max size of blob in bytes */
+#define DEFAULT_BLOB_RECORDS	(10000)			/* Number of records in base */
+#define DEFAULT_BLOB_SYNC	(30)			/* sync(2) period in seconds */
+
+/* Test */
+#define DEFAULT_TEST_ITEM_SIZE	(10)			/* Max item size in bytes */
+#define DEFAULT_TEST_DELAY	(10)
+#define DEFAULT_TEST_ITEMS	(10000)
+#define DEFAULT_TEST_ITERATIONS	(100000)
+#define DEFAULT_TEST_MILESTONE	(100)
 
 /* Declarations */
 static int item_sync(struct shadow *item, struct eblob_backend *b);
@@ -252,7 +263,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		if (item->flags & BLOB_DISK_CTL_OVERWRITE)
 			max = item->size;
 		else
-			max = ITEM_MAX_SIZE;
+			max = DEFAULT_TEST_ITEM_SIZE;
 		item->size = 1 + random() % max;
 
 		if ((item->value = malloc(item->size)) == NULL)
@@ -300,29 +311,30 @@ main(void)
 	struct eblob_config bcfg;
 	struct eblob_log logger;
 	struct shadow *item;
-	struct test_cfg cfg;
 	int error, i;
+
+	/* FIXME: Move tunables to getopt_long */
 
 	warnx("started");
 
 	/* Init logger */
 	memset(&logger, 0, sizeof(logger));
-	logger.log_level = EBLOB_LOG_DEBUG + 1;
+	logger.log_level = DEFAULT_LOG_LEVEL;
 	logger.log = eblob_log_raw_formatted;
 	/* FIXME: mktemp + atexit */
-	if ((logger.log_private = fopen(DEFAULT_TEST_LOG, "a")) == NULL)
-		err(EX_OSFILE, "fopen: %s", DEFAULT_TEST_LOG);
+	if ((logger.log_private = fopen(DEFAULT_LOG_PATH, "a")) == NULL)
+		err(EX_OSFILE, "fopen: %s", DEFAULT_LOG_PATH);
 
 	/* Init eblob */
 	memset(&bcfg, 0, sizeof(bcfg));
 	bcfg.log = &logger;
-	bcfg.iterate_threads = 16;
-	bcfg.defrag_timeout = 20;
-	bcfg.blob_size = 1024 * 1024;
-	bcfg.records_in_blob = DEFAULT_TEST_ITEMS / 4;
-	bcfg.sync = 30;
+	bcfg.iterate_threads = DEFAULT_BLOB_THREADS;
+	bcfg.defrag_timeout = DEFAULT_BLOB_DEFRAG_T;
+	bcfg.blob_size = DEFAULT_BLOB_SIZE;
+	bcfg.records_in_blob = DEFAULT_BLOB_RECORDS;
+	bcfg.sync = DEFAULT_BLOB_SYNC;
 	/* FIXME: mktemp + atexit */
-	bcfg.file = DEFAULT_TEST_BLOB;
+	bcfg.file = DEFAULT_BLOB_PATH;
 	b = *eblob_init(&bcfg);
 
 	/* Init test */
