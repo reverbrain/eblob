@@ -39,6 +39,10 @@ typedef long long loff_t;
 #define FD_CLOEXEC	1
 #endif
 
+#ifndef EBADFD
+#define	EBADFD		77	/* File descriptor in bad state */
+#endif
+
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
@@ -127,6 +131,39 @@ struct eblob_base_ctl {
 	char			name[0];
 };
 
+/* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
+#define EBLOB_FLAGS_HINT_WILLNEED (1<<0)
+/* Analogue of posix_fadvise POSIX_FADV_DONTNEED */
+#define EBLOB_FLAGS_HINT_DONTNEED (1<<1)
+/* All available flags */
+#define EBLOB_FLAGS_HINT_ALL (EBLOB_FLAGS_HINT_WILLNEED | EBLOB_FLAGS_HINT_DONTNEED)
+
+/*
+ * OS pagecache hints
+ */
+static inline int eblob_pagecache_hint(int fd, uint64_t flag) {
+	if (fd < 0)
+		return -EINVAL;
+	if (flag & (~EBLOB_FLAGS_HINT_ALL))
+		return -EINVAL;
+	if (flag == 0 || flag == EBLOB_FLAGS_HINT_ALL)
+		return -EINVAL;
+#ifdef HAVE_POSIX_FADVISE
+	int advise;
+
+	if (flag & EBLOB_FLAGS_HINT_WILLNEED)
+		advise = POSIX_FADV_WILLNEED;
+	else if (flag & EBLOB_FLAGS_HINT_DONTNEED)
+		advise = POSIX_FADV_DONTNEED;
+	return -posix_fadvise(fd, 0, 0, advise);
+#else /* HAVE_POSIX_FADVISE */
+	/*
+	 * TODO: On Darwin/FreeBSD(old ones) we should mmap file and use msync with MS_INVALIDATE
+	 */
+	return 0;
+#endif /* HAVE_POSIX_FADVISE */
+}
+
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl);
@@ -177,6 +214,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 		struct eblob_ram_control **dst, int *dsize);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
+int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,
+		struct eblob_base_type **typesp, int *max_typep);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);

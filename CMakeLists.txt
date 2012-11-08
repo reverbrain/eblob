@@ -15,6 +15,7 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+option(WITH_ASSERTS "Enable asserts" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
@@ -23,6 +24,12 @@ include(CheckAtomic)
 include(TestBigEndian)
 
 include_directories(${CMAKE_BINARY_DIR}/include/)
+
+# Turn off aserts
+if(!WITH_ASSERTS)
+    add_definitions(-DNDEBUG)
+endif()
+message(STATUS "Asserts are: ${WITH_ASSERTS}")
 
 # Test endianess
 test_big_endian(HAVE_BIG_ENDIAN)
@@ -34,7 +41,19 @@ else()
 endif()
 
 if (UNIX OR MINGW)
-    add_definitions(-W -Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
+    #
+    # Strict Aliasing notes:
+    #   Currently there are couple of memory aliases represented by char** and
+    #     void** casts in blob.c and mobjects.c
+    #   GCC prints warnings if compiling with -fstrict-aliasing
+    #   One can increase verbosity by setting -Wstrict-aliasing=2
+    #
+    # Useful warning options not implied by -Wall and -Wextra:
+    #   -Wredundant-decls
+    #   -Wmissing-declarations
+    #   -Wstrict-overflow=4
+    #
+    add_definitions(-Wall -Wextra -fstack-protector-all -fno-strict-aliasing)
 endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
@@ -77,6 +96,12 @@ if(WITH_PYTHON)
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
+# Check for posix_fadvise
+include(CheckSymbolExists)
+check_symbol_exists(posix_fadvise "fcntl.h" HAVE_POSIX_FADVISE)
+if (HAVE_POSIX_FADVISE)
+    add_definitions(-DHAVE_POSIX_FADVISE)
+endif()
 
 # Collect all libraries together
 set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SNAPPY_LIBRARIES})
