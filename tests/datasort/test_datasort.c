@@ -18,7 +18,6 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
-#include <getopt.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -28,80 +27,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "eblob/blob.h"
-#include "../../library/blob.h"
+#include "test_datasort.h"
 
-/*
- * Shadow storage for eblob
- * Each item that is present in shadow array should be present in blob file in
- * exactly the same way.
- */
-struct shadow {
-	int			idx;		/* Index in shadow array */
-	char			key[32];	/* Unhashed key */
-	struct eblob_key	ekey;		/* Hashed key */
-	void			*value;		/* Pointer to data */
-	int			size;		/* Size of data */
-	int			flags;		/* Entry's eblob flags */
-	char			hflags[64];	/* Human readable flags */
-};
-
-/* Types for flag random generator */
-enum rnd_flags_types {
-	FLAG_TYPE_MIN,				/* Start sentinel */
-	FLAG_TYPE_REMOVED,			/* Generate flags for removed entry */
-	FLAG_TYPE_EXISTING,			/* Generate flags for existing record */
-	FLAG_TYPE_MAX,				/* Stop sentinel */
-
-};
-
-/*
- * Test configuration
- *
- * Global variable.
- */
-static struct test_cfg {
-	long		blob_defrag;		/* Defrag timeout in seconds */
-	long long	blob_records;		/* Number of records in base */
-	long long	blob_size;		/* Max size of base in bytes */
-	long		blob_sync;		/* sync(2) period in seconds */
-	long		blob_threads;		/* Number of iterator threads */
-	long		log_level;		/* Log level for eblog_log */
-	long		log_fd;			/* Opened log file descriptor */
-	long		test_delay;		/* Delay in miliseconds between
-						   iterations */
-	long long	test_item_size;		/* Maximum size of test item */
-	long long	test_items;		/* Number of test items */
-	long long	test_iterations;	/* Number of modify/read
-						   iterations */
-	long		test_milestone;		/* Print message each
-						   "milestone" iterations */
-	char		*test_path;		/* Path to test directory */
-	long long	test_rnd_seed;		/* Random seed for reproducable
-						   test-cases */
-	struct shadow	*shadow;		/* Shadow storage pointer */
-} cfg;
-
-/*
- * Defaults for test_cfg abowe
- */
-
-#define DEFAULT_BLOB_DEFRAG	(10)
-#define DEFAULT_BLOB_RECORDS	(10000)
-#define DEFAULT_BLOB_SIZE	(100 * 1<<20)
-#define DEFAULT_BLOB_SYNC	(30)
-#define DEFAULT_BLOB_THREADS	(16)
-#define DEFAULT_LOG_LEVEL	(EBLOB_LOG_DEBUG + 1)
-#define DEFAULT_TEST_DELAY	(10)
-#define DEFAULT_TEST_ITEMS	(10000)
-#define DEFAULT_TEST_ITEM_SIZE	(10)
-#define DEFAULT_TEST_ITERATIONS	(100000)
-#define DEFAULT_TEST_MILESTONE	(100)
-#define DEFAULT_TEST_PATH	"./"
-
-/* Declarations */
-static int item_sync(struct shadow *item, struct eblob_backend *b);
-
+struct test_cfg cfg;
 
 /* Generate human-readable flag names and put them to the @buf */
 static void
@@ -289,7 +217,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 /*
  * "Syncs" item from shadow list to blob by removing or updating it
  */
-static int
+int
 item_sync(struct shadow *item, struct eblob_backend *b)
 {
 	int error;
@@ -306,161 +234,6 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	return 0;
 }
 
-/*
- * Prints usage and exits
- *
- * If user requested help explicitly via --help option - make it easily
- * grepable and do not indicate error in exit code.
- */
-static void
-usage(char *progname, int eval, FILE *stream)
-{
-	fprintf(stream, "usage: %s ", progname);
-	fprintf(stream, "[-d defrag_time] [-D delay ] [-i test_items] [-I iterations] ");
-	fprintf(stream, "[-l log_level] [-m milestone] [-p path] [-r blob_records] ");
-	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item size] [-t iterator_threads]");
-
-	exit(eval);
-}
-
-/*
- * Converts one command line parameter into long or long long
- * TODO: Merge into one function
- */
-static inline void
-options_get_l(long *cfg_entry, const char *optarg)
-{
-	char *ep;
-
-	*cfg_entry = strtol(optarg, &ep, 10);
-	if (*ep != '\0')
-		errx(EX_USAGE, "invalid number: %s", optarg);
-}
-static inline void
-options_get_ll(long long *cfg_entry, const char *optarg)
-{
-	char *ep;
-
-	*cfg_entry = strtoll(optarg, &ep, 10);
-	if (*ep != '\0')
-		errx(EX_USAGE, "invalid number: %s", optarg);
-}
-
-/* Set config values to compiled-in defaults */
-static void
-options_set_defaults(void)
-{
-
-	cfg.blob_defrag = DEFAULT_BLOB_DEFRAG;
-	cfg.blob_records = DEFAULT_BLOB_RECORDS;
-	cfg.blob_size = DEFAULT_BLOB_SIZE;
-	cfg.blob_sync = DEFAULT_BLOB_SYNC;
-	cfg.blob_threads = DEFAULT_BLOB_THREADS;
-	cfg.log_level = DEFAULT_LOG_LEVEL;
-	cfg.test_delay = DEFAULT_TEST_DELAY;
-	cfg.test_item_size = DEFAULT_TEST_ITEM_SIZE;
-	cfg.test_items = DEFAULT_TEST_ITEMS;
-	cfg.test_iterations = DEFAULT_TEST_ITERATIONS;
-	cfg.test_milestone = DEFAULT_TEST_MILESTONE;
-	cfg.test_rnd_seed = time(0);
-
-	if ((cfg.test_path = strdup(DEFAULT_TEST_PATH)) == NULL)
-		err(EX_OSERR, "malloc");
-
-}
-
-/* Get all options via getopt_long */
-static int
-options_get(int argc, char **argv)
-{
-	int ch;
-	struct option longopts[] = {
-		{ "blob-defrag",	required_argument,	NULL,		'd' },
-		{ "blob-records",	required_argument,	NULL,		'r' },
-		{ "blob-size",		required_argument,	NULL,		's' },
-		{ "blob-sync",		required_argument,	NULL,		'y' },
-		{ "blob-threads",	required_argument,	NULL,		't' },
-		{ "help",		no_argument,		NULL,		'h' },
-		{ "log-level",		required_argument,	NULL,		'l' },
-		{ "test-delay",		required_argument,	NULL,		'D' },
-		{ "test-item-size",	required_argument,	NULL,		'S' },
-		{ "test-items",		required_argument,	NULL,		'i' },
-		{ "test-iterations",	required_argument,	NULL,		'I' },
-		{ "test-milestone",	required_argument,	NULL,		'm' },
-		{ "test-path",		required_argument,	NULL,		'p' },
-		{ "test-rnd-seed",	required_argument,	NULL,		'R' },
-		{ NULL,			0,			NULL,		0 }
-	};
-
-	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:hi:I:l:m:p:r:R:s:S:t:", longopts, NULL)) != -1) {
-		switch(ch) {
-		case 'd':
-			options_get_l(&cfg.blob_defrag, optarg);
-			break;
-		case 'D':
-			options_get_l(&cfg.test_delay, optarg);
-			break;
-		case 'h':
-			usage(argv[0], 0, stdout);
-		case 'i':
-			options_get_ll(&cfg.test_items, optarg);
-			break;
-		case 'I':
-			options_get_ll(&cfg.test_iterations, optarg);
-			break;
-		case 'l':
-			options_get_l(&cfg.log_level, optarg);
-			break;
-		case 'm':
-			options_get_l(&cfg.test_milestone, optarg);
-			break;
-		case 'p':
-			/* XXX: */
-			break;
-		case 'r':
-			options_get_ll(&cfg.blob_records, optarg);
-			break;
-		case 'R':
-			options_get_ll(&cfg.test_rnd_seed, optarg);
-			break;
-		case 's':
-			options_get_ll(&cfg.blob_size, optarg);
-			break;
-		case 'S':
-			options_get_ll(&cfg.test_item_size, optarg);
-			break;
-		case 't':
-			options_get_l(&cfg.blob_threads, optarg);
-			break;
-		default:
-			warnx("Unknown option passed");
-			usage(argv[0], EX_USAGE, stderr);
-		}
-	}
-
-	return optind;
-}
-
-/* Dumps full config */
-static void
-options_dump(void)
-{
-
-	printf("Defrag timeout in seconds: %ld\n", cfg.blob_defrag);
-	printf("Maximum number of records per base: %lld\n", cfg.blob_records);
-	printf("Maximum size of base in bytes: %lld\n", cfg.blob_size);
-	printf("sync(2) period in seconds: %ld\n", cfg.blob_sync);
-	printf("Number of iterator threads: %ld\n", cfg.blob_threads);
-	printf("Log level for eblog_log: %ld\n", cfg.log_level);
-	printf("Delay in miliseconds between iterations: %ld\n", cfg.test_delay);
-	printf("Maximum size of test item: %lld\n", cfg.test_item_size);
-	printf("Number of test items: %lld\n", cfg.test_items);
-	printf("Number of modify/read iterations: %lld\n", cfg.test_iterations);
-	printf("Print message each 'milestone' iterations: %ld\n", cfg.test_milestone);
-	printf("Random seed: %lld\n", cfg.test_rnd_seed);
-	printf("Test path: %s\n", cfg.test_path);
-}
 
 /*
  * This is data-sort routine test that can be used also as binlog test or even
