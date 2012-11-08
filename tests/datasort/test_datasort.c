@@ -49,7 +49,7 @@ struct shadow {
  *
  * Global variable.
  */
-struct test_cfg {
+static struct test_cfg {
 	int		items;		/* Number of test items */
 	int		delay;		/* Delay in miliseconds between
 					   iterations */
@@ -338,7 +338,6 @@ main(void)
 	b = *eblob_init(&bcfg);
 
 	/* Init test */
-	memset(&cfg, 0, sizeof(cfg));
 	cfg.delay = DEFAULT_TEST_DELAY;
 	cfg.items = DEFAULT_TEST_ITEMS;
 	cfg.iterations = DEFAULT_TEST_ITERATIONS;
