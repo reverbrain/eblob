@@ -13,6 +13,13 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * This is in-memory cache for eblob entries.
+ *
+ * Cache consists of rbtree hash (key to data) and two linked lists for LRU
+ * cache replacement.
+ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -44,6 +51,12 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
+/**
+ * rebalance_cache() - in case cache grew too much:
+ * - move LRU active entries (aka top queue) to inactive list (aka bottom
+ *   queue),
+ * - move LRU inactive enties out of the cache.
+ */
 static inline void rebalance_cache(struct eblob_hash *hash)
 {
 	struct eblob_hash_entry *t;
@@ -93,7 +106,11 @@ again:
 			}
 
 			if (t->flags & EBLOB_HASH_FLAGS_CACHE) {
-				/* we can jump to out_cache and this entry will be eventually deleted with stall cache_entry pointer */
+				/*
+				 * We can jump to out_cache and this entry will
+				 * be eventually deleted with stall cache_entry
+				 * pointer
+				 */
 				list_del_init(&t->cache_entry);
 				if (t->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
 					hash->cache_top_cnt--;
@@ -249,6 +266,9 @@ int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 	return err;
 }
 
+/**
+ * eblob_hash_lookup_alloc_nolock() - returns copy of data stored in cache
+ */
 int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
 {
 	struct eblob_hash_entry *e;
