@@ -200,7 +200,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		if (item->flags & BLOB_DISK_CTL_OVERWRITE)
 			max = item->size;
 		else
-			max = DEFAULT_TEST_ITEM_SIZE;
+			max = cfg.test_item_size;
 		item->size = 1 + random() % max;
 
 		if ((item->value = malloc(item->size)) == NULL)
