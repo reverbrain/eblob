@@ -193,7 +193,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_r
 	if (local->current == NULL
 			|| (dcfg->chunk_size > 0 && local->current->offset + dc->disk_size >= dcfg->chunk_size)
 			|| (dcfg->chunk_limit > 0 && local->current->count >= dcfg->chunk_limit)) {
-		// TODO: here we can plug sort for speedup
+		/* TODO: here we can plug sort for speedup */
 		local->current = datasort_split_add_chunk(dcfg);
 		if (local->current == NULL) {
 			err = -EIO;
@@ -645,19 +645,19 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
 		return -EINVAL;
 
 	switch (bctl->type) {
-		case EBLOB_BINLOG_TYPE_UPDATE:
-			/* XXX: */
-			break;
-		case EBLOB_BINLOG_TYPE_REMOVE:
-			/*
-			err = eblob_remove(dcfg->b, bctl->key, dcfg->bctl->type);
-			if (err) {
-				goto err;
-			}
-			*/
-			break;
-		default:
-			return -ENOTSUP;
+	case EBLOB_BINLOG_TYPE_UPDATE:
+		/* XXX: */
+		break;
+	case EBLOB_BINLOG_TYPE_REMOVE:
+		/*
+		err = eblob_remove(dcfg->b, bctl->key, dcfg->bctl->type);
+		if (err) {
+			goto err;
+		}
+		*/
+		break;
+	default:
+		return -ENOTSUP;
 	}
 
 	return 0;
@@ -771,9 +771,8 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	 *
 	 * FIXME: Copy permissions from original file
 	 */
-	if (fchmod(result->fd, 0644) == -1) {
+	if (fchmod(result->fd, 0644) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", result->fd);
-	}
 
 	/* Remove old indexes */
 	if (unlink(index_path) == -1)

@@ -105,7 +105,7 @@ static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *
 static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 	ssize_t err;
 
-	if(dhdr == NULL || fd < 0)
+	if (dhdr == NULL || fd < 0)
 		return -EINVAL;
 
 	/* Written header MUST be verifiable by us */
@@ -214,8 +214,9 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 		goto err;
 	}
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %" PRIu64 ", size: %" PRIu64 ", flags: %" PRIu64 ", key: %s, "
-			"offset: %" PRIu64, bcfg->path, rhdr->type, rhdr->size,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %" PRIu64 ", size: %" PRIu64
+			", flags: %" PRIu64 ", key: %s, offset: %" PRIu64,
+			bcfg->path, rhdr->type, rhdr->size,
 			rhdr->flags, eblob_dump_id(rhdr->key.id), offset);
 
 	err = binlog_verify_record_hdr(rhdr);
@@ -276,9 +277,8 @@ static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg) {
 	struct eblob_binlog_disk_record_hdr rhdr;
 
 	lsn = sizeof(*bcfg->disk_hdr);
-	while(binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0) {
+	while (binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0)
 		lsn += rhdr.size + sizeof(rhdr);
-	}
 
 	return lsn;
 }
