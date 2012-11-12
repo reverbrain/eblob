@@ -41,6 +41,7 @@ options_usage(char *progname, int eval, FILE *stream)
 	fprintf(stream, "[-d defrag_time] [-D delay ] [-i test_items] [-I iterations] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item size] [-t iterator_threads]");
+	fprintf(stream, "\n");
 
 	exit(eval);
 }
