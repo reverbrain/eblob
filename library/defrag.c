@@ -115,6 +115,7 @@ static int eblob_readlink(int fd, char **datap)
 	int dsize = 4096;
 	int err;
 
+	/* FIXME: Linuxism */
 	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
 
 	dst = malloc(dsize);

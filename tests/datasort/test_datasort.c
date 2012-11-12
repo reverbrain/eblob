@@ -244,6 +244,30 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	return 0;
 }
 
+/*
+ * Cleanup files, and free memory.
+ *
+ * TODO: Make file cleanup optional.
+ */
+void
+cleanups(int signal __unused)
+{
+	warnx("cleaning up...");
+	if (cfg.b != NULL) {
+		warnx("removing blobs");
+		eblob_remove_blobs(cfg.b);
+
+		if (cfg.b->cfg.log != NULL)
+			fclose(cfg.b->cfg.log->log_private);
+	}
+
+	/* Free memory */
+	free(cfg.test_path);
+	free(cfg.b);
+	free(cfg.shadow);
+
+	warnx("finished cleanup");
+}
 
 /*
  * This is data-sort routine test that can be used also as binlog test or even
@@ -252,12 +276,15 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 int
 main(int argc, char **argv)
 {
-	static struct eblob_backend *b;
 	static struct eblob_config bcfg;
 	static struct eblob_log logger;
 	static char log_path[PATH_MAX], blob_path[PATH_MAX];
 	struct shadow *item;
 	int error, i;
+
+	/* Cleanup on keyboard interrupt */
+	if (signal(SIGINT, cleanups) == SIG_ERR)
+		err(EX_OSERR, "signal");
 
 	warnx("started");
 
@@ -284,7 +311,7 @@ main(int argc, char **argv)
 	bcfg.records_in_blob = cfg.blob_records;
 	bcfg.sync = cfg.blob_sync;
 	bcfg.file = blob_path;
-	b = eblob_init(&bcfg);
+	cfg.b = eblob_init(&bcfg);
 
 	/* Init test */
 	cfg.shadow = calloc(cfg.test_items, sizeof(struct shadow));
@@ -293,7 +320,7 @@ main(int argc, char **argv)
 
 	/* Init shadow storage with some set of key-values */
 	for (i = 0; i < cfg.test_items; i++)
-		item_init(&cfg.shadow[i], b, i);
+		item_init(&cfg.shadow[i], cfg.b, i);
 
 	/*
 	 * Test loop
@@ -314,13 +341,13 @@ main(int argc, char **argv)
 		rnd = random() % cfg.test_items;
 		item = &cfg.shadow[rnd];
 
-		if ((error = item_check(item, b)) != 0) {
+		if ((error = item_check(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_check: %d", error);
 		}
-		if ((error = item_generate_random(item, b)) != 0) {
+		if ((error = item_generate_random(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_generate_random: %d", error);
 		}
-		if ((error = item_sync(item, b)) != 0) {
+		if ((error = item_sync(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_sync: %d", error);
 		}
 		if ((i % cfg.test_milestone) == 0)
@@ -328,10 +355,6 @@ main(int argc, char **argv)
 		nanosleep(&ts, NULL);
 	}
 
-	/* Cleanups */
-	fclose(logger.log_private);
-	free(cfg.test_path);
-	free(b);
-
+	cleanups(0);
 	errx(EX_OK, "finished");
 }

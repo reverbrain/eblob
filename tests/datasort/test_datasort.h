@@ -56,7 +56,6 @@ struct test_cfg {
 	long		blob_sync;		/* sync(2) period in seconds */
 	long		blob_threads;		/* Number of iterator threads */
 	long		log_level;		/* Log level for eblog_log */
-	long		log_fd;			/* Opened log file descriptor */
 	long		test_delay;		/* Delay in milliseconds between
 						   iterations */
 	long long	test_item_size;		/* Maximum size of test item */
@@ -68,6 +67,9 @@ struct test_cfg {
 	char		*test_path;		/* Path to test directory */
 	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
+	/* Internal structures follow */
+	long		log_fd;			/* Opened log file descriptor */
+	struct eblob_backend *b;		/* Eblob backend */
 	struct shadow	*shadow;		/* Shadow storage pointer */
 };
 
