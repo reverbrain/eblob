@@ -208,7 +208,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		 * TODO: BSD has memset_pattern calls which looks like better
 		 * solution for filling memory region
 		 */
-		memset(item->value, item->idx, item->size);
+		memset(item->value, random(), item->size);
 	} else {
 		item->size = 0;
 		item->value = NULL;
