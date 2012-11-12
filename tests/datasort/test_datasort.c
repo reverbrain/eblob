@@ -193,6 +193,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	 * If new entry not removed
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
+		/* TODO: Add support for values > 2Gb */
 		int max;
 
 		/* If it's overwrite we should not generate bigger entry */
@@ -214,8 +215,9 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		item->value = NULL;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "generated item: %s: flags %s -> %s\n",
-	    item->key, old_item.hflags, item->hflags);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+	    "generated item: %s: flags %s -> %s, size %lld -> %lld\n",
+	    item->key, old_item.hflags, item->hflags, old_item.size, item->size);
 
 	return 0;
 }
