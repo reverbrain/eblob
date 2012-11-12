@@ -250,7 +250,13 @@ item_sync(struct shadow *item, struct eblob_backend *b)
  * TODO: Make file cleanup optional.
  */
 void
-cleanups(int signal __unused)
+sigint_cb(int signal __unused)
+{
+	cfg.need_exit = 1;
+}
+
+void
+cleanups(void)
 {
 	warnx("cleaning up...");
 	if (cfg.b != NULL) {
@@ -281,10 +287,6 @@ main(int argc, char **argv)
 	static char log_path[PATH_MAX], blob_path[PATH_MAX];
 	struct shadow *item;
 	int error, i;
-
-	/* Cleanup on keyboard interrupt */
-	if (signal(SIGINT, cleanups) == SIG_ERR)
-		err(EX_OSERR, "signal");
 
 	warnx("started");
 
@@ -318,9 +320,16 @@ main(int argc, char **argv)
 	if (cfg.shadow == NULL)
 		err(EX_OSERR, "calloc: %lld", cfg.test_items * sizeof(struct shadow));
 
+	/* Cleanup on keyboard interrupt */
+	if (signal(SIGINT, sigint_cb) == SIG_ERR)
+		err(EX_OSERR, "signal");
+
 	/* Init shadow storage with some set of key-values */
-	for (i = 0; i < cfg.test_items; i++)
+	for (i = 0; i < cfg.test_items; i++) {
 		item_init(&cfg.shadow[i], cfg.b, i);
+		if (cfg.need_exit)
+			goto out_cleanups;
+	}
 
 	/*
 	 * Test loop
@@ -352,9 +361,13 @@ main(int argc, char **argv)
 		}
 		if ((i % cfg.test_milestone) == 0)
 			warnx("iteration: %d", i);
+		if (cfg.need_exit)
+			goto out_cleanups;
 		nanosleep(&ts, NULL);
 	}
 
-	cleanups(0);
+out_cleanups:
+	cleanups();
+	/* Ctrl+C is not considered an error */
 	errx(EX_OK, "finished");
 }

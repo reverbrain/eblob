@@ -50,6 +50,7 @@ enum rnd_flags_types {
  * Test configuration
  */
 struct test_cfg {
+	/* Tunables */
 	long		blob_defrag;		/* Defrag timeout in seconds */
 	long long	blob_records;		/* Number of records in base */
 	long long	blob_size;		/* Max size of base in bytes */
@@ -68,9 +69,10 @@ struct test_cfg {
 	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
 	/* Internal structures follow */
-	long		log_fd;			/* Opened log file descriptor */
-	struct eblob_backend *b;		/* Eblob backend */
-	struct shadow	*shadow;		/* Shadow storage pointer */
+	int			need_exit;	/* SIGINT caught */
+	long			log_fd;		/* Opened log file descriptor */
+	struct eblob_backend	*b;		/* Eblob backend */
+	struct shadow		*shadow;	/* Shadow storage pointer */
 };
 
 /* Global variable */
