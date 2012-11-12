@@ -266,7 +266,7 @@ main(int argc, char **argv)
 
 	/* Construct pathes */
 	snprintf(log_path, PATH_MAX, "%s/%s", cfg.test_path, "test.log");
-	snprintf(blob_path, PATH_MAX, "%s/%s", cfg.test_path, "test-blob.log");
+	snprintf(blob_path, PATH_MAX, "%s/%s", cfg.test_path, "test-blob");
 
 	/* Init logger */
 	logger.log_level = cfg.log_level;
