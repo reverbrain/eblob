@@ -32,7 +32,7 @@ struct shadow {
 	char			key[32];	/* Unhashed key */
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
-	int			size;		/* Size of data */
+	long long		size;		/* Size of data */
 	int			flags;		/* Entry's eblob flags */
 	char			hflags[64];	/* Human readable flags */
 };
