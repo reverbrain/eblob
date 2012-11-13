@@ -289,7 +289,9 @@ struct eblob_ram_control {
 
 	short			index, type;
 	/* binlog pointer is not NULL if binary log is turned on for that base */
-	struct eblob_binlog_cfg *binlog;
+	struct eblob_binlog_cfg	*binlog;
+	/* Lock that protects binlog. This is pointer to bctl->lock */
+	pthread_mutex_t		*binlog_lock;
 };
 
 struct eblob_backend *eblob_init(struct eblob_config *c);

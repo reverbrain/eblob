@@ -237,7 +237,8 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	err = 0;
 
 err_unlock:
-	pthread_mutex_unlock(&dcfg->lock);
+	if (pthread_mutex_unlock(&dcfg->lock) != 0)
+		abort();
 err:
 	return err;
 }
@@ -649,8 +650,6 @@ err:
 static void datasort_destroy(struct datasort_cfg *dcfg)
 {
 	pthread_mutex_destroy(&dcfg->lock);
-	if (dcfg->result != NULL)
-		datasort_destroy_chunk(dcfg, dcfg->result);
 	free(dcfg->dir);
 };
 
@@ -847,9 +846,18 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	eblob_index_blocks_fill(bctl);
 
 	/* Flush hash */
+	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+		err = -err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+		goto err_unmap;
+	}
+
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size)
 		eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 	assert(i == dcfg->result->count);
+
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
+		abort();
 
 	/*
 	 * At this point we can't rollback, so fall through
@@ -1001,8 +1009,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Lock base */
-	pthread_mutex_lock(&dcfg->b->lock);
-	pthread_mutex_lock(&dcfg->b->hash->root_lock);
+	if ((err = pthread_mutex_lock(&dcfg->bctl->lock)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
+		goto err_unlink;
+	}
 
 	/*
 	 * Rewind all records that have been modified since data-sort was
@@ -1041,8 +1051,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 err_unlock:
 	/* Unlock base */
-	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
-	pthread_mutex_unlock(&dcfg->b->lock);
+	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
+		abort();
+err_unlink:
+	datasort_destroy_chunk(dcfg, dcfg->result);
 err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);

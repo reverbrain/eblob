@@ -621,15 +621,15 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->size = dc->data_size;
 			r->index = bctl->index;
 			r->type = bctl->type;
-			/*
-			 * FIXME: Protect pointer with lock
-			 */
+
 			r->binlog = bctl->binlog;
+			r->binlog_lock = &bctl->lock;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
-					"position: %llu, data_size: %llu\n",
-					eblob_dump_id(key->id),	r->index, r->type,
-					(unsigned long long)r->data_offset, (unsigned long long)r->size);
+					"position: %llu, data_size: %llu, binlog: %p\n",
+					eblob_dump_id(key->id), r->index, r->type,
+					(unsigned long long)r->data_offset, (unsigned long long)r->size,
+					bctl->binlog);
 
 			eblob_convert_disk_control(dc);
 			err = 0;

@@ -389,6 +389,8 @@ int binlog_open(struct eblob_binlog_cfg *bcfg)
 		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "flock: %s", bcfg->path);
 		goto err_close;
 	}
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "opened: %s(%d)", bcfg->path, fd);
 	/* Truncate binlog if requested */
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_TRUNCATE) {
 		bcfg->position = sizeof(struct eblob_binlog_disk_hdr);
@@ -726,11 +728,18 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		goto err;
 	}
 
+	/* Lock base */
+	if ((err = pthread_mutex_lock(&bctl->lock)) != 0) {
+		err = -err;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d", -err);
+		goto err_free;
+	}
+
 	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s",
 			dirname(path_copy), bctl->name, binlog_suffix);
 	if (strlen(binlog_filename) >= PATH_MAX) {
 		err = -ENAMETOOLONG;
-		goto err_free;
+		goto err_unlock;
 	}
 
 	bcfg = binlog_init(binlog_filename, b->cfg.log);
@@ -749,11 +758,13 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		goto err_destroy;
 	}
 	bctl->binlog = bcfg;
-	free(path_copy);
-	return 0;
+	goto err_unlock;
 
 err_destroy:
 	binlog_destroy(bcfg);
+err_unlock:
+	if (pthread_mutex_unlock(&bctl->lock) != 0)
+		abort();
 err_free:
 	free(path_copy);
 err:
@@ -774,6 +785,12 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: stop\n");
 
+	/* Lock base */
+	if ((err = pthread_mutex_lock(&bctl->lock)) != 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d", err);
+		return -err;
+	}
+
 	/* First remove, then close. This avoids unlink/unlock race */
 	if (unlink(bctl->binlog->path) == -1)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
@@ -788,6 +805,10 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 				"blob: binlog: binlog_destroy failed: %d\n", err);
 
 	bctl->binlog = NULL;
+
+	/* Unlock base */
+	if (pthread_mutex_unlock(&bctl->lock) != 0)
+		abort();
 
 	return err;
 }

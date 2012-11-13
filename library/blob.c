@@ -366,6 +366,16 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 #ifdef BINLOG
 	if (old->binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
+		int err;
+
+		if ((err = pthread_mutex_lock(old->binlog_lock)) != 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
+			goto skip_binlog;
+		}
+		if (old->binlog == NULL)
+			goto skip_binlog;
+
 		memset(&bctl, 0, sizeof(bctl));
 
 		bctl.cfg = old->binlog;
@@ -375,7 +385,10 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
+		if (pthread_mutex_unlock(old->binlog_lock) != 0)
+			abort();
 	}
+skip_binlog:
 #endif /* BINLOG */
 
 	eblob_stat_update(b, -1, 1, 0);
@@ -763,6 +776,17 @@ again:
 #ifdef BINLOG
 	if (for_write && ctl.binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
+
+		if ((err = pthread_mutex_lock(ctl.binlog_lock)) != 0) {
+			err = -err;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: binlog: %s: pthread_mutex_lock: %zd\n", __func__, -err);
+			goto err_out_exit;
+		}
+		if (ctl.binlog == NULL) {
+			goto skip_binlog;
+		}
+
 		memset(&bctl, 0, sizeof(bctl));
 
 		bctl.cfg = ctl.binlog;
@@ -776,7 +800,11 @@ again:
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
 			goto err_out_exit;
 		}
+
+		if (pthread_mutex_unlock(ctl.binlog_lock) != 0)
+			abort();
 	}
+skip_binlog:
 #endif /* BINLOG */
 err_out_exit:
 	return err;
