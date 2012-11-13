@@ -1012,13 +1012,14 @@ void eblob_remove_blobs(struct eblob_backend *b)
 /*
  * Efficiently preallocate up to @size bytes for fd
  */
-int eblob_preallocate(int fd, off_t size) {
+int eblob_preallocate(int fd, off_t size)
+{
 	if (size == 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
 	if (posix_fallocate(fd, 0, size) == 0)
 		return 0;
-#endif /* !HAVE_POSIX_FALLOCATE */
+#endif
 	/* Crippled OSes/FSes go here */
 	if (ftruncate(fd, size) == -1)
 		return -errno;
@@ -1028,7 +1029,8 @@ int eblob_preallocate(int fd, off_t size) {
 /*
  * OS pagecache hints
  */
-int eblob_pagecache_hint(int fd, uint64_t flag) {
+int eblob_pagecache_hint(int fd, uint64_t flag)
+{
 	if (fd < 0)
 		return -EINVAL;
 	if (flag & (~EBLOB_FLAGS_HINT_ALL))
@@ -1043,7 +1045,7 @@ int eblob_pagecache_hint(int fd, uint64_t flag) {
 	else if (flag & EBLOB_FLAGS_HINT_DONTNEED)
 		advise = POSIX_FADV_DONTNEED;
 	return -posix_fadvise(fd, 0, 0, advise);
-#else /* HAVE_POSIX_FADVISE */
+#else /* !HAVE_POSIX_FADVISE */
 	/*
 	 * TODO: On Darwin/FreeBSD(old ones) we should mmap file and use msync with MS_INVALIDATE
 	 */

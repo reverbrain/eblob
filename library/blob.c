@@ -1800,7 +1800,8 @@ int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t
 	return eblob_remove(b, &ekey, type);
 }
 
-int eblob_get_types(struct eblob_backend *b, int **typesp) {
+int eblob_get_types(struct eblob_backend *b, int **typesp)
+{
 	struct eblob_base_type *type;
 	int types_num, i;
 	int *types;

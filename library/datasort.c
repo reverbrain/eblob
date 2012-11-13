@@ -40,7 +40,8 @@
 /*
  * Create temp directory for sorting
  */
-static char *datasort_mkdtemp(struct datasort_cfg *dcfg) {
+static char *datasort_mkdtemp(struct datasort_cfg *dcfg)
+{
 	char *path, *tmppath;
 	static const char tpl_suffix[] = "datasort.XXXXXX";
 
@@ -69,7 +70,8 @@ err:
 /*
  * Creates new chunk on disk
  */
-static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg) {
+static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg)
+{
 	int fd;
 	char *path;
 	struct datasort_chunk *chunk;
@@ -117,7 +119,8 @@ err:
 }
 
 /* Recursively destroys all initialized fields of one chunk */
-static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk) {
+static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk)
+{
 	assert(dcfg != NULL);
 	assert(chunk != NULL);
 
@@ -139,7 +142,8 @@ static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_ch
 }
 
 /* Destroys all chunks in given list */
-static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head *head) {
+static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head *head)
+{
 	struct datasort_chunk *chunk, *tmp;
 
 	assert(dcfg != NULL);
@@ -164,8 +168,10 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
  * Then
  * - copy new entry to current chunk
  */
-static int datasort_split_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rctl __unused,
-		void *data, void *priv, void *thread_priv) {
+static int datasort_split_iterator(struct eblob_disk_control *dc,
+		struct eblob_ram_control *rctl __unused,
+		void *data, void *priv, void *thread_priv)
+{
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
 	struct datasort_chunk_local *local = thread_priv;
@@ -239,7 +245,8 @@ err:
 /*
  * Iterator callbacks
  */
-static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
+static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+{
 	struct datasort_chunk_local *local;
 
 	local = calloc(1, sizeof(*local));
@@ -249,13 +256,15 @@ static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unu
 	*priv_thread = local;
 	return 0;
 }
-static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __unused, void **priv_thread) {
+static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+{
 	free(*priv_thread);
 	return 0;
 }
 
 /* Run datasort_split_iterator on given base */
-static int datasort_split(struct datasort_cfg *dcfg) {
+static int datasort_split(struct datasort_cfg *dcfg)
+{
 	int err;
 	struct eblob_iterate_control ictl;
 
@@ -301,7 +310,8 @@ err:
 static int datasort_copy_record(struct datasort_cfg *dcfg,
 		struct datasort_chunk *from_chunk,
 		struct datasort_chunk *to_chunk,
-		struct eblob_disk_control *dc, uint64_t offset) {
+		struct eblob_disk_control *dc, uint64_t offset)
+{
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 	struct eblob_disk_control hdr;
 	ssize_t err;
@@ -358,7 +368,8 @@ err:
  * TODO: sort step can be merged into split step for speedup
  */
 static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
-		struct datasort_chunk *unsorted_chunk) {
+		struct datasort_chunk *unsorted_chunk)
+{
 	ssize_t err;
 	uint64_t i, offset;
 	struct eblob_disk_control *index, *hdrp;
@@ -457,7 +468,8 @@ err:
 }
 
 /* Sort all chunks from unsorted list and move them to sorted one */
-static int datasort_sort(struct datasort_cfg *dcfg) {
+static int datasort_sort(struct datasort_cfg *dcfg)
+{
 	struct datasort_chunk *chunk, *sorted_chunk, *tmp;
 
 	assert(dcfg != NULL);
@@ -491,7 +503,8 @@ err:
 
 /* Merge two sorted chunks together, return pointer to result */
 static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
-		struct datasort_chunk *chunk1, struct datasort_chunk *chunk2) {
+		struct datasort_chunk *chunk1, struct datasort_chunk *chunk2)
+{
 	struct datasort_chunk *chunk_merge, *chunk;
 	uint64_t *idx, i, j;
 	int err;
@@ -586,7 +599,8 @@ err:
  *  - Succeded: merge chunks via datasort_merge_chunks and put result to the
  *  end of sorted list.
  */
-static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg) {
+static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
+{
 	struct datasort_chunk *chunk1, *chunk2, *chunk_merge;
 
 	assert(dcfg != NULL);
@@ -632,13 +646,15 @@ err:
 }
 
 /* Recursively destroys dcfg */
-static void datasort_destroy(struct datasort_cfg *dcfg) {
+static void datasort_destroy(struct datasort_cfg *dcfg)
+{
 	pthread_mutex_destroy(&dcfg->lock);
 	free(dcfg->dir);
 };
 
 /* This routine called by @binlog_apply one time for each binlog entry */
-int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
+int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
+{
 	struct datasort_cfg *dcfg = priv;
 
 	if (bctl == NULL || dcfg == NULL)
@@ -672,7 +688,8 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl) {
  * - rename index and data
  * - flush cache
  */
-static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result) {
+static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result)
+{
 	struct eblob_map_fd index;
 	struct eblob_base_ctl *bctl;
 	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], sorted_index_path[PATH_MAX], data_path[PATH_MAX];
@@ -795,8 +812,10 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 				sorted_index_path, index_path);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"datasort_swap: swapped: data: %s -> %s, data_fd: %d -> %d, index_fd: %d -> %d",
-			result->path, data_path, bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
+			"datasort_swap: swapped: data: %s -> %s, "
+			"data_fd: %d -> %d, index_fd: %d -> %d",
+			result->path, data_path,
+			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
 err_unmap:
@@ -823,7 +842,8 @@ err:
  *  - Replace original base with sorted one
  *  - Unlock now-sorted base
  */
-int eblob_generate_sorted_data(struct datasort_cfg *dcfg) {
+int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
+{
 	struct datasort_chunk *result;
 	int err;
 

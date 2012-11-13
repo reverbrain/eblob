@@ -165,9 +165,9 @@ static inline int binlog_datasync(int fd)
 	if (fdatasync(fd) == -1)
 		return -errno;
 	return 0;
-#else /* !HAVE_FDATASYNC */
+#else
 	return binlog_sync(fd);
-#endif /* HAVE_FDATASYNC */
+#endif
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);
