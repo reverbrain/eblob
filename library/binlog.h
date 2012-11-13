@@ -153,19 +153,21 @@ struct eblob_binlog_disk_record_hdr {
  * On linux fdatasync call is available that syncs only data, but not metadata,
  * which requires less disk seeks.
  */
-static inline int binlog_sync(int fd) {
+static inline int binlog_sync(int fd)
+{
 	if (fsync(fd) == -1)
 		return -errno;
 	return 0;
 }
-static inline int binlog_datasync(int fd) {
+static inline int binlog_datasync(int fd)
+{
 #ifdef HAVE_FDATASYNC
 	if (fdatasync(fd) == -1)
 		return -errno;
 	return 0;
-#else /* HAVE_FDATASYNC */
+#else /* !HAVE_FDATASYNC */
 	return binlog_sync(fd);
-#endif /* !HAVE_FDATASYNC */
+#endif /* HAVE_FDATASYNC */
 }
 
 struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log);

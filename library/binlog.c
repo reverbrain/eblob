@@ -51,7 +51,8 @@
 
 
 /* Extend fd by @bcfg->prealloc_step if PREALLOC is enabled */
-static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd) {
+static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd)
+{
 	int err;
 
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_PREALLOC) {
@@ -71,7 +72,8 @@ static inline int binlog_extend(struct eblob_binlog_cfg *bcfg, int fd) {
  * Preform simple checks on binlog header, later in can also signal on disk
  * data format changes or perform checksum verifications.
  */
-static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr) {
+static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr)
+{
 	if (strcmp(dhdr->magic, EBLOB_BINLOG_MAGIC))
 		return -EINVAL;
 
@@ -88,7 +90,8 @@ static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr) {
 /*
  * Performs some basic checks on record header
  */
-static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *rhdr) {
+static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *rhdr)
+{
 	assert(rhdr != NULL);
 
 	if (rhdr->type <= EBLOB_BINLOG_TYPE_FIRST || rhdr->type >= EBLOB_BINLOG_TYPE_LAST)
@@ -102,7 +105,8 @@ static inline int binlog_verify_record_hdr(struct eblob_binlog_disk_record_hdr *
 }
 
 /* Write binlog file header header */
-static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
+static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr)
+{
 	ssize_t err;
 
 	if (dhdr == NULL || fd < 0)
@@ -122,7 +126,8 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr) {
 }
 
 /* Read binlog file header header */
-static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp) {
+static int binlog_hdr_read(int fd, struct eblob_binlog_disk_hdr **dhdrp)
+{
 	ssize_t err;
 	struct eblob_binlog_disk_hdr *dhdr;
 
@@ -154,7 +159,8 @@ err_free_dhdr:
 /*
  * Creates binlog and preallocates space for it.
  */
-static int binlog_create(struct eblob_binlog_cfg *bcfg) {
+static int binlog_create(struct eblob_binlog_cfg *bcfg)
+{
 	int fd, err;
 	struct eblob_binlog_disk_hdr dhdr;
 
@@ -199,7 +205,8 @@ err:
  * and returns pointer to it.
  */
 static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
-		struct eblob_binlog_disk_record_hdr *rhdr, off_t offset) {
+		struct eblob_binlog_disk_record_hdr *rhdr, off_t offset)
+{
 	ssize_t err;
 
 	assert(bcfg != NULL);
@@ -210,7 +217,8 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 	err = pread(bcfg->fd, rhdr, sizeof(*rhdr), offset);
 	if (err != sizeof(*rhdr)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "pread: %s, offset: %" PRId64, bcfg->path, offset);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
+				"pread: %s, offset: %" PRId64, bcfg->path, offset);
 		goto err;
 	}
 
@@ -221,7 +229,8 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 
 	err = binlog_verify_record_hdr(rhdr);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_verify_record_hdr: %s", bcfg->path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
+				"binlog_verify_record_hdr: %s", bcfg->path);
 		goto err;
 	}
 
@@ -237,7 +246,8 @@ err:
  *
  * TODO: unify style acording to binlog_read_record_hdr()
  */
-static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size) {
+static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size)
+{
 	ssize_t err;
 	char *buf;
 
@@ -272,7 +282,8 @@ err:
  * FIXME: Last record of binlog can be truncated / corupted so we
  * really need checksumming
  */
-static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg) {
+static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg)
+{
 	off_t lsn;
 	struct eblob_binlog_disk_record_hdr rhdr;
 
@@ -288,7 +299,8 @@ static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg) {
  * @path is desired name of binlog file.
  * @log is logger control structure.
  */
-struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log) {
+struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log)
+{
 	int len;
 	char *tmppath;
 	struct eblob_binlog_cfg *bcfg;
@@ -341,7 +353,8 @@ err:
  * @bcfg->prealloc_step: number of bytes to preallocate on disk for
  * binlog.
  */
-int binlog_open(struct eblob_binlog_cfg *bcfg) {
+int binlog_open(struct eblob_binlog_cfg *bcfg)
+{
 	int fd, oflag, err;
 	struct stat binlog_stat;
 
@@ -433,7 +446,8 @@ err:
 /*
  * Append record to the end of binlog.
  */
-int binlog_append(struct eblob_binlog_ctl *bctl) {
+int binlog_append(struct eblob_binlog_ctl *bctl)
+{
 	ssize_t err, record_len;
 	off_t offset;
 	struct eblob_binlog_cfg *bcfg;
@@ -525,7 +539,8 @@ err:
  *
  * Data is placed to @bctl->data
  */
-int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset) {
+int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
+{
 	int err;
 	char *data = NULL;
 	struct eblob_binlog_disk_record_hdr rhdr;
@@ -580,7 +595,8 @@ err:
  * NB! Caller should prevent binlog from beeing modified.
  */
 int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
-		int (*callback)(void *priv, struct eblob_binlog_ctl *bctl)) {
+		int (*callback)(void *priv, struct eblob_binlog_ctl *bctl))
+{
 	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
 	struct eblob_binlog_ctl bctl;
 	uint64_t count = 0;
@@ -621,7 +637,8 @@ err:
 /*
  * Closes binlog and tries to flush it from OS memory.
  */
-int binlog_close(struct eblob_binlog_cfg *bcfg) {
+int binlog_close(struct eblob_binlog_cfg *bcfg)
+{
 	int err;
 
 	if (bcfg == NULL || bcfg->fd < 0)
@@ -669,7 +686,8 @@ err:
 }
 
 /* Recursively destroys binlog object */
-int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
+int binlog_destroy(struct eblob_binlog_cfg *bcfg)
+{
 	/*
 	 * It's safe to free NULL but it still strange to pass it to
 	 * binlog_destroy, so return an error.
@@ -689,7 +707,8 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg) {
  *
  * bctl MUST be "closed" by that moment, i.e no new writes are allowed.
  */
-int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
+int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+{
 	int err;
 	struct eblob_binlog_cfg *bcfg;
 	char binlog_filename[PATH_MAX], *path_copy;
@@ -706,7 +725,8 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 		goto err;
 	}
 
-	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s", dirname(path_copy), bctl->name, binlog_suffix);
+	snprintf(binlog_filename, PATH_MAX, "%s/%s.%s",
+			dirname(path_copy), bctl->name, binlog_suffix);
 	if (strlen(binlog_filename) >= PATH_MAX) {
 		err = -ENAMETOOLONG;
 		goto err_free;
@@ -723,7 +743,8 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 
 	err = binlog_open(bcfg);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: eblob_start_binlog failed: %d.\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: binlog: eblob_start_binlog failed: %d.\n", err);
 		goto err_destroy;
 	}
 	bctl->binlog = bcfg;
@@ -741,7 +762,8 @@ err:
 /*
  * Close and destroy binlog
  */
-int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
+int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+{
 	int err;
 
 	if (b == NULL || bctl == NULL)
@@ -753,13 +775,16 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 
 	/* First remove, then close. This avoids unlink/unlock race */
 	if (unlink(bctl->binlog->path) == -1)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: unlink: %s: %d\n", bctl->binlog->path, errno);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: binlog: unlink: %s: %d\n", bctl->binlog->path, errno);
 
 	if ((err = binlog_close(bctl->binlog)) != 0)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: binlog_close failed: %d\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: binlog: binlog_close failed: %d\n", err);
 
 	if ((err = binlog_destroy(bctl->binlog)) != 0)
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: binlog_destroy failed: %d\n", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: binlog: binlog_destroy failed: %d\n", err);
 
 	bctl->binlog = NULL;
 
