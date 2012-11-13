@@ -627,7 +627,8 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
 		count++;
 	}
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO,
+			"binlog_apply: %s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
 			bcfg->path, offset, count);
 
 err:

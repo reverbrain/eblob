@@ -649,31 +649,106 @@ err:
 static void datasort_destroy(struct datasort_cfg *dcfg)
 {
 	pthread_mutex_destroy(&dcfg->lock);
+	if (dcfg->result != NULL)
+		datasort_destroy_chunk(dcfg, dcfg->result);
 	free(dcfg->dir);
 };
 
-/* This routine called by @binlog_apply one time for each binlog entry */
-int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
+/**
+ * datasort_index_search() - bsearch sorted index for disk control for
+ * corresponding @key
+ * @base:	pointer to the start of sorted index
+ * @nel:	number of elements in index
+ *
+ * Returns pointer to found entry or NULL, see bsearch(3)
+ */
+static struct eblob_disk_control *datasort_index_search(struct eblob_key *key,
+		struct eblob_disk_control *base, uint64_t nel)
+{
+	struct eblob_disk_control dc;
+
+	memset(&dc, 0, sizeof(dc));
+	dc.key = *key;
+	return bsearch(&dc, base, nel, sizeof(dc), eblob_disk_control_sort);
+}
+
+/**
+ * datasort_binlog_remove() - removes one binlog entry from base and index
+ */
+static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
+{
+	dc->flags |= BLOB_DISK_CTL_REMOVE;
+	return blob_mark_index_removed(data_fd, dc->position);
+}
+
+/**
+ * datasort_binlog_update() - rewrites key's value with data taken from binlog
+ */
+static int datasort_binlog_update(struct eblob_backend *b,
+		struct eblob_write_control *wc, void *data, ssize_t size)
+{
+	ssize_t err;
+
+	/* XXX: Write header (it could be changed) */
+
+	/* Write data */
+	err = pwrite(wc->data_fd, data, size, wc->data_offset);
+	if (err != size) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		return err;
+	}
+	/* Write footer */
+	return eblob_write_commit_ll(b, NULL, 0, wc);
+}
+
+/**
+ * datasort_binlog_apply_one() - called by @binlog_apply one time for each
+ * binlog entry
+ */
+int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 {
 	struct datasort_cfg *dcfg = priv;
+	struct eblob_disk_control *found;
+	struct eblob_write_control *wc;
+	int err;
 
-	if (bctl == NULL || dcfg == NULL)
+	if (bctl == NULL)
 		return -EINVAL;
+
+	if (dcfg == NULL || dcfg->result == NULL || dcfg->result->index == NULL)
+		return -EINVAL;
+
+	found = datasort_index_search(bctl->key, dcfg->result->index, dcfg->result->count);
+	if (found == NULL) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "key not found: %s",
+				eblob_dump_id(bctl->key->id));
+		return 0;
+	}
 
 	switch (bctl->type) {
 	case EBLOB_BINLOG_TYPE_UPDATE:
-		/* XXX: */
+		/* Shortcut */
+		wc = bctl->meta;
+		/* Fill fields needed by eblob_write_commit_ll() */
+		wc->data_fd = dcfg->result->fd;
+		wc->ctl_data_offset = found->position;
+		wc->data_offset = wc->ctl_data_offset + sizeof(*found) + wc->offset;
+		err = datasort_binlog_update(dcfg->b, wc, bctl->data, bctl->size - bctl->meta_size);
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
-		/*
-		err = eblob_remove(dcfg->b, bctl->key, dcfg->bctl->type);
-		if (err) {
-			goto err;
-		}
-		*/
+		err = datasort_binlog_remove(found, dcfg->result->fd);
 		break;
 	default:
 		return -ENOTSUP;
+	}
+
+	/*
+	 * Failure is acceptable - after all we are working with inconsistent
+	 * base.
+	 */
+	if (err != 0) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
+				"failed to apply key: %s", eblob_dump_id(bctl->key->id));
 	}
 
 	return 0;
@@ -688,7 +763,7 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
  * - rename index and data
  * - flush cache
  */
-static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *result)
+static int datasort_swap(struct datasort_cfg *dcfg)
 {
 	struct eblob_map_fd index;
 	struct eblob_base_ctl *bctl;
@@ -698,7 +773,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 
 	assert(dcfg != NULL);
 	assert(dcfg->bctl != NULL);
-	assert(result != NULL);
+	assert(dcfg->result != NULL);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_swap: start");
 
@@ -717,7 +792,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	 * FIXME: Copy permissions from original fd
 	 */
 	memset(&index, 0, sizeof(index));
-	index.size = result->count * sizeof(struct eblob_disk_control);
+	index.size = dcfg->result->count * sizeof(struct eblob_disk_control);
 	index.fd = open(tmp_index_path, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
 	if (index.fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "open: %s", tmp_index_path);
@@ -740,7 +815,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	}
 
 	/* Save index on disk */
-	memcpy(index.data, result->index, index.size);
+	memcpy(index.data, dcfg->result->index, index.size);
 
 	/* Backup data */
 	bctl->old_data_fd = bctl->data_fd;
@@ -748,7 +823,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	bctl->old_sort = bctl->sort;
 
 	/* Swap data */
-	bctl->data_fd = result->fd;
+	bctl->data_fd = dcfg->result->fd;
 	bctl->index_fd = index.fd;
 	bctl->sort = index;
 
@@ -772,9 +847,9 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	eblob_index_blocks_fill(bctl);
 
 	/* Flush hash */
-	for (offset = 0, i = 0; offset < result->offset; offset += result->index[i++].disk_size)
-		eblob_remove_type_nolock(dcfg->b, &result->index[i].key, bctl->type);
-	assert(i == result->count);
+	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size)
+		eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
+	assert(i == dcfg->result->count);
 
 	/*
 	 * At this point we can't rollback, so fall through
@@ -788,8 +863,8 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	 *
 	 * FIXME: Copy permissions from original file
 	 */
-	if (fchmod(result->fd, 0644) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", result->fd);
+	if (fchmod(dcfg->result->fd, 0644) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", dcfg->result->fd);
 
 	/* Remove old indexes */
 	if (unlink(index_path) == -1)
@@ -799,9 +874,9 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", sorted_index_path);
 
 	/* Swap files */
-	if (rename(result->path, data_path) == -1)
+	if (rename(dcfg->result->path, data_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
-				result->path, data_path);
+				dcfg->result->path, data_path);
 	if (rename(tmp_index_path, sorted_index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
 				tmp_index_path, sorted_index_path);
@@ -814,7 +889,7 @@ static int datasort_swap(struct datasort_cfg *dcfg, struct datasort_chunk *resul
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_swap: swapped: data: %s -> %s, "
 			"data_fd: %d -> %d, index_fd: %d -> %d",
-			result->path, data_path,
+			dcfg->result->path, data_path,
 			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
@@ -844,7 +919,6 @@ err:
  */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 {
-	struct datasort_chunk *result;
 	int err;
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
@@ -919,8 +993,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Merge sorted chunks */
-	result = datasort_merge(dcfg);
-	if (result == NULL) {
+	dcfg->result = datasort_merge(dcfg);
+	if (dcfg->result == NULL) {
 		err = -EIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_merge: %s", dcfg->dir);
 		goto err_rmdir;
@@ -935,7 +1009,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 * started.
 	 */
 	if (dcfg->use_binlog) {
-		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply);
+		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply_one);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 			goto err_unlock;
@@ -943,7 +1017,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/* Swap fd's and other internal structures */
-	err = datasort_swap(dcfg, result);
+	err = datasort_swap(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap: %s", dcfg->dir);
 		goto err_unlock;
@@ -959,9 +1033,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 * We need it because we don't want to remove resulted chunk we've just
 	 * created
 	 */
-	free(result->path);
-	result->fd = -1;
-	result->path = NULL;
+	free(dcfg->result->path);
+	dcfg->result->fd = -1;
+	dcfg->result->path = NULL;
 
 	eblob_log(dcfg->log, EBLOB_LOG_INFO, "blob: datasort: success\n");
 
@@ -969,8 +1043,6 @@ err_unlock:
 	/* Unlock base */
 	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
-	/* Free merged chunk memory, but leave data */
-	datasort_destroy_chunk(dcfg, result);
 err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);

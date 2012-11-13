@@ -326,7 +326,7 @@ err_out_exit:
 	return ctl->err;
 }
 
-static int blob_mark_index_removed(int fd, off_t offset)
+int blob_mark_index_removed(int fd, off_t offset)
 {
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 	int err;
@@ -1040,7 +1040,7 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize,
+int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize,
 		struct eblob_write_control *wc)
 {
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);

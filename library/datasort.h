@@ -66,12 +66,16 @@ struct datasort_cfg {
 	 * MUST be set to one if data in base can be modified while sorting.
 	 * Should not be set when, for example, datasort is started as part of
 	 * blob opening procedure.
+	 *
+	 * TODO: Convert to flag
 	 */
 	int				use_binlog;
 	/* Splitter chunks */
 	struct list_head		unsorted_chunks;
 	/* Sorter/merger chunks */
 	struct list_head		sorted_chunks;
+	/* Result of mergesort */
+	struct datasort_chunk		*result;
 	/* Datasort directory */
 	char				*dir;
 	/* Pointer to backend */
