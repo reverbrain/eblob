@@ -29,7 +29,7 @@
 
 #include "test_datasort.h"
 
-/* Global variable for test config config */
+/* Global variable for test config */
 struct test_cfg cfg;
 
 /* Generate human-readable flag names and put them to the @buf */
@@ -61,7 +61,7 @@ humanize_flags(int flags, char *buf)
 }
 
 /*
- * Generates rendom flag for item
+ * Generates random flag for item
  *
  * TODO: Add composite flags
  */
@@ -279,7 +279,7 @@ cleanups(void)
 
 /*
  * This is data-sort routine test that can be used also as binlog test or even
- * general eblob test.
+ * general eblob or performance test.
  */
 int
 main(int argc, char **argv)
