@@ -13,6 +13,11 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * Routines for range requests.
+ * In future can be speeded up by data-sort.
+ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>

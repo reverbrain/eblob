@@ -13,6 +13,17 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * Each base has index represented by continious array of disk control
+ * structures.
+ * Each "closed" base has sorted on-disk index for logarithmic search via
+ * bsearch(3)
+ *
+ * Index consists of blocks to narrow down binary search, on top of blocks
+ * there is bloom filter to speed up rather expensive search of non-existent
+ * entries.
+ */
+
 #include "features.h"
 
 #include <sys/types.h>

@@ -48,8 +48,9 @@ int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void 
 /* Record is cached from disk index */
 #define EBLOB_HASH_FLAGS_CACHE          (1<<0)
 
-/* Record is placed in top queue.
- * It happens if it is hitted again
+/*
+ * Record is placed in top queue.
+ * It happens if it is hit again.
  */
 #define EBLOB_HASH_FLAGS_TOP_QUEUE      (1<<1)
 

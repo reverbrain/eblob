@@ -13,6 +13,11 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * Routines for bases and columns management.
+ * Each eblob consist of columns and each column consists of bases.
+ */
+
 #include "features.h"
 
 #include <sys/types.h>

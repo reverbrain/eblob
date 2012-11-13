@@ -13,6 +13,16 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * Defragmentation routines for blob. Kicked by either timer or eblob_start_defrag().
+ *
+ * Main purpose of defrag is to copy all existing entries in base to another
+ * file and then swap it with originals. Also these routines generate sorted
+ * index file for closed bases.
+ *
+ * Defrag will be partially replaced by data-sort in future.
+ */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -29,6 +39,11 @@
 
 #include "blob.h"
 
+/**
+ * eblob_defrag_write() - interruption-safe wrapper for pwrite(2)
+ *
+ * TODO: Can be replaced with blob_write_low_level()
+ */
 static int eblob_defrag_write(int fd, void *data, ssize_t size)
 {
 	ssize_t err;
@@ -109,6 +124,12 @@ err_out_unlock:
 	return 0;
 }
 
+/*
+ * eblob_readlink() - gets filename from opened fd.
+ *
+ * FIXME: rename
+ * FIXME: breaks static analyzer
+ */
 static int eblob_readlink(int fd, char **datap)
 {
 	char *dst, src[64];
@@ -139,6 +160,10 @@ err_out_exit:
 	return err;
 }
 
+/**
+ * eblob_base_remove() - removes files that belong to one base
+ * TODO: Move to mobjects.c
+ */
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 {
 	char *dst;
@@ -325,6 +350,9 @@ static void eblob_defrag_close(struct eblob_base_ctl *bctl)
 	close(bctl->dfi);
 }
 
+/**
+ * eblob_defrag_count() - iterator that counts non-removed entries in base
+ */
 static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_control *ctl __unused,
 		void *data __unused, void *priv, void *thread_priv __unused)
 {
@@ -335,6 +363,7 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
 			(unsigned long long)dc->flags, ctl->type);
 
+	/* TODO: Atomic? */
 	pthread_mutex_lock(&bctl->dlock);
 	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
 		bctl->good++;
@@ -343,6 +372,11 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 	return 0;
 }
 
+/**
+ * eblob_want_defrag() - runs iterator that counts number of non-removed
+ * entries (aka good ones) and compares it with total.
+ * If percentage >= defrag_percentage then defrag should proceed.
+ */
 static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
@@ -408,7 +442,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		struct eblob_base_type *t = &b->types[i];
 		struct eblob_base_ctl *bctl;
 
-		/* It should be safe to iterate without locks, since we never delete entry, and add only to the end which is safe */
+		/*
+		 * It should be safe to iterate without locks, since we never
+		 * delete entry, and add only to the end which is safe
+		 */
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			if (b->need_exit) {
 				err = 0;
@@ -504,6 +541,9 @@ err_out_exit:
 	return err;
 }
 
+/**
+ * eblob_defrag() - defragmentation thread that runs defrag by timer
+ */
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
@@ -531,6 +571,10 @@ void *eblob_defrag(void *data)
 	return NULL;
 }
 
+/**
+ * eblob_start_defrag() - forces defragmentation thread to run defrag
+ * regardless of timer.
+ */
 int eblob_start_defrag(struct eblob_backend *b)
 {
 	b->want_defrag = 1;

@@ -13,7 +13,7 @@ Following features are supported:
     * 2-stage write: prepare (which reserves the space) and commit
     	(which calculates checksum and update in-memory and on-disk indexes).
 	One can (re)write data using pwrite() in between without locks
-    * usuall 1-stage write interface
+    * usual 1-stage write interface
     * flexible configuration of hash table size, flags, alignment
     * defragmentation tool: entries to be deleted are only marked as removed,
     	eblob_check tool can actually remove those blocks from blob files
@@ -24,6 +24,10 @@ Following features are supported:
 
 All exported functions can be found in include/eblob/blob.h header file,
 here is a small example.
+
+-------------------------------------------------------------------------------------
+Somewhat obsoleted developer documentation follows
+-------------------------------------------------------------------------------------
 
 Initialization/cleanup:
 struct eblob_backend *eblob_init(struct eblob_config *c);

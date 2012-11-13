@@ -13,6 +13,11 @@
  * GNU General Public License for more details.
  */
 
+/*
+ * Set of subroutines for statistics management.
+ * Each blob has corresponding .stat file with brief statistics.
+ */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
