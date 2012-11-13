@@ -59,6 +59,9 @@ struct test_cfg {
 	long		log_level;		/* Log level for eblog_log */
 	long		test_delay;		/* Delay in milliseconds between
 						   iterations */
+	long long	test_force_defrag;	/* Defrag start defrag each
+						   test_defrag iterations.
+						   Disabled if set to zero. */
 	long long	test_item_size;		/* Maximum size of test item */
 	long long	test_items;		/* Number of test items */
 	long long	test_iterations;	/* Number of modify/read
@@ -81,18 +84,19 @@ extern struct test_cfg cfg;
 /*
  * Defaults for test_cfg above
  */
-#define DEFAULT_BLOB_DEFRAG	(10)
-#define DEFAULT_BLOB_RECORDS	(10000)
-#define DEFAULT_BLOB_SIZE	(100 * 1<<20)
-#define DEFAULT_BLOB_SYNC	(30)
-#define DEFAULT_BLOB_THREADS	(16)
-#define DEFAULT_LOG_LEVEL	(EBLOB_LOG_DEBUG + 1)
-#define DEFAULT_TEST_DELAY	(10)
-#define DEFAULT_TEST_ITEMS	(10000)
-#define DEFAULT_TEST_ITEM_SIZE	(10)
-#define DEFAULT_TEST_ITERATIONS	(100000)
-#define DEFAULT_TEST_MILESTONE	(100)
-#define DEFAULT_TEST_PATH	"./"
+#define DEFAULT_BLOB_DEFRAG		(10)
+#define DEFAULT_BLOB_RECORDS		(10000)
+#define DEFAULT_BLOB_SIZE		(100 * 1<<20)
+#define DEFAULT_BLOB_SYNC		(30)
+#define DEFAULT_BLOB_THREADS		(16)
+#define DEFAULT_LOG_LEVEL		(EBLOB_LOG_DEBUG + 1)
+#define DEFAULT_TEST_DELAY		(10)
+#define DEFAULT_TEST_FORCE_DEFRAG	(0)
+#define DEFAULT_TEST_ITEMS		(10000)
+#define DEFAULT_TEST_ITEM_SIZE		(10)
+#define DEFAULT_TEST_ITERATIONS		(100000)
+#define DEFAULT_TEST_MILESTONE		(100)
+#define DEFAULT_TEST_PATH		"./"
 
 void options_get_l(long *cfg_entry, const char *optarg);
 void options_get_ll(long long *cfg_entry, const char *optarg);

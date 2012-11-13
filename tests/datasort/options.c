@@ -38,7 +38,7 @@ void
 options_usage(char *progname, int eval, FILE *stream)
 {
 	fprintf(stream, "usage: %s ", progname);
-	fprintf(stream, "[-d defrag_time] [-D delay ] [-i test_items] [-I iterations] ");
+	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-i test_items] [-I iterations] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item size] [-t iterator_threads]");
 	fprintf(stream, "\n");
@@ -82,6 +82,7 @@ options_set_defaults(void)
 	cfg.blob_threads = DEFAULT_BLOB_THREADS;
 	cfg.log_level = DEFAULT_LOG_LEVEL;
 	cfg.test_delay = DEFAULT_TEST_DELAY;
+	cfg.test_force_defrag = DEFAULT_TEST_FORCE_DEFRAG;
 	cfg.test_item_size = DEFAULT_TEST_ITEM_SIZE;
 	cfg.test_items = DEFAULT_TEST_ITEMS;
 	cfg.test_iterations = DEFAULT_TEST_ITERATIONS;
@@ -107,6 +108,7 @@ options_get(int argc, char **argv)
 		{ "help",		no_argument,		NULL,		'h' },
 		{ "log-level",		required_argument,	NULL,		'l' },
 		{ "test-delay",		required_argument,	NULL,		'D' },
+		{ "test-force-defrag",	required_argument,	NULL,		'f' },
 		{ "test-item-size",	required_argument,	NULL,		'S' },
 		{ "test-items",		required_argument,	NULL,		'i' },
 		{ "test-iterations",	required_argument,	NULL,		'I' },
@@ -117,7 +119,7 @@ options_get(int argc, char **argv)
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:hi:I:l:m:p:r:R:s:S:t:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -127,6 +129,9 @@ options_get(int argc, char **argv)
 			break;
 		case 'h':
 			options_usage(argv[0], EX_OK, stdout);
+		case 'f':
+			options_get_ll(&cfg.test_force_defrag, optarg);
+			break;
 		case 'i':
 			options_get_ll(&cfg.test_items, optarg);
 			break;
@@ -179,6 +184,7 @@ options_dump(void)
 	printf("Number of iterator threads: %ld\n", cfg.blob_threads);
 	printf("Log level for eblog_log: %ld\n", cfg.log_level);
 	printf("Delay in milliseconds between iterations: %ld\n", cfg.test_delay);
+	printf("Force defrag after: %lld\n", cfg.test_force_defrag);
 	printf("Maximum size of test item: %lld\n", cfg.test_item_size);
 	printf("Number of test items: %lld\n", cfg.test_items);
 	printf("Number of modify/read iterations: %lld\n", cfg.test_iterations);

@@ -72,10 +72,11 @@ generate_random_flags(int type)
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
-	rnd = random() % 3;
+	/* TODO: Factor '% 10' and '% 20' into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
-		switch (rnd) {
+		rnd = random() % 10;
 		/* Removed entry can not be removed or overwritten */
+		switch (rnd) {
 		case 0:
 			return BLOB_DISK_CTL_NOCSUM;
 		case 1:
@@ -84,12 +85,13 @@ generate_random_flags(int type)
 			return 0;
 		}
 	} else if (type == FLAG_TYPE_EXISTING) {
+		rnd = random() % 10;
 		/* Existing entry can be rewritten or removed */
 		switch (rnd) {
 		case 0:
-			return BLOB_DISK_CTL_OVERWRITE;
-		default:
 			return BLOB_DISK_CTL_REMOVE;
+		default:
+			return BLOB_DISK_CTL_OVERWRITE;
 		}
 	} else {
 		/* NOT REACHED */
@@ -359,10 +361,18 @@ main(int argc, char **argv)
 		if ((error = item_sync(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_sync: %d", error);
 		}
+		/* Print progress each 'test_milestone' iterations */
 		if ((i % cfg.test_milestone) == 0)
 			warnx("iteration: %d", i);
+		/* Force defrag each 'test_force_defrag' iterations */
+		if (cfg.test_force_defrag > 0 && (i % cfg.test_force_defrag) == 0) {
+			warnx("forcing defrag: %d", i);
+			eblob_start_defrag(cfg.b);
+		}
+		/* Exit on signal */
 		if (cfg.need_exit)
 			goto out_cleanups;
+		/* Sleep for 'test_delay' milliseconds */
 		nanosleep(&ts, NULL);
 	}
 
