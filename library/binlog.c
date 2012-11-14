@@ -552,7 +552,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
 	struct eblob_binlog_disk_record_hdr rhdr;
 	struct eblob_binlog_cfg *bcfg;
 
-	if (bctl == NULL || bctl->cfg == NULL)
+	if (bctl == NULL || bctl->cfg == NULL || bctl->key == NULL)
 		return -EINVAL;
 	bcfg = bctl->cfg;
 
@@ -605,6 +605,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 {
 	off_t offset = sizeof(struct eblob_binlog_disk_hdr);
 	struct eblob_binlog_ctl bctl;
+	struct eblob_key key;
 	uint64_t count = 0;
 	int err = 0;
 
@@ -617,6 +618,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 	while (offset < bcfg->position) {
 		memset(&bctl, 0, sizeof(bctl));
 		bctl.cfg = bcfg;
+		bctl.key = &key;
 
 		err = binlog_read(&bctl, offset);
 		if (err) {
