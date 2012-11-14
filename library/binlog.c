@@ -473,6 +473,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 	}
 
 	/* Construct record header */
+	memset(&rhdr, 0, sizeof(rhdr));
 	rhdr.type = bctl->type;
 	rhdr.meta_size = bctl->meta_size;
 	rhdr.size = bctl->meta_size + bctl->size;
