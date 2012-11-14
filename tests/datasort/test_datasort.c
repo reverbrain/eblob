@@ -73,7 +73,7 @@ generate_random_flags(int type)
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
-	/* TODO: Factor '% 10' and '% 20' into tunables */
+	/* TODO: Factor '% 10' and '% 2' into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
 		rnd = random() % 10;
 		/* Removed entry can not be removed or overwritten */
@@ -86,7 +86,7 @@ generate_random_flags(int type)
 			return 0;
 		}
 	} else if (type == FLAG_TYPE_EXISTING) {
-		rnd = random() % 10;
+		rnd = random() % 2;
 		/* Existing entry can be rewritten or removed */
 		switch (rnd) {
 		case 0:
