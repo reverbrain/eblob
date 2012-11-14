@@ -612,7 +612,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 	if (bcfg == NULL || callback == NULL)
 		return -EINVAL;
 
-	assert(bcfg->position <= offset);
+	assert(bcfg->position >= offset);
 
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: started", bcfg->path);
 	while (offset < bcfg->position) {
