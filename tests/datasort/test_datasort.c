@@ -263,13 +263,8 @@ cleanups(void)
 {
 
 	warnx("test cleanup...");
-	if (cfg.b != NULL) {
-		warnx("removing blobs");
-		eblob_remove_blobs(cfg.b);
-
-		if (cfg.b->cfg.log != NULL)
-			fclose(cfg.b->cfg.log->log_private);
-	}
+	eblob_remove_blobs(cfg.b);
+	fclose(cfg.b->cfg.log->log_private);
 
 	warnx("eblob cleanup...");
 	eblob_cleanup(cfg.b);
@@ -277,8 +272,6 @@ cleanups(void)
 	warnx("memory cleanup...");
 	free(cfg.test_path);
 	free(cfg.shadow);
-
-	warnx("finished cleanup");
 }
 
 /*
