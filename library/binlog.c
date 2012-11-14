@@ -584,7 +584,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
 	if (bctl->meta_size > 0)
 		bctl->meta = data;
 	/* Then goes data itself */
-	bctl->size = rhdr.size - rhdr.meta_size;
+	bctl->size = rhdr.size;
 	if (bctl->size > 0)
 		bctl->data = data + bctl->meta_size;
 
