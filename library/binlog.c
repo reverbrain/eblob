@@ -338,6 +338,8 @@ struct eblob_binlog_cfg *binlog_init(char *path, struct eblob_log *log)
 	bcfg->fd = -1;
 	bcfg->log = log;
 
+	EBLOB_WARNX(log, EBLOB_LOG_NOTICE, "binlog_init: %p", bcfg);
+
 	return bcfg;
 
 err_free_bcfg:
@@ -647,8 +649,8 @@ int binlog_close(struct eblob_binlog_cfg *bcfg)
 	if (bcfg == NULL || bcfg->fd < 0)
 		return -EINVAL;
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d)", bcfg->path,
-			bcfg->fd);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d): %p", bcfg->path,
+			bcfg->fd, bcfg);
 
 	/* Write */
 	err = binlog_hdr_write(bcfg->fd, bcfg->disk_hdr);
@@ -697,6 +699,8 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg)
 	 */
 	if (bcfg == NULL)
 		return -EINVAL;
+
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "binlog_destroy: %p", bcfg);
 
 	free(bcfg->disk_hdr);
 	free(bcfg->path);
