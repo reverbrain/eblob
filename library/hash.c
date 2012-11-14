@@ -26,6 +26,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -314,4 +315,28 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep, on_diskp);
 	pthread_mutex_unlock(&h->root_lock);
 	return err;
+}
+
+/**
+ * eblob_hash_iterator() - recursively iterates over cache and applies @callback
+ * to each record
+ * @callback:	function that applied to all entries
+ *
+ * NB! Caller must hold root_lock!
+ */
+void eblob_hash_iterator(struct rb_node *n, void *callback_priv,
+		int (*callback)(void *priv, unsigned char *data, unsigned int size))
+{
+	struct eblob_hash_entry *t;
+
+	if (n == NULL || callback == NULL)
+		return;
+
+	t = rb_entry(n, struct eblob_hash_entry, node);
+	assert(t != NULL);
+
+	callback(callback_priv, t->data, t->dsize);
+
+	eblob_hash_iterator(n->rb_left, callback_priv, callback);
+	eblob_hash_iterator(n->rb_right, callback_priv, callback);
 }

@@ -140,6 +140,15 @@ struct eblob_binlog_disk_record_hdr {
 	char			pad[32];
 };
 
+/*
+ * This data is used to modify hash entries after binlog is toggled.
+ */
+struct eblob_binlog_rctl {
+	int			fd;		/* fd to search in hash */
+	struct eblob_binlog_cfg	*binlog;	/* Pointer to binlog */
+	pthread_mutex_t		*binlog_lock;	/* Lock to protect binlog */
+};
+
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
 		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);
@@ -180,5 +189,7 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg);
 
 int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+
+int binlog_hash_callback(void *priv, unsigned char *data, unsigned int size);
 
 #endif /* __EBLOB_BINLOG_H */
