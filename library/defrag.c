@@ -376,6 +376,11 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
  * eblob_want_defrag() - runs iterator that counts number of non-removed
  * entries (aka good ones) and compares it with total.
  * If percentage >= defrag_percentage then defrag should proceed.
+ *
+ * Returns:
+ *	1: defrag needed
+ *	0: no entiries in blob
+ *	-1: no defrag needed
  */
 static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
@@ -422,9 +427,9 @@ err_out_exit:
 
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
+#ifdef DATASORT
 	struct eblob_iterate_control ctl;
-	int err = 0, i, no_defrag = 0, want;
-	ssize_t dsize;
+	int err = 0, i, want;
 
 	memset(&ctl, 0, sizeof(ctl));
 
@@ -452,8 +457,17 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				goto err_out_exit;
 			}
 
-#ifdef DATASORT
-			if (bctl->need_sorting) {
+			/* do not process last entry, it can be used for writing */
+			if (bctl->base_entry.next == &t->bases)
+				break;
+
+			want = eblob_want_defrag(bctl);
+			if (want == 0) {
+				eblob_defrag_unlink(bctl, 0);
+				continue;
+			}
+
+			if (bctl->need_sorting || want > 0) {
 				struct datasort_cfg dcfg = {
 					.b = b,
 					.bctl = bctl,
@@ -466,11 +480,13 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					eblob_log(ctl.log, EBLOB_LOG_ERROR,
 							"defrag: datasort: FAILED: %d, %d, index: %d\n",
 							err, bctl->type, bctl->index);
-					goto err_out_exit;
+					continue;
 				}
 				bctl->need_sorting = 0;
 			}
-#endif /* DATASORT */
+
+			if (eblob_get_actual_size(bctl->data_fd) == 0)
+				eblob_defrag_unlink(bctl, 0);
 
 			if (bctl->old_index_fd != -1) {
 				close(bctl->old_index_fd);
@@ -482,63 +498,15 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				eblob_data_unmap(&bctl->old_sort);
 			}
 
-			/* do not process last entry, it can be used for writing */
-			if (bctl->base_entry.next == &t->bases)
-				break;
-
-			if (no_defrag)
-				continue;
-
-			want = eblob_want_defrag(bctl);
-			if (want < 0)
-				continue;
-			if (want == 0) {
-				eblob_defrag_unlink(bctl, 0);
-				continue;
-			}
-
-			err = eblob_defrag_open(bctl);
-			if (err)
-				goto err_out_exit;
-
-			ctl.base = bctl;
-			ctl.priv = bctl;
-			err = eblob_blob_iterate(&ctl);
-			if (err)
-				goto err_out_unlink;
-
-			dsize = eblob_get_actual_size(bctl->df);
-			if ((dsize <= 0) || (dsize == (ssize_t)bctl->data_size)) {
-				if (dsize == 0)
-					eblob_defrag_unlink(bctl, 0);
-				err = 0;
-				goto err_out_unlink;
-			}
-
-			err = eblob_generate_sorted_index(b, bctl, 1);
-			if (err)
-				goto err_out_unlink;
-
-			eblob_index_blocks_destroy(bctl);
-			eblob_index_blocks_fill(bctl);
-			eblob_defrag_unlink(bctl, 0);
-			eblob_defrag_rename(bctl);
-
 			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
-			no_defrag = 1;
-			continue;
-
-err_out_unlink:
-			eblob_defrag_close(bctl);
-			eblob_defrag_unlink(bctl, 1);
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: error type: %d, index: %d, err: %d\n", bctl->type, bctl->index, err);
-			if (err)
-				goto err_out_exit;
 		}
 	}
 
 err_out_exit:
 	return err;
+#else /* !DATASORT */
+	return -ENOTSUP;
+#endif /* DATASORT */
 }
 
 /**
