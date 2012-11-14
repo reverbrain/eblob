@@ -261,7 +261,8 @@ sigint_cb(int signal __unused)
 void
 cleanups(void)
 {
-	warnx("cleaning up...");
+
+	warnx("test cleanup...");
 	if (cfg.b != NULL) {
 		warnx("removing blobs");
 		eblob_remove_blobs(cfg.b);
@@ -270,9 +271,11 @@ cleanups(void)
 			fclose(cfg.b->cfg.log->log_private);
 	}
 
-	/* Free memory */
+	warnx("eblob cleanup...");
+	eblob_cleanup(cfg.b);
+
+	warnx("memory cleanup...");
 	free(cfg.test_path);
-	free(cfg.b);
 	free(cfg.shadow);
 
 	warnx("finished cleanup");
