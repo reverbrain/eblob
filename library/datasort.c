@@ -761,6 +761,8 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
  * - swap index and data fd
  * - rename index and data
  * - flush cache
+ *
+ * TODO: Move index management to separate function
  */
 static int datasort_swap(struct datasort_cfg *dcfg)
 {
@@ -805,16 +807,20 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 				"eblob_preallocate: fd: %d, size: %" PRIu64, index.fd, index.size);
 		goto err;
 	}
-	/* mmap index */
-	err = eblob_data_map(&index);
-	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_data_map: fd: %d, size: %" PRIu64, index.fd, index.size);
-		goto err;
-	}
 
-	/* Save index on disk */
-	memcpy(index.data, dcfg->result->index, index.size);
+	/* mmap index */
+	if (index.size > 0) {
+		err = eblob_data_map(&index);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"eblob_data_map: fd: %d, size: %" PRIu64, index.fd, index.size);
+			goto err;
+		}
+
+		/* Save index on disk */
+		memcpy(index.data, dcfg->result->index, index.size);
+	} else
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "index size is zero: %s", tmp_index_path);
 
 	/* Backup data */
 	bctl->old_data_fd = bctl->data_fd;
@@ -928,6 +934,7 @@ err:
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 {
 	int err;
+	struct datasort_chunk *dummy;
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -982,15 +989,15 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * If unsorted list is empty - we should exit gracefuly
-	 *
-	 * FIXME: In case there is no data in blob we should save empty file
-	 * and index, so it can be removed with eblob_defrag_unlink
+	 * If unsorted list is empty - generate empty chunk
 	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
-				"datasort_split: no records passed through iteration process. Aborting gracefuly.");
-		goto err_rmdir;
+				"datasort_split: no records passed through iteration process.");
+
+		/* Generate empty chunk */
+		dummy = datasort_split_add_chunk(dcfg);
+		list_add(&dummy->list, &dcfg->unsorted_chunks);
 	}
 
 	/* In-memory sort each chunk */
