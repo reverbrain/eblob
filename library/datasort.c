@@ -963,7 +963,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			goto err_mutex;
 		}
 	} else {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for data-sort");
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for datasort");
 	}
 
 	/* Create tmp directory */
@@ -1015,7 +1015,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * Rewind all records that have been modified since data-sort was
+	 * Rewind all records that have been modified since datasort was
 	 * started.
 	 */
 	if (dcfg->use_binlog) {
