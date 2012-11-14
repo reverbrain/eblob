@@ -821,7 +821,7 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		/* Cache entry in RAM */
 		err = eblob_insert_type(b, key, rc, 1);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_lookup_type: eblob_insert_type err: %d",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_lookup_type: eblob_insert_type err: %d\n",
 				eblob_dump_id(key->id), err);
 		}
 	}
