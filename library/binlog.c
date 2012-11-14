@@ -474,6 +474,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 
 	/* Construct record header */
 	rhdr.type = bctl->type;
+	rhdr.meta_size = bctl->meta_size;
 	rhdr.size = bctl->meta_size + bctl->size;
 	rhdr.flags = bctl->flags;
 	memcpy(&rhdr.key.id, bctl->key->id, sizeof(rhdr.key.id));
