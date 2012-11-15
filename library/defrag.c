@@ -196,44 +196,6 @@ void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 	}
 }
 
-static int eblob_defrag_open(struct eblob_base_ctl *bctl)
-{
-	struct eblob_backend *b = bctl->back;
-	int len = strlen(b->cfg.file) + 256;
-	char *path;
-	int err;
-
-	path = malloc(len);
-	if (!path) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	snprintf(path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
-	bctl->df = open(path, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
-	if (bctl->df < 0) {
-		err = -errno;
-		goto err_out_free;
-	}
-
-	snprintf(path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
-	bctl->dfi = open(path, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
-	if (bctl->dfi < 0) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	free(path);
-	return 0;
-
-err_out_close:
-	close(bctl->df);
-err_out_free:
-	free(path);
-err_out_exit:
-	return err;
-}
-
 static int eblob_defrag_unlink(struct eblob_base_ctl *bctl, int defrag)
 {
 	struct eblob_backend *b = bctl->back;
@@ -282,72 +244,6 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl, int defrag)
 
 err_out_exit:
 	return err;
-}
-
-static int eblob_defrag_rename(struct eblob_base_ctl *bctl)
-{
-	struct eblob_backend *b = bctl->back;
-	int len = strlen(b->cfg.file) + 256;
-	char *old_path, *new_path;
-	int err = 0;
-
-	old_path = malloc(len);
-	if (!old_path) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	new_path = malloc(len);
-	if (!new_path) {
-		err = -ENOMEM;
-		goto err_out_free_old;
-	}
-
-	snprintf(old_path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
-	snprintf(new_path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
-
-	err = rename(old_path, new_path);
-	if (err) {
-		err = -errno;
-		goto err_out_free_new;
-	}
-
-	
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: %s -> %s\n", old_path, new_path);
-
-	snprintf(old_path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
-	snprintf(new_path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
-
-	err = rename(old_path, new_path);
-	if (err) {
-		err = -errno;
-		goto err_out_free_new;
-	}
-
-
-	snprintf(old_path, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-	snprintf(new_path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-
-	err = rename(old_path, new_path);
-	if (err) {
-		err = -errno;
-		goto err_out_free_new;
-	}
-
-
-err_out_free_new:
-	free(new_path);
-err_out_free_old:
-	free(old_path);
-err_out_exit:
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "rename: index: %d, type: %d, err: %d\n", bctl->index, bctl->type, err);
-	return err;
-}
-
-static void eblob_defrag_close(struct eblob_base_ctl *bctl)
-{
-	close(bctl->df);
-	close(bctl->dfi);
 }
 
 /**
