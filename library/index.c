@@ -633,8 +633,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->index = bctl->index;
 			r->type = bctl->type;
 
-			r->binlog = bctl->binlog;
-			r->binlog_lock = &bctl->lock;
+			r->bctl = bctl;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
 					"position: %llu, data_size: %llu, binlog: %p\n",

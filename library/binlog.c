@@ -721,7 +721,7 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg)
 int binlog_hash_callback(void *priv, unsigned char *data, unsigned int size)
 {
 	struct eblob_ram_control *rc;
-	struct eblob_binlog_rctl *brctl;
+	struct eblob_base_ctl *bctl;
 	int i, num;
 
 	assert(priv != NULL);
@@ -729,14 +729,13 @@ int binlog_hash_callback(void *priv, unsigned char *data, unsigned int size)
 	assert(size > 0);
 	assert(size % sizeof(struct eblob_ram_control) == 0);
 
-	brctl = (struct eblob_binlog_rctl *)priv;
+	bctl = (struct eblob_base_ctl *)priv;
 	rc = (struct eblob_ram_control *)data;
 
 	num = size / sizeof(struct eblob_ram_control);
 	for (i = 0; i < num; ++i)
-		if (rc[i].data_fd == brctl->fd) {
-			rc[i].binlog = brctl->binlog;
-			rc[i].binlog_lock = brctl->binlog_lock;
+		if (rc[i].data_fd == bctl->data_fd) {
+			rc[i].bctl = bctl;
 			break;
 		}
 
@@ -752,7 +751,6 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	int err;
 	struct eblob_binlog_cfg *bcfg;
-	struct eblob_binlog_rctl brctl;
 	char binlog_filename[PATH_MAX], *path_copy;
 	static const char binlog_suffix[] = "binlog";
 
@@ -796,7 +794,6 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 				"blob: binlog: eblob_start_binlog failed: %d.\n", err);
 		goto err_unlock;
 	}
-	bctl->binlog = bcfg;
 
 	/*
 	 * Mark entries in hash that they need to use binlog
@@ -807,14 +804,12 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		goto err_unlock;
 	}
 
-	brctl.fd = bctl->data_fd;
-	brctl.binlog = bcfg;
-	brctl.binlog_lock = &bctl->lock;
-
-	eblob_hash_iterator(b->hash->root.rb_node, &brctl, binlog_hash_callback);
+	eblob_hash_iterator(b->hash->root.rb_node, bctl, binlog_hash_callback);
 
 	if (pthread_mutex_unlock(&b->hash->root_lock) != 0)
 		abort();
+
+	bctl->binlog = bcfg;
 
 err_unlock:
 	if (pthread_mutex_unlock(&bctl->lock) != 0)

@@ -288,10 +288,8 @@ struct eblob_ram_control {
 	uint64_t		size;
 
 	short			index, type;
-	/* binlog pointer is not NULL if binary log is turned on for that base */
-	struct eblob_binlog_cfg	*binlog;
-	/* Lock that protects binlog. This is pointer to bctl->lock */
-	pthread_mutex_t		*binlog_lock;
+	/* Pointer to bctl - it's set to non-NULL if binlog is enabled for this fd */
+	struct eblob_base_ctl	*bctl;
 };
 
 struct eblob_backend *eblob_init(struct eblob_config *c);

@@ -404,31 +404,31 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 	blob_mark_index_removed(old->data_fd, old->data_offset);
 
 #ifdef BINLOG
-	if (old->binlog != NULL) {
+	if (old->bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
 		int err;
 
-		if ((err = pthread_mutex_lock(old->binlog_lock)) != 0) {
+		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
 			goto skip_binlog;
 		}
-		if (old->binlog == NULL)
+		if (old->bctl->binlog == NULL)
 			goto skip_binlog;
 
 		memset(&bctl, 0, sizeof(bctl));
 
-		bctl.cfg = old->binlog;
+		bctl.cfg = old->bctl->binlog;
 		bctl.type = EBLOB_BINLOG_TYPE_REMOVE;
 		bctl.key = key;
 
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
-		if (pthread_mutex_unlock(old->binlog_lock) != 0)
+skip_binlog:
+		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 			abort();
 	}
-skip_binlog:
 #endif /* BINLOG */
 
 	eblob_stat_update(b, -1, 1, 0);
@@ -544,7 +544,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.index_offset = wc->ctl_index_offset;
 	ctl.type = wc->type;
 	ctl.index = wc->index;
-	ctl.binlog = NULL;
+	ctl.bctl = NULL;
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
@@ -855,22 +855,22 @@ again:
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 
 #ifdef BINLOG
-	if (for_write && ctl.binlog != NULL) {
+	if (for_write && ctl.bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
 
-		if ((err = pthread_mutex_lock(ctl.binlog_lock)) != 0) {
+		if ((err = pthread_mutex_lock(&ctl.bctl->lock)) != 0) {
 			err = -err;
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 					"blob: binlog: %s: pthread_mutex_lock: %zd\n", __func__, -err);
 			goto err_out_exit;
 		}
-		if (ctl.binlog == NULL) {
+		if (ctl.bctl->binlog == NULL) {
 			goto skip_binlog;
 		}
 
 		memset(&bctl, 0, sizeof(bctl));
 
-		bctl.cfg = ctl.binlog;
+		bctl.cfg = ctl.bctl->binlog;
 		bctl.type = EBLOB_BINLOG_TYPE_UPDATE;
 		bctl.key = key;
 		bctl.meta = wc;
@@ -882,10 +882,10 @@ again:
 			goto err_out_exit;
 		}
 
-		if (pthread_mutex_unlock(ctl.binlog_lock) != 0)
+skip_binlog:
+		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 			abort();
 	}
-skip_binlog:
 #endif /* BINLOG */
 err_out_exit:
 	return err;
