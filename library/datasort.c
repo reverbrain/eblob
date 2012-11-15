@@ -859,8 +859,13 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		goto err_unmap;
 	}
 
-	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size)
-		eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
+	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
+		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
+		if (err != 0)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"eblob_remove_type_nolock: %s, offset: %" PRIu64,
+					eblob_dump_id(dcfg->result->index[i].key.id), offset);
+	}
 	assert(i == dcfg->result->count);
 
 	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
