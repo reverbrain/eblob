@@ -74,7 +74,9 @@ struct eblob_binlog_cfg {
 #define EBLOB_BINLOG_DEFAULTS_FLAGS		EBLOB_BINLOG_FLAGS_CFG_PREALLOC
 #define EBLOB_BINLOG_DEFAULTS_PREALLOC_STEP	(128 * 1<<20)
 
-/* Control structure for binlog data encapsulation */
+/*
+ * Control structure for binlog data encapsulation
+ */
 struct eblob_binlog_ctl {
 	/* Pointer to corresponding cfg */
 	struct eblob_binlog_cfg	*cfg;
@@ -84,9 +86,9 @@ struct eblob_binlog_ctl {
 	struct eblob_key	*key;
 	/* Pointer to data location */
 	void			*data;
-	/* Size of data, including metadata */
+	/* Size of data */
 	ssize_t			size;
-	/* Pointer to metadata location within data */
+	/* Pointer to metadata */
 	void			*meta;
 	/* Size of metadata */
 	ssize_t			meta_size;
@@ -125,13 +127,17 @@ struct eblob_binlog_disk_hdr {
  * On disk header for binlog records
  *
  * Record header position in binlog is a LSN.
+ * Record starts with metadata, followed by data.
  */
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
 	uint64_t		type;
-	/* Size of record starting right after header */
+	/*
+	 * Size of record starting right after header
+	 * This is total size of data + metadata
+	 */
 	uint64_t		size;
-	/* How much of it given to metadata */
+	/* How much of size given to metadata */
 	uint64_t		meta_size;
 	/* Record-wide flags */
 	uint64_t		flags;
