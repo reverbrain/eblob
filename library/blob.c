@@ -875,7 +875,10 @@ again:
 		bctl.key = key;
 		bctl.meta = wc;
 		bctl.meta_size = sizeof(*wc);
-
+		/*
+		 * We do not store data in binlog itself because we can easily
+		 * obtain it from old data file based on data in @wc
+		 */
 		err = binlog_append(&bctl);
 		if (err)
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
