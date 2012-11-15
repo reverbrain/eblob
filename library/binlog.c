@@ -374,7 +374,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg)
 
 	oflag = O_RDWR | O_CLOEXEC;
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_SYNC)
-		oflag |= O_SYNC;
+		oflag |= O_DSYNC;
 
 	/* Open created/already existent binlog */
 	fd = open(bcfg->path, oflag);
