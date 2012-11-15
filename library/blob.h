@@ -18,7 +18,6 @@
 
 #include "eblob/blob.h"
 #include "hash.h"
-#include "lock.h"
 #include "list.h"
 
 #ifdef BINLOG

@@ -14,7 +14,6 @@
  */
 
 #include "eblob/blob.h"
-#include "lock.h"
 #include "list.h"
 
 #ifndef __EBLOB_DATASORT_H

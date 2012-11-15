@@ -61,7 +61,6 @@ static inline int atomic_dec(atomic_t *a)
 
 #else
 
-#include "lock.h"
 
 typedef struct {
 	volatile int		val;
