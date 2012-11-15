@@ -477,6 +477,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 	memset(&rhdr, 0, sizeof(rhdr));
 	rhdr.type = bctl->type;
 	rhdr.meta_size = bctl->meta_size;
+	/* On-disk size includes metadata */
 	rhdr.size = bctl->meta_size + bctl->size;
 	rhdr.flags = bctl->flags;
 	memcpy(&rhdr.key.id, bctl->key->id, sizeof(rhdr.key.id));
@@ -498,10 +499,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 				"pwrite header: %s, offset: %" PRId64, bcfg->path, offset);
 		goto err;
 	}
+	offset += sizeof(rhdr);
 
 	/* Write metadata */
 	if (bctl->meta_size > 0) {
-		offset += sizeof(rhdr);
 		err = pwrite(bcfg->fd, bctl->meta, bctl->meta_size, offset);
 		if (err != bctl->meta_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
@@ -510,10 +511,10 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 			goto err;
 		}
 	}
+	offset += bctl->meta_size;
 
 	/* Write data */
 	if (bctl->size > 0) {
-		offset += bctl->meta_size;
 		err = pwrite(bcfg->fd, bctl->data, bctl->size, offset);
 		if (err != bctl->size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
