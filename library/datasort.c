@@ -682,23 +682,15 @@ static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
 }
 
 /**
- * datasort_binlog_update() - rewrites key's value with data taken from binlog
+ * datasort_binlog_update() - rewrites whole key with data taken from unsorted
+ * base
+ * @from_fd:	unsorted base
+ * @to_fd:	sorted base
  */
-static int datasort_binlog_update(struct eblob_backend *b,
-		struct eblob_write_control *wc, void *data, ssize_t size)
+static int datasort_binlog_update(int from_fd, uint64_t from_offset, int to_fd,
+		uint64_t to_offset, uint64_t size)
 {
-	ssize_t err;
-
-	/* XXX: Write header (it could be changed) */
-
-	/* Write data */
-	err = pwrite(wc->data_fd, data, size, wc->data_offset);
-	if (err != size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		return err;
-	}
-	/* Write footer */
-	return eblob_write_commit_ll(b, NULL, 0, wc);
+	return eblob_splice_data(from_fd, from_offset, to_fd, to_offset, size);
 }
 
 /**
@@ -729,11 +721,13 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 	case EBLOB_BINLOG_TYPE_UPDATE:
 		/* Shortcut */
 		wc = bctl->meta;
-		/* Fill fields needed by eblob_write_commit_ll() */
-		wc->data_fd = dcfg->result->fd;
-		wc->ctl_data_offset = found->position;
-		wc->data_offset = wc->ctl_data_offset + sizeof(*found) + wc->offset;
-		err = datasort_binlog_update(dcfg->b, wc, bctl->data, bctl->size - bctl->meta_size);
+		/*
+		 * There is only write control in binlog, but from it we can
+		 * extract data location in unsorted base
+		 */
+		err = datasort_binlog_update(wc->data_fd, wc->ctl_data_offset,
+				dcfg->result->fd, found->position,
+				found->disk_size);
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
 		err = datasort_binlog_remove(found, dcfg->result->fd);
