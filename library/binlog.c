@@ -393,7 +393,7 @@ int binlog_open(struct eblob_binlog_cfg *bcfg)
 		goto err_close;
 	}
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "opened: %s(%d)", bcfg->path, fd);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "opened: %s(%d)", bcfg->path, fd);
 	/* Truncate binlog if requested */
 	if (bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_TRUNCATE) {
 		bcfg->position = sizeof(struct eblob_binlog_disk_hdr);
@@ -615,7 +615,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 
 	assert(bcfg->position >= offset);
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "binlog_apply: %s: started", bcfg->path);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "binlog_apply: %s: started", bcfg->path);
 	while (offset < bcfg->position) {
 		memset(&bctl, 0, sizeof(bctl));
 		bctl.cfg = bcfg;
@@ -636,7 +636,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
 		count++;
 	}
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE,
 			"binlog_apply: %s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
 			bcfg->path, offset, count);
 
@@ -654,7 +654,7 @@ int binlog_close(struct eblob_binlog_cfg *bcfg)
 	if (bcfg == NULL || bcfg->fd < 0)
 		return -EINVAL;
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_INFO, "closing: %s(%d): %p", bcfg->path,
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "closing: %s(%d): %p", bcfg->path,
 			bcfg->fd, bcfg);
 
 	/* Write */
@@ -788,7 +788,7 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	}
 	bcfg->flags = EBLOB_BINLOG_FLAGS_CFG_TRUNCATE;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: start\n");
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: start\n");
 
 	err = binlog_open(bcfg);
 	if (err) {
@@ -839,7 +839,7 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if (bctl->binlog == NULL || bctl->binlog->path == 0)
 		return -EINVAL;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: binlog: stop\n");
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: stop\n");
 
 	/* Lock base */
 	if ((err = pthread_mutex_lock(&bctl->lock)) != 0) {
