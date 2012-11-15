@@ -23,7 +23,6 @@ option(WITH_SNAPPY "Enable Snappy support" ON)
 option(WITH_BINLOG "Enable expirimental binlog support" OFF)
 option(WITH_DATASORT "Enable expirimental datasort support" OFF)
 
-include(CheckAtomic)
 include(TestBigEndian)
 
 include_directories(${CMAKE_BINARY_DIR}/include/)
