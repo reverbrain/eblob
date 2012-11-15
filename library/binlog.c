@@ -865,8 +865,9 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	 * Mark entries in hash that they need to use binlog
 	 */
 	if ((err = pthread_mutex_lock(&b->hash->root_lock)) != 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d.\n", err);
-		return -err;
+		err = -err;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d.\n", -err);
+		goto err_unlock_bctl;
 	}
 
 	brctl.fd = bctl->old_data_fd;
@@ -880,9 +881,9 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 
 	bctl->binlog = NULL;
 
-	/* Unlock base */
+err_unlock_bctl:
 	if (pthread_mutex_unlock(&bctl->lock) != 0)
 		abort();
 
-	return 0;
+	return err;
 }
