@@ -832,7 +832,6 @@ err:
  */
 int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
-	struct eblob_binlog_rctl brctl;
 	int err;
 
 	if (b == NULL || bctl == NULL)
@@ -861,27 +860,8 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: binlog: binlog_destroy failed: %d\n", err);
 
-	/*
-	 * Mark entries in hash that they need to use binlog
-	 */
-	if ((err = pthread_mutex_lock(&b->hash->root_lock)) != 0) {
-		err = -err;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d.\n", -err);
-		goto err_unlock_bctl;
-	}
-
-	brctl.fd = bctl->old_data_fd;
-	brctl.binlog = NULL;
-	brctl.binlog_lock = NULL;
-
-	eblob_hash_iterator(b->hash->root.rb_node, &brctl, binlog_hash_callback);
-
-	if (pthread_mutex_unlock(&b->hash->root_lock) != 0)
-		abort();
-
 	bctl->binlog = NULL;
 
-err_unlock_bctl:
 	if (pthread_mutex_unlock(&bctl->lock) != 0)
 		abort();
 
