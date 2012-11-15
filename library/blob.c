@@ -877,10 +877,8 @@ again:
 		bctl.meta_size = sizeof(*wc);
 
 		err = binlog_append(&bctl);
-		if (err) {
+		if (err)
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
-			goto err_out_exit;
-		}
 
 skip_binlog:
 		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
