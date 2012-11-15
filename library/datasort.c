@@ -1068,8 +1068,7 @@ err_rmdir:
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
 	if (dcfg->use_binlog) {
-		err = eblob_stop_binlog(dcfg->b, dcfg->bctl);
-		if (err)
+		if ((err = eblob_stop_binlog(dcfg->b, dcfg->bctl)) != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
 	}
 err_mutex:

@@ -884,5 +884,5 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if (pthread_mutex_unlock(&bctl->lock) != 0)
 		abort();
 
-	return err;
+	return 0;
 }
