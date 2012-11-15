@@ -633,6 +633,8 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 					"(*callback): %s, offset: %" PRIu64, bcfg->path, offset);
 			goto err;
 		}
+		free(bctl.meta);
+
 		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
 		count++;
 	}
