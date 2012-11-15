@@ -74,7 +74,6 @@ endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
-include(CheckThreadSpinlock)
 
 # Check for boost
 #set(Boost_USE_STATIC_LIBS ON)
