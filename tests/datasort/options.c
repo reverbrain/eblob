@@ -116,11 +116,12 @@ options_get(int argc, char **argv)
 		{ "test-milestone",	required_argument,	NULL,		'm' },
 		{ "test-path",		required_argument,	NULL,		'p' },
 		{ "test-rnd-seed",	required_argument,	NULL,		'R' },
+		{ "version",		no_argument,		NULL,		'v' },
 		{ NULL,			0,			NULL,		0 }
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:y:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -164,6 +165,8 @@ options_get(int argc, char **argv)
 		case 't':
 			options_get_l(&cfg.blob_threads, optarg);
 			break;
+		case 'v':
+			errx(EX_OK, "Version: %s\n", EBLOB_TEST_DATASORT_VERSION);
 		case 'y':
 			options_get_l(&cfg.blob_sync, optarg);
 			break;

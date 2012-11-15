@@ -19,6 +19,8 @@
 #ifndef __EBLOB_TEST_DATASORT_H
 #define __EBLOB_TEST_DATASORT_H
 
+#define EBLOB_TEST_DATASORT_VERSION	"0.0.1"
+
 /*
  * Shadow storage for eblob
  * Each item that is present in shadow array should be present in blob file in
