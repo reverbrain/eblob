@@ -196,7 +196,7 @@ void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 	}
 }
 
-static int eblob_defrag_unlink(struct eblob_base_ctl *bctl, int defrag)
+static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	int len = strlen(b->cfg.file) + 256;
@@ -209,35 +209,24 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl, int defrag)
 		goto err_out_exit;
 	}
 
-	if (defrag) {
-		snprintf(path, len, "%s-defrag-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	unlink(path);
+
+	snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+	unlink(path);
+
+	snprintf(path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	unlink(path);
+
+	if (bctl->type == EBLOB_TYPE_DATA) {
+		snprintf(path, len, "%s.%d", b->cfg.file, bctl->index);
 		unlink(path);
 
-		snprintf(path, len, "%s-defrag-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+		snprintf(path, len, "%s.%d.index", b->cfg.file, bctl->index);
 		unlink(path);
 
-		snprintf(path, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+		snprintf(path, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
 		unlink(path);
-	} else {
-		snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
-		unlink(path);
-
-		snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
-		unlink(path);
-
-		snprintf(path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-		unlink(path);
-
-		if (bctl->type == EBLOB_TYPE_DATA) {
-			snprintf(path, len, "%s.%d", b->cfg.file, bctl->index);
-			unlink(path);
-
-			snprintf(path, len, "%s.%d.index", b->cfg.file, bctl->index);
-			unlink(path);
-
-			snprintf(path, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
-			unlink(path);
-		}
 	}
 
 	free(path);
@@ -359,7 +348,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 			want = eblob_want_defrag(bctl);
 			if (want == 0) {
-				eblob_defrag_unlink(bctl, 0);
+				eblob_defrag_unlink(bctl);
 				continue;
 			}
 
@@ -380,9 +369,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				}
 				bctl->need_sorting = 0;
 			}
-
-			if (eblob_get_actual_size(bctl->data_fd) == 0)
-				eblob_defrag_unlink(bctl, 0);
 
 			if (bctl->old_index_fd != -1) {
 				close(bctl->old_index_fd);
