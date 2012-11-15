@@ -122,7 +122,8 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "inited: %s\n", item->key);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "inited: %s (%s)\n",
+			item->key, eblob_dump_id(item->ekey.id));
 }
 
 /*
@@ -143,22 +144,24 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
-			errx(EX_SOFTWARE, "key NOT supposed to exist: %s", item->key);
+			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
+					item->key, eblob_dump_id(item->ekey.id));
 	} else {
 		/* Check data consistency */
 		if (error != 0)
-			errx(EX_SOFTWARE, "key supposed to exist: %s, flags: %s, error: %d",
-			    item->key, item->hflags, -error);
+			errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
+			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
 
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
-			errx(EX_SOFTWARE, "data verification failed for: %s, flags: %s",
-			    item->key, item->hflags);
+			errx(EX_SOFTWARE, "data verification failed for: %s (%s), flags: %s",
+			    item->key, eblob_dump_id(item->ekey.id), item->hflags);
 	}
 	free(data);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checked: %s\n", item->key);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checked: %s (%s)\n",
+			eblob_dump_id(item->ekey.id), item->key);
 
 	return 0;
 }
@@ -219,8 +222,9 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-	    "generated item: %s: flags %s -> %s, size %lld -> %lld\n",
-	    item->key, old_item.hflags, item->hflags, old_item.size, item->size);
+	    "generated item: %s (%s): flags %s -> %s, size %lld -> %lld\n",
+	    item->key, eblob_dump_id(item->ekey.id), old_item.hflags, item->hflags,
+	    old_item.size, item->size);
 
 	return 0;
 }
@@ -242,7 +246,8 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s\n", item->key);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s (%s)\n",
+			item->key, eblob_dump_id(item->ekey.id));
 
 	return 0;
 }
