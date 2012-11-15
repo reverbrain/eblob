@@ -18,7 +18,6 @@
 
 #include <strings.h>
 
-#include "atomic.h"
 #include "list.h"
 #include "rbtree.h"
 
