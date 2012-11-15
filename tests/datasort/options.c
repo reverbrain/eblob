@@ -40,7 +40,8 @@ options_usage(char *progname, int eval, FILE *stream)
 	fprintf(stream, "usage: %s ", progname);
 	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-i test_items] [-I iterations] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-p path] [-r blob_records] ");
-	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item size] [-t iterator_threads]");
+	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
+	fprintf(stream, "[-y sync_time] ");
 	fprintf(stream, "\n");
 
 	exit(eval);
@@ -119,7 +120,7 @@ options_get(int argc, char **argv)
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:y:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -158,10 +159,13 @@ options_get(int argc, char **argv)
 			options_get_ll(&cfg.blob_size, optarg);
 			break;
 		case 'S':
-			options_get_l(&cfg.blob_sync, optarg);
+			options_get_ll(&cfg.test_item_size, optarg);
 			break;
 		case 't':
 			options_get_l(&cfg.blob_threads, optarg);
+			break;
+		case 'y':
+			options_get_l(&cfg.blob_sync, optarg);
 			break;
 		default:
 			warnx("Unknown option passed: %s", argv[optind - 1]);
