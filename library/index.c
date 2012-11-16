@@ -636,10 +636,9 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->bctl = bctl;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
-					"position: %llu, data_size: %llu, binlog: %p\n",
+					"position: %llu, data_size: %llu\n",
 					eblob_dump_id(key->id), r->index, r->type,
-					(unsigned long long)r->data_offset, (unsigned long long)r->size,
-					bctl->binlog);
+					(unsigned long long)r->data_offset, (unsigned long long)r->size);
 
 			eblob_convert_disk_control(dc);
 			err = 0;
