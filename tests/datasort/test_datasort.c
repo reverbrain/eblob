@@ -161,7 +161,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	free(data);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checked: %s (%s)\n",
-			eblob_dump_id(item->ekey.id), item->key);
+			item->key, eblob_dump_id(item->ekey.id));
 
 	return 0;
 }
