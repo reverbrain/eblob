@@ -600,7 +600,7 @@ err:
  *
  * Try to get 2 chunks from sorted list:
  *  - Failed: last chunk is already sorted
- *  - Succeded: merge chunks via datasort_merge_chunks and put result to the
+ *  - Succeeded: merge chunks via datasort_merge_chunks and put result to the
  *  end of sorted list.
  */
 static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
@@ -820,7 +820,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	/* Shortcut */
 	bctl = dcfg->bctl;
 
-	/* Costruct index pathes */
+	/* Construct index pathes */
 	snprintf(data_path, PATH_MAX, "%s-%d.%d", dcfg->b->cfg.file, bctl->type, bctl->index);
 	snprintf(index_path, PATH_MAX, "%s.index", data_path);
 	snprintf(sorted_index_path, PATH_MAX, "%s.sorted", index_path);
@@ -903,7 +903,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			continue;
 		/*
 		 * This entry exists in sorted blob - it's position most likely
-		 * changed in sort/merge so remove it from cahce
+		 * changed in sort/merge so remove it from cache
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 		if (err != 0)
