@@ -690,21 +690,47 @@ static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
  * @to_fd:	sorted base
  * @dc:		pointer to sorted index
  */
-static int datasort_binlog_update(int from_fd, uint64_t from_offset, int to_fd,
-		uint64_t to_offset, uint64_t size, struct eblob_disk_control *dc)
+static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
+		struct eblob_disk_control *dc)
 {
-	int err;
-	/* Update data in index */
-	err = pread(from_fd, dc, sizeof(*dc), from_offset);
-	if (err != sizeof(*dc)) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		return err;
-	}
-	/* Update position to new one */
+	int err, from_fd;
+	const int dc_size = sizeof(*dc);
+	uint64_t from_offset, to_offset;
+
+	assert(dc != NULL);
+	assert(wc != NULL);
+	assert(to_fd >= 0);
+
+	/* Shortcuts */
+	from_fd = wc->data_fd;
+	from_offset = wc->ctl_data_offset;
+
+	/* Safe sorted offset */
+	to_offset = dc->position;
+
+	/* Replace in-memory index */
+	err = pread(from_fd, dc, dc_size, from_offset);
+	if (err != dc_size)
+		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+
+	/* Restore offset */
 	dc->position = to_offset;
 
-	/* Update data in base */
-	return eblob_splice_data(from_fd, from_offset, to_fd, to_offset, size);
+	/*
+	 * Replace on-disk header
+	 */
+	err = pwrite(to_fd, dc, dc_size, to_offset);
+	if (err != dc_size)
+		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+
+	assert(dc->disk_size > dc_size);
+
+	/*
+	 * Replace on-disk data
+	 */
+	return eblob_splice_data(from_fd, from_offset + dc_size,
+			to_fd, to_offset + dc_size,
+			dc->disk_size - dc_size);
 }
 
 /**
@@ -739,9 +765,7 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 		 * There is only write control in binlog, but from it we can
 		 * extract data location in unsorted base
 		 */
-		err = datasort_binlog_update(wc->data_fd, wc->ctl_data_offset,
-				dcfg->result->fd, found->position,
-				found->disk_size, found);
+		err = datasort_binlog_update(dcfg->result->fd, wc, found);
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
 		err = datasort_binlog_remove(found, dcfg->result->fd);
