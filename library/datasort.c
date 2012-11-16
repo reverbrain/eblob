@@ -693,8 +693,9 @@ static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
 static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 		struct eblob_disk_control *dc)
 {
-	int err, from_fd;
-	const int dc_size = sizeof(*dc);
+	int from_fd;
+	ssize_t err;
+	const ssize_t dc_size = sizeof(*dc);
 	uint64_t from_offset, to_offset;
 
 	assert(dc != NULL);
