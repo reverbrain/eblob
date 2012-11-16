@@ -849,6 +849,13 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
+		/* This entry was removed in binlog_apply */
+		if (dcfg->result->index[i].flags & BLOB_DISK_CTL_REMOVE)
+			continue;
+		/*
+		 * This entry exists in sorted blob - it's position most likely
+		 * changed in sort/merge so remove it from cahce
+		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 		if (err != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
