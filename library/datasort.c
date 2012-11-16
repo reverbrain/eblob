@@ -741,7 +741,6 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 {
 	struct datasort_cfg *dcfg = priv;
 	struct eblob_disk_control *found;
-	struct eblob_write_control *wc;
 	int err;
 
 	if (bctl == NULL)
@@ -759,13 +758,11 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 
 	switch (bctl->type) {
 	case EBLOB_BINLOG_TYPE_UPDATE:
-		/* Shortcut */
-		wc = bctl->meta;
 		/*
 		 * There is only write control in binlog, but from it we can
 		 * extract data location in unsorted base
 		 */
-		err = datasort_binlog_update(dcfg->result->fd, wc, found);
+		err = datasort_binlog_update(dcfg->result->fd, bctl->meta, found);
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
 		err = datasort_binlog_remove(found, dcfg->result->fd);
