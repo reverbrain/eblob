@@ -736,16 +736,11 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 		return -ENOTSUP;
 	}
 
-	/*
-	 * Failure is acceptable - after all we are working with inconsistent
-	 * base.
-	 */
-	if (err != 0) {
+	if (err != 0)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
 				"failed to apply key: %s", eblob_dump_id(bctl->key->id));
-	}
 
-	return 0;
+	return err;
 }
 
 /*
