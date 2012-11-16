@@ -688,10 +688,22 @@ static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
  * base
  * @from_fd:	unsorted base
  * @to_fd:	sorted base
+ * @dc:		pointer to sorted index
  */
 static int datasort_binlog_update(int from_fd, uint64_t from_offset, int to_fd,
-		uint64_t to_offset, uint64_t size)
+		uint64_t to_offset, uint64_t size, struct eblob_disk_control *dc)
 {
+	int err;
+	/* Update data in index */
+	err = pread(from_fd, dc, sizeof(*dc), from_offset);
+	if (err != sizeof(*dc)) {
+		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
+		return err;
+	}
+	/* Update position to new one */
+	dc->position = to_offset;
+
+	/* Update data in base */
 	return eblob_splice_data(from_fd, from_offset, to_fd, to_offset, size);
 }
 
@@ -729,7 +741,7 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 		 */
 		err = datasort_binlog_update(wc->data_fd, wc->ctl_data_offset,
 				dcfg->result->fd, found->position,
-				found->disk_size);
+				found->disk_size, found);
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
 		err = datasort_binlog_remove(found, dcfg->result->fd);
