@@ -210,8 +210,10 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
 	}
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: fd: %d, offset: %" PRIu64 ", size: %" PRIu64,
-			local->current->fd, local->current->offset, dc->disk_size);
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
+			", size: %" PRIu64 ", flags: %" PRIu64,
+			eblob_dump_id(dc->key.id), local->current->fd, local->current->offset,
+			dc->disk_size, dc->flags);
 
 	/* Rewrite position */
 	dc->position = local->current->offset;
