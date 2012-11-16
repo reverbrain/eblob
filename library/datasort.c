@@ -700,6 +700,10 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	assert(dc != NULL);
 	assert(wc != NULL);
 	assert(to_fd >= 0);
+	assert(wc->total_size == dc->disk_size);
+
+	if (wc->total_size != dc->disk_size)
+		return -EINVAL;
 
 	/* Shortcuts */
 	from_fd = wc->data_fd;
