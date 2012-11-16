@@ -751,6 +751,7 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 
 	found = datasort_index_search(bctl->key, dcfg->result->index, dcfg->result->count);
 	if (found == NULL) {
+		/* This is acceptable because blob we sorted was inconsistent */
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "key not found: %s",
 				eblob_dump_id(bctl->key->id));
 		return 0;
