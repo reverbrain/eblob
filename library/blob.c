@@ -176,7 +176,7 @@ static int eblob_check_disk(struct eblob_iterate_local *loc)
  * eblob_blob_iterator() - one iterator thread.
  *
  * Splits data into `local_max_num' chunks and passes them to
- * eblob_blob_iterator()
+ * eblob_check_disk()
  */
 static void *eblob_blob_iterator(void *data)
 {
