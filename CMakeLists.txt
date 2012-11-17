@@ -120,16 +120,6 @@ if (HAVE_FDATASYNC)
     add_definitions(-DHAVE_FDATASYNC)
 endif()
 
-# Check for mmap(2) flags
-check_symbol_exists(MAP_POPULATE "sys/mman.h" HAVE_MAP_POPULATE)
-if (HAVE_MAP_POPULATE)
-    add_definitions(-DHAVE_MAP_POPULATE)
-endif()
-check_symbol_exists(MAP_PREFAULT_READ "sys/mman.h" HAVE_MAP_PREFAULT_READ)
-if (HAVE_MAP_PREFAULT_READ)
-    add_definitions(-DHAVE_MAP_PREFAULT_READ)
-endif()
-
 # Collect all libraries together
 set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SNAPPY_LIBRARIES})
 set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
