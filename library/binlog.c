@@ -721,21 +721,22 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg)
  * binlog_hash_callback() - for all entries with matched fd set binlog and
  * binlog_lock fields.
  */
-int binlog_hash_callback(void *priv, unsigned char *data, unsigned int size)
+static int binlog_hash_callback(void *priv, struct eblob_hash_entry *entry)
 {
 	struct eblob_ram_control *rc;
 	struct eblob_base_ctl *bctl;
 	int i, num;
 
 	assert(priv != NULL);
-	assert(data != NULL);
-	assert(size > 0);
-	assert(size % sizeof(struct eblob_ram_control) == 0);
+	assert(entry != NULL);
+	assert(entry->data != NULL);
+	assert(entry->dsize > 0);
+	assert(entry->dsize % sizeof(struct eblob_ram_control) == 0);
 
 	bctl = (struct eblob_base_ctl *)priv;
-	rc = (struct eblob_ram_control *)data;
+	rc = (struct eblob_ram_control *)entry->data;
 
-	num = size / sizeof(struct eblob_ram_control);
+	num = entry->dsize / sizeof(struct eblob_ram_control);
 	for (i = 0; i < num; ++i)
 		if (rc[i].data_fd == bctl->data_fd) {
 			rc[i].bctl = bctl;

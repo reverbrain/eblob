@@ -325,27 +325,27 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
  *
  * TODO: move ram control logging to separate function i.e eblob_dump_rc()
  */
-int eblob_dump_hash(void *priv, unsigned char *data, unsigned int size)
+int eblob_dump_hash(void *priv, struct eblob_hash_entry *entry)
 {
 	struct eblob_log *log;
 	struct eblob_ram_control *rctl;
 	int i, num;
 
 	assert(priv != NULL);
-	assert(data != NULL);
+	assert(entry != NULL);
+	assert(entry->data != NULL);
+	assert(entry->dsize > 0);
+	assert(entry->dsize % sizeof(struct eblob_ram_control) == 0);
 
 	log = (struct eblob_log *)priv;
-	rctl = (struct eblob_ram_control *)data;
+	rctl = (struct eblob_ram_control *)entry->data;
 
-	assert(size % sizeof(struct eblob_ram_control) == 0);
-	assert(size > 0);
-
-	num = size / sizeof(struct eblob_ram_control);
+	num = entry->dsize / sizeof(struct eblob_ram_control);
 	for (i = 0; i < num; ++i)
-		eblob_log(log, EBLOB_LOG_DEBUG, "rctl: data_fd: %d, index_fd: %d"
+		eblob_log(log, EBLOB_LOG_DEBUG, "rctl: %s, data_fd: %d, index_fd: %d"
 				", data_offset: %" PRIu64 ", index_offset: %" PRIu64 ", size: %" PRIu64
 				", index: %hd, type: %hd, bctl: %p\n",
-				rctl[i].data_fd, rctl[i].index_fd,
+				eblob_dump_id(entry->key.id), rctl[i].data_fd, rctl[i].index_fd,
 				rctl[i].data_offset, rctl[i].index_offset,
 				rctl[i].size, rctl[i].index, rctl[i].type, rctl[i].bctl);
 	return 0;
@@ -359,7 +359,7 @@ int eblob_dump_hash(void *priv, unsigned char *data, unsigned int size)
  * NB! Caller must hold root_lock!
  */
 void eblob_hash_iterator(struct rb_node *n, void *callback_priv,
-		int (*callback)(void *priv, unsigned char *data, unsigned int size))
+		int (*callback)(void *priv, struct eblob_hash_entry *entry))
 {
 	struct eblob_hash_entry *t;
 
@@ -367,9 +367,11 @@ void eblob_hash_iterator(struct rb_node *n, void *callback_priv,
 		return;
 
 	t = rb_entry(n, struct eblob_hash_entry, node);
-	assert(t != NULL);
 
-	callback(callback_priv, t->data, t->dsize);
+	if (t == NULL)
+		return;
+
+	callback(callback_priv, t);
 
 	eblob_hash_iterator(n->rb_left, callback_priv, callback);
 	eblob_hash_iterator(n->rb_right, callback_priv, callback);
