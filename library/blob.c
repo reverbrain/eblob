@@ -400,9 +400,6 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		(unsigned long long)old->data_offset,
 		(unsigned long long)old->data_offset, old->data_fd);
 
-	blob_mark_index_removed(old->index_fd, old->index_offset);
-	blob_mark_index_removed(old->data_fd, old->data_offset);
-
 #ifdef BINLOG
 	if (old->bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
@@ -430,6 +427,9 @@ skip_binlog:
 			abort();
 	}
 #endif /* BINLOG */
+
+	blob_mark_index_removed(old->index_fd, old->index_offset);
+	blob_mark_index_removed(old->data_fd, old->data_offset);
 
 	eblob_stat_update(b, -1, 1, 0);
 
