@@ -701,9 +701,9 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	assert(dc != NULL);
 	assert(wc != NULL);
 	assert(to_fd >= 0);
-	assert(wc->total_size == dc->disk_size);
+	assert(wc->total_size <= dc->disk_size);
 
-	if (wc->total_size != dc->disk_size)
+	if (wc->total_size > dc->disk_size)
 		return -EINVAL;
 
 	/* Shortcuts */
@@ -719,7 +719,7 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 
 	/* size should remain the same */
-	assert(wc->total_size == dc->disk_size);
+	assert(wc->total_size <= dc->disk_size);
 
 	/* Restore offset */
 	dc->position = to_offset;
