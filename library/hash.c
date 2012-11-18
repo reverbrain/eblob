@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <inttypes.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -316,6 +317,38 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep, on_diskp);
 	pthread_mutex_unlock(&h->root_lock);
 	return err;
+}
+
+/**
+ * eblob_dump_hash() - prints content of hash table to log.
+ * @priv:	pointer to eblob_log
+ *
+ * TODO: move ram control logging to separate function i.e eblob_dump_rc()
+ */
+int eblob_dump_hash(void *priv, unsigned char *data, unsigned int size)
+{
+	struct eblob_log *log;
+	struct eblob_ram_control *rctl;
+	int i, num;
+
+	assert(priv != NULL);
+	assert(data != NULL);
+
+	log = (struct eblob_log *)priv;
+	rctl = (struct eblob_ram_control *)data;
+
+	assert(size % sizeof(struct eblob_ram_control) == 0);
+	assert(size > 0);
+
+	num = size / sizeof(struct eblob_ram_control);
+	for (i = 0; i < num; ++i)
+		eblob_log(log, EBLOB_LOG_DEBUG, "rctl: data_fd: %d, index_fd: %d"
+				", data_offset: %" PRIu64 ", index_offset: %" PRIu64 ", size: %" PRIu64
+				", index: %hd, type: %hd, bctl: %p\n",
+				rctl[i].data_fd, rctl[i].index_fd,
+				rctl[i].data_offset, rctl[i].index_offset,
+				rctl[i].size, rctl[i].index, rctl[i].type, rctl[i].bctl);
+	return 0;
 }
 
 /**
