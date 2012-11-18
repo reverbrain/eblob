@@ -701,8 +701,13 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	assert(dc != NULL);
 	assert(wc != NULL);
 	assert(to_fd >= 0);
-	assert(wc->total_size <= dc->disk_size);
 
+	/*
+	 * This can happen if compressed record was overwritten and became
+	 * bigger than it was originally
+	 *
+	 * TODO: For now we just abort datasort it will retry later
+	 */
 	if (wc->total_size > dc->disk_size)
 		return -EINVAL;
 
