@@ -241,7 +241,11 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	assert(b != NULL);
 
 	/* TODO: Do not store the value itself - only hash of it */
-	error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
+	if (item->flags & BLOB_DISK_CTL_REMOVE) {
+		error = eblob_remove(b, &item->ekey, 0);
+	} else {
+		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
+	}
 	if (error != 0)
 		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
