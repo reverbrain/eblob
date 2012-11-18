@@ -409,7 +409,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		int err;
 
 		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
 			goto skip_binlog;
 		}
@@ -423,7 +423,7 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		bctl.key = key;
 
 		if (binlog_append(&bctl))
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: %s failed: %s\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
 skip_binlog:
 		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
@@ -860,7 +860,7 @@ again:
 
 		if ((err = pthread_mutex_lock(&ctl.bctl->lock)) != 0) {
 			err = -err;
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %zd\n", __func__, -err);
 			goto err_out_exit;
 		}
