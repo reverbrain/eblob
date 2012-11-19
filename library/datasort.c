@@ -26,6 +26,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
+#include <glob.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
@@ -37,6 +39,61 @@
 #include "binlog.h"
 #include "datasort.h"
 
+
+/**
+ * datasort_cleanup_stale() - cleans leftovers from previous data-sorts in case
+ * of system crash
+ * @base:	path to directory where blobs are located
+ * @name:	name of directory which may contain leftovers from datasort
+ */
+int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir)
+{
+	glob_t datasort_glob;
+	size_t i;
+	int err;
+	char datasort_chunks[PATH_MAX], datasort_dir[PATH_MAX];
+
+	assert(log != NULL);
+	assert(base != NULL);
+	assert(dir != NULL);
+	assert(strlen(base) > 0);
+	assert(strlen(dir) > 0);
+
+	if (log == NULL || base == NULL || dir == NULL)
+		return -EINVAL;
+
+	eblob_log(log, EBLOB_LOG_INFO, "stale datasort dir found: %s\n", dir);
+
+	/* Glob all chunks in this directory */
+	snprintf(datasort_dir, PATH_MAX, "%s/%s", base, dir);
+	snprintf(datasort_chunks, PATH_MAX, "%s/chunk.*", datasort_dir);
+
+	err = glob(datasort_chunks, 0, NULL, &datasort_glob);
+	if (err != 0) {
+		if (err != GLOB_NOMATCH)
+			eblob_log(log, EBLOB_LOG_ERROR, "glob: %s: %d\n", datasort_chunks, err);
+		goto err_rmdir;
+	}
+
+	/* Remove them one by one */
+	for (i = 0; i < datasort_glob.gl_pathc; i++) {
+		eblob_log(log, EBLOB_LOG_INFO, "removing chunk: %s\n", datasort_glob.gl_pathv[i]);
+		if (unlink(datasort_glob.gl_pathv[i]) == -1)
+			eblob_log(log, EBLOB_LOG_ERROR,
+					"unlink: %s: %d\n", datasort_glob.gl_pathv[i], errno);
+	}
+
+err_rmdir:
+	/* Remove directory */
+	eblob_log(log, EBLOB_LOG_INFO, "removing dir: %s\n", datasort_dir);
+	if (rmdir(datasort_dir) == -1)
+		eblob_log(log, EBLOB_LOG_ERROR, "rmdir: %s: %d\n", datasort_dir, errno);
+
+	/* Cleanup */
+	globfree(&datasort_glob);
+
+	return 0;
+}
 
 /*
  * Create temp directory for sorting

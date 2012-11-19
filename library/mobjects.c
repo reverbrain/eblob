@@ -29,6 +29,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <pthread.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -585,6 +586,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 	struct dirent64 *d;
 	const char *base;
 	char *dir_base, *tmp;
+	char datasort_dir_pattern[NAME_MAX];
 	int d_len, max_type;
 
 	base = eblob_get_base(b->cfg.file);
@@ -613,11 +615,18 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		goto err_out_close;
 	}
 
+	/* Pattern for data-sort directories */
+	snprintf(datasort_dir_pattern, NAME_MAX, "%s-*.datasort.*", base);
+
 	while ((d = readdir64(dir)) != NULL) {
 		if (d->d_name[0] == '.' && d->d_name[1] == '\0')
 			continue;
 		if (d->d_name[0] == '.' && d->d_name[1] == '.' && d->d_name[2] == '\0')
 			continue;
+
+		/* Check if this directory is a stale datasort */
+		if (d->d_type == DT_DIR && fnmatch(datasort_dir_pattern, d->d_name, 0) == 0)
+			datasort_cleanup_stale(b->cfg.log, dir_base, d->d_name);
 
 		if (d->d_type == DT_DIR)
 			continue;

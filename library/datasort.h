@@ -87,5 +87,6 @@ struct datasort_cfg {
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
 int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
+int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
 
 #endif /* __EBLOB_DATASORT_H */
