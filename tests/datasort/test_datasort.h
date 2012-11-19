@@ -71,6 +71,8 @@ struct test_cfg {
 	long		test_milestone;		/* Print message each
 						   "milestone" iterations */
 	char		*test_path;		/* Path to test directory */
+	long long	test_reopen;		/* Reopen blob each `reopen`
+						   iterations */
 	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
 	/* Internal structures follow */
@@ -99,6 +101,7 @@ extern struct test_cfg cfg;
 #define DEFAULT_TEST_ITERATIONS		(100000)
 #define DEFAULT_TEST_MILESTONE		(100)
 #define DEFAULT_TEST_PATH		"./"
+#define DEFAULT_TEST_REOPEN		(0)
 
 void options_get_l(long *cfg_entry, const char *optarg);
 void options_get_ll(long long *cfg_entry, const char *optarg);

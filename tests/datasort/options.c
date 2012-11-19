@@ -39,7 +39,7 @@ options_usage(char *progname, int eval, FILE *stream)
 {
 	fprintf(stream, "usage: %s ", progname);
 	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-i test_items] [-I iterations] ");
-	fprintf(stream, "[-l log_level] [-m milestone] [-p path] [-r blob_records] ");
+	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
 	fprintf(stream, "[-y sync_time] ");
 	fprintf(stream, "\n");
@@ -88,6 +88,7 @@ options_set_defaults(void)
 	cfg.test_items = DEFAULT_TEST_ITEMS;
 	cfg.test_iterations = DEFAULT_TEST_ITERATIONS;
 	cfg.test_milestone = DEFAULT_TEST_MILESTONE;
+	cfg.test_reopen = DEFAULT_TEST_REOPEN;
 	cfg.test_rnd_seed = time(0);
 
 	if ((cfg.test_path = strdup(DEFAULT_TEST_PATH)) == NULL)
@@ -115,13 +116,14 @@ options_get(int argc, char **argv)
 		{ "test-iterations",	required_argument,	NULL,		'I' },
 		{ "test-milestone",	required_argument,	NULL,		'm' },
 		{ "test-path",		required_argument,	NULL,		'p' },
+		{ "test-reopen",	required_argument,	NULL,		'o' },
 		{ "test-rnd-seed",	required_argument,	NULL,		'R' },
 		{ "version",		no_argument,		NULL,		'v' },
 		{ NULL,			0,			NULL,		0 }
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -145,6 +147,9 @@ options_get(int argc, char **argv)
 			break;
 		case 'm':
 			options_get_l(&cfg.test_milestone, optarg);
+			break;
+		case 'o':
+			options_get_ll(&cfg.test_reopen, optarg);
 			break;
 		case 'p':
 			if ((cfg.test_path = strdup(optarg)) == NULL)
@@ -196,6 +201,7 @@ options_dump(void)
 	printf("Number of test items: %lld\n", cfg.test_items);
 	printf("Number of modify/read iterations: %lld\n", cfg.test_iterations);
 	printf("Print message each 'milestone' iterations: %ld\n", cfg.test_milestone);
+	printf("Close and open blob: %lld\n", cfg.test_reopen);
 	printf("Random seed: %lld\n", cfg.test_rnd_seed);
 	printf("Test path: %s\n", cfg.test_path);
 }

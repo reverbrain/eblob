@@ -377,6 +377,12 @@ main(int argc, char **argv)
 			warnx("forcing defrag: %d", i);
 			eblob_start_defrag(cfg.b);
 		}
+		/* Reopen blob each test_reopen iterations */
+		if (cfg.test_reopen > 0 && (i % cfg.test_reopen) == 0) {
+			eblob_cleanup(cfg.b);
+			if ((cfg.b = eblob_init(&bcfg)) == NULL)
+				errx(EX_OSERR, "loop: eblob_init");
+		}
 		/* Exit on signal */
 		if (cfg.need_exit)
 			goto out_cleanups;
