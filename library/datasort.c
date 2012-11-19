@@ -969,7 +969,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 		if (err != 0)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_DEBUG, -err,
 					"eblob_remove_type_nolock: %s, offset: %" PRIu64,
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
