@@ -878,6 +878,9 @@ again:
 		/*
 		 * We do not store data in binlog itself because we can easily
 		 * obtain it from old data file based on data in @wc
+		 *
+		 * XXX: We have little race here, in case binlog will apply
+		 * before data gets to disk
 		 */
 		err = binlog_append(&bctl);
 		if (err)
