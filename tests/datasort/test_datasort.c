@@ -322,6 +322,8 @@ main(int argc, char **argv)
 	bcfg.sync = cfg.blob_sync;
 	bcfg.file = blob_path;
 	cfg.b = eblob_init(&bcfg);
+	if (cfg.b == NULL)
+		errx(EX_OSERR, "eblob_init");
 
 	/* Init test */
 	cfg.shadow = calloc(cfg.test_items, sizeof(struct shadow));
