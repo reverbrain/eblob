@@ -1056,7 +1056,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	/* Setup defaults */
 	if (dcfg->thread_num == 0)
-		dcfg->thread_num = EBLOB_DATASORT_DEFAULTS_THREAD_NUM;
+		dcfg->thread_num = dcfg->b->cfg.iterate_threads;
 	if (dcfg->chunk_size == 0)
 		dcfg->chunk_size = EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE;
 	if (dcfg->chunk_limit == 0)

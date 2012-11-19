@@ -23,8 +23,6 @@
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 16)
-/* Used in split iterator */
-#define EBLOB_DATASORT_DEFAULTS_THREAD_NUM	(1)
 
 /*
  * One chunk of blob.
