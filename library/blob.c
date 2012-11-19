@@ -1422,7 +1422,6 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	blob_update_index(b, key, &wc, 0);
 
 err_out_exit:
-
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
 		memcpy(old_data, &wc, sizeof(struct eblob_write_control));
 	}
@@ -1456,8 +1455,10 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		}
 	}
 
-	/* Key may be found in number of types across many types and bases -
-	 * remove all of them */
+	/*
+	 * Key may be found in number of bases across many types - remove all
+	 * of them
+	 */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
 		eblob_mark_entry_removed(b, key, &ctl[i]);
 
@@ -1467,7 +1468,6 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	eblob_hash_remove_nolock(b->hash, key);
 
 	free(ctl);
-
 
 err_out_exit:
 	pthread_mutex_unlock(&b->hash->root_lock);
@@ -1566,8 +1566,10 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	}
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
-		/* TODO: Replace non standard EBADFD with something POSIX-like
-		 * i.e. EIO */
+		/*
+		 * TODO: Replace non standard EBADFD with something POSIX-like
+		 * i.e. EIO
+		 */
 		err = -EBADFD;
 		goto err_out_unmap;
 	}
@@ -1616,9 +1618,10 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 		struct eblob_disk_control dc;
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
-		/* Check case when object was actually removed on disk, but
-		 * this was not updated in RAM yet */
-
+		/*
+		 * Check case when object was actually removed on disk, but
+		 * this was not updated in RAM yet
+		 */
 		err = pread(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
 		if (err != sizeof(dc)) {
 			err = -errno;

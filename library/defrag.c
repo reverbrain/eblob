@@ -248,7 +248,6 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
 			(unsigned long long)dc->flags, ctl->type);
 
-	/* TODO: Atomic? */
 	pthread_mutex_lock(&bctl->dlock);
 	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
 		bctl->good++;

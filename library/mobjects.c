@@ -478,7 +478,6 @@ found:
 		free(name);
 
 	*errp = 0;
-
 	return ctl;
 
 err_out_free_ctl:

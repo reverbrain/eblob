@@ -118,7 +118,7 @@ struct eblob_base_ctl {
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
-	/* Blob is closed and we shoould sort data in it by key */
+	/* Blob is closed and we should sort data in it by key */
 	int			need_sorting;
 
 	pthread_mutex_t		dlock;
@@ -236,5 +236,4 @@ int eblob_pagecache_hint(int fd, uint64_t flag);
 
 int blob_mark_index_removed(int fd, off_t offset);
 int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize, struct eblob_write_control *wc);
-
 #endif /* __EBLOB_BLOB_H */
