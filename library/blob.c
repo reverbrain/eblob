@@ -1743,58 +1743,21 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 	else
 		*size = m.size;
 
-	/*
-	 * we need this additional eblob_disk_control in case of compressed data,
-	 * which is not actually compressed, so we will update its control structure
-	 */
-	m.offset -= sizeof(struct eblob_disk_control);
-	m.size += sizeof(struct eblob_disk_control);
-	
 	err = eblob_data_map(&m);
 	if (err)
 		goto err_out_exit;
 
 	if (compress) {
-		m.size -= sizeof(struct eblob_disk_control);
-		m.data += sizeof(struct eblob_disk_control);
-
 		err = eblob_decompress(m.data, m.size, dst, size);
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: read compress: %llu -> %llu: %d\n",
 				eblob_dump_id(key->id),
 				(unsigned long long)m.size, (unsigned long long)*size, err);
 
-		m.size += sizeof(struct eblob_disk_control);
-		m.data -= sizeof(struct eblob_disk_control);
-
-		/*
-		 * If data was not compressed, but compression flag was set, clear it and
-		 * return data as is
-		 */
-		if (err == -ERANGE) {
-			struct eblob_disk_control dc;
-
-			memcpy(&dc, m.data, sizeof(struct eblob_disk_control));
-
-			eblob_convert_disk_control(&dc);
-			dc.flags &= ~BLOB_DISK_CTL_COMPRESS;
-			eblob_convert_disk_control(&dc);
-
-			memcpy(m.data, &dc, sizeof(struct eblob_disk_control));
-			compress = 0;
-			err = 0;
-			goto have_uncompressed_data;
-		}
-
 		if (err)
 			goto err_out_unmap;
-	}
-
-have_uncompressed_data:
-	if (!compress) {
+	} else {
 		void *data;
-
-		m.size -= sizeof(struct eblob_disk_control);
 
 		data = malloc(m.size);
 		if (!data) {
@@ -1802,7 +1765,7 @@ have_uncompressed_data:
 			goto err_out_unmap;
 		}
 
-		memcpy(data, m.data + sizeof(struct eblob_disk_control), m.size);
+		memcpy(data, m.data, m.size);
 
 		*size = m.size;
 		*dst = data;
