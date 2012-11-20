@@ -377,6 +377,7 @@ main(int argc, char **argv)
 		}
 		/* Reopen blob each test_reopen iterations */
 		if (cfg.test_reopen > 0 && (i % cfg.test_reopen) == 0) {
+			warnx("reopening blob: %d", i);
 			eblob_cleanup(cfg.b);
 			if ((cfg.b = eblob_init(&bcfg)) == NULL)
 				errx(EX_OSERR, "loop: eblob_init");
