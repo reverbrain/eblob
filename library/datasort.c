@@ -753,7 +753,7 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	int from_fd;
 	ssize_t err;
 	const ssize_t dc_size = sizeof(*dc);
-	uint64_t from_offset, to_offset;
+	uint64_t from_offset, to_offset, size;
 
 	assert(dc != NULL);
 	assert(wc != NULL);
@@ -775,14 +775,15 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 
 	/* Safe sorted offset */
 	to_offset = dc->position;
+	size = dc->disk_size;
 
 	/* Replace in-memory index */
 	err = pread(from_fd, dc, dc_size, from_offset);
 	if (err != dc_size)
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 
-	/* size should remain the same */
-	assert(wc->total_size <= dc->disk_size);
+	/* Size should remain the same */
+	assert(size == dc->disk_size);
 
 	/* Restore offset */
 	dc->position = to_offset;
