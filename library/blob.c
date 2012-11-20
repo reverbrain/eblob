@@ -881,6 +881,10 @@ again:
 		 *
 		 * XXX: We have little race here, in case binlog will apply
 		 * before data gets to disk
+		 *
+		 * XXX: There is also general race between entry copied from
+		 * cache and time it get used - it can result in write/read
+		 * error if this fd is already closed
 		 */
 		err = binlog_append(&bctl);
 		if (err)
