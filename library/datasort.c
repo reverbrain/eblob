@@ -760,13 +760,14 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	assert(to_fd >= 0);
 
 	/*
-	 * This can happen if compressed record was overwritten and became
-	 * bigger than it was originally
+	 * This can happen if eblob_try_overwrite() failed because new data was
+	 * too big and it was decided to remove entry and add it again.
 	 *
-	 * TODO: For now we just abort datasort it will retry later
+	 * It basically says that entry was removed in base by means other than
+	 * eblob_remove(), so we can just mark it as one.
 	 */
 	if (wc->total_size > dc->disk_size)
-		return -EINVAL;
+		return -E2BIG;
 
 	/* Shortcuts */
 	from_fd = wc->data_fd;
@@ -839,6 +840,12 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 		 * extract data location in unsorted base
 		 */
 		err = datasort_binlog_update(dcfg->result->fd, bctl->meta, found);
+		if (err == -E2BIG) {
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
+					"key was rewritten with bigger size, removing: %s",
+					eblob_dump_id(bctl->key->id));
+			err = datasort_binlog_remove(found, dcfg->result->fd);
+		}
 		break;
 	case EBLOB_BINLOG_TYPE_REMOVE:
 		err = datasort_binlog_remove(found, dcfg->result->fd);
