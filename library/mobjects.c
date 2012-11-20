@@ -696,8 +696,12 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		num = size / sizeof(struct eblob_ram_control);
 		for (i = 0; i < num; ++i) {
 			if (rc[i].type == ctl->type) {
-				/* We should retain bctl pointer on update */
-				ctl->bctl = rc[i].bctl;
+				/*
+				 * We should preserve bctl pointer on update
+				 * unless fd have changed
+				 */
+				if (ctl->data_fd == rc[i].data_fd)
+					ctl->bctl = rc[i].bctl;
 				memcpy(&rc[i], ctl, sizeof(struct eblob_ram_control));
 				break;
 			}
