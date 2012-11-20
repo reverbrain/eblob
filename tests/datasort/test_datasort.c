@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "test_datasort.h"
@@ -354,7 +353,6 @@ main(int argc, char **argv)
 	srandom(cfg.test_rnd_seed);
 	for (i = 0; i < cfg.test_iterations; i++) {
 		uint32_t rnd;
-		struct timespec ts = {0, cfg.test_delay * 1000000};
 
 		/* Pick random item */
 		rnd = random() % cfg.test_items;
@@ -387,7 +385,7 @@ main(int argc, char **argv)
 		if (cfg.need_exit)
 			goto out_cleanups;
 		/* Sleep for 'test_delay' milliseconds */
-		nanosleep(&ts, NULL);
+		usleep(cfg.test_delay * 1000);
 	}
 
 out_cleanups:
