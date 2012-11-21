@@ -269,13 +269,14 @@ sigint_cb(int signal __unused)
 void
 cleanups(void)
 {
+	FILE *log = cfg.b->cfg.log->log_private;
 
 	warnx("test cleanup...");
 	eblob_remove_blobs(cfg.b);
-	fclose(cfg.b->cfg.log->log_private);
 
 	warnx("eblob cleanup...");
 	eblob_cleanup(cfg.b);
+	fclose(log);
 
 	warnx("memory cleanup...");
 	free(cfg.test_path);
