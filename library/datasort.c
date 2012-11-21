@@ -877,7 +877,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 {
 	struct eblob_map_fd index;
 	struct eblob_base_ctl *bctl;
-	char tmp_index_path[PATH_MAX], index_path[PATH_MAX], sorted_index_path[PATH_MAX], data_path[PATH_MAX];
+	char tmp_index_path[PATH_MAX], index_path[PATH_MAX];
+	char sorted_index_path[PATH_MAX], data_path[PATH_MAX];
+	char mark_path[PATH_MAX];
 	uint64_t i, offset;
 	int err;
 
@@ -892,6 +894,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 
 	/* Construct index pathes */
 	snprintf(data_path, PATH_MAX, "%s-%d.%d", dcfg->b->cfg.file, bctl->type, bctl->index);
+	snprintf(mark_path, PATH_MAX, "%s.data_is_sorted", data_path);
 	snprintf(index_path, PATH_MAX, "%s.index", data_path);
 	snprintf(sorted_index_path, PATH_MAX, "%s.sorted", index_path);
 	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", sorted_index_path);
@@ -1020,6 +1023,14 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	if (link(sorted_index_path, index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "link: %s -> %s",
 				sorted_index_path, index_path);
+
+	/* Leave mark that data file is sorted */
+	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
+		if (close(err) == -1)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "close: %d", err);
+	} else {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mark: %s", mark_path);
+	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"datasort_swap: swapped: data: %s -> %s, "
