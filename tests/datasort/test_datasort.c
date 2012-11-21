@@ -198,15 +198,8 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	 * If new entry not removed
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
-		/* TODO: Add support for values > 2Gb */
-		int max;
-
 		/* If it's overwrite we should not generate bigger entry */
-		if (item->flags & BLOB_DISK_CTL_OVERWRITE)
-			max = item->size;
-		else
-			max = cfg.test_item_size;
-		item->size = 1 + random() % max;
+		item->size = 1 + random() % cfg.test_item_size;
 
 		if ((item->value = malloc(item->size)) == NULL)
 			return errno;
