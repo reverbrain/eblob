@@ -243,12 +243,12 @@ again:
 			};
 
 			err = eblob_generate_sorted_data(&dcfg);
-#else /* DATASORT */
+#else
 			err = eblob_generate_sorted_index(b, ctl, 0);
 			if (err)
 				goto err_out_close_index;
 			err = eblob_index_blocks_fill(ctl);
-#endif /* !DATASORT */
+#endif
 			if (err)
 				goto err_out_close_index;
 		} else {
