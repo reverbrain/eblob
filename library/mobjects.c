@@ -245,11 +245,10 @@ again:
 			err = eblob_generate_sorted_data(&dcfg);
 #else /* DATASORT */
 			err = eblob_generate_sorted_index(b, ctl, 0);
-#endif /* !DATASORT */
 			if (err)
 				goto err_out_close_index;
-
 			err = eblob_index_blocks_fill(ctl);
+#endif /* !DATASORT */
 			if (err)
 				goto err_out_close_index;
 		} else {
