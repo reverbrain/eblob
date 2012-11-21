@@ -827,12 +827,12 @@ int datasort_binlog_apply_one(void *priv, struct eblob_binlog_ctl *bctl)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "key not found: %s",
 				eblob_dump_id(bctl->key->id));
 		return 0;
-	} else {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "applying: %s: binlog type: %" PRIu16
-				", offset: %" PRIu64 ", size: %" PRIu64 ",  flags: %" PRIu64,
-				eblob_dump_id(bctl->key->id), bctl->type,
-				found->position, found->disk_size, found->flags);
 	}
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "applying: %s: binlog type: %" PRIu16
+			", offset: %" PRIu64 ", size: %" PRIu64 ",  flags: %" PRIu64,
+			eblob_dump_id(bctl->key->id), bctl->type,
+			found->position, found->disk_size, found->flags);
 
 	switch (bctl->type) {
 	case EBLOB_BINLOG_TYPE_UPDATE:
