@@ -209,7 +209,11 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 		goto err_out_exit;
 	}
 
+	/* TODO: Simplify me */
 	snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	unlink(path);
+
+	snprintf(path, len, "%s-%d.%d.data_is_sorted", b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
 
 	snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
