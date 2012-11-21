@@ -786,7 +786,7 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	bcfg = binlog_init(binlog_filename, b->cfg.log);
 	if (bcfg == NULL) {
 		err = -ENOMEM;
-		goto err_unlock;
+		goto err_destroy;
 	}
 	bcfg->flags = EBLOB_BINLOG_FLAGS_CFG_TRUNCATE;
 
@@ -796,7 +796,7 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: binlog: eblob_start_binlog failed: %d.\n", err);
-		goto err_unlock;
+		goto err_destroy;
 	}
 
 	/*
@@ -805,7 +805,7 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if ((err = pthread_mutex_lock(&b->hash->root_lock)) != 0) {
 		err = -err;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d.\n", -err);
-		goto err_unlock;
+		goto err_destroy;
 	}
 
 	eblob_hash_iterator(b->hash->root.rb_node, bctl, binlog_hash_callback);
@@ -815,11 +815,12 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 
 	bctl->binlog = bcfg;
 
+err_destroy:
+	if (err)
+		binlog_destroy(bcfg);
 err_unlock:
 	if (pthread_mutex_unlock(&bctl->lock) != 0)
 		abort();
-	if (err)
-		binlog_destroy(bcfg);
 err_free:
 	free(path_copy);
 err:
