@@ -623,9 +623,11 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		if (d->d_name[0] == '.' && d->d_name[1] == '.' && d->d_name[2] == '\0')
 			continue;
 
+#ifdef DATASORT
 		/* Check if this directory is a stale datasort */
 		if (d->d_type == DT_DIR && fnmatch(datasort_dir_pattern, d->d_name, 0) == 0)
 			datasort_cleanup_stale(b->cfg.log, dir_base, d->d_name);
+#endif
 
 		if (d->d_type == DT_DIR)
 			continue;
