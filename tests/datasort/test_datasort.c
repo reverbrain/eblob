@@ -232,7 +232,9 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	assert(item != NULL);
 	assert(b != NULL);
 
-	/* TODO: Do not store the value itself - only hash of it */
+	/*
+	 * TODO: Do not store the value itself - only hash of it or seed for prng
+	 */
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		error = eblob_remove(b, &item->ekey, 0);
 	} else {
