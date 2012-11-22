@@ -124,79 +124,6 @@ err_out_unlock:
 	return 0;
 }
 
-/*
- * eblob_readlink() - gets filename from opened fd.
- *
- * FIXME: rename
- * FIXME: breaks static analyzer
- * FIXME: Linux-only
- */
-static int eblob_readlink(int fd, char **datap)
-{
-	char *dst, src[64];
-	int dsize = 4096;
-	int err;
-
-	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
-
-	dst = malloc(dsize);
-	if (!dst) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	err = readlink(src, dst, dsize);
-	if (err < 0)
-		goto err_out_free;
-
-	dst[err] = '\0';
-	*datap = dst;
-
-	return err + 1; /* including 0-byte */
-
-err_out_free:
-	free(dst);
-err_out_exit:
-	return err;
-}
-
-/**
- * eblob_base_remove() - removes files that belong to one base
- * TODO: Move to mobjects.c
- * XXX: Unbreak with hardlinks
- */
-void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
-{
-	char *dst;
-	int err;
-
-	err = eblob_readlink(ctl->data_fd, &dst);
-	if (err > 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: remove: %s\n", dst);
-
-		unlink(dst);
-		free(dst);
-	}
-
-	if (ctl->sort.fd) {
-		err = eblob_readlink(ctl->sort.fd, &dst);
-		if (err > 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: remove: %s\n", dst);
-
-			unlink(dst);
-			free(dst);
-		}
-	}
-
-	err = eblob_readlink(ctl->index_fd, &dst);
-	if (err > 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: remove: %s\n", dst);
-
-		unlink(dst);
-		free(dst);
-	}
-}
-
 static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
@@ -238,6 +165,15 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 
 err_out_exit:
 	return err;
+}
+
+/**
+ * eblob_base_remove() - removes files that belong to one base
+ * TODO: Move to mobjects.c
+ */
+void eblob_base_remove(struct eblob_backend *b __unused, struct eblob_base_ctl *ctl)
+{
+	eblob_defrag_unlink(ctl);
 }
 
 /**
