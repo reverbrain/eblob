@@ -129,6 +129,7 @@ err_out_unlock:
  *
  * FIXME: rename
  * FIXME: breaks static analyzer
+ * FIXME: Linux-only
  */
 static int eblob_readlink(int fd, char **datap)
 {
@@ -136,7 +137,6 @@ static int eblob_readlink(int fd, char **datap)
 	int dsize = 4096;
 	int err;
 
-	/* FIXME: Linuxism */
 	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
 
 	dst = malloc(dsize);
@@ -163,6 +163,7 @@ err_out_exit:
 /**
  * eblob_base_remove() - removes files that belong to one base
  * TODO: Move to mobjects.c
+ * XXX: Unbreak with hardlinks
  */
 void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl)
 {
