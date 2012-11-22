@@ -140,6 +140,9 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	assert(item != NULL);
 	assert(b != NULL);
 
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checking: %s (%s)\n",
+			item->key, eblob_dump_id(item->ekey.id));
+
 	/* Read hashed key */
 	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 0);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
