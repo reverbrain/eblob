@@ -260,6 +260,18 @@ again:
 		}
 	} else {
 		struct stat st;
+#ifdef DATASORT
+		char mark[PATH_MAX];
+
+		/* Check that data is sorted */
+		snprintf(mark, PATH_MAX, "%s%s", full, ".data_is_sorted");
+		if (stat(mark, &st) == -1) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"bctl: mark not found: %s, assuming unsorted data\n", mark);
+			ctl->need_sorting = 1;
+			eblob_start_defrag(b);
+		}
+#endif
 
 		err = stat(full, &st);
 		if (err) {
