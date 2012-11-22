@@ -154,7 +154,7 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
 	struct eblob_index_block *t = NULL;
@@ -163,8 +163,6 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 	int cmp;
 
 	eblob_calculate_bloom(&dc->key, &bloom_byte_num, &bloom_bit_num);
-
-	pthread_mutex_lock(&bctl->index_blocks_lock);
 
 	n = bctl->index_blocks_root.rb_node;
 
@@ -217,8 +215,6 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 			t = NULL;
 		}
 	}
-
-	pthread_mutex_unlock(&bctl->index_blocks_lock);
 
 	/* n == NULL means that ID doesn't exist in this index */
 	if (!n)
@@ -293,7 +289,8 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
 
-	block = eblob_index_blocks_search(bctl, dc, st);
+	pthread_mutex_lock(&bctl->index_blocks_lock);
+	block = eblob_index_blocks_search_nolock(bctl, dc, st);
 	if (block) {
 		search_start = bctl->sort.data + block->offset;
 		search_end = bctl->sort.data + block->offset + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
@@ -306,8 +303,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 			num = ((unsigned long)search_end - (unsigned long)search_start) / sizeof(struct eblob_disk_control);
 		}
 	} else {
+		pthread_mutex_unlock(&bctl->index_blocks_lock);
 		goto out;
 	}
+	pthread_mutex_unlock(&bctl->index_blocks_lock);
 
 	st->bsearch_reached++;
 

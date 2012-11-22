@@ -221,7 +221,7 @@ struct eblob_disk_search_stat {
 	int			additional_reads;
 };
 
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st);
 
 ssize_t eblob_get_actual_size(int fd);
