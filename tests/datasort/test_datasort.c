@@ -298,7 +298,8 @@ main(int argc, char **argv)
 
 	/* Getopt */
 	options_set_defaults();
-	options_get(argc, argv);
+	if (argc - options_get(argc, argv) != 0)
+		options_usage(argv[0], 1, stderr);
 	options_dump();
 
 	/* Construct pathes */
