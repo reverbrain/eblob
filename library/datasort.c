@@ -1120,6 +1120,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 		/* Generate empty chunk */
 		dummy = datasort_split_add_chunk(dcfg);
+		if (dummy == NULL)
+			goto err_rmdir;
 		list_add(&dummy->list, &dcfg->unsorted_chunks);
 	}
 
