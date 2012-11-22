@@ -32,6 +32,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -288,23 +289,24 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
 	struct eblob_disk_control *search_start, *search_end;
 	struct eblob_index_block *block;
-	int num = 0;
+	size_t num;
+	const int hdr_size = sizeof(struct eblob_disk_control);
 
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
 
 	block = eblob_index_blocks_search(bctl, dc, st);
 	if (block) {
+		assert((bctl->sort.size - block->offset) / hdr_size > 0);
+		assert((bctl->sort.size - block->offset) % hdr_size == 0);
+
+		num = (bctl->sort.size - block->offset) / hdr_size;
+
+		if (num > EBLOB_INDEX_BLOCK_SIZE)
+			num = EBLOB_INDEX_BLOCK_SIZE;
+
 		search_start = bctl->sort.data + block->offset;
-		search_end = bctl->sort.data + block->offset + EBLOB_INDEX_BLOCK_SIZE * sizeof(struct eblob_disk_control);
-
-		num = EBLOB_INDEX_BLOCK_SIZE;
-
-		if ((void *)search_end > bctl->sort.data + bctl->sort.size) {
-			search_end = bctl->sort.data + bctl->sort.size;
-
-			num = ((unsigned long)search_end - (unsigned long)search_start) / sizeof(struct eblob_disk_control);
-		}
+		search_end = search_start + (num - 1);
 	} else {
 		goto out;
 	}
@@ -313,7 +315,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %d\n", 
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n", 
 			eblob_dump_id(dc->key.id),
 			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 
@@ -322,7 +324,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 		char end_str[EBLOB_ID_SIZE * 2 + 1];
 		char id_str[EBLOB_ID_SIZE * 2 + 1];
 
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: bsearch range: start: %s, end: %s, num: %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: bsearch range: start: %s, end: %s, num: %zd\n",
 				eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str),
 				eblob_dump_id_len_raw(search_start->key.id, EBLOB_ID_SIZE, start_str),
 				eblob_dump_id_len_raw(search_end->key.id, EBLOB_ID_SIZE, end_str),
