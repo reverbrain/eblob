@@ -105,6 +105,7 @@ generate_random_flags(int type)
 static void
 item_init(struct shadow *item, struct eblob_backend *b, int idx)
 {
+	uint64_t nop;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -118,7 +119,8 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	humanize_flags(item->flags, item->hflags);
 
 	/* Remove any leftovers from previous tests */
-	eblob_remove(b, &item->ekey, 0);
+	if (eblob_read(b, &item->ekey, (int *)&nop, &nop, &nop, 0) >= 0)
+		eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "inited: %s (%s)\n",
