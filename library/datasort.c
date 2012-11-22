@@ -964,12 +964,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	eblob_index_blocks_fill(bctl);
 
 	/* Flush hash */
-	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
-		err = -err;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-		goto err_unmap;
-	}
-
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
 		/* This entry was removed in binlog_apply */
 		if (dcfg->result->index[i].flags & BLOB_DISK_CTL_REMOVE)
@@ -985,9 +979,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
-
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
-		abort();
 
 	/*
 	 * At this point we can't rollback, so fall through
@@ -1147,10 +1138,16 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
+	/* Lock hash */
+	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+		err = -err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+		goto err_unlink;
+	}
 	/* Lock base */
 	if ((err = pthread_mutex_lock(&dcfg->bctl->lock)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
-		goto err_unlink;
+		goto err_unlock_hash;
 	}
 
 	/*
@@ -1161,7 +1158,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply_one);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
-			goto err_unlock;
+			goto err_unlock_bctl;
 		}
 	}
 
@@ -1169,7 +1166,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	err = datasort_swap(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap: %s", dcfg->dir);
-		goto err_unlock;
+		goto err_unlock_bctl;
 	}
 
 	/* We don't need it anymore */
@@ -1188,9 +1185,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
 
-err_unlock:
-	/* Unlock base */
+err_unlock_bctl:
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
+		abort();
+err_unlock_hash:
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
 		abort();
 err_unlink:
 	datasort_destroy_chunk(dcfg, dcfg->result);
