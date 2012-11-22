@@ -948,6 +948,10 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	err = eblob_base_setup_data(bctl);
 	if (!err) {
 		/* Everything is ok */
+		close(bctl->old_index_fd);
+		close(bctl->old_data_fd);
+		eblob_data_unmap(&bctl->old_sort);
+
 		bctl->data_offset = bctl->data_size;
 		bctl->index_offset = bctl->index_size;
 	} else {
@@ -1028,6 +1032,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			"data_fd: %d -> %d, index_fd: %d -> %d",
 			dcfg->result->path, data_path,
 			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
+
+	bctl->old_index_fd = -1;
+	bctl->old_data_fd = -1;
 	return 0;
 
 err_unmap:

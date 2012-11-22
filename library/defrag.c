@@ -310,16 +310,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				bctl->need_sorting = 0;
 			}
 
-			if (bctl->old_index_fd != -1) {
-				close(bctl->old_index_fd);
-				close(bctl->old_data_fd);
-
-				bctl->old_index_fd = -1;
-				bctl->old_data_fd = -1;
-
-				eblob_data_unmap(&bctl->old_sort);
-			}
-
 			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
 		}
 	}
