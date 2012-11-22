@@ -119,7 +119,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	humanize_flags(item->flags, item->hflags);
 
 	/* Remove any leftovers from previous tests */
-	if (eblob_read(b, &item->ekey, (int *)&nop, &nop, &nop, 0) >= 0)
+	if (eblob_read(b, &item->ekey, (int *)&nop, &nop, &nop, 0) != -ENOENT)
 		eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
