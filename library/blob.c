@@ -1289,6 +1289,11 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	if (err < 0)
 		goto err_out_exit;
 
+	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) && (b->cfg.blob_flags & EBLOB_OVERWRITE_COMMITS)) {
+		wc->size = size;
+		wc->total_data_size = wc->offset + wc->size;
+	}
+
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_exit;
@@ -1298,11 +1303,6 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 		err = -errno;
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-pwrite", err);
 		goto err_out_exit;
-	}
-
-	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) && (b->cfg.blob_flags & EBLOB_OVERWRITE_COMMITS)) {
-		wc->size = size;
-		wc->total_data_size = wc->offset + wc->size;
 	}
 
 	err = eblob_write_commit_nolock(b, key, NULL, 0, wc);
