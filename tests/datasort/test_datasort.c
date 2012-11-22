@@ -264,6 +264,7 @@ sigint_cb(int signal __unused)
 void
 cleanups(void)
 {
+	int i;
 	FILE *log = cfg.b->cfg.log->log_private;
 
 	warnx("test cleanup...");
@@ -275,6 +276,8 @@ cleanups(void)
 
 	warnx("memory cleanup...");
 	free(cfg.test_path);
+	for (i = 0; i < cfg.test_items; i++)
+		free(cfg.shadow[i].value);
 	free(cfg.shadow);
 }
 

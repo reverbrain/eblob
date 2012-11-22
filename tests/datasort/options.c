@@ -152,6 +152,7 @@ options_get(int argc, char **argv)
 			options_get_ll(&cfg.test_reopen, optarg);
 			break;
 		case 'p':
+			free(cfg.test_path);
 			if ((cfg.test_path = strdup(optarg)) == NULL)
 				err(EX_OSERR, "strdup");
 			break;
