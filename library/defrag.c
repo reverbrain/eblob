@@ -207,7 +207,7 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
  *	0: no entiries in blob
  *	-1: no defrag needed
  */
-static int eblob_want_defrag(struct eblob_base_ctl *bctl)
+static int __unused eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	struct eblob_iterate_control ctl;
@@ -254,7 +254,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 {
 #ifdef DATASORT
 	struct eblob_iterate_control ctl;
-	int err = 0, i, want;
+	int err = 0, i;
 
 	memset(&ctl, 0, sizeof(ctl));
 
@@ -286,13 +286,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (bctl->base_entry.next == &t->bases)
 				break;
 
-			want = eblob_want_defrag(bctl);
-			if (want == 0) {
-				eblob_defrag_unlink(bctl);
-				continue;
-			}
-
-			if (bctl->need_sorting || want > 0) {
+			if (bctl->need_sorting) {
 				struct datasort_cfg dcfg = {
 					.b = b,
 					.bctl = bctl,
