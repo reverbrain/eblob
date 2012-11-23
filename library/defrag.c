@@ -141,7 +141,8 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 	snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
 
-	snprintf(path, len, "%s-%d.%d.data_is_sorted", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, len, "%s-%d.%d" EBLOB_DATASORT_SORTED_MARK_SUFFIX,
+			b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
 
 	snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);

@@ -41,6 +41,76 @@
 
 
 /**
+ * datasort_base_get_path() - makes path to base from @b and @bctl
+ * @path:	destanation pointer
+ * @path_max:	max number of bytes to copy to @path
+ *
+ * TODO: move to mobjects.c
+ */
+static int datasort_base_get_path(struct eblob_backend *b, struct eblob_base_ctl *bctl,
+		char *path, unsigned int path_max)
+{
+	if (b == NULL || bctl == NULL || path == NULL)
+		return -EINVAL;
+
+	snprintf(path, path_max, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	return 0;
+}
+
+/**
+ * datasort_schedule_sort() - mark base do be sorted on next defrag run and
+ * kick defragmentation.
+ */
+int datasort_schedule_sort(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+{
+	if (bctl == NULL)
+		return -EINVAL;
+
+	bctl->need_sorting = 1;
+	return eblob_start_defrag(b);
+}
+
+/**
+ * datasort_base_is_sorted() - check if sorted flag is set in either base ctl
+ * or filesystem.
+ *
+ * Returns:
+ * 1:	if sorted
+ * 0:	if not
+ * <0:	error
+ */
+int datasort_base_is_sorted(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+{
+	struct stat st;
+	char mark[PATH_MAX];
+
+	/* Check in memory */
+	if (bctl->sorted == 1)
+		return 1;
+	else if (bctl->sorted == -1)
+		return 0;
+
+	/* Check filesystem */
+	if (datasort_base_get_path(b, bctl, mark, PATH_MAX) != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+				"datasort_base_get_path: FAILED");
+		return -EINVAL;
+	}
+
+	strcat(mark, EBLOB_DATASORT_SORTED_MARK_SUFFIX);
+	if (stat(mark, &st) == -1) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_INFO, errno,
+				"mark not found: %s, assuming unsorted data", mark);
+		bctl->sorted = -1;
+		return 0;
+	}
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+			"mark is found: %s, assuming sorted data", mark);
+	bctl->sorted = 1;
+	return 1;
+}
+
+/**
  * datasort_cleanup_stale() - cleans leftovers from previous data-sorts in case
  * of system crash
  * @base:	path to directory where blobs are located
@@ -101,7 +171,7 @@ err_rmdir:
 static char *datasort_mkdtemp(struct datasort_cfg *dcfg)
 {
 	char *path, *tmppath;
-	static const char tpl_suffix[] = "datasort.XXXXXX";
+	static const char tpl_suffix[] = ".datasort.XXXXXX";
 
 	path = malloc(PATH_MAX);
 	if (path == NULL) {
@@ -109,9 +179,12 @@ static char *datasort_mkdtemp(struct datasort_cfg *dcfg)
 		goto err;
 	}
 
-	snprintf(path, PATH_MAX, "%s-%d.%d.%s",
-			dcfg->b->cfg.file, dcfg->bctl->type, dcfg->bctl->index, tpl_suffix);
-	tmppath = mkdtemp(path);
+	if (datasort_base_get_path(dcfg->b, dcfg->bctl, path, PATH_MAX) != 0) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_base_get_path");
+		goto err;
+	}
+
+	tmppath = mkdtemp(strcat(path, tpl_suffix));
 	if (tmppath == NULL) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mkdtemp: %s", path);
 		goto err_free_path;
@@ -893,8 +966,11 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	bctl = dcfg->bctl;
 
 	/* Construct index pathes */
-	snprintf(data_path, PATH_MAX, "%s-%d.%d", dcfg->b->cfg.file, bctl->type, bctl->index);
-	snprintf(mark_path, PATH_MAX, "%s.data_is_sorted", data_path);
+	if (datasort_base_get_path(dcfg->b, dcfg->bctl, data_path, PATH_MAX) != 0) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_base_get_path: FAILED");
+		goto err;
+	}
+	snprintf(mark_path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, data_path);
 	snprintf(index_path, PATH_MAX, "%s.index", data_path);
 	snprintf(sorted_index_path, PATH_MAX, "%s.sorted", index_path);
 	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", sorted_index_path);
@@ -1182,6 +1258,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+
+	/* Mark base as sorted */
+	dcfg->bctl->sorted = 1;
 
 	/*
 	 * Prepare chunk for destroy

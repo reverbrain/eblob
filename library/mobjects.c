@@ -236,6 +236,7 @@ again:
 		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index) ||
 				(st.st_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
 #ifdef DATASORT
+			/* Sync datasort */
 			struct datasort_cfg dcfg = {
 				.b = b,
 				.bctl = ctl,
@@ -260,17 +261,11 @@ again:
 		}
 	} else {
 		struct stat st;
-#ifdef DATASORT
-		char mark[PATH_MAX];
 
-		/* Check that data is sorted */
-		snprintf(mark, PATH_MAX, "%s%s", full, ".data_is_sorted");
-		if (stat(mark, &st) == -1) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"bctl: mark not found: %s, assuming unsorted data\n", mark);
-			ctl->need_sorting = 1;
-			eblob_start_defrag(b);
-		}
+#ifdef DATASORT
+		/* Async datasort */
+		if (datasort_base_is_sorted(b, ctl) != 1)
+			datasort_schedule_sort(b, ctl);
 #endif
 
 		err = stat(full, &st);

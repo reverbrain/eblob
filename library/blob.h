@@ -140,6 +140,13 @@ struct eblob_base_ctl {
 	 * through a binlog.
 	 */
 	struct eblob_binlog_cfg	*binlog;
+	/*
+	 * Is data in blob sorted?
+	 * 1 if sorted
+	 * 0 if unknown
+	 * -1 if not sorted
+	 */
+	int			sorted;
 	char			name[0];
 };
 

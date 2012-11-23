@@ -23,6 +23,8 @@
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 16)
+/* Suffix for flag-file that is created after data is sorted */
+#define EBLOB_DATASORT_SORTED_MARK_SUFFIX	".data_is_sorted"
 
 /*
  * One chunk of blob.
@@ -86,5 +88,8 @@ struct datasort_cfg {
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
 int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
 int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
+
+int datasort_base_is_sorted(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int datasort_schedule_sort(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 #endif /* __EBLOB_DATASORT_H */
