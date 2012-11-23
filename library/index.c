@@ -634,7 +634,15 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->index = bctl->index;
 			r->type = bctl->type;
 
-			r->bctl = bctl;
+			/*
+			 * Set r->bctl only if binlog is requested, otherwise
+			 * all write operations will require locks, not only
+			 * ones that use binlog
+			 */
+			if (bctl->binlog == NULL)
+				r->bctl = NULL;
+			else
+				r->bctl = bctl;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
 					"position: %llu, data_size: %llu\n",
