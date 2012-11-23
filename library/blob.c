@@ -106,9 +106,15 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	rc.index = bc->index;
 	rc.type = bc->type;
 
+	/*
+	 * FIXME: Here we can probably race with ongoing write
+	 */
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
 		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
+			eblob_log(ctl->log, EBLOB_LOG_NOTICE,
+					"blob: %s: key removed in index, but not in blob, fixing\n",
+					eblob_dump_id(dc->key.id));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 			err = pwrite(bc->index_fd, dc, sizeof(struct eblob_disk_control), loc->index_offset);
 			if (err != sizeof(struct eblob_disk_control)) {
