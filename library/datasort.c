@@ -437,9 +437,9 @@ err:
 	return err;
 }
 
-/*
- * Copies record specified by header @dc from @from_chunk chunk to @offset
- * position of @to_chunk
+/**
+ * datasort_copy_record() - copies record specified by header @dc from
+ * @from_chunk chunk to @offset position of @to_chunk
  */
 static int datasort_copy_record(struct datasort_cfg *dcfg,
 		struct datasort_chunk *from_chunk,
@@ -635,107 +635,67 @@ err:
 	return -EIO;
 }
 
-/* Merge two sorted chunks together, return pointer to result */
-static struct datasort_chunk *datasort_merge_chunks(struct datasort_cfg *dcfg,
-		struct datasort_chunk *chunk1, struct datasort_chunk *chunk2)
+/**
+ * datasort_merge_get_smallest() - find chunk with smallest key across all
+ * sorted chunks
+ *
+ * O(n) complexity with n - number of chunks.
+ * Can be speeded up by using heap-based structure for index in chunks.
+ */
+static struct datasort_chunk *datasort_merge_get_smallest(struct datasort_cfg *dcfg)
 {
-	struct datasort_chunk *chunk_merge, *chunk;
-	uint64_t *idx, i, j;
-	int err;
+	struct datasort_chunk *smallest_chunk = NULL, *chunk;
+	struct eblob_disk_control *smallest_dc = NULL, *dc;
 
 	assert(dcfg != NULL);
-	assert(chunk1 != NULL);
-	assert(chunk1->index != NULL);
-	assert(chunk2 != NULL);
-	assert(chunk2->index != NULL);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"merging: path: %s <-> %s, count %" PRIu64 " <-> %" PRIu64 ", size: %" PRIu64 " <-> %" PRIu64,
-			chunk1->path, chunk2->path, chunk1->count, chunk2->count,
-			chunk1->offset, chunk2->offset);
+	list_for_each_entry(chunk, &dcfg->sorted_chunks, list) {
+		assert(chunk->merge_count <= chunk->count);
 
-	chunk_merge = datasort_split_add_chunk(dcfg);
-	if (chunk_merge == NULL) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_split_add_chunk: FAILED");
-		goto err;
-	}
+		if (chunk->merge_count >= chunk->count)
+			continue;
 
-	/* Allocate index */
-	chunk_merge->index = calloc(chunk1->count + chunk2->count, sizeof(struct eblob_disk_control));
-	if (chunk_merge->index == NULL) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "calloc: %" PRIu64,
-				(chunk1->count + chunk2->count) * sizeof(struct eblob_disk_control));
-		goto err_destroy_chunk;
-	}
-
-	/* Allocate data */
-	err = eblob_preallocate(chunk_merge->fd, chunk1->offset + chunk2->offset);
-	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_preallocate: fd: %d, size: %" PRIu64,
-				chunk_merge->fd, chunk1->offset + chunk2->offset);
-		goto err_destroy_chunk;
-	}
-
-	/* Merge chunks till one of them becomes empty */
-	i = j = 0;
-	while (i < chunk1->count || j < chunk2->count) {
-		if (i < chunk1->count && j < chunk2->count) {
-			if (eblob_disk_control_sort(&chunk1->index[i], &chunk2->index[j]) > 0) {
-				/* select chunk2 record */
-				idx = &j;
-				chunk = chunk2;
-			} else {
-				/* select chunk1 record */
-				idx = &i;
-				chunk = chunk1;
-			}
-		} else if (i < chunk1->count) {
-			/* select chunk1 record */
-			idx = &i;
-			chunk = chunk1;
-		} else {
-			/* select chunk2 record */
-			idx = &j;
-			chunk = chunk2;
+		/* Shortcut */
+		dc = &chunk->index[chunk->merge_count];
+		if (smallest_dc == NULL || eblob_disk_control_sort(smallest_dc, dc) > 0) {
+			smallest_chunk = chunk;
+			smallest_dc = dc;
 		}
-		chunk_merge->index[i + j] = chunk->index[*idx];
-		err = datasort_copy_record(dcfg, chunk, chunk_merge, &chunk_merge->index[i + j], chunk_merge->offset);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_copy_record");
-			goto err_destroy_chunk;
-		}
-		chunk_merge->offset += chunk->index[*idx].disk_size;
-		(*idx)++;
 	}
-	chunk_merge->count = i + j;
+	if (smallest_chunk != NULL)
+		smallest_chunk->merge_count++;
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"merged: path: %s, count %" PRIu64 ", size: %" PRIu64,
-			chunk_merge->path, chunk_merge->count, chunk_merge->offset);
-
-	assert(chunk_merge->count == chunk1->count + chunk2->count);
-	assert(chunk_merge->offset == chunk1->offset + chunk2->offset);
-
-	return chunk_merge;
-
-err_destroy_chunk:
-	datasort_destroy_chunk(dcfg, chunk_merge);
-err:
-	return NULL;
+	return smallest_chunk;
 }
 
-/*
- * Merges sorted chunks
- *
- * Try to get 2 chunks from sorted list:
- *  - Failed: last chunk is already sorted
- *  - Succeeded: merge chunks via datasort_merge_chunks and put result to the
- *  end of sorted list.
+/**
+ * datasort_merge_index_size() - computes size needed for combined index
+ */
+static inline uint64_t datasort_merge_index_size(struct list_head *lst)
+{
+	struct datasort_chunk *chunk;
+	uint64_t total = 0;
+
+	assert(lst != NULL);
+
+	list_for_each_entry(chunk, lst, list)
+		total += chunk->count;
+
+	return total;
+}
+
+/**
+ * sort_merge() - n-way merge of sorted chunks
+ * - While we can find non-EOF chunk with smallest key
+ * - Copy first entry from it
+ * - Repeat
  */
 static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 {
-	struct datasort_chunk *chunk1, *chunk2, *chunk_merge;
+	struct datasort_chunk *chunk, *merged_chunk;
+	struct eblob_disk_control *dc;
+	uint64_t total_items;
+	int err;
 
 	assert(dcfg != NULL);
 	assert(list_empty(&dcfg->sorted_chunks) == 0);
@@ -743,38 +703,48 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "merge: start");
 
-	for (;;) {
-		/* Isolate first chunk */
-		chunk1 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
-		list_del(&chunk1->list);
-		/* If there is no more chunks to merge - break */
-		if (list_empty(&dcfg->sorted_chunks))
-			break;
-		/* Isolate second chunk */
-		chunk2 = list_first_entry(&dcfg->sorted_chunks, struct datasort_chunk, list);
-		list_del(&chunk2->list);
-		/* Two-way merge chunks */
-		chunk_merge = datasort_merge_chunks(dcfg, chunk1, chunk2);
-		datasort_destroy_chunk(dcfg, chunk1);
-		datasort_destroy_chunk(dcfg, chunk2);
-		if (chunk_merge == NULL) {
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_merge_chunks: FAILED");
-			goto err;
-		}
-		list_add_tail(&chunk_merge->list, &dcfg->sorted_chunks);
+	/* Create resulting chunk */
+	merged_chunk = datasort_split_add_chunk(dcfg);
+	if (merged_chunk == NULL)
+		goto err;
 
-		if (dcfg->b->need_exit) {
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "exit requested - aborting merge");
+	/* Compute space for indexes */
+	total_items = datasort_merge_index_size(&dcfg->sorted_chunks);
+	assert(total_items > 0);
+	merged_chunk->index = calloc(total_items, sizeof(struct eblob_disk_control));
+	if (merged_chunk->index == NULL) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "calloc");
+		goto err;
+	}
+
+	while ((chunk = datasort_merge_get_smallest(dcfg)) != NULL) {
+		/* Shortcut */
+		dc = &chunk->index[chunk->merge_count - 1];
+
+		err = datasort_copy_record(dcfg, chunk, merged_chunk, dc, merged_chunk->offset);
+		if (err != 0) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"datasort_copy_record: FAILED");
 			goto err;
 		}
+
+		/* Rewrite on-disk position */
+		dc->position = merged_chunk->offset;
+		merged_chunk->index[merged_chunk->count++] = *dc;
+		merged_chunk->offset += dc->disk_size;
 	}
+	assert(total_items == merged_chunk->count);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"merge: stop: fd: %d, count: %" PRIu64 ", size: %" PRIu64 ", path: %s",
-			chunk1->fd, chunk1->count, chunk1->offset, chunk1->path);
-	return chunk1;
+			merged_chunk->fd, merged_chunk->count, merged_chunk->offset, merged_chunk->path);
+
+	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
+	return merged_chunk;
 
 err:
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "merge: FAILED");
+	datasort_destroy_chunk(dcfg, merged_chunk);
 	datasort_destroy_chunks(dcfg, &dcfg->sorted_chunks);
 	return NULL;
 }
@@ -1140,7 +1110,6 @@ err:
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 {
 	int err;
-	struct datasort_chunk *dummy;
 
 	if (dcfg == NULL || dcfg->b == NULL || dcfg->log == NULL || dcfg->bctl == NULL)
 		return -EINVAL;
@@ -1202,10 +1171,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 				"datasort_split: no records passed through iteration process.");
 
 		/* Generate empty chunk */
-		dummy = datasort_split_add_chunk(dcfg);
-		if (dummy == NULL)
+		dcfg->result = datasort_split_add_chunk(dcfg);
+		if (dcfg->result == NULL)
 			goto err_rmdir;
-		list_add(&dummy->list, &dcfg->unsorted_chunks);
+		goto skip_merge_sort;
 	}
 
 	/* In-memory sort each chunk */
@@ -1223,6 +1192,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
+skip_merge_sort:
 	/* Lock hash */
 	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
 		err = -err;

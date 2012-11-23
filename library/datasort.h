@@ -36,6 +36,8 @@ struct datasort_chunk {
 	uint64_t			offset;
 	/* Number of records in chunk */
 	uint64_t			count;
+	/* Count of merged entries for n-way merge */
+	uint64_t			merge_count;
 	/* Full path to chunk file */
 	char				*path;
 	/* Array of dc's for sorting and merging */
