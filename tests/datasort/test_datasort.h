@@ -36,6 +36,7 @@ struct shadow {
 	void			*value;		/* Pointer to data */
 	long long		size;		/* Size of data */
 	int			flags;		/* Entry's eblob flags */
+	char			inited;		/* Entry is initialized */
 	char			hflags[64];	/* Human readable flags */
 };
 

@@ -105,7 +105,6 @@ generate_random_flags(int type)
 static void
 item_init(struct shadow *item, struct eblob_backend *b, int idx)
 {
-	uint64_t nop;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -116,11 +115,8 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	eblob_hash(b, item->ekey.id, sizeof(item->ekey.id), item->key, sizeof(item->key));
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
+	item->inited = 0;
 	humanize_flags(item->flags, item->hflags);
-
-	/* Remove any leftovers from previous tests */
-	if (eblob_read(b, &item->ekey, (int *)&nop, &nop, &nop, 0) != -ENOENT)
-		eblob_remove(b, &item->ekey, 0);
 
 	/* Log */
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "inited: %s (%s)\n",
@@ -139,6 +135,9 @@ item_check(struct shadow *item, struct eblob_backend *b)
 
 	assert(item != NULL);
 	assert(b != NULL);
+
+	if (item->inited == 0)
+		return 0;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checking: %s (%s)\n",
 			item->key, eblob_dump_id(item->ekey.id));
@@ -243,6 +242,8 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		error = eblob_remove(b, &item->ekey, 0);
 	} else {
+		if (item->inited == 0)
+			item->inited = 1;
 		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
 	}
 	if (error != 0)
