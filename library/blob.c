@@ -872,6 +872,7 @@ again:
 			goto err_out_exit;
 		}
 		if (ctl.bctl->binlog == NULL) {
+			err = -EAGAIN;
 			goto skip_binlog;
 		}
 
