@@ -397,8 +397,10 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
  * eblob_mark_entry_removed() - removed entry both from index and data files.
  * Also updates stats and syncs data.
  */
-static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
+static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
 {
+	int err = 0;
+
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		eblob_dump_id(key->id),
@@ -415,10 +417,14 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
-			goto skip_binlog;
+			goto err;
 		}
-		if (old->bctl->binlog == NULL)
-			goto skip_binlog;
+		if (old->bctl->binlog == NULL) {
+			if (pthread_mutex_unlock(&old->bctl->lock) != 0)
+				abort();
+			err = -EAGAIN;
+			goto err;
+		}
 
 		memset(&bctl, 0, sizeof(bctl));
 
@@ -429,14 +435,22 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
-skip_binlog:
 		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 			abort();
 	}
 #endif /* BINLOG */
 
-	blob_mark_index_removed(old->index_fd, old->index_offset);
-	blob_mark_index_removed(old->data_fd, old->data_offset);
+	if ((err = blob_mark_index_removed(old->index_fd, old->index_offset)) != 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,  "%s: blob_mark_index_removed failed: index: %s\n",
+				__func__, eblob_dump_id(key->id));
+		goto err;
+	}
+
+	if ((err = blob_mark_index_removed(old->data_fd, old->data_offset)) != 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,  "%s: blob_mark_index_removed failed: data: %s\n",
+				__func__, eblob_dump_id(key->id));
+		goto err;
+	}
 
 	eblob_stat_update(b, -1, 1, 0);
 
@@ -445,6 +459,9 @@ skip_binlog:
 		fsync(old->data_fd);
 		fsync(old->index_fd);
 	}
+
+err:
+	return err;
 }
 
 /**
@@ -836,7 +853,12 @@ again:
 		err = -ENOENT;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: pread-data-no-entry", err);
 
-		eblob_mark_entry_removed(b, key, &ctl);
+		if ((err = eblob_mark_entry_removed(b, key, &ctl)) != 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"%s: %s: eblob_mark_entry_removed: %zd\n",
+					__func__, eblob_dump_id(key->id), -err);
+			goto err_out_exit;
+		}
 		eblob_remove_type(b, key, wc->type);
 
 		goto again;
@@ -1102,7 +1124,13 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	pthread_mutex_unlock(&b->lock);
 
 	if (have_old)
-		eblob_mark_entry_removed(b, key, &old);
+		if ((err = eblob_mark_entry_removed(b, key, &old)) != 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"%s: %s: eblob_mark_entry_removed: %zd\n",
+					__func__, eblob_dump_id(key->id), -err);
+			pthread_mutex_lock(&b->lock);
+			goto err_out_rollback;
+		}
 
 	eblob_stat_update(b, 1, 0, 0);
 
@@ -1472,7 +1500,12 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	 * of them
 	 */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
-		eblob_mark_entry_removed(b, key, &ctl[i]);
+		if ((err = eblob_mark_entry_removed(b, key, &ctl[i])) != 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"%s: %s: eblob_mark_entry_removed: %d\n",
+					__func__, eblob_dump_id(key->id), -err);
+			break;
+		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
@@ -1503,7 +1536,12 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		goto err_out_exit;
 	}
 
-	eblob_mark_entry_removed(b, key, &ctl);
+	if ((err = eblob_mark_entry_removed(b, key, &ctl)) != 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"%s: %s: eblob_mark_entry_removed: %d\n",
+				__func__, eblob_dump_id(key->id), -err);
+		goto err_out_exit;
+	}
 
 	eblob_remove_type(b, key, type);
 
