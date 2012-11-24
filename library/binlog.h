@@ -186,5 +186,6 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg);
 
 int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int eblob_stop_binlog_nolock(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 #endif /* __EBLOB_BINLOG_H */

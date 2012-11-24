@@ -249,7 +249,18 @@ err:
 	return NULL;
 }
 
-/* Recursively destroys all initialized fields of one chunk */
+/*
+ * Recursively destroys all initialized fields of one chunk
+ */
+static void _datasort_destroy_chunk(struct datasort_chunk *chunk)
+{
+	if (chunk == NULL)
+		return;
+
+	free(chunk->index);
+	free(chunk->path);
+	free(chunk);
+}
 static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_chunk *chunk)
 {
 	assert(dcfg != NULL);
@@ -267,9 +278,7 @@ static void datasort_destroy_chunk(struct datasort_cfg *dcfg, struct datasort_ch
 		if (close(chunk->fd) == -1)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "close: %d", chunk->fd);
 	}
-	free(chunk->index);
-	free(chunk->path);
-	free(chunk);
+	_datasort_destroy_chunk(chunk);
 }
 
 /* Destroys all chunks in given list */
@@ -1078,9 +1087,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			"data_fd: %d -> %d, index_fd: %d -> %d",
 			dcfg->result->path, data_path,
 			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
-
-	bctl->old_index_fd = -1;
-	bctl->old_data_fd = -1;
 	return 0;
 
 err_unmap:
@@ -1215,7 +1221,14 @@ skip_merge_sort:
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 			goto err_unlock_bctl;
 		}
+
+		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+			goto err_unlock_bctl;
+		}
 	}
+	dcfg->use_binlog = 0;
 
 	/* Swap fd's and other internal structures */
 	err = datasort_swap(dcfg);
@@ -1224,24 +1237,33 @@ skip_merge_sort:
 		goto err_unlock_bctl;
 	}
 
-	/* We don't need it anymore */
-	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_INFO, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
-
 	/* Mark base as sorted */
 	dcfg->bctl->sorted = 1;
 
-	/*
-	 * Prepare chunk for destroy
-	 * We need it because we don't want to remove resulted chunk we've just
-	 * created
-	 */
-	free(dcfg->result->path);
-	dcfg->result->fd = -1;
-	dcfg->result->path = NULL;
+	/* Unlock */
+	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
+		abort();
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
+		abort();
+
+	/* Cleanups */
+	if (rmdir(dcfg->dir) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
+	_datasort_destroy_chunk(dcfg->result);
+	datasort_destroy(dcfg);
+
+	/* We don't need 'em anymore */
+	err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: data: %d", dcfg->bctl->old_data_fd);
+	err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: index: %d", dcfg->bctl->old_index_fd);
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
+	return 0;
 
 err_unlock_bctl:
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
@@ -1262,6 +1284,6 @@ err_stop:
 err_mutex:
 	datasort_destroy(dcfg);
 err:
-	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: finished\n");
+	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: FAILED\n");
 	return err;
 }

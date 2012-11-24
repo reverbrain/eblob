@@ -836,8 +836,6 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
-	if (bctl->binlog == NULL || bctl->binlog->path == 0)
-		return -EINVAL;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: stop\n");
 
@@ -846,6 +844,25 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d", err);
 		return -err;
 	}
+
+	err = eblob_stop_binlog_nolock(b, bctl);
+
+	if (pthread_mutex_unlock(&bctl->lock) != 0)
+		abort();
+
+	return err;
+}
+
+int eblob_stop_binlog_nolock(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+{
+	int err;
+
+	if (b == NULL || bctl == NULL)
+		return -EINVAL;
+	if (bctl->binlog == NULL || bctl->binlog->path == 0)
+		return -EINVAL;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: stop\n");
 
 	/* First remove, then close. This avoids unlink/unlock race */
 	if (unlink(bctl->binlog->path) == -1)
@@ -861,9 +878,6 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 				"blob: binlog: binlog_destroy failed: %d\n", err);
 
 	bctl->binlog = NULL;
-
-	if (pthread_mutex_unlock(&bctl->lock) != 0)
-		abort();
 
 	return err;
 }
