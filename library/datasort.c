@@ -1030,9 +1030,21 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		goto err_unmap;
 	}
 
+	/*
+	 * At this point we can't rollback, so fall through or abort()
+	 *
+	 * TODO: Think of some way of rollback
+	 */
+
 	/* Flush index */
 	eblob_index_blocks_destroy(bctl);
 	eblob_index_blocks_fill(bctl);
+
+	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+		err = -err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+		abort();
+	}
 
 	/* Flush hash */
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
@@ -1042,6 +1054,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		/*
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
+		 * TODO: Maybe it's better to rewrite cache entries insted of deleting them
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 		if (err != 0)
@@ -1051,11 +1064,8 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 	assert(i == dcfg->result->count);
 
-	/*
-	 * At this point we can't rollback, so fall through
-	 *
-	 * TODO: Think of some way of rollback
-	 */
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
+		abort();
 
 	/*
 	 * Original file created by mkstemp may have too restrictive
@@ -1211,16 +1221,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 skip_merge_sort:
-	/* Lock hash */
-	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
-		err = -err;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-		goto err_unlink;
-	}
 	/* Lock base */
 	if ((err = pthread_mutex_lock(&dcfg->bctl->lock)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
-		goto err_unlock_hash;
+		goto err_unlink;
 	}
 
 	/*
@@ -1255,8 +1259,6 @@ skip_merge_sort:
 	/* Unlock */
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
 		abort();
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
-		abort();
 
 	/* Cleanups */
 	if (rmdir(dcfg->dir) == -1)
@@ -1269,9 +1271,6 @@ skip_merge_sort:
 
 err_unlock_bctl:
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
-		abort();
-err_unlock_hash:
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
 		abort();
 err_unlink:
 	datasort_destroy_chunk(dcfg, dcfg->result);
