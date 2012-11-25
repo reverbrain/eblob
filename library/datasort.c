@@ -1003,12 +1003,24 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	err = eblob_base_setup_data(bctl);
 	if (!err) {
 		/* Everything is ok */
-		close(bctl->old_index_fd);
-		close(bctl->old_data_fd);
 		eblob_data_unmap(&bctl->old_sort);
+
+		/* We don't need 'em anymore */
+		err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+		if (err)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"eblob_pagecache_hint: data: %d", bctl->old_data_fd);
+		err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+		if (err)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"eblob_pagecache_hint: index: %d", bctl->old_index_fd);
 
 		bctl->data_offset = bctl->data_size;
 		bctl->index_offset = bctl->index_size;
+
+		close(bctl->old_index_fd);
+		close(bctl->old_data_fd);
+
 	} else {
 		/* Rollback */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
@@ -1251,16 +1263,6 @@ skip_merge_sort:
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 	_datasort_destroy_chunk(dcfg->result);
 	datasort_destroy(dcfg);
-
-	/* We don't need 'em anymore */
-	err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: data: %d", dcfg->bctl->old_data_fd);
-	err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: index: %d", dcfg->bctl->old_index_fd);
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
 	return 0;
