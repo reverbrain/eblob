@@ -358,21 +358,15 @@ int eblob_dump_hash(void *priv, struct eblob_hash_entry *entry)
  *
  * NB! Caller must hold root_lock!
  */
-void eblob_hash_iterator(struct rb_node *n, void *callback_priv,
+void eblob_hash_iterator(struct rb_root *root, void *callback_priv,
 		int (*callback)(void *priv, struct eblob_hash_entry *entry))
 {
-	struct eblob_hash_entry *t;
+	struct rb_node *n;
 
-	if (n == NULL || callback == NULL)
+	if (root == NULL || callback == NULL)
 		return;
 
-	t = rb_entry(n, struct eblob_hash_entry, node);
-
-	if (t == NULL)
-		return;
-
-	callback(callback_priv, t);
-
-	eblob_hash_iterator(n->rb_left, callback_priv, callback);
-	eblob_hash_iterator(n->rb_right, callback_priv, callback);
+	for (n = rb_first(root); n; n = rb_next(n)) {
+		callback(callback_priv, rb_entry(n, struct eblob_hash_entry, node));
+	}
 }

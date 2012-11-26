@@ -45,7 +45,7 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
 
 int eblob_dump_hash(void *priv, struct eblob_hash_entry *entry);
-void eblob_hash_iterator(struct rb_node *n, void *callback_priv,
+void eblob_hash_iterator(struct rb_root *n, void *callback_priv,
 		int (*callback)(void *priv, struct eblob_hash_entry *entry));
 
 /* Record is cached from disk index */

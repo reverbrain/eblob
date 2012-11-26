@@ -808,7 +808,7 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 		goto err_destroy;
 	}
 
-	eblob_hash_iterator(b->hash->root.rb_node, bctl, binlog_hash_callback);
+	eblob_hash_iterator(&b->hash->root, bctl, binlog_hash_callback);
 
 	if (pthread_mutex_unlock(&b->hash->root_lock) != 0)
 		abort();
