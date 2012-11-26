@@ -15,8 +15,7 @@ class eblob_test {
 	public:
 		eblob_test(const std::string &key_base_, const std::string &test_dir, int log_mask=31) :
 				key_base(key_base_),
-				/* XXX: */
-				test_num(1000) {
+				test_num(100000) {
 			struct eblob_config cfg;
 
 			memset(&cfg, 0, sizeof(struct eblob_config));
