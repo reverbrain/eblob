@@ -371,9 +371,8 @@ int blob_mark_index_removed(int fd, off_t offset)
 
 	err = pwrite(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
 	if (err != (int)sizeof(flags))
-		err = -errno;
+		return -errno;
 
-	/* FIXME: err is not used */
 	return 0;
 }
 
