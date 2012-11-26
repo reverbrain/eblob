@@ -412,12 +412,21 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 	if (old->bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
 
+		if ((err = pthread_mutex_lock(&b->lock)) != 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
+			goto err;
+		}
 		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
+			if (pthread_mutex_unlock(&b->lock) != 0)
+				abort();
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
 			goto err;
 		}
 		if (old->bctl->binlog == NULL) {
+			if (pthread_mutex_unlock(&b->lock) != 0)
+				abort();
 			if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 				abort();
 			err = -EAGAIN;
@@ -435,6 +444,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
+
+		if (pthread_mutex_unlock(&b->lock) != 0)
+			abort();
 		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 			abort();
 	}
@@ -880,13 +892,23 @@ again:
 	if (for_write && ctl.bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
 
+		if ((err = pthread_mutex_lock(&b->lock)) != 0) {
+			err = -err;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"blob: binlog: %s: pthread_mutex_lock: %zd\n", __func__, -err);
+			goto err_out_exit;
+		}
 		if ((err = pthread_mutex_lock(&ctl.bctl->lock)) != 0) {
+			if (pthread_mutex_unlock(&b->lock) != 0)
+				abort();
 			err = -err;
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %zd\n", __func__, -err);
 			goto err_out_exit;
 		}
 		if (ctl.bctl->binlog == NULL) {
+			if (pthread_mutex_unlock(&b->lock) != 0)
+				abort();
 			if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 				abort();
 			err = -EAGAIN;
@@ -917,6 +939,8 @@ again:
 		if (err)
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
 
+		if (pthread_mutex_unlock(&b->lock) != 0)
+			abort();
 		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 			abort();
 	}
