@@ -873,16 +873,6 @@ again:
 	if (!wc->size)
 		wc->size = dc.data_size;
 
-	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
-
-	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
-		err = -E2BIG;
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
-		goto err_out_exit;
-	}
-
-	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
-
 #ifdef BINLOG
 	if (for_write && ctl.bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
@@ -895,7 +885,9 @@ again:
 		}
 		if (ctl.bctl->binlog == NULL) {
 			err = -EAGAIN;
-			goto skip_binlog;
+			if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
+				abort();
+			goto err_out_exit;
 		}
 
 		memset(&bctl, 0, sizeof(bctl));
@@ -920,11 +912,21 @@ again:
 		if (err)
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
 
-skip_binlog:
 		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 			abort();
 	}
 #endif /* BINLOG */
+
+	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
+
+	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
+		err = -E2BIG;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
+		goto err_out_exit;
+	}
+
+	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+
 err_out_exit:
 	return err;
 }
