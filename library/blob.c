@@ -411,7 +411,6 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 #ifdef BINLOG
 	if (old->bctl != NULL) {
 		struct eblob_binlog_ctl bctl;
-		int err;
 
 		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
