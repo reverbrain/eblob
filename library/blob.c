@@ -460,6 +460,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		fsync(old->index_fd);
 	}
 
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: finished\n",
+			eblob_dump_id(key->id));
+
 err:
 	return err;
 }
