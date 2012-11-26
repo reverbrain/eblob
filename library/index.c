@@ -314,9 +314,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n", 
-			eblob_dump_id(dc->key.id),
-			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: start: %p, end: %p, "
+			"blob_start: %p, blob_end: %p, num: %zd\n",
+			eblob_dump_id(dc->key.id), search_start, search_end,
+			bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 
 	if (b->cfg.log->log_level > EBLOB_LOG_DEBUG) {
 		char start_str[EBLOB_ID_SIZE * 2 + 1];
