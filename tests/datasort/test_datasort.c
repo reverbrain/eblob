@@ -130,7 +130,8 @@ static int
 item_check(struct shadow *item, struct eblob_backend *b)
 {
 	uint64_t size = 0;
-	int error;
+	int error, retries = 0;
+	const int max_retries = 1;
 	char *data = NULL;
 
 	assert(item != NULL);
@@ -139,6 +140,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	if (item->inited == 0)
 		return 0;
 
+again:
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checking: %s (%s)\n",
 			item->key, eblob_dump_id(item->ekey.id));
 
@@ -151,9 +153,16 @@ item_check(struct shadow *item, struct eblob_backend *b)
 					item->key, eblob_dump_id(item->ekey.id));
 	} else {
 		/* Check data consistency */
-		if (error != 0)
-			errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
-			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
+		if (error != 0) {
+			if (retries++ < max_retries) {
+				warnx("read failed: %s (%s), retrying, error: %d",
+				    item->key, eblob_dump_id(item->ekey.id), -error);
+				goto again;
+			} else {
+				errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
+				    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
+			}
+		}
 
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
@@ -232,6 +241,8 @@ int
 item_sync(struct shadow *item, struct eblob_backend *b)
 {
 	int error;
+	int retries = 0;
+	const int max_retries = 1;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -239,6 +250,7 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	/*
 	 * TODO: Do not store the value itself - only hash of it or seed for prng
 	 */
+again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		error = eblob_remove(b, &item->ekey, 0);
 	} else {
@@ -246,9 +258,15 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 			item->inited = 1;
 		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
 	}
-	if (error != 0)
-		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
-		    item->key, item->hflags, -error);
+	if (error != 0) {
+		if (retries++ < max_retries) {
+			warnx("writing key failed: %s: retrying: %d",
+			    item->key, -error);
+			goto again;
+		} else
+			errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
+			    item->key, item->hflags, -error);
+	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s (%s)\n",
 			item->key, eblob_dump_id(item->ekey.id));
