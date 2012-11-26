@@ -1224,10 +1224,15 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 skip_merge_sort:
+	/* Lock backend */
+	if ((err = pthread_mutex_lock(&dcfg->b->lock)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
+		goto err_unlink;
+	}
 	/* Lock base */
 	if ((err = pthread_mutex_lock(&dcfg->bctl->lock)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
-		goto err_unlink;
+		goto err_unlock_b;
 	}
 
 	/*
@@ -1262,6 +1267,8 @@ skip_merge_sort:
 	/* Unlock */
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
 		abort();
+	if (pthread_mutex_unlock(&dcfg->b->lock) != 0)
+		abort();
 
 	/* Cleanups */
 	if (rmdir(dcfg->dir) == -1)
@@ -1274,6 +1281,9 @@ skip_merge_sort:
 
 err_unlock_bctl:
 	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
+		abort();
+err_unlock_b:
+	if (pthread_mutex_unlock(&dcfg->b->lock) != 0)
 		abort();
 err_unlink:
 	datasort_destroy_chunk(dcfg, dcfg->result);
