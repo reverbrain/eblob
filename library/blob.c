@@ -423,6 +423,8 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 			if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 				abort();
 			err = -EAGAIN;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: binlog: %s: disappeared: %d\n", __func__, err);
 			goto err;
 		}
 
@@ -887,9 +889,11 @@ again:
 			goto err_out_exit;
 		}
 		if (ctl.bctl->binlog == NULL) {
-			err = -EAGAIN;
 			if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 				abort();
+			err = -EAGAIN;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: binlog: %s: disappeared: %zd\n", __func__, err);
 			goto err_out_exit;
 		}
 
