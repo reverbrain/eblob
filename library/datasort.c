@@ -84,6 +84,9 @@ int datasort_base_is_sorted(struct eblob_backend *b, struct eblob_base_ctl *bctl
 	struct stat st;
 	char mark[PATH_MAX];
 
+	if (b == NULL || bctl == NULL)
+		return -EINVAL;
+
 	/* Check in memory */
 	if (bctl->sorted == 1)
 		return 1;
