@@ -337,16 +337,13 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	st->bsearch_found++;
 
 	sorted = sorted_orig;
-	while (sorted < end) {
+	while (sorted < end && eblob_disk_control_sort(sorted, dc) == 0) {
 		if (callback(sorted, dc)) {
 			found = sorted;
 			break;
 		}
-
 		st->additional_reads++;
 		sorted++;
-		if (eblob_disk_control_sort(sorted, dc))
-			break;
 	}
 
 	if (found)
