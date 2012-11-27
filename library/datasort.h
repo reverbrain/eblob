@@ -20,7 +20,7 @@
 #define __EBLOB_DATASORT_H
 
 /* Aproximate size of sort chunk +- one record */
-#define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(128 * 1<<20)
+#define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(1 * 1<<30)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 16)
 /* Suffix for flag-file that is created after data is sorted */
