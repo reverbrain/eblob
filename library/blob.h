@@ -18,6 +18,7 @@
 
 #include "eblob/blob.h"
 #include "hash.h"
+#include "l2hash.h"
 #include "lock.h"
 #include "list.h"
 
@@ -192,6 +193,8 @@ struct eblob_backend {
 	struct eblob_base_type	*types;
 
 	struct eblob_hash	*hash;
+	/* Array of pointers to level two hashes - one for each type */
+	struct eblob_l2hash	**l2hash;
 
 	struct eblob_stat	stat;
 

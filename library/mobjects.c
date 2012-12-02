@@ -26,6 +26,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+#include <assert.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -501,6 +502,46 @@ static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_
 		t->index = ctl->index;
 }
 
+/**
+ * _eblob_realloc_l2hash() - tries to reallocate memory for l2hash
+ */
+static int _eblob_realloc_l2hash(struct eblob_l2hash **l2h, int max_type)
+{
+	struct eblob_l2hash *ret;
+
+	assert(l2h != NULL);
+	assert(max_type >= 0);
+
+	ret = realloc(l2h, (max_type + 1) * sizeof(void *));
+	if (ret == NULL)
+		return -ENOMEM;
+	free(l2h);
+	return 0;
+}
+
+/*
+ * eblob_realloc_l2hash() - initializes l2hash for base if it was requested
+ */
+static int eblob_realloc_l2hash(struct eblob_backend *b, int max_type)
+{
+	assert(b != NULL);
+	assert(max_type >= 0);
+
+	if ((b->cfg.blob_flags & EBLOB_L2HASH) == 0)
+		return 0;
+
+	if (b->l2hash == NULL) {
+		if ((b->l2hash = calloc(max_type + 1, sizeof(void *))) == NULL)
+			return -ENOMEM;
+	} else if (_eblob_realloc_l2hash(b->l2hash, max_type) != 0)
+		return -ENOMEM;
+
+	b->l2hash[max_type] = eblob_l2hash_init();
+	if (b->l2hash[max_type] == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
 /*
  * we will create new types starting from @start_type
  * [0, @start_type - 1] will be copied
@@ -601,6 +642,8 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		err = -ENOMEM;
 		goto err_out_close;
 	}
+	if ((err = eblob_realloc_l2hash(b, max_type)) != 0)
+		goto err_out_close;
 
 	while ((d = readdir64(dir)) != NULL) {
 		if (d->d_name[0] == '.' && d->d_name[1] == '\0')
@@ -664,6 +707,11 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	int err, size, rc_free = 0, disk;
 	struct eblob_ram_control *rc, *rc_old;
 
+	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
+		err = eblob_l2hash_upsert(b->l2hash[ctl->type], key, ctl);
+		return err;
+	}
+
 	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
@@ -714,6 +762,10 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
+
+	if (b->cfg.blob_flags & EBLOB_L2HASH)
+		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) == 0)
+			goto err_out_exit;
 
 	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
@@ -775,12 +827,18 @@ static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struc
 
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp)
 {
-	int err, size, disk = 0;
+	int err = 1, size, disk = 0;
 	struct eblob_ram_control *rc = NULL;
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
-	if (!err) {
-		err = eblob_lookup_exact_type(rc, size, res);
+	/* If l2hash is enabled - look in it first */
+	if (b->cfg.blob_flags & EBLOB_L2HASH)
+		err = eblob_l2hash_lookup(b->l2hash[res->type], key, res);
+
+	if (err) {
+		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
+		if (!err) {
+			err = eblob_lookup_exact_type(rc, size, res);
+		}
 	}
 
 	if (err) {
@@ -940,6 +998,10 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 
 		b->types = types;
 		b->max_type = type;
+
+		/* If l2hash was requested - init it for new column */
+		if ((err = eblob_realloc_l2hash(b, type)) != 0)
+			goto err_out_exit;
 	}
 
 	t = &b->types[type];

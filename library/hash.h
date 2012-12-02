@@ -65,22 +65,4 @@ struct eblob_hash_entry {
 	unsigned char		data[0];
 };
 
-static inline unsigned int eblob_hash_data(void *data, unsigned int size, unsigned int limit)
-{
-	unsigned int i, hash = 0;
-	unsigned char *ptr = data;
-	unsigned char *h = (unsigned char *)&hash;
-
-	if (size > 4)
-		size = 4;
-
-	for (i=0; i<size; ++i)
-		h[size - i - 1] = ptr[i];
-
-	/* 33 because ffs() returns bit number starting from 1 not 0 */
-	hash >>= 33 - ffs(limit);
-
-	return hash;
-}
-
 #endif /* __EBLOB_HASH_H */
