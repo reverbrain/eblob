@@ -18,6 +18,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 option(WITH_ASSERTS "Enable asserts" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
+option(WITH_TESTS "Build tests" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
 
 include(CheckAtomic)
@@ -112,6 +113,9 @@ set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_T
 add_subdirectory(library)
 if (WITH_EXAMPLES)
     add_subdirectory(example)
+endif()
+if (WITH_TESTS)
+    add_subdirectory(tests)
 endif()
 add_subdirectory(bindings)
 
