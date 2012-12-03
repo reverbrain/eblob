@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.3
+Version:	0.17.4
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Dec 03 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.4
+- added datasort tests
+- l2hash: Added level two hashing support
+- index: fix search_end pointing outside of mmapped area
+- index: fixed segfault in index
+
 * Wed Nov 14 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.3
 - Fixed range iterator and keys found in RAM for supposed-to-be-sorted blobs
 - Added google groups link

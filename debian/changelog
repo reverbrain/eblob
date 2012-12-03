@@ -1,3 +1,12 @@
+eblob (0.17.4) unstable; urgency=low
+
+  * added datasort tests
+  * l2hash: Added level two hashing support
+  * index: fix search_end pointing outside of mmapped area
+  * index: fixed segfault in index
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 03 Dec 2012 14:15:29 +0400
+
 eblob (0.17.3) unstable; urgency=low
 
   * Fixed range iterator and keys found in RAM for supposed-to-be-sorted blobs
