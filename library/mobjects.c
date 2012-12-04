@@ -797,7 +797,6 @@ int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int
 		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) == 0)
 			return 0;
 
-	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
 	if (err)
 		goto err_out_exit;
