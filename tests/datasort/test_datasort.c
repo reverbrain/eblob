@@ -146,7 +146,7 @@ again:
 			item->key, eblob_dump_id(item->ekey.id));
 
 	/* Read hashed key */
-	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 0);
+	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 10);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
@@ -252,11 +252,11 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	 */
 again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
-		error = eblob_remove(b, &item->ekey, 0);
+		error = eblob_remove(b, &item->ekey, 10);
 	} else {
 		if (item->inited == 0)
 			item->inited = 1;
-		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
+		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 10);
 	}
 	if (error != 0) {
 		if (retries++ < max_retries) {
