@@ -530,11 +530,14 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int max_type)
  * we will create new types starting from @start_type
  * [0, @start_type - 1] will be copied
  */
-static struct eblob_base_type *eblob_realloc_base_type(struct eblob_base_type *types, int start_type, int max_type)
+static struct eblob_base_type *eblob_realloc_base_type(struct eblob_backend *b, struct eblob_base_type *types, int start_type, int max_type)
 {
 	int i;
 	struct eblob_base_type *nt;
 	struct eblob_base_ctl *ctl, *tmp;
+
+	if (eblob_realloc_l2hash(b, max_type) != 0)
+		return NULL;
 
 	nt = malloc((max_type + 1) * sizeof(struct eblob_base_type));
 	if (!nt)
@@ -621,13 +624,11 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 	}
 
 	max_type = 0;
-	types = eblob_realloc_base_type(NULL, 0, max_type);
+	types = eblob_realloc_base_type(b, NULL, 0, max_type);
 	if (!types) {
 		err = -ENOMEM;
 		goto err_out_close;
 	}
-	if ((err = eblob_realloc_l2hash(b, max_type)) != 0)
-		goto err_out_close;
 
 	while ((d = readdir64(dir)) != NULL) {
 		if (d->d_name[0] == '.' && d->d_name[1] == '\0')
@@ -653,7 +654,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 			if (ctl->type > max_type) {
 				struct eblob_base_type *tnew;
 
-				tnew = eblob_realloc_base_type(types, max_type + 1, ctl->type);
+				tnew = eblob_realloc_base_type(b, types, max_type + 1, ctl->type);
 				if (!tnew) {
 					err = -ENOMEM;
 					free(ctl);
@@ -974,7 +975,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 		 * +1 hear means we will copy old types from 0 to b->max_type (inclusive),
 		 * and create new types from b->max_type+1 upto type (again inclusive)
 		 */
-		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
+		types = eblob_realloc_base_type(b, b->types, b->max_type + 1, type);
 		if (!types) {
 			err = -ENOMEM;
 			goto err_out_exit;
@@ -982,10 +983,6 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 
 		b->types = types;
 		b->max_type = type;
-
-		/* If l2hash was requested - init it for new column */
-		if ((err = eblob_realloc_l2hash(b, type)) != 0)
-			goto err_out_exit;
 	}
 
 	t = &b->types[type];
