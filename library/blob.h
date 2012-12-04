@@ -18,6 +18,7 @@
 
 #include "eblob/blob.h"
 #include "hash.h"
+#include "l2hash.h"
 #include "list.h"
 
 #ifdef BINLOG
@@ -185,6 +186,10 @@ struct eblob_backend {
 	struct eblob_base_type	*types;
 
 	struct eblob_hash	*hash;
+	/* Array of pointers to level two hashes - one for each type */
+	struct eblob_l2hash	**l2hash;
+	/* Maximum initialized l2hash */
+	int			l2hash_max;
 
 	struct eblob_stat	stat;
 

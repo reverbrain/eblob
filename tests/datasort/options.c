@@ -18,6 +18,8 @@
  */
 
 #include <err.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +40,8 @@ void
 options_usage(char *progname, int eval, FILE *stream)
 {
 	fprintf(stream, "usage: %s ", progname);
-	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-i test_items] [-I iterations] ");
+	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-F eblob_flags] ");
+	fprintf(stream, "[-i test_items] [-I iterations] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
 	fprintf(stream, "[-y sync_time] ");
@@ -76,6 +79,7 @@ options_set_defaults(void)
 {
 
 	memset(&cfg, 0, sizeof(cfg));
+	cfg.blob_flags = DEFAULT_BLOB_FLAGS;
 	cfg.blob_defrag = DEFAULT_BLOB_DEFRAG;
 	cfg.blob_records = DEFAULT_BLOB_RECORDS;
 	cfg.blob_size = DEFAULT_BLOB_SIZE;
@@ -102,6 +106,7 @@ options_get(int argc, char **argv)
 {
 	int ch;
 	struct option longopts[] = {
+		{ "blob-flags",		required_argument,	NULL,		'F' },
 		{ "blob-defrag",	required_argument,	NULL,		'd' },
 		{ "blob-records",	required_argument,	NULL,		'r' },
 		{ "blob-size",		required_argument,	NULL,		's' },
@@ -123,7 +128,7 @@ options_get(int argc, char **argv)
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -135,6 +140,9 @@ options_get(int argc, char **argv)
 			options_usage(argv[0], EX_OK, stdout);
 		case 'f':
 			options_get_ll(&cfg.test_force_defrag, optarg);
+			break;
+		case 'F':
+			options_get_ll(&cfg.blob_flags, optarg);
 			break;
 		case 'i':
 			options_get_ll(&cfg.test_items, optarg);
@@ -190,6 +198,7 @@ void
 options_dump(void)
 {
 
+	printf("Flags: %lld\n", cfg.blob_flags);
 	printf("Defrag timeout in seconds: %ld\n", cfg.blob_defrag);
 	printf("Maximum number of records per base: %lld\n", cfg.blob_records);
 	printf("Maximum size of base in bytes: %lld\n", cfg.blob_size);

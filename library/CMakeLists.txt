@@ -3,6 +3,7 @@ set(EBLOB_SRCS
     blob.c
     hash.c
     log.c
+    l2hash.c
     range.c
     mobjects.c
     compress.c

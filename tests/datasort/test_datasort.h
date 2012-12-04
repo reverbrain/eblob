@@ -35,6 +35,7 @@ struct shadow {
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
 	long long		size;		/* Size of data */
+	int			type;		/* Column for data */
 	int			flags;		/* Entry's eblob flags */
 	char			inited;		/* Entry is initialized */
 	char			hflags[64];	/* Human readable flags */
@@ -53,7 +54,7 @@ enum rnd_flags_types {
  * Test configuration
  */
 struct test_cfg {
-	/* Tunables */
+	long long	blob_flags;		/* Passed to cfg.eblob_flags */
 	long		blob_defrag;		/* Defrag timeout in seconds */
 	long long	blob_records;		/* Number of records in base */
 	long long	blob_size;		/* Max size of base in bytes */
@@ -89,6 +90,7 @@ extern struct test_cfg cfg;
 /*
  * Defaults for test_cfg above
  */
+#define DEFAULT_BLOB_FLAGS		(0)
 #define DEFAULT_BLOB_DEFRAG		(10)
 #define DEFAULT_BLOB_RECORDS		(10000)
 #define DEFAULT_BLOB_SIZE		(100 * 1<<20)

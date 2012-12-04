@@ -206,6 +206,11 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * Only useful in plain data iterator, do not add this flag into server config
  */
 #define __EBLOB_NO_STARTUP_DATA_POPULATE	(1<<5)
+/*
+ * Use second level of hashing for in-memory index
+ * This sacrifies IOPS in exchange for smaller memory footprint
+ */
+#define EBLOB_L2HASH				(1<<6)
 
 struct eblob_config {
 	/* blob flags above */
@@ -282,6 +287,9 @@ struct eblob_config {
 	int			pad[12];
 };
 
+/*
+ * This is in-memory cache. It should be kept as compact as possible.
+ */
 struct eblob_ram_control {
 	int			data_fd, index_fd;
 	uint64_t		data_offset, index_offset;

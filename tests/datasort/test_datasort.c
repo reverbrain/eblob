@@ -116,6 +116,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
 	item->inited = 0;
+	item->type = 10 + random() % 5;
 	humanize_flags(item->flags, item->hflags);
 
 	/* Log */
@@ -145,7 +146,7 @@ again:
 			item->key, eblob_dump_id(item->ekey.id));
 
 	/* Read hashed key */
-	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 0);
+	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0)
@@ -158,10 +159,9 @@ again:
 				warnx("read failed: %s (%s), retrying, error: %d",
 				    item->key, eblob_dump_id(item->ekey.id), -error);
 				goto again;
-			} else {
-				errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
-				    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
 			}
+			errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
+			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
 		}
 
 		assert(item->size > 0);
@@ -252,20 +252,20 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	 */
 again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
-		error = eblob_remove(b, &item->ekey, 0);
+		error = eblob_remove(b, &item->ekey, item->type);
 	} else {
 		if (item->inited == 0)
 			item->inited = 1;
-		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, 0);
+		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, item->type);
 	}
 	if (error != 0) {
 		if (retries++ < max_retries) {
 			warnx("writing key failed: %s: retrying: %d",
 			    item->key, -error);
 			goto again;
-		} else
-			errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
-			    item->key, item->hflags, -error);
+		}
+		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
+		    item->key, item->hflags, -error);
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s (%s)\n",
@@ -344,6 +344,7 @@ main(int argc, char **argv)
 	bcfg.records_in_blob = cfg.blob_records;
 	bcfg.sync = cfg.blob_sync;
 	bcfg.file = blob_path;
+	bcfg.blob_flags = cfg.blob_flags;
 	cfg.b = eblob_init(&bcfg);
 	if (cfg.b == NULL)
 		errx(EX_OSERR, "eblob_init");

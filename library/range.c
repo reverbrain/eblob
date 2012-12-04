@@ -233,6 +233,13 @@ int eblob_read_range(struct eblob_range_request *req)
 	struct eblob_hash_entry *e = NULL, *t = NULL;
 	int err = -ENOENT, cmp;
 
+	/*
+	 * It's non-trivial to make range requests with l2hash enabled so
+	 * disable it all along
+	 */
+	if (b->cfg.blob_flags & EBLOB_L2HASH)
+		return -ENOTSUP;
+
 	pthread_mutex_lock(&h->root_lock);
 	while (n) {
 		t = rb_entry(n, struct eblob_hash_entry, node);
