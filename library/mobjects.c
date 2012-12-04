@@ -1123,9 +1123,7 @@ int eblob_pagecache_hint(int fd, uint64_t flag)
 {
 	if (fd < 0)
 		return -EINVAL;
-	if (flag & (~EBLOB_FLAGS_HINT_ALL))
-		return -EINVAL;
-	if (flag == 0 || flag == EBLOB_FLAGS_HINT_ALL)
+	if (flag == EBLOB_FLAGS_HINT_ALL)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FADVISE
 	int advise;
@@ -1134,6 +1132,8 @@ int eblob_pagecache_hint(int fd, uint64_t flag)
 		advise = POSIX_FADV_WILLNEED;
 	else if (flag & EBLOB_FLAGS_HINT_DONTNEED)
 		advise = POSIX_FADV_DONTNEED;
+	else
+		return -EINVAL;
 	return -posix_fadvise(fd, 0, 0, advise);
 #else /* !HAVE_POSIX_FADVISE */
 	/*
