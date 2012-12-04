@@ -695,7 +695,10 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	int err, size, rc_free = 0, disk;
 	struct eblob_ram_control *rc, *rc_old;
 
+	/* If l2hash is enabled and this is in-memory record - insert only there */
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
+		if (ctl->type > b->max_type)
+			return -ERANGE;
 		err = eblob_l2hash_upsert(b->l2hash[ctl->type], key, ctl);
 		return err;
 	}
@@ -751,9 +754,13 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
 
-	if (b->cfg.blob_flags & EBLOB_L2HASH)
+	/* If l2hash is enabled - remove from it first */
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		if (type > b->max_type)
+			return -ERANGE;
 		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) == 0)
 			goto err_out_exit;
+	}
 
 	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
@@ -819,8 +826,11 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
-	if (b->cfg.blob_flags & EBLOB_L2HASH)
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		if (res->type > b->max_type)
+			return -ERANGE;
 		err = eblob_l2hash_lookup(b->l2hash[res->type], key, res);
+	}
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
