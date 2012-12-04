@@ -259,10 +259,8 @@ int eblob_read_range(struct eblob_range_request *req)
 		}
 	}
 
-	if (!e) {
-		err = -ENOENT;
+	if (!e)
 		goto err_out_unlock;
-	}
 
 	n = &e->node;
 	while (n) {
@@ -321,10 +319,8 @@ int eblob_read_range(struct eblob_range_request *req)
 
 				err = eblob_range_callback(req, &e->key, ctl->data_fd,
 						ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
-				if (err > 0) {
-					err = 0;
+				if (err > 0)
 					goto err_out_unlock;
-				}
 				break;
 			}
 
