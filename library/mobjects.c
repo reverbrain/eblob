@@ -502,40 +502,24 @@ static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_
 		t->index = ctl->index;
 }
 
-/**
- * _eblob_realloc_l2hash() - tries to reallocate memory for l2hash
- */
-static int _eblob_realloc_l2hash(struct eblob_l2hash **l2h, int max_type)
-{
-	struct eblob_l2hash *ret;
-
-	assert(l2h != NULL);
-	assert(max_type >= 0);
-
-	ret = realloc(l2h, (max_type + 1) * sizeof(void *));
-	if (ret == NULL)
-		return -ENOMEM;
-	free(l2h);
-	return 0;
-}
-
 /*
  * eblob_realloc_l2hash() - initializes l2hash for base if it was requested
  */
 static int eblob_realloc_l2hash(struct eblob_backend *b, int max_type)
 {
+	struct eblob_l2hash **ret;
+
 	assert(b != NULL);
 	assert(max_type >= 0);
 
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) == 0)
 		return 0;
 
-	if (b->l2hash == NULL) {
-		if ((b->l2hash = calloc(max_type + 1, sizeof(void *))) == NULL)
-			return -ENOMEM;
-	} else if (_eblob_realloc_l2hash(b->l2hash, max_type) != 0)
+	ret = realloc(b->l2hash, (max_type + 1) * sizeof(void *));
+	if (ret == NULL)
 		return -ENOMEM;
 
+	b->l2hash = ret;
 	b->l2hash[max_type] = eblob_l2hash_init();
 	if (b->l2hash[max_type] == NULL)
 		return -ENOMEM;
