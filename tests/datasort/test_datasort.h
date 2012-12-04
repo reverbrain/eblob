@@ -35,6 +35,7 @@ struct shadow {
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
 	long long		size;		/* Size of data */
+	int			type;		/* Column for data */
 	int			flags;		/* Entry's eblob flags */
 	char			inited;		/* Entry is initialized */
 	char			hflags[64];	/* Human readable flags */
