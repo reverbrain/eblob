@@ -586,6 +586,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.key, key, sizeof(struct eblob_key));
 
+	assert(start_type <= max_type);
+
 	for (i = start_type; i <= max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 

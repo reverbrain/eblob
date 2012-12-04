@@ -279,8 +279,6 @@ again:
 		}
 
 		if ((uint64_t)st.st_size != ctl->sort.size) {
-			err = -EINVAL;
-
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "bctl: index: %d, type: %d: unsorted index size mismatch for '%s': "
 					"sorted: %llu, unsorted: %llu: removing regenerating sorted index\n",
 					ctl->index, ctl->type, full,
