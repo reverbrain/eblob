@@ -510,6 +510,7 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
 	struct eblob_l2hash **ret;
 
 	assert(b != NULL);
+	assert(start_type >= -1);
 	assert(max_type >= 0);
 	assert(start_type <= max_type);
 
@@ -526,6 +527,8 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
 		if (b->l2hash[start_type] == NULL)
 			return -ENOMEM;
 	} while (start_type++ < max_type);
+
+	b->l2hash_max = max_type;
 	return 0;
 }
 
@@ -533,14 +536,11 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
  * we will create new types starting from @start_type
  * [0, @start_type - 1] will be copied
  */
-static struct eblob_base_type *eblob_realloc_base_type(struct eblob_backend *b, struct eblob_base_type *types, int start_type, int max_type)
+static struct eblob_base_type *eblob_realloc_base_type(struct eblob_base_type *types, int start_type, int max_type)
 {
 	int i;
 	struct eblob_base_type *nt;
 	struct eblob_base_ctl *ctl, *tmp;
-
-	if (eblob_realloc_l2hash(b, start_type, max_type) != 0)
-		return NULL;
 
 	nt = malloc((max_type + 1) * sizeof(struct eblob_base_type));
 	if (!nt)
@@ -627,7 +627,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 	}
 
 	max_type = 0;
-	types = eblob_realloc_base_type(b, NULL, 0, max_type);
+	types = eblob_realloc_base_type(NULL, 0, max_type);
 	if (!types) {
 		err = -ENOMEM;
 		goto err_out_close;
@@ -657,7 +657,7 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 			if (ctl->type > max_type) {
 				struct eblob_base_type *tnew;
 
-				tnew = eblob_realloc_base_type(b, types, max_type + 1, ctl->type);
+				tnew = eblob_realloc_base_type(types, max_type + 1, ctl->type);
 				if (!tnew) {
 					err = -ENOMEM;
 					free(ctl);
@@ -697,8 +697,10 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 
 	/* If l2hash is enabled and this is in-memory record - insert only there */
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
-		if (ctl->type > b->max_type)
-			return -ERANGE;
+		/* Extend l2hash if needed */
+		if (ctl->type > b->l2hash_max)
+			if ((err = eblob_realloc_l2hash(b, b->l2hash_max + 1, ctl->type)) != 0)
+				return err;
 		err = eblob_l2hash_upsert(b->l2hash[ctl->type], key, ctl);
 		return err;
 	}
@@ -755,12 +757,9 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 	struct eblob_ram_control *rc;
 
 	/* If l2hash is enabled - remove from it first */
-	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		if (type > b->max_type)
-			return -ERANGE;
+	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max)
 		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) == 0)
-			goto err_out_exit;
-	}
+			return 0;
 
 	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
@@ -826,11 +825,8 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
-	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		if (res->type > b->max_type)
-			return -ERANGE;
+	if (b->cfg.blob_flags & EBLOB_L2HASH && res->type <= b->l2hash_max)
 		err = eblob_l2hash_lookup(b->l2hash[res->type], key, res);
-	}
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
@@ -988,7 +984,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 		 * +1 here means we will copy old types from 0 to b->max_type (inclusive),
 		 * and create new types from b->max_type+1 upto type (again inclusive)
 		 */
-		types = eblob_realloc_base_type(b, b->types, b->max_type + 1, type);
+		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
 		if (!types) {
 			err = -ENOMEM;
 			goto err_out_exit;

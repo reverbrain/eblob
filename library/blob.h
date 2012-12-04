@@ -195,6 +195,8 @@ struct eblob_backend {
 	struct eblob_hash	*hash;
 	/* Array of pointers to level two hashes - one for each type */
 	struct eblob_l2hash	**l2hash;
+	/* Maximum initialized l2hash */
+	int			l2hash_max;
 
 	struct eblob_stat	stat;
 
