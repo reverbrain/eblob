@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.4
+Version:	0.17.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Dec 04 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.5
+- l2hash: move eblob_realloc_l2hash() to common eblob_realloc_base_type()
+
 * Mon Dec 03 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.4
 - added datasort tests
 - l2hash: Added level two hashing support

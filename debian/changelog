@@ -1,3 +1,9 @@
+eblob (0.17.5) unstable; urgency=low
+
+  * l2hash: move eblob_realloc_l2hash() to common eblob_realloc_base_type()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 04 Dec 2012 17:56:09 +0400
+
 eblob (0.17.4) unstable; urgency=low
 
   * added datasort tests
