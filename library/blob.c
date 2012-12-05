@@ -1772,6 +1772,8 @@ static void *eblob_sync(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
+	int i;
+
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 	pthread_join(b->defrag_tid, NULL);
@@ -1779,6 +1781,9 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_base_types_cleanup(b);
 
 	eblob_hash_exit(b->hash);
+
+	for (i = b->l2hash_max; i >= 0; i--)
+		eblob_l2hash_destroy(b->l2hash[i]);
 
 	free(b->cfg.file);
 
