@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 
 			if (print_all) {
-				std::cout << c.blob->path_ << ": " << eblob_dump_control(&c.dc, position, 1, 0) << std::endl;
+				std::cout << c.blob->path_ << ": INDEX: " << eblob_dump_control(&c.dc, position, 1, 0) << std::endl;
 			}
 
 			if (c.dc.flags & BLOB_DISK_CTL_REMOVE) {
@@ -204,10 +204,13 @@ int main(int argc, char *argv[])
 
 			c.blob->data.seekg(c.dc.position, std::ios::beg);
 			c.blob->data.read((char *)&ddc, sizeof(struct eblob_disk_control));
-			eblob_convert_disk_control(&ddc);
-
 			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control))
 				throw std::runtime_error("Data read failed");
+
+			eblob_convert_disk_control(&ddc);
+			if (print_all) {
+				std::cout << c.blob->path_ << ": DATA: " << eblob_dump_control(&ddc, c.dc.position, 1, 0) << std::endl;
+			}
 
 			if (ddc.flags & BLOB_DISK_CTL_REMOVE) {
 				removed++;
