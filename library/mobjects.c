@@ -290,6 +290,7 @@ again:
 	}
 
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
+	free(full);
 
 	return 0;
 
