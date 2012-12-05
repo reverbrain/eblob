@@ -98,7 +98,8 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	munmap(ctl->data, ctl->data_size);
 
 	eblob_data_unmap(&ctl->sort);
-	close(ctl->sort.fd);
+	if (ctl->sort.fd >= 0)
+		close(ctl->sort.fd);
 
 	close(ctl->data_fd);
 	close(ctl->index_fd);
