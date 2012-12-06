@@ -99,7 +99,8 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	munmap(ctl->data, ctl->data_size);
 
 	eblob_data_unmap(&ctl->sort);
-	close(ctl->sort.fd);
+	if (ctl->sort.fd >= 0)
+		close(ctl->sort.fd);
 
 	close(ctl->data_fd);
 	close(ctl->index_fd);
@@ -306,6 +307,7 @@ again:
 	}
 
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
+	free(full);
 
 	return 0;
 
@@ -518,9 +520,9 @@ static void eblob_add_new_base_ctl(struct eblob_base_type *t, struct eblob_base_
 }
 
 /*
- * eblob_realloc_l2hash() - initializes l2hash for base if it was requested
+ * eblob_realloc_l2hash_nolock() - initializes l2hash for base if it was requested
  */
-static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max_type)
+static int eblob_realloc_l2hash_nolock(struct eblob_backend *b, int start_type, int max_type)
 {
 	struct eblob_l2hash **ret;
 
@@ -528,6 +530,7 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
 	assert(start_type >= -1);
 	assert(max_type >= 0);
 	assert(start_type <= max_type);
+	assert(b->l2hash_max < max_type);
 
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) == 0)
 		return 0;
@@ -545,6 +548,21 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
 
 	b->l2hash_max = max_type;
 	return 0;
+}
+
+static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max_type)
+{
+	int err = 0;
+
+	assert(b != NULL);
+
+	pthread_mutex_lock(&b->l2hash_lock);
+	/* Check if we already extended by competing thread */
+	if (max_type > b->l2hash_max)
+		err = eblob_realloc_l2hash_nolock(b, start_type, max_type);
+	pthread_mutex_unlock(&b->l2hash_lock);
+
+	return err;
 }
 
 /*

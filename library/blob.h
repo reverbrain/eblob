@@ -190,6 +190,8 @@ struct eblob_backend {
 	struct eblob_l2hash	**l2hash;
 	/* Maximum initialized l2hash */
 	int			l2hash_max;
+	/* Lock to protecct l2hash metadata in eblob_backend */
+	pthread_mutex_t		l2hash_lock;
 
 	struct eblob_stat	stat;
 
