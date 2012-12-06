@@ -802,8 +802,8 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 #endif
 
 /**
- * eblob_fill_write_control_from_ram() - looks up hash for key's position in
- * data/index then reads data and fills write control.
+ * eblob_fill_write_control_from_ram() - looks for data/index fds and offsets
+ * in cache and fills write control with them.
  * @for_write:		specifies if this request is intended for future write
  */
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
