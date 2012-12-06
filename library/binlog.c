@@ -763,6 +763,13 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if (strlen(b->cfg.file) == 0 || strlen(bctl->name) == 0)
 		return -EINVAL;
 
+	/*
+	 * Binlog stores additional information in each hash entry.
+	 * Pointer to bctl will increase size of l2hash by 8 bytes(x86_64).
+	 */
+	if (b->cfg.blob_flags & EBLOB_L2HASH)
+		return -ENOTSUP;
+
 	path_copy = strdup(b->cfg.file);
 	if (path_copy == NULL) {
 		err = -errno;
