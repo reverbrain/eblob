@@ -141,9 +141,11 @@ static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 	snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
 
+#ifdef DATASORT
 	snprintf(path, len, "%s-%d.%d" EBLOB_DATASORT_SORTED_MARK_SUFFIX,
 			b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
+#endif
 
 	snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
 	unlink(path);
@@ -312,6 +314,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 err_out_exit:
 	return err;
 #else /* !DATASORT */
+	assert(b != NULL);
 	return -ENOTSUP;
 #endif /* DATASORT */
 }
