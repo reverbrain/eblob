@@ -186,6 +186,8 @@ static int
 item_generate_random(struct shadow *item, struct eblob_backend *b)
 {
 	struct shadow old_item;
+	long long offset = 0;
+	void *ra;
 
 	assert(b != NULL);
 	assert(item != NULL);
@@ -204,9 +206,6 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		item->flags = generate_random_flags(FLAG_TYPE_EXISTING);
 	humanize_flags(item->flags, item->hflags);
 
-	/* Free old data */
-	free(item->value);
-
 	/*
 	 * Randomize data
 	 * If new entry not removed
@@ -214,23 +213,25 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
 		/* If it's overwrite we should not generate bigger entry */
 		item->size = 1 + random() % cfg.test_item_size;
-
-		if ((item->value = malloc(item->size)) == NULL)
+		if ((ra = realloc(item->value, item->size)) == NULL)
 			return errno;
+		item->value = ra;
+		offset = random() % item->size;
 		/*
 		 * TODO: BSD has memset_pattern calls which looks like better
 		 * solution for filling memory region
 		 */
-		memset(item->value, random(), item->size);
+		memset(item->value + offset, random(), item->size - offset);
 	} else {
+		free(item->value);
 		item->size = 0;
 		item->value = NULL;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-	    "generated item: %s (%s): flags %s -> %s, size %lld -> %lld\n",
+	    "generated item: %s (%s): flags %s -> %s, size %lld -> %lld, offset: %lld\n",
 	    item->key, eblob_dump_id(item->ekey.id), old_item.hflags, item->hflags,
-	    old_item.size, item->size);
+	    old_item.size, item->size, offset);
 
 	return 0;
 }
