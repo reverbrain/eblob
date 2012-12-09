@@ -1373,11 +1373,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	unsigned int size;
 	int err, i, on_disk;
 
-	pthread_mutex_lock(&b->hash->root_lock);
-	/* Look in memory */
-	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&ctl, &size, &on_disk);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
-		/* If entry not found in hash - go to on-disk index */
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
@@ -1389,17 +1386,16 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	/* Key may be found in number of types across many types and bases -
 	 * remove all of them */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
+		eblob_remove_type(b, key, ctl[i].type);
 		eblob_mark_entry_removed(b, key, &ctl[i]);
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
 	}
-	eblob_hash_remove_nolock(b->hash, key);
 
 	free(ctl);
 
 err_out_exit:
-	pthread_mutex_unlock(&b->hash->root_lock);
 	return err;
 }
 
