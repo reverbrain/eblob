@@ -29,6 +29,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -1371,12 +1372,27 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct eblob_ram_control *ctl;
 	unsigned int size;
-	int err, i, on_disk;
+	int err, i, on_disk, removed = 0;
+
+	/* FIXME: l2hash does not support O(1) remove_all */
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		struct eblob_ram_control rctl;
+		for (i = 0; i <= b->l2hash_max; i++) {
+			if ((err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl)) != 0)
+				continue;
+			eblob_remove_type(b, key, rctl.type);
+			eblob_mark_entry_removed(b, key, &rctl);
+			removed = 1;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: %s: %s: removed block at: %" PRIu64 ", size: %" PRIu64 ".\n",
+					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size);
+		}
+	}
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
-		if (err) {
+		if (err && !removed) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
 					eblob_dump_id(key->id), err);
 			goto err_out_exit;
@@ -1394,6 +1410,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	}
 
 	free(ctl);
+	err = 0;
 
 err_out_exit:
 	return err;
