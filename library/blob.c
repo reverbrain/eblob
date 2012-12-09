@@ -29,6 +29,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <libgen.h>
 #include <limits.h>
 #include <pthread.h>
@@ -472,10 +473,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		fsync(old->index_fd);
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: finished\n",
-			eblob_dump_id(key->id));
-
 err:
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: %s: finished: %d.\n",
+			eblob_dump_id(key->id), __func__, err);
 	return err;
 }
 
@@ -1506,12 +1506,28 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct eblob_ram_control *ctl;
 	unsigned int size;
-	int err, i, on_disk;
+	int err, i, on_disk, removed = 0;
+
+	/* FIXME: l2hash does not support O(1) remove_all */
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		struct eblob_ram_control rctl;
+		for (i = 0; i <= b->l2hash_max; i++) {
+			if ((err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl)) != 0)
+				continue;
+			eblob_remove_type(b, key, rctl.type);
+			if ((err = eblob_mark_entry_removed(b, key, &rctl)) != 0)
+				goto err_out_exit;
+			removed = 1;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: %s: %s: removed block at: %" PRIu64 ", size: %" PRIu64 ".\n",
+					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size);
+		}
+	}
 
 	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
-		if (err) {
+		if (err && !removed) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
 					eblob_dump_id(key->id), err);
 			goto err_out_exit;
@@ -1524,18 +1540,15 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	 */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
 		eblob_remove_type(b, key, ctl[i].type);
-		if ((err = eblob_mark_entry_removed(b, key, &ctl[i])) != 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: eblob_mark_entry_removed: %d\n",
-					__func__, eblob_dump_id(key->id), -err);
-			break;
-		}
+		if ((err = eblob_mark_entry_removed(b, key, &ctl[i])) != 0)
+			goto err_out_free;
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
 			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
 	}
+	err = 0;
 
+err_out_free:
 	free(ctl);
-
 err_out_exit:
 	return err;
 }
