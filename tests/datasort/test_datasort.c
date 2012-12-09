@@ -253,7 +253,11 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	 */
 again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
-		error = eblob_remove(b, &item->ekey, item->type);
+		/* We should test both removal functions */
+		if (random() % 2 == 0)
+			error = eblob_remove(b, &item->ekey, item->type);
+		else
+			error = eblob_remove_all(b, &item->ekey);
 	} else {
 		if (item->inited == 0)
 			item->inited = 1;
