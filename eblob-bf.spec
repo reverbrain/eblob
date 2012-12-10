@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.5
+Version:	0.17.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,24 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Dec 10 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.6
+- l2hash: fix remove_all when l2hash is used
+- tests: also test eblob_remove_all()
+- blob: do not hold hash lock whole duration of eblob_remove_all
+- tests: use random offset in writes
+- examples: merge: added debug information from data blob along with index
+- l2hash: protect realloc with b->l2hash_lock
+- mobjects: do not leak malloc'ed path
+- mobjects: pass only valid fd to close()
+- l2hash: destroy on cleanup
+- range: removed dead assignments
+- mobjects: removed dead assignment
+- index: make static analyzer happy
+- tests: randomize types
+- l2hash: auto extend l2hash array on insert
+- l2hash: added safeguards for l2hash
+- l2hash: create all types 'in-between' on realloc
+
 * Tue Dec 04 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.5
 - l2hash: move eblob_realloc_l2hash() to common eblob_realloc_base_type()
 
