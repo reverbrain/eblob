@@ -520,6 +520,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			 *
 			 * This will be fixed when ram-based structures will contain not
 			 * file descriptors, but pointer to eblob_base_ctl
+			 *
+			 * FIXME: Now we have pointer to bctl in ram control
 			 */
 
 			if (dc->flags & rem) {
@@ -631,20 +633,15 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 
 			eblob_convert_disk_control(dc);
 
-			r->data_fd = bctl->data_fd;
 			r->data_offset = dc->position;
-
-			r->index_fd = bctl->sort.fd;
 			r->index_offset = (void *)dc - bctl->sort.data;
 
 			r->size = dc->data_size;
-			r->index = bctl->index;
-			r->type = bctl->type;
 			r->bctl = bctl;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
 					"position: %llu, data_size: %llu\n",
-					eblob_dump_id(key->id),	r->index, r->type,
+					eblob_dump_id(key->id), r->bctl->index, r->bctl->type,
 					(unsigned long long)r->data_offset, (unsigned long long)r->size);
 
 			eblob_convert_disk_control(dc);

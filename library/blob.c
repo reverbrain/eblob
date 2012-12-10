@@ -54,22 +54,22 @@ struct eblob_iterate_local {
 };
 
 /**
- * eblob_bctl_from_index() - returns bctl for given @index_fd and @type
+ * eblob_bctl_from_fd() - returns bctl for given @data_fd and @type
  *
  * This routine is O(n) where n is number of bases. It can be speeded up by
  * maintaining addtional index of index_fd -> bctl.
  */
-static struct eblob_base_ctl *eblob_bctl_from_index(struct eblob_backend *b, int index_fd, int type)
+static struct eblob_base_ctl *eblob_bctl_from_fd(struct eblob_backend *b, int data_fd, int type)
 {
 	struct eblob_base_ctl *ctl;
 
 	assert(b != NULL);
-	assert(index_fd >= 0);
+	assert(data_fd >= 0);
 	assert(type <= b->max_type);
 
 	list_for_each_entry(ctl, &b->types[type].bases, base_entry) {
 		pthread_mutex_lock(&ctl->lock);
-		if (ctl->index_fd == index_fd) {
+		if (ctl->data_fd == data_fd) {
 			pthread_mutex_unlock(&ctl->lock);
 			return ctl;
 		}
@@ -127,11 +127,6 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	rc.data_offset = dc->position;
 	rc.size = dc->data_size;
 
-	rc.data_fd = bc->data_fd;
-	rc.index_fd = bc->index_fd;
-
-	rc.index = bc->index;
-	rc.type = bc->type;
 	rc.bctl = bc;
 
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
@@ -424,19 +419,21 @@ static void eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
 		eblob_dump_id(key->id),
 		(unsigned long long)old->index_offset,
-		(unsigned long long)old->index_offset, old->index_fd,
+		(unsigned long long)old->index_offset,
+		old->bctl->sort.fd >= 0 ? old->bctl->sort.fd : old->bctl->index_fd,
 		(unsigned long long)old->data_offset,
-		(unsigned long long)old->data_offset, old->data_fd);
+		(unsigned long long)old->data_offset, old->bctl->data_fd);
 
-	blob_mark_index_removed(old->index_fd, old->index_offset);
-	blob_mark_index_removed(old->data_fd, old->data_offset);
+	blob_mark_index_removed(old->bctl->sort.fd >= 0 ? old->bctl->sort.fd : old->bctl->index_fd,
+			old->index_offset);
+	blob_mark_index_removed(old->bctl->data_fd, old->data_offset);
 
 	eblob_stat_update(b, -1, 1, 0);
 
 	/* TODO: use fdatasync(2) if available */
 	if (!b->cfg.sync) {
-		fsync(old->data_fd);
-		fsync(old->index_fd);
+		fsync(old->bctl->data_fd);
+		fsync(old->bctl->sort.fd >= 0 ? old->bctl->sort.fd : old->bctl->index_fd);
 	}
 }
 
@@ -537,14 +534,10 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	struct eblob_ram_control ctl;
 	int err;
 
-	ctl.data_fd = wc->data_fd;
-	ctl.index_fd = wc->index_fd;
 	ctl.size = wc->total_data_size;
 	ctl.data_offset = wc->ctl_data_offset;
 	ctl.index_offset = wc->ctl_index_offset;
-	ctl.type = wc->type;
-	ctl.index = wc->index;
-	ctl.bctl = eblob_bctl_from_index(b, wc->index_fd, wc->type);
+	ctl.bctl = eblob_bctl_from_fd(b, wc->data_fd, wc->type);
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
@@ -775,8 +768,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	ssize_t err;
 
 again:
-	ctl.type = wc->type;
-	err = eblob_lookup_type(b, key, &ctl, &wc->on_disk);
+	err = eblob_lookup_type(b, key, wc->type, &ctl, &wc->on_disk);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: eblob_fill_write_control_from_ram: "
 				"eblob_lookup_type: type: %d: %zd, on_disk: %d\n",
@@ -789,10 +781,10 @@ again:
 		wc->offset = orig_offset + ctl.size;
 	}
 
-	wc->data_fd = ctl.data_fd;
-	wc->index_fd = ctl.index_fd;
+	wc->data_fd = ctl.bctl->data_fd;
+	wc->index_fd = ctl.bctl->sort.fd >= 0 ? ctl.bctl->sort.fd : ctl.bctl->index_fd;
 
-	wc->index = ctl.index;
+	wc->index = ctl.bctl->index;
 
 	wc->ctl_index_offset = ctl.index_offset;
 	wc->ctl_data_offset = ctl.data_offset;
@@ -800,7 +792,8 @@ again:
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
 
 
-	err = pread(ctl.index_fd, &dc, sizeof(dc), ctl.index_offset);
+	err = pread(ctl.bctl->sort.fd >= 0 ? ctl.bctl->sort.fd : ctl.bctl->index_fd,
+			&dc, sizeof(dc), ctl.index_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
@@ -808,7 +801,7 @@ again:
 		memset(&dc, 0, sizeof(dc));
 	}
 
-	err = pread(ctl.data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
+	err = pread(ctl.bctl->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
 	if (err != sizeof(dc)) {
 		err = -errno;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
@@ -928,8 +921,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
-	old.type = wc->type;
-	err = eblob_lookup_type(b, key, &old, &disk);
+	err = eblob_lookup_type(b, key, wc->type, &old, &disk);
 	if (!err)
 		have_old = 1;
 
@@ -1025,10 +1017,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
-		if (wc->data_fd != old.data_fd)
-			err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+		if (wc->data_fd != old.bctl->data_fd)
+			err = eblob_splice_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
 		else
-			err = eblob_copy_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+			err = eblob_copy_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
 
 		eblob_log(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"blob: %s: eblob_write_prepare_disk: splice: "
@@ -1037,7 +1029,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 				eblob_dump_id(key->id),
 				old.data_offset + sizeof(struct eblob_disk_control),
 				wc->ctl_data_offset + sizeof(struct eblob_disk_control),
-				old.size, old.data_fd, wc->data_fd, err);
+				old.size, old.bctl->data_fd, wc->data_fd, err);
 
 		if (err < 0)
 			goto err_out_rollback;
@@ -1411,7 +1403,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		for (i = 0; i <= b->l2hash_max; i++) {
 			if ((err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl)) != 0)
 				continue;
-			eblob_remove_type(b, key, rctl.type);
+			eblob_remove_type(b, key, rctl.bctl->type);
 			eblob_mark_entry_removed(b, key, &rctl);
 			removed = 1;
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
@@ -1433,7 +1425,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	/* Key may be found in number of types across many types and bases -
 	 * remove all of them */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
-		eblob_remove_type(b, key, ctl[i].type);
+		eblob_remove_type(b, key, ctl[i].bctl->type);
 		eblob_mark_entry_removed(b, key, &ctl[i]);
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
@@ -1456,8 +1448,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 	struct eblob_ram_control ctl;
 	int err, disk;
 
-	ctl.type = type;
-	err = eblob_lookup_type(b, key, &ctl, &disk);
+	err = eblob_lookup_type(b, key, type, &ctl, &disk);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove: eblob_lookup_type: type: %d: %d.\n",
 				eblob_dump_id(key->id), type, err);

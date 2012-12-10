@@ -715,10 +715,10 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	/* If l2hash is enabled and this is in-memory record - insert only there */
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
 		/* Extend l2hash if needed */
-		if (ctl->type > b->l2hash_max)
-			if ((err = eblob_realloc_l2hash(b, b->l2hash_max + 1, ctl->type)) != 0)
+		if (ctl->bctl->type > b->l2hash_max)
+			if ((err = eblob_realloc_l2hash(b, b->l2hash_max + 1, ctl->bctl->type)) != 0)
 				return err;
-		err = eblob_l2hash_upsert(b->l2hash[ctl->type], key, ctl);
+		err = eblob_l2hash_upsert(b->l2hash[ctl->bctl->type], key, ctl);
 		return err;
 	}
 
@@ -729,7 +729,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 
 		num = size / sizeof(struct eblob_ram_control);
 		for (i = 0; i < num; ++i) {
-			if (rc[i].type == ctl->type) {
+			if (rc[i].bctl->type == ctl->bctl->type) {
 				memcpy(&rc[i], ctl, sizeof(struct eblob_ram_control));
 				break;
 			}
@@ -785,7 +785,7 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 
 	num = size / sizeof(struct eblob_ram_control);
 	for (i = 0; i < num; ++i) {
-		if (rc[i].type == type) {
+		if (rc[i].bctl->type == type) {
 			if (i < num - 1) {
 				int rest = num - i - 1;
 				memcpy(&rc[i], &rc[i + 1], rest * sizeof(struct eblob_ram_control));
@@ -817,13 +817,13 @@ err_out_exit:
 	return err;
 }
 
-static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struct eblob_ram_control *dst)
+static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, int type, struct eblob_ram_control *dst)
 {
 	int i, num, err = 0;
 
 	num = size / sizeof(struct eblob_ram_control);
 	for (i = 0; i < num; ++i) {
-		if (rc[i].type == dst->type) {
+		if (rc[i].bctl->type == type) {
 			memcpy(dst, &rc[i], sizeof(struct eblob_ram_control));
 			break;
 		}
@@ -836,24 +836,24 @@ static int eblob_lookup_exact_type(struct eblob_ram_control *rc, int size, struc
 	return err;
 }
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp)
+int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control *res, int *diskp)
 {
 	int err = 1, size, disk = 0;
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
-	if (b->cfg.blob_flags & EBLOB_L2HASH && res->type <= b->l2hash_max)
-		err = eblob_l2hash_lookup(b->l2hash[res->type], key, res);
+	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max)
+		err = eblob_l2hash_lookup(b->l2hash[type], key, res);
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 		if (!err) {
-			err = eblob_lookup_exact_type(rc, size, res);
+			err = eblob_lookup_exact_type(rc, size, type, res);
 		}
 	}
 
 	if (err) {
-		err = eblob_disk_index_lookup(b, key, res->type, &rc, &size);
+		err = eblob_disk_index_lookup(b, key, type, &rc, &size);
 		if (err)
 			goto err_out_exit;
 
@@ -882,7 +882,8 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: iter: %s: type: %d, index: %d, "
 			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
-			eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id), ctl->type, ctl->index,
+			eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id),
+			ctl->bctl->type, ctl->bctl->index,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
