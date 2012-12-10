@@ -27,6 +27,7 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -52,6 +53,26 @@ struct eblob_iterate_local {
 	int				num, pos;
 	long long			index_offset;
 };
+
+/**
+ * eblob_bctl_from_index() - returns bctl for given @index_fd and @type
+ *
+ * This routine is O(n) where n is number of bases. It can be speeded up by
+ * maintaining addtional index of index_fd -> bctl.
+ */
+static struct eblob_base_ctl *eblob_bctl_from_index(struct eblob_backend *b, int index_fd, int type)
+{
+	struct eblob_base_ctl *ctl;
+
+	assert(b != NULL);
+	assert(index_fd >= 0);
+	assert(type <= b->max_type);
+
+	list_for_each_entry(ctl, &b->types[type].bases, base_entry)
+		if (ctl->index_fd == index_fd)
+			return ctl;
+	return NULL;
+}
 
 /**
  * eblob_check_disk_one() - checks one entry of a blob and calls iterator
@@ -106,6 +127,7 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	rc.index = bc->index;
 	rc.type = bc->type;
+	rc.bctl = bc;
 
 	/*
 	 * FIXME: Here we can probably race with ongoing write
@@ -410,7 +432,7 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		(unsigned long long)old->data_offset, old->data_fd);
 
 #ifdef BINLOG
-	if (old->bctl != NULL) {
+	if (old->bctl->binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
 
 		if ((err = pthread_mutex_lock(&b->lock)) != 0) {
@@ -583,7 +605,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.index_offset = wc->ctl_index_offset;
 	ctl.type = wc->type;
 	ctl.index = wc->index;
-	ctl.bctl = NULL;
+	ctl.bctl = eblob_bctl_from_index(b, wc->index_fd, wc->type);
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
@@ -828,7 +850,7 @@ again:
 	}
 
 #ifdef BINLOG
-	if (for_write && ctl.bctl != NULL) {
+	if (for_write && ctl.bctl->binlog != NULL) {
 		pthread_mutex_lock(&b->lock);
 		pthread_mutex_lock(&ctl.bctl->lock);
 
