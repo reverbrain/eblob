@@ -1,3 +1,24 @@
+eblob (0.17.6) unstable; urgency=low
+
+  * l2hash: fix remove_all when l2hash is used
+  * tests: also test eblob_remove_all()
+  * blob: do not hold hash lock whole duration of eblob_remove_all
+  * tests: use random offset in writes
+  * examples: merge: added debug information from data blob along with index
+  * l2hash: protect realloc with b->l2hash_lock
+  * mobjects: do not leak malloc'ed path
+  * mobjects: pass only valid fd to close()
+  * l2hash: destroy on cleanup
+  * range: removed dead assignments
+  * mobjects: removed dead assignment
+  * index: make static analyzer happy
+  * tests: randomize types
+  * l2hash: auto extend l2hash array on insert
+  * l2hash: added safeguards for l2hash
+  * l2hash: create all types 'in-between' on realloc
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 10 Dec 2012 18:33:38 +0400
+
 eblob (0.17.5) unstable; urgency=low
 
   * l2hash: move eblob_realloc_l2hash() to common eblob_realloc_base_type()
