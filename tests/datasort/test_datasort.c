@@ -72,7 +72,7 @@ generate_random_flags(int type)
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
-	/* TODO: Factor '% 10' and '% 2' into tunables */
+	/* TODO: Factor random proportions into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
 		rnd = random() % 10;
 		/* Removed entry can not be removed or overwritten */
@@ -116,6 +116,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->flags = BLOB_DISK_CTL_REMOVE;
 	item->idx = idx;
 	item->inited = 0;
+	item->offset = 0;
 	item->type = 10 + random() % 5;
 	humanize_flags(item->flags, item->hflags);
 
@@ -185,7 +186,6 @@ static int
 item_generate_random(struct shadow *item, struct eblob_backend *b)
 {
 	struct shadow old_item;
-	long long offset = 0;
 	void *ra;
 
 	assert(b != NULL);
@@ -210,27 +210,39 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	 * If new entry not removed
 	 */
 	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
-		/* If it's overwrite we should not generate bigger entry */
 		item->size = 1 + random() % cfg.test_item_size;
 		if ((ra = realloc(item->value, item->size)) == NULL)
 			return errno;
 		item->value = ra;
-		offset = random() % item->size;
+
 		/*
-		 * TODO: BSD has memset_pattern calls which looks like better
-		 * solution for filling memory region
+		 * Offset only makes sense on overwrite of non-compressed data
 		 */
-		memset(item->value + offset, random(), item->size - offset);
+		if (item->flags & BLOB_DISK_CTL_COMPRESS ||
+				old_item.flags & BLOB_DISK_CTL_COMPRESS ||
+				old_item.flags & BLOB_DISK_CTL_REMOVE)
+			item->offset = 0;
+		else
+			item->offset = random() % item->size;
+		/*
+		 * If new offset greater than old size then bytes in gap are
+		 * undefined. Avoid it.
+		 */
+		if (item->offset > old_item.size)
+			item->offset = old_item.size;
+		/* memset with respect to offset */
+		memset(item->value + item->offset, random(), item->size - item->offset);
 	} else {
 		free(item->value);
 		item->size = 0;
+		item->offset = 0;
 		item->value = NULL;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 	    "generated item: %s (%s): flags %s -> %s, size %lld -> %lld, offset: %lld\n",
 	    item->key, eblob_dump_id(item->ekey.id), old_item.hflags, item->hflags,
-	    old_item.size, item->size, offset);
+	    old_item.size, item->size, item->offset);
 
 	return 0;
 }
@@ -249,7 +261,7 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	assert(b != NULL);
 
 	/*
-	 * TODO: Do not store the value itself - only hash of it or seed for prng
+	 * TODO: Do not store the value itself - only hash of it
 	 */
 again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
@@ -261,7 +273,8 @@ again:
 	} else {
 		if (item->inited == 0)
 			item->inited = 1;
-		error = eblob_write(b, &item->ekey, item->value, 0, item->size, item->flags, item->type);
+		error = eblob_write(b, &item->ekey, item->value + item->offset, item->offset,
+				item->size - item->offset, item->flags, item->type);
 	}
 	if (error != 0) {
 		if (retries++ < max_retries) {
