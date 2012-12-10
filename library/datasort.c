@@ -1039,7 +1039,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	 * TODO: Think of some way of rollback
 	 */
 
-	/* Flush index */
+	/* Flush index blocks */
 	eblob_index_blocks_destroy(bctl);
 	eblob_index_blocks_fill(bctl);
 
