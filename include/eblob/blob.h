@@ -305,8 +305,8 @@ struct eblob_ram_control {
 	int			data_fd, index_fd;
 	uint64_t		data_offset, index_offset;
 	uint64_t		size;
-
 	short			index, type;
+	struct eblob_base_ctl	*bctl;
 };
 
 struct eblob_backend *eblob_init(struct eblob_config *c);
