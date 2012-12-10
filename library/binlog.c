@@ -717,35 +717,6 @@ int binlog_destroy(struct eblob_binlog_cfg *bcfg)
 	return 0;
 }
 
-/**
- * binlog_hash_callback() - for all entries with matched fd set binlog and
- * binlog_lock fields.
- */
-static int binlog_hash_callback(void *priv, struct eblob_hash_entry *entry)
-{
-	struct eblob_ram_control *rc;
-	struct eblob_base_ctl *bctl;
-	int i, num;
-
-	assert(priv != NULL);
-	assert(entry != NULL);
-	assert(entry->data != NULL);
-	assert(entry->dsize > 0);
-	assert(entry->dsize % sizeof(struct eblob_ram_control) == 0);
-
-	bctl = (struct eblob_base_ctl *)priv;
-	rc = (struct eblob_ram_control *)entry->data;
-
-	num = entry->dsize / sizeof(struct eblob_ram_control);
-	for (i = 0; i < num; ++i)
-		if (rc[i].data_fd == bctl->data_fd) {
-			rc[i].bctl = bctl;
-			break;
-		}
-
-	return 0;
-}
-
 /*
  * Initialize and open binlog
  *
@@ -805,21 +776,6 @@ int eblob_start_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 				"blob: binlog: eblob_start_binlog failed: %d.\n", err);
 		goto err_destroy;
 	}
-
-	/*
-	 * Mark entries in hash that they need to use binlog
-	 */
-	if ((err = pthread_mutex_lock(&b->hash->root_lock)) != 0) {
-		err = -err;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d.\n", -err);
-		goto err_destroy;
-	}
-
-	eblob_hash_iterator(&b->hash->root, bctl, binlog_hash_callback);
-
-	if (pthread_mutex_unlock(&b->hash->root_lock) != 0)
-		abort();
-
 	bctl->binlog = bcfg;
 
 err_destroy:

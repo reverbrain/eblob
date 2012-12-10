@@ -344,10 +344,11 @@ int eblob_dump_hash(void *priv, struct eblob_hash_entry *entry)
 	for (i = 0; i < num; ++i)
 		eblob_log(log, EBLOB_LOG_DEBUG, "rctl: %s, data_fd: %d, index_fd: %d"
 				", data_offset: %" PRIu64 ", index_offset: %" PRIu64 ", size: %" PRIu64
-				", index: %hd, type: %hd, bctl: %p\n",
-				eblob_dump_id(entry->key.id), rctl[i].data_fd, rctl[i].index_fd,
-				rctl[i].data_offset, rctl[i].index_offset,
-				rctl[i].size, rctl[i].index, rctl[i].type, rctl[i].bctl);
+				", index: %d, type: %d, bctl: %p\n",
+				eblob_dump_id(entry->key.id),
+				rctl[i].bctl->data_fd, rctl[i].bctl->index_fd,
+				rctl[i].data_offset, rctl[i].index_offset, rctl[i].size,
+				rctl[i].bctl->index, rctl[i].bctl->type, rctl[i].bctl);
 	return 0;
 }
 

@@ -34,6 +34,7 @@
 #include <unistd.h>
 
 #include "eblob/blob.h"
+#include "blob.h"
 #include "l2hash.h"
 #include "rbtree.h"
 
@@ -206,9 +207,11 @@ static int __eblob_l2hash_index_hdr(struct eblob_ram_control *rctl, struct eblob
 	int err;
 
 	assert(rctl != NULL);
+	assert(rctl->bctl != NULL);
+	assert(rctl->bctl->index_fd >= 0);
 	assert(dc != NULL);
 
-	err = pread(rctl->index_fd, dc, sizeof(struct eblob_disk_control), rctl->index_offset);
+	err = pread(rctl->bctl->index_fd, dc, sizeof(struct eblob_disk_control), rctl->index_offset);
 	if (err != sizeof(struct eblob_disk_control))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 	return 0;
@@ -231,7 +234,6 @@ static int eblob_l2hash_compare_index(struct eblob_key *key, struct eblob_ram_co
 
 	assert(key != NULL);
 	assert(rctl != NULL);
-	assert(rctl->index_fd >= 0);
 
 	/* Got to disk for index header */
 	if ((err = __eblob_l2hash_index_hdr(rctl, &dc)) != 0)

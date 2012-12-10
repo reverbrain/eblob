@@ -288,7 +288,7 @@ int eblob_read_range(struct eblob_range_request *req)
 			for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
 				ctl = &((struct eblob_ram_control *)e->data)[i];
 
-				if (ctl->type != req->requested_type)
+				if (ctl->bctl->type != req->requested_type)
 					continue;
 
 				/*
@@ -297,15 +297,16 @@ int eblob_read_range(struct eblob_range_request *req)
 				 * ctl->index can be already sorted, so below eblob_read_range_on_disk() will find it again.
 				 *
 				 * We should use key found in RAM only if blob, which hosts this key, does not have sorted indexes.
+				 * FIXME: Simplify me! Now we have bctl in ram control
 				 */
-				if (ctl->index != b->types[ctl->type].index) {
+				if (ctl->bctl->index != b->types[ctl->bctl->type].index) {
 					struct eblob_base_ctl *bctl;
 					struct eblob_base_type *t;
 					int have_sorted_fd = 0;
 
 					t = &b->types[req->requested_type];
 					list_for_each_entry(bctl, &t->bases, base_entry) {
-						if (bctl->index == ctl->index) {
+						if (bctl->index == ctl->bctl->index) {
 							if (bctl->sort.fd >= 0) {
 								have_sorted_fd = 1;
 								break;
@@ -317,7 +318,7 @@ int eblob_read_range(struct eblob_range_request *req)
 						continue;
 				}
 
-				err = eblob_range_callback(req, &e->key, ctl->data_fd,
+				err = eblob_range_callback(req, &e->key, ctl->bctl->data_fd,
 						ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
 				if (err > 0)
 					goto err_out_unlock;

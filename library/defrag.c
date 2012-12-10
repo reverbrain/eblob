@@ -92,7 +92,7 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 1: %s: size: %llu: position: %llu, "
 				"flags: %llx, type: %d, err: %d\n",
 				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->type, err);
+				(unsigned long long)dc->flags, ctl->bctl->type, err);
 		goto err_out_unlock;
 	}
 
@@ -101,7 +101,7 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 2: %s: size: %llu: position: %llu, "
 				"flags: %llx, type: %d, err: %d\n",
 				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->type, err);
+				(unsigned long long)dc->flags, ctl->bctl->type, err);
 		goto err_out_unlock;
 	}
 
@@ -110,14 +110,14 @@ static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 3: %s: size: %llu: position: %llu, "
 				"flags: %llx, type: %d, err: %d\n",
 				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->type, err);
+				(unsigned long long)dc->flags, ctl->bctl->type, err);
 		goto err_out_unlock;
 	}
 
 	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "defrag: %s: size: %llu: position: %llu, "
 			"flags: %llx, type: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-			(unsigned long long)dc->flags, ctl->type);
+			(unsigned long long)dc->flags, ctl->bctl->type);
 
 err_out_unlock:
 	pthread_mutex_unlock(&bctl->dlock);
@@ -190,7 +190,7 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
 	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "defrag: count: %s: size: %llu: position: %llu, "
 			"flags: %llx, type: %d\n",
 			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-			(unsigned long long)dc->flags, ctl->type);
+			(unsigned long long)dc->flags, ctl->bctl->type);
 
 	pthread_mutex_lock(&bctl->dlock);
 	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
