@@ -37,6 +37,10 @@
 #include "l2hash.h"
 #include "rbtree.h"
 
+/*
+ * TODO: Since hash itself is uniformly distributed we do not need separate
+ * hashing routines, we just can get least N bits from eblob_key.id
+ */
 #ifdef HASH32
 /**
  * eblob_l2hash_data() - 32bit murmur implementation aka MurmurHash2
