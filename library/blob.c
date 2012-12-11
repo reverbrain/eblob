@@ -1653,6 +1653,10 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	}
 
 	memset(csum, 0, sizeof(csum));
+	if (wc->total_size < sizeof(struct eblob_disk_footer)) {
+		err = -EINVAL;
+		goto err_out_exit;
+	}
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
 	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = 0;
