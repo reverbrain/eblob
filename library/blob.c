@@ -1123,10 +1123,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
-		if (wc->data_fd != old.data_fd)
-			err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+		if (wc->data_fd != old.bctl->data_fd)
+			err = eblob_splice_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
 		else
-			err = eblob_copy_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
+			err = eblob_copy_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
 
 		eblob_log(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"blob: %s: eblob_write_prepare_disk: splice: "
