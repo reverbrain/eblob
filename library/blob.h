@@ -58,6 +58,10 @@ typedef long long loff_t;
 #define EBLOB_DEFAULT_DEFRAG_TIMEOUT		-1
 #define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		25
 
+#define EBLOB_1_K				(1<<10)
+#define EBLOB_1_M				(1<<20)
+#define EBLOB_1_G				(1<<30)
+
 struct eblob_map_fd {
 	int			fd;
 	uint64_t		offset, size;
@@ -200,6 +204,8 @@ struct eblob_backend {
 	pthread_t		sync_tid;
 
 	int			want_defrag;
+	/* Current size of all bases and indexes */
+	uint64_t		current_blob_size;
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);

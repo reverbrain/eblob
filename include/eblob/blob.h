@@ -289,8 +289,13 @@ struct eblob_config {
 	unsigned int		index_block_size;
 	unsigned int		index_block_bloom_length;
 
+	/*
+	 * Size limit for all blobs and indexes.
+	 */
+	uint64_t		blob_size_limit;
+
 	/* for future use */
-	int			pad[10];
+	int			pad[8];
 };
 
 /*
