@@ -68,9 +68,15 @@ static struct eblob_base_ctl *eblob_bctl_from_index(struct eblob_backend *b, int
 	assert(index_fd >= 0);
 	assert(type <= b->max_type);
 
-	list_for_each_entry(ctl, &b->types[type].bases, base_entry)
-		if (ctl->index_fd == index_fd)
+	list_for_each_entry(ctl, &b->types[type].bases, base_entry) {
+		pthread_mutex_lock(&ctl->lock);
+		if (ctl->index_fd == index_fd) {
+			pthread_mutex_unlock(&ctl->lock);
 			return ctl;
+		}
+		pthread_mutex_unlock(&ctl->lock);
+	}
+
 	return NULL;
 }
 
