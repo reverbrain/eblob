@@ -835,6 +835,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 {
 	struct statvfs s;
 	unsigned long long total, avail;
+	static int print_once;
 	int err;
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
@@ -847,10 +848,20 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 		if (avail < size)
 			return -ENOSPC;
 
-		if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
-				(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) & (avail < b->cfg.blob_size))) {
-			static int print_once;
+		if (b->cfg.blob_size_limit) {
+			if (b->current_blob_size + size > b->cfg.blob_size_limit) {
+				if (!print_once) {
+					print_once = 1;
 
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu Mb, "
+							"total: %llu Mb, current size: %" PRIu64 " Mb, limit: %" PRIu64 "Mb\n",
+							avail / EBLOB_1_M, total / EBLOB_1_M,
+							(b->current_blob_size + size) / EBLOB_1_M, b->cfg.blob_size_limit / EBLOB_1_M);
+				}
+				return -ENOSPC;
+			}
+		} else if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
+				(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) & (avail < b->cfg.blob_size))) {
 			if (!print_once) {
 				print_once = 1;
 
@@ -960,6 +971,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
+	b->current_blob_size += wc->total_size + sizeof(struct eblob_disk_control);
 
 
 	err = blob_write_prepare_ll(b, key, wc);
