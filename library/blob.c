@@ -683,7 +683,7 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 	void *buf;
 	ssize_t err;
 	ssize_t alloc_size = len;
-	ssize_t max_size = 10 * 1024 * 1024;
+	ssize_t max_size = 10 * EBLOB_1_M;
 
 	if (alloc_size > max_size)
 		alloc_size = max_size;
@@ -1016,8 +1016,8 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 				print_once = 1;
 
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "OUT OF FREE SPACE: available: %llu Mb, "
-						"total: %llu Mb, blob size: %llu Mb\n",
-						avail / 1048576, total / 1048576, (unsigned long long)b->cfg.blob_size / 1048576);
+						"total: %llu Mb, blob size: %" PRIu64 " Mb\n",
+						avail / EBLOB_1_M, total / EBLOB_1_M, b->cfg.blob_size / EBLOB_1_M);
 			}
 
 			return -ENOSPC;
@@ -1618,7 +1618,7 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	struct eblob_disk_footer *f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	struct eblob_map_fd m;
-	int alloc_size = 1024 * 1024;
+	int alloc_size = EBLOB_1_M;
 	void *adata = NULL;
 	int err;
 
