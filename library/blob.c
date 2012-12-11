@@ -1127,22 +1127,18 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			err = eblob_splice_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
 		else
 			err = eblob_copy_data(old.data_fd, off_in, wc->data_fd, off_out, old.size);
-		if (err < 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_write_prepare_disk: splice: "
-				"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d: %s %zd\n",
-				eblob_dump_id(key->id),
-				(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
-				(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
-				(unsigned long long)old.size, old.bctl->data_fd, wc->data_fd, err);
-			goto err_out_rollback;
-		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: splice: "
-			"src offset: %llu, dst offset: %llu, size: %llu, src fd: %d: dst fd: %d\n",
-			eblob_dump_id(key->id),
-			(unsigned long long)(old.data_offset + sizeof(struct eblob_disk_control)),
-			(unsigned long long)(wc->ctl_data_offset + sizeof(struct eblob_disk_control)),
-			(unsigned long long)old.size, old.data_fd, wc->data_fd);
+		eblob_log(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
+				"blob: %s: eblob_write_prepare_disk: splice: "
+				"src offset: %" PRIu64 ", dst offset: %" PRIu64
+				", size: %" PRIu64 ", src fd: %d: dst fd: %d\n: %zd",
+				eblob_dump_id(key->id),
+				old.data_offset + sizeof(struct eblob_disk_control),
+				wc->ctl_data_offset + sizeof(struct eblob_disk_control),
+				old.size, old.bctl->data_fd, wc->data_fd, err);
+
+		if (err < 0)
+			goto err_out_rollback;
 	}
 
 	/*
