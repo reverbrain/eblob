@@ -939,7 +939,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 	wc->total_data_size = wc->offset + wc->size;
 
-	if (have_old && (wc->flags & BLOB_DISK_CTL_OVERWRITE)) {
+	if (have_old && (wc->flags & BLOB_DISK_CTL_OVERWRITE || wc->offset)) {
 		if (old.size > wc->offset + wc->size) {
 			wc->total_data_size = old.size;
 		}
@@ -974,7 +974,13 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_rollback;
 
-	if (have_old && old.size && wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE)) {
+	/*
+	 * We should copy old entry only in case:
+	 * 1. There is old entry and it has non-zero size
+	 * 2. Append/Overwite flags are set or offset is non-zero
+	 */
+	if ((wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE) || wc->offset)
+			&& have_old && old.size) {
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
