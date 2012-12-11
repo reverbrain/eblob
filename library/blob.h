@@ -44,17 +44,16 @@ typedef long long loff_t;
 #define	EBADFD		77	/* File descriptor in bad state */
 #endif
 
+#define EBLOB_1_M				(1UL<<20)
+#define EBLOB_1_G				(1ULL<<30)
+
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
-#define EBLOB_BLOB_DEFAULT_HASH_SIZE		(1<<24)
-#define EBLOB_BLOB_DEFAULT_BLOB_SIZE		50*1024*1024*1024ULL
+#define EBLOB_BLOB_DEFAULT_HASH_SIZE		(16 * EBLOB_1_M)
+#define EBLOB_BLOB_DEFAULT_BLOB_SIZE		(50 * EBLOB_1_G)
 #define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	50000000
 #define EBLOB_BLOB_DEFAULT_CACHE_SIZE		50000000
 #define EBLOB_DEFAULT_DEFRAG_TIMEOUT		-1
 #define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		25
-
-#define EBLOB_1_K				(1<<10)
-#define EBLOB_1_M				(1<<20)
-#define EBLOB_1_G				(1<<30)
 
 struct eblob_map_fd {
 	int			fd;
