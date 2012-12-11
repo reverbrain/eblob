@@ -939,7 +939,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 	wc->total_data_size = wc->offset + wc->size;
 
-	if (have_old && (wc->flags & BLOB_DISK_CTL_OVERWRITE || wc->offset)) {
+	if (have_old && ((wc->flags & BLOB_DISK_CTL_OVERWRITE) || wc->offset)) {
 		if (old.size > wc->offset + wc->size) {
 			wc->total_data_size = old.size;
 		}
