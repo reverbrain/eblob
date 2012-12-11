@@ -86,10 +86,15 @@ generate_random_flags(int type)
 			return 0;
 		}
 	} else if (type == FLAG_TYPE_EXISTING) {
-		rnd = random() % 2;
-		/* Existing entry can be rewritten or removed */
+		rnd = random() % 3;
+		/*
+		 * Existing entry can be replaced with new one, removed or
+		 * rewritten
+		 */
 		switch (rnd) {
 		case 0:
+			return 0;
+		case 1:
 			return BLOB_DISK_CTL_REMOVE;
 		default:
 			return BLOB_DISK_CTL_OVERWRITE;
