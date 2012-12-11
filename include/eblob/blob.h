@@ -283,8 +283,14 @@ struct eblob_config {
 	 */
 	int			defrag_timeout;
 
+	/*
+	 * Index block and bloom filter settings
+	 */
+	unsigned int		index_block_size;
+	unsigned int		index_block_bloom_length;
+
 	/* for future use */
-	int			pad[12];
+	int			pad[10];
 };
 
 /*

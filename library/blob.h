@@ -76,9 +76,9 @@ struct eblob_base_type {
 	struct list_head	bases;
 };
 
-#define EBLOB_INDEX_BLOCK_SIZE			40
+#define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
 /* Length of bloom filter should have at least 2 bits per index entry, we set 'this multiplier' number bits */
-#define EBLOB_INDEX_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_BLOCK_SIZE * 128)
+#define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
 	struct rb_node		node;
@@ -87,10 +87,10 @@ struct eblob_index_block {
 	struct eblob_key	end_key;
 
 	uint64_t		offset;
-	unsigned char		bloom[EBLOB_INDEX_BLOCK_BLOOM_LENGTH / 8 ];
+	unsigned char		*bloom;
 };
 
-inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_num, int *bloom_bit_num)
+inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_num, int *bloom_bit_num, int bloom_len)
 {
 	unsigned int i, acc = 0;
 
@@ -98,7 +98,7 @@ inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_
 		acc += ((unsigned int*)key->id)[i];
 	}
 
-	acc = acc % EBLOB_INDEX_BLOCK_BLOOM_LENGTH;
+	acc = acc % bloom_len;
 
 	*bloom_byte_num = acc / 8;
 	*bloom_bit_num = acc % 8;

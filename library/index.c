@@ -92,6 +92,7 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 
 		rb_erase(n, &bctl->index_blocks_root);
 
+		free(t->bloom);
 		free(t);
 	}
 
@@ -163,7 +164,8 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	int bloom_bit_num, bloom_byte_num;
 	int cmp;
 
-	eblob_calculate_bloom(&dc->key, &bloom_byte_num, &bloom_bit_num);
+	eblob_calculate_bloom(&dc->key, &bloom_byte_num, &bloom_bit_num,
+			bctl->back->cfg.index_block_bloom_length);
 
 	n = bctl->index_blocks_root.rb_node;
 
@@ -231,19 +233,23 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	int bloom_byte_num, bloom_bit_num;
 	uint64_t offset = 0;
 	int err = 0;
-	int i;
+	unsigned int i;
 
 	while (offset < bctl->sort.size) {
-		block = malloc(sizeof(struct eblob_index_block));
+		block = calloc(1, sizeof(struct eblob_index_block));
 		if (!block) {
 			err = -ENOMEM;
 			goto err_out_drop_tree;
 		}
-		memset(block, 0, sizeof(struct eblob_index_block));
+		block->bloom = calloc(1, bctl->back->cfg.index_block_bloom_length / 8);
+		if (block->bloom == NULL) {
+			err = -ENOMEM;
+			goto err_out_drop_tree;
+		}
 
 		block->offset = offset;
 
-		for (i = 0; i < EBLOB_INDEX_BLOCK_SIZE && offset < bctl->sort.size; ++i) {
+		for (i = 0; i < bctl->back->cfg.index_block_size && offset < bctl->sort.size; ++i) {
 			err = pread(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), offset);
 			if (err != sizeof(struct eblob_disk_control)) {
 				if (err < 0)
@@ -254,7 +260,8 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-			eblob_calculate_bloom(&dc.key, &bloom_byte_num, &bloom_bit_num);
+			eblob_calculate_bloom(&dc.key, &bloom_byte_num, &bloom_bit_num,
+					bctl->back->cfg.index_block_bloom_length);
 
 			block->bloom[bloom_byte_num] |= 1<<bloom_bit_num;
 
@@ -299,8 +306,8 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 
 		num = (bctl->sort.size - block->offset) / hdr_size;
 
-		if (num > EBLOB_INDEX_BLOCK_SIZE)
-			num = EBLOB_INDEX_BLOCK_SIZE;
+		if (num > b->cfg.index_block_size)
+			num = b->cfg.index_block_size;
 
 		search_start = bctl->sort.data + block->offset;
 		search_end = search_start + (num - 1);

@@ -1949,6 +1949,12 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_free;
 	}
 
+	if (!c->index_block_size)
+		c->index_block_size = EBLOB_INDEX_DEFAULT_BLOCK_SIZE;
+
+	if (!c->index_block_bloom_length)
+		c->index_block_bloom_length = EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH;
+
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
 
