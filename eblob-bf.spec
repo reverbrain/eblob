@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.6
+Version:	0.17.7
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Dec 13 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.7
+- blob: added blob_size_limit config value to explicitly limit bob size
+- index: blob: add config variables for index block and bloom
+- blob: copy entry regardless of flags if offset is set
+- tests update
+
 * Mon Dec 10 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.6
 - l2hash: fix remove_all when l2hash is used
 - tests: also test eblob_remove_all()

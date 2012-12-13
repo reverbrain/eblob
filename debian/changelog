@@ -1,3 +1,12 @@
+eblob (0.17.7) unstable; urgency=low
+
+  * blob: added blob_size_limit config value to explicitly limit bob size
+  * index: blob: add config variables for index block and bloom
+  * blob: copy entry regardless of flags if offset is set
+  * tests update
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 13 Dec 2012 21:26:21 +0400
+
 eblob (0.17.6) unstable; urgency=low
 
   * l2hash: fix remove_all when l2hash is used
