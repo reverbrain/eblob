@@ -605,6 +605,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.bctl = eblob_bctl_from_index(b, wc->index_fd, wc->type);
 	if (ctl.bctl == NULL) {
 		err = -EAGAIN;
+		eblob_dump_wc(b, key, wc, "eblob_bctl_from_index: bctl not found from index", err);
 		goto err_out_exit;
 	}
 
