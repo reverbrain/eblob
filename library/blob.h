@@ -142,32 +142,6 @@ struct eblob_base_ctl {
 /* All available flags */
 #define EBLOB_FLAGS_HINT_ALL (EBLOB_FLAGS_HINT_WILLNEED | EBLOB_FLAGS_HINT_DONTNEED)
 
-/*
- * OS pagecache hints
- */
-static inline int eblob_pagecache_hint(int fd, uint64_t flag) {
-	if (fd < 0)
-		return -EINVAL;
-	if (flag & (~EBLOB_FLAGS_HINT_ALL))
-		return -EINVAL;
-	if (flag == 0 || flag == EBLOB_FLAGS_HINT_ALL)
-		return -EINVAL;
-#ifdef HAVE_POSIX_FADVISE
-	int advise;
-
-	if (flag & EBLOB_FLAGS_HINT_WILLNEED)
-		advise = POSIX_FADV_WILLNEED;
-	else if (flag & EBLOB_FLAGS_HINT_DONTNEED)
-		advise = POSIX_FADV_DONTNEED;
-	return -posix_fadvise(fd, 0, 0, advise);
-#else /* HAVE_POSIX_FADVISE */
-	/*
-	 * TODO: On Darwin/FreeBSD(old ones) we should mmap file and use msync with MS_INVALIDATE
-	 */
-	return 0;
-#endif /* HAVE_POSIX_FADVISE */
-}
-
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl);
@@ -218,7 +192,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type);
 int eblob_load_data(struct eblob_backend *b);
 void eblob_base_types_cleanup(struct eblob_backend *b);
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
+int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control *res, int *diskp);
 int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
 
@@ -251,5 +225,8 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 		struct eblob_disk_search_stat *st);
 
 ssize_t eblob_get_actual_size(int fd);
+
+int eblob_preallocate(int fd, off_t size);
+int eblob_pagecache_hint(int fd, uint64_t flag);
 
 #endif /* __EBLOB_BLOB_H */
