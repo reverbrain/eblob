@@ -381,6 +381,12 @@ main(int argc, char **argv)
 	if (signal(SIGINT, sigint_cb) == SIG_ERR)
 		err(EX_OSERR, "signal");
 
+	/* Checks */
+	if (cfg.test_items <= 0)
+		err(EX_USAGE, "test_items must be positive");
+	if (cfg.test_item_size <= 0)
+		err(EX_USAGE, "test_item_size must be positive");
+
 	/* Init shadow storage with some set of key-values */
 	for (i = 0; i < cfg.test_items; i++) {
 		item_init(&cfg.shadow[i], cfg.b, i);
@@ -416,7 +422,7 @@ main(int argc, char **argv)
 			errx(EX_TEMPFAIL, "item_sync: %d", error);
 		}
 		/* Print progress each 'test_milestone' iterations */
-		if ((i % cfg.test_milestone) == 0)
+		if (cfg.test_milestone > 0 && (i % cfg.test_milestone) == 0)
 			warnx("iteration: %d", i);
 		/* Force defrag each 'test_force_defrag' iterations */
 		if (cfg.test_force_defrag > 0 && (i % cfg.test_force_defrag) == 0) {
