@@ -1146,6 +1146,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		return -EINVAL;
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: start\n");
+	dcfg->b->stat.sort_status = 1;
 
 	/* Setup defaults */
 	if (dcfg->thread_num == 0)
@@ -1277,6 +1278,7 @@ skip_merge_sort:
 	datasort_destroy(dcfg);
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
+	dcfg->b->stat.sort_status = 0;
 	return 0;
 
 err_unlock_bctl:
@@ -1299,5 +1301,6 @@ err_mutex:
 	datasort_destroy(dcfg);
 err:
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: FAILED\n");
+	dcfg->b->stat.sort_status = err;
 	return err;
 }

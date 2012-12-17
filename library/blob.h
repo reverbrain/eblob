@@ -168,6 +168,13 @@ struct eblob_stat {
 	pthread_mutex_t		lock;
 
 	int			need_check;
+	/*
+	 * Current data-sort status:
+	 * <0:	data-sort aborted due an error
+	 * 1:	data-sort in progress
+	 * 0:	data-sort not running
+	 */
+	int			sort_status;
 
 	unsigned long long	disk;
 	unsigned long long	removed;
