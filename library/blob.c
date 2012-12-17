@@ -1065,6 +1065,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 err_out_rollback:
 	ctl->data_offset -= wc->total_size;
 	ctl->index_offset -= sizeof(struct eblob_disk_control);
+	b->current_blob_size -= wc->total_size + sizeof(struct eblob_disk_control);
 err_out_unlock_exit:
 	pthread_mutex_unlock(&b->lock);
 err_out_exit:
