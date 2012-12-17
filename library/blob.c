@@ -216,7 +216,7 @@ static void *eblob_blob_iterator(void *data)
 	int local_max_num = 1024;
 	struct eblob_disk_control dc[local_max_num];
 	struct eblob_iterate_local loc;
-	int err = 0;
+	int err = 0, index_fd = bc->index_fd;
 
 	memset(&loc, 0, sizeof(loc));
 
@@ -226,6 +226,12 @@ static void *eblob_blob_iterator(void *data)
 		pthread_mutex_lock(&bc->lock);
 
 		if (!ctl->thread_num) {
+			err = 0;
+			goto err_out_unlock;
+		}
+		if (bc->index_fd != index_fd) {
+			/* This can happen if data-sort kicks in between iterations */
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index_fd changed, iteration stops.\n");
 			err = 0;
 			goto err_out_unlock;
 		}
