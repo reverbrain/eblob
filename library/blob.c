@@ -603,17 +603,22 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.bctl = eblob_bctl_from_index(b, wc->index_fd, wc->type);
 	if (ctl.bctl == NULL) {
 		err = -EAGAIN;
-		eblob_dump_wc(b, key, wc, "eblob_bctl_from_index: bctl not found from index", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: %s: %s: eblob_bctl_from_index: FAILED: %d.\n",
+				eblob_dump_id(key->id), __func__, err);
 		goto err_out_exit;
 	}
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_commit_ram: ERROR-eblob_insert_type", err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: %s: %s: eblob_insert_type: fd: %d: FAILED: %d.\n",
+				eblob_dump_id(key->id), __func__, ctl.bctl->index_fd, err);
 		goto err_out_exit;
 	}
 
 err_out_exit:
+	eblob_dump_wc(b, key, wc, "eblob_commit_ram: finished", err);
 	return err;
 }
 
