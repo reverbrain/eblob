@@ -336,7 +336,7 @@ void *eblob_defrag(void *data)
 	sleep_time = b->cfg.defrag_timeout = -1;
 
 	while (!b->need_exit) {
-		if ((sleep_time-- != 0) && !b->want_defrag) {
+		if ((sleep_time-- != 0) && (b->want_defrag <= 0)) {
 			sleep(1);
 			continue;
 		}
@@ -355,6 +355,9 @@ void *eblob_defrag(void *data)
  */
 int eblob_start_defrag(struct eblob_backend *b)
 {
+	/* data-sort currently disabled */
+	if (b->want_defrag < 0)
+		return -EAGAIN;
 	b->want_defrag = 1;
 	return 0;
 }

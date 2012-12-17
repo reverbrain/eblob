@@ -198,7 +198,7 @@ struct eblob_backend {
 	struct eblob_l2hash	**l2hash;
 	/* Maximum initialized l2hash */
 	int			l2hash_max;
-	/* Lock to protecct l2hash metadata in eblob_backend */
+	/* Lock to protect l2hash metadata in eblob_backend */
 	pthread_mutex_t		l2hash_lock;
 
 	struct eblob_stat	stat;
@@ -207,6 +207,15 @@ struct eblob_backend {
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
 
+	/*
+	 * Set when defrag/data-sort are explicitly requested
+	 * While it's negative data-sort cant proceed even if explicitly
+	 * requested by user. This is used to avoid races with
+	 * eblob_load_data()
+	 * 1:	data-sort is explicitly requested (i.e with
+	 * eblob_start_defrag())
+	 * 0:	data-sort preformed by according to defrag_timeout
+	 */
 	int			want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;

@@ -937,6 +937,9 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	struct eblob_base_type *types = NULL;
 	int err, i, max_type = -1, thread_num = ctl->thread_num;
 
+	/* Disable data-sort while iterating over blob to prevent races */
+	b->want_defrag = -1;
+
 	ctl->log = b->cfg.log;
 	ctl->b = b;
 
@@ -995,10 +998,12 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		*max_typep = max_type;
 	}
 
+	b->want_defrag = 0;
 	return 0;
 
 err_out_exit:
 	eblob_base_types_free(types, max_type);
+	b->want_defrag = 0;
 	return err;
 }
 
