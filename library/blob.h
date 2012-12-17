@@ -21,9 +21,7 @@
 #include "l2hash.h"
 #include "list.h"
 
-#ifdef BINLOG
 #include "binlog.h"
-#endif
 #ifdef DATASORT
 #include "datasort.h"
 #endif

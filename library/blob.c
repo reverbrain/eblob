@@ -432,7 +432,6 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		(unsigned long long)old->data_offset,
 		(unsigned long long)old->data_offset, old->bctl->data_fd);
 
-#ifdef BINLOG
 	if (old->bctl->binlog != NULL) {
 		struct eblob_binlog_ctl bctl;
 
@@ -474,7 +473,6 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
 			abort();
 	}
-#endif /* BINLOG */
 
 	if ((err = blob_mark_index_removed(old->bctl->index_fd, old->index_offset)) != 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,  "%s: blob_mark_index_removed failed: index: %s\n",
@@ -837,9 +835,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	struct eblob_disk_control dc, data_dc;
 	uint64_t orig_offset = wc->offset;
 	ssize_t err;
-#ifdef BINLOG
 	int binlog_enabled = 0;
-#endif
 
 again:
 	err = eblob_lookup_type(b, key, wc->type, &ctl, &wc->on_disk);
@@ -850,7 +846,6 @@ again:
 		goto err_out_exit;
 	}
 
-#ifdef BINLOG
 	if (for_write && ctl.bctl->binlog != NULL) {
 		pthread_mutex_lock(&b->lock);
 		pthread_mutex_lock(&ctl.bctl->lock);
@@ -863,7 +858,6 @@ again:
 			goto err_out_exit;
 		}
 	}
-#endif /* BINLOG */
 
 	/* only for write */
 	if (for_write && (wc->flags & BLOB_DISK_CTL_APPEND)) {
@@ -937,7 +931,6 @@ again:
 		goto err_out_exit;
 	}
 
-#ifdef BINLOG
 	if (binlog_enabled) {
 		struct eblob_binlog_ctl bctl;
 
@@ -964,17 +957,14 @@ again:
 			eblob_dump_wc(b, key, wc, "binlog: append failed", err);
 
 	}
-#endif /* BINLOG */
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 err_out_exit:
-#ifdef BINLOG
 	if (binlog_enabled) {
 		if (pthread_mutex_unlock(&b->lock) != 0)
 			abort();
 		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
 			abort();
 	}
-#endif /* BINLOG */
 	return err;
 }
 

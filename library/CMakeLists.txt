@@ -1,6 +1,7 @@
 include_directories(../include)
 set(EBLOB_SRCS
     blob.c
+    binlog.c
     hash.c
     log.c
     l2hash.c
@@ -13,13 +14,6 @@ set(EBLOB_SRCS
     stat.c
     rbtree.c
     )
-if(WITH_BINLOG)
-    add_definitions(-DBINLOG)
-    list(APPEND
-        EBLOB_SRCS
-        binlog.c
-    )
-endif()
 if(WITH_DATASORT)
     add_definitions(-DDATASORT)
     list(APPEND
