@@ -16,6 +16,8 @@
 #ifndef __EBLOB_BINLOG_H
 #define __EBLOB_BINLOG_H
 
+#include <unistd.h>
+
 #define EBLOB_BINLOG_MAGIC	"1337833"
 #define EBLOB_BINLOG_VERSION	1
 
