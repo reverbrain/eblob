@@ -1129,7 +1129,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	/*
 	 * We should copy old entry only in case:
 	 * 1. There is old entry and it has non-zero size
-	 * 2. Append/Overwite flags are set or offset is non-zero
+	 * 2. Append/Overwrite flags are set or offset is non-zero
 	 */
 	if ((wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE) || wc->offset)
 			&& have_old && old.size) {
