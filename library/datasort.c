@@ -823,6 +823,13 @@ static int datasort_binlog_update(int to_fd, struct eblob_write_control *wc,
 	 */
 	if (wc->total_size > dc->disk_size)
 		return -E2BIG;
+	/*
+	 * Also eblob copies entries with wc->offset even if overwrite/append
+	 * was not requested.
+	 */
+	if ((wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE)) == 0
+			&& wc->offset != 0)
+		return -E2BIG;
 
 	/* Shortcuts */
 	from_fd = wc->data_fd;
