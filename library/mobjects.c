@@ -54,7 +54,7 @@ static const char *eblob_get_base(const char *blob_base)
 	return base;
 }
 
-int eblob_base_setup_data(struct eblob_base_ctl *ctl)
+int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 {
 	struct stat st;
 	int err;
@@ -72,11 +72,15 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl)
 		goto err_out_exit;
 	}
 
-	if (st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) {
+	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) || force) {
 		if (ctl->data_size && ctl->data)
 			munmap(ctl->data, ctl->data_size);
 
-		ctl->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, ctl->data_fd, 0);
+		if (st.st_size)
+			ctl->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, ctl->data_fd, 0);
+		else
+			ctl->data = NULL;
+
 		if (ctl->data == MAP_FAILED) {
 			err = -errno;
 			goto err_out_exit;
@@ -203,7 +207,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		goto err_out_destroy_index_lock;
 	}
 
-	err = eblob_base_setup_data(ctl);
+	err = eblob_base_setup_data(ctl, 0);
 	if (err)
 		goto err_out_close_data;
 

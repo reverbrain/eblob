@@ -481,7 +481,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		bctl->index_fd = bctl->dfi;
 		bctl->sort = dst;
 
-		err = eblob_base_setup_data(bctl);
+		err = eblob_base_setup_data(bctl, 1);
 		if (!err) {
 			bctl->data_offset = bctl->data_size;
 		} else {

@@ -336,7 +336,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
-	err = eblob_base_setup_data(ctl->base);
+	err = eblob_base_setup_data(ctl->base, 0);
 	if (err) {
 		ctl->err = err;
 		goto err_out_exit;

@@ -1010,9 +1010,11 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	bctl->sort = index;
 
 	/* Try to setup new base */
-	err = eblob_base_setup_data(bctl);
-	if (!err) {
+	if ((err = eblob_base_setup_data(bctl, 1)) == 0) {
 		/* Everything is ok */
+		assert(bctl->data_size == dcfg->result->offset);
+		assert(bctl->index_size == index.size);
+
 		eblob_data_unmap(&bctl->old_sort);
 
 		/* We don't need 'em anymore */
@@ -1030,13 +1032,15 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 
 		close(bctl->old_index_fd);
 		close(bctl->old_data_fd);
-
 	} else {
 		/* Rollback */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
 		bctl->data_fd = bctl->old_data_fd;
 		bctl->index_fd = bctl->old_index_fd;
 		bctl->sort = bctl->old_sort;
+		if ((err = eblob_base_setup_data(bctl, 1)) != 0)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"eblob_base_setup_data: FAILED");
 		goto err_unmap;
 	}
 

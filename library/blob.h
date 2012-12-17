@@ -161,7 +161,7 @@ struct eblob_base_ctl {
 
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
-int eblob_base_setup_data(struct eblob_base_ctl *ctl);
+int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
 struct eblob_stat {
 	FILE			*file;
