@@ -1025,7 +1025,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		eblob_log(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"blob: %s: eblob_write_prepare_disk: splice: "
 				"src offset: %" PRIu64 ", dst offset: %" PRIu64
-				", size: %" PRIu64 ", src fd: %d: dst fd: %d\n: %zd",
+				", size: %" PRIu64 ", src fd: %d: dst fd: %d: %zd\n",
 				eblob_dump_id(key->id),
 				old.data_offset + sizeof(struct eblob_disk_control),
 				wc->ctl_data_offset + sizeof(struct eblob_disk_control),
