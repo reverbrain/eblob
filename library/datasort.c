@@ -1064,7 +1064,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		/*
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
-		 * TODO: Maybe it's better to rewrite cache entries insted of deleting them
+		 * TODO: Maybe it's better to rewrite cache entries instead of deleting them
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
 		if (err != 0)

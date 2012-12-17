@@ -127,7 +127,6 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	rc.index_offset = loc->index_offset;
 	rc.data_offset = dc->position;
 	rc.size = dc->data_size;
-
 	rc.bctl = bc;
 
 	/*
@@ -136,7 +135,7 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL) && !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
 		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
-			eblob_log(ctl->log, EBLOB_LOG_NOTICE,
+			eblob_log(ctl->log, EBLOB_LOG_INFO,
 					"blob: %s: key removed in index, but not in blob, fixing\n",
 					eblob_dump_id(dc->key.id));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
