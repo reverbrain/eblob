@@ -796,8 +796,8 @@ static int datasort_binlog_remove(struct eblob_disk_control *dc, int data_fd)
 }
 
 /**
- * datasort_binlog_update() - rewrites whole key with data taken from unsorted
- * base
+ * datasort_binlog_update() - rewrites whole record with data taken from
+ * unsorted base.
  * @to_fd:	sorted base
  * @wc:		write control from binlog
  * @dc:		pointer to sorted index
