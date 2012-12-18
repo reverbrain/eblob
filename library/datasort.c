@@ -1010,6 +1010,13 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	bctl->old_index_fd = bctl->index_fd;
 	bctl->old_sort = bctl->sort;
 
+	/* Protect l2hash/hash from accessing stale fds */
+	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+		err = -err;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+		goto err_unmap;
+	}
+
 	/* Swap data */
 	bctl->data_fd = dcfg->result->fd;
 	bctl->index_fd = index.fd;
@@ -1047,7 +1054,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		if ((err = eblob_base_setup_data(bctl, 1)) != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"eblob_base_setup_data: FAILED");
-		goto err_unmap;
+		goto err_unlock;
 	}
 
 	/*
@@ -1059,12 +1066,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	/* Flush index blocks */
 	eblob_index_blocks_destroy(bctl);
 	eblob_index_blocks_fill(bctl);
-
-	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
-		err = -err;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-		abort();
-	}
 
 	/* Flush hash */
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
@@ -1083,9 +1084,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
-
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
-		abort();
 
 	/*
 	 * Original file created by mkstemp may have too restrictive
@@ -1116,6 +1114,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "link: %s -> %s",
 				sorted_index_path, index_path);
 
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
+		abort();
+
 	/* Leave mark that data file is sorted */
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
 		if (close(err) == -1)
@@ -1131,6 +1132,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
+err_unlock:
+	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
+		abort();
 err_unmap:
 	eblob_data_unmap(&index);
 err:
