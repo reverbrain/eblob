@@ -1017,57 +1017,16 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		goto err_unmap;
 	}
 
-	/* Swap data */
-	bctl->data_fd = dcfg->result->fd;
-	bctl->index_fd = index.fd;
-	bctl->sort = index;
-
-	/* Try to setup new base */
-	if ((err = eblob_base_setup_data(bctl, 1)) == 0) {
-		/* Everything is ok */
-		assert(bctl->data_size == dcfg->result->offset);
-		assert(bctl->index_size == index.size);
-
-		eblob_data_unmap(&bctl->old_sort);
-
-		/* We don't need 'em anymore */
-		err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-		if (err)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"eblob_pagecache_hint: data: %d", bctl->old_data_fd);
-		err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
-		if (err)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"eblob_pagecache_hint: index: %d", bctl->old_index_fd);
-
-		bctl->data_offset = bctl->data_size;
-		bctl->index_offset = bctl->index_size;
-
-		close(bctl->old_index_fd);
-		close(bctl->old_data_fd);
-	} else {
-		/* Rollback */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
-		bctl->data_fd = bctl->old_data_fd;
-		bctl->index_fd = bctl->old_index_fd;
-		bctl->sort = bctl->old_sort;
-		if ((err = eblob_base_setup_data(bctl, 1)) != 0)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"eblob_base_setup_data: FAILED");
-		goto err_unlock;
-	}
-
 	/*
-	 * At this point we can't rollback, so fall through or abort()
-	 *
-	 * TODO: Think of some way of rollback
+	 * NB! At this point we can't rollback, so fall through or abort()
+	 * TODO: Implement graceful rollback
 	 */
 
-	/* Flush index blocks */
-	eblob_index_blocks_destroy(bctl);
-	eblob_index_blocks_fill(bctl);
-
-	/* Flush hash */
+	/*
+	 * Flush hash
+	 *
+	 * We must do that before we swap index_fd - because l2hash is using it.
+	 */
 	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
 		/* This entry was removed in binlog_apply */
 		if (dcfg->result->index[i].flags & BLOB_DISK_CTL_REMOVE)
@@ -1084,6 +1043,41 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
+
+	/* Swap data */
+	bctl->data_fd = dcfg->result->fd;
+	bctl->index_fd = index.fd;
+	bctl->sort = index;
+
+	/* Setup new base */
+	if ((err = eblob_base_setup_data(bctl, 1)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
+		abort();
+	}
+	assert(bctl->data_size == dcfg->result->offset);
+	assert(bctl->index_size == index.size);
+
+	eblob_data_unmap(&bctl->old_sort);
+
+	bctl->data_offset = bctl->data_size;
+	bctl->index_offset = bctl->index_size;
+
+	/* Flush and re-populate index blocks */
+	eblob_index_blocks_destroy(bctl);
+	eblob_index_blocks_fill(bctl);
+
+	/* We don't need 'em anymore */
+	err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: data: %d", bctl->old_data_fd);
+	err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: index: %d", bctl->old_index_fd);
+
+	close(bctl->old_index_fd);
+	close(bctl->old_data_fd);
 
 	/*
 	 * Original file created by mkstemp may have too restrictive
@@ -1132,9 +1126,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
-err_unlock:
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
-		abort();
 err_unmap:
 	eblob_data_unmap(&index);
 err:
