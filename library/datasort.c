@@ -996,6 +996,12 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 
 		/* Save index on disk */
 		memcpy(index.data, dcfg->result->index, index.size);
+		if ((err = msync(index.data, index.size, MS_SYNC)) == -1) {
+			err = -errno;
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"msync: %p, size: %" PRIu64, index.data, index.size);
+			goto err_unmap;
+		}
 	} else
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "index size is zero: %s", tmp_index_path);
 
