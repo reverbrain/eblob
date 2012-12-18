@@ -118,7 +118,7 @@ static inline char *eblob_dump_id_len(const unsigned char *id, unsigned int len)
 {
 	static char __eblob_dump_str[2 * EBLOB_ID_SIZE + 1];
 	return eblob_dump_id_len_raw(id, len, __eblob_dump_str);
-}
+} __attribute__((always_inline))
 
 static inline char *eblob_dump_id(const unsigned char *id)
 {
