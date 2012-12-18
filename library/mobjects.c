@@ -561,11 +561,9 @@ static int eblob_realloc_l2hash(struct eblob_backend *b, int start_type, int max
 
 	assert(b != NULL);
 
-	pthread_mutex_lock(&b->l2hash_lock);
 	/* Check if we already extended by competing thread */
 	if (max_type > b->l2hash_max)
 		err = eblob_realloc_l2hash_nolock(b, start_type, max_type);
-	pthread_mutex_unlock(&b->l2hash_lock);
 
 	return err;
 }
@@ -748,17 +746,17 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	int err, size, rc_free = 0, disk;
 	struct eblob_ram_control *rc, *rc_old;
 
+	pthread_mutex_lock(&b->hash->root_lock);
 	/* If l2hash is enabled and this is in-memory record - insert only there */
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
 		/* Extend l2hash if needed */
 		if (ctl->bctl->type > b->l2hash_max)
 			if ((err = eblob_realloc_l2hash(b, b->l2hash_max + 1, ctl->bctl->type)) != 0)
-				return err;
+				goto err_out_exit;
 		err = eblob_l2hash_upsert(b->l2hash[ctl->bctl->type], key, ctl);
-		return err;
+		goto err_out_exit;
 	}
 
-	pthread_mutex_lock(&b->hash->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
 	if (!err) {
 		int num, i;
@@ -886,8 +884,10 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
+	pthread_mutex_lock(&b->hash->root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max)
 		err = eblob_l2hash_lookup(b->l2hash[type], key, res);
+	pthread_mutex_unlock(&b->hash->root_lock);
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);

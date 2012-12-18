@@ -2005,16 +2005,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 
 	b->l2hash_max = -1;
-	err = pthread_mutex_init(&b->l2hash_lock, NULL);
-	if (err) {
-		err = -errno;
-		goto err_out_lock_destroy;
-	}
 
 	b->hash = eblob_hash_init(b->cfg.cache_size, &err);
 	if (!b->hash) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
-		goto err_out_l2hash_lock_destroy;
+		goto err_out_lock_destroy;
 	}
 
 	err = eblob_load_data(b);
@@ -2044,8 +2039,6 @@ err_out_cleanup:
 	eblob_base_types_cleanup(b);
 err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
-err_out_l2hash_lock_destroy:
-	pthread_mutex_destroy(&b->l2hash_lock);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
 err_out_free_file:
