@@ -802,8 +802,10 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 	int err;
 
 	err = pipe(fds);
-	if (err < 0)
+	if (err < 0) {
+		err = -errno;
 		goto err_out_exit;
+	}
 
 	while (len > 0) {
 		ssize_t chunk_size = 4096;
