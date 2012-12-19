@@ -866,7 +866,7 @@ again:
 		goto err_out_exit;
 	}
 
-	if (for_write && ctl.bctl->binlog != NULL) {
+	if (for_write && ctl.bctl->binlog != NULL && binlog_enabled != 1) {
 		pthread_mutex_lock(&b->lock);
 		pthread_mutex_lock(&ctl.bctl->lock);
 
