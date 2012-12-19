@@ -458,9 +458,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 			goto err;
 		}
 		if (old->bctl->binlog == NULL) {
-			if (pthread_mutex_unlock(&b->lock) != 0)
-				abort();
 			if (pthread_mutex_unlock(&old->bctl->lock) != 0)
+				abort();
+			if (pthread_mutex_unlock(&b->lock) != 0)
 				abort();
 			err = -EAGAIN;
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
@@ -478,9 +478,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
 
-		if (pthread_mutex_unlock(&b->lock) != 0)
-			abort();
 		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
+			abort();
+		if (pthread_mutex_unlock(&b->lock) != 0)
 			abort();
 	}
 
