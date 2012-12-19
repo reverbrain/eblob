@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.17.7
+Version:	0.17.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Dec 16 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.8
+- data-sort: fixed checkpatch errors
+- mobjects: simplified eblob_pagecache_hint()
+- data-sort: move eblob_pagecache_hint to mobjects.c
+- data-sort: remove useless fields from ram control
+- data-sort: l2hash: always set bctl pointer
+
 * Thu Dec 13 2012 Evgeniy Polyakov <zbr@ioremap.net> - 0.17.7
 - blob: added blob_size_limit config value to explicitly limit bob size
 - index: blob: add config variables for index block and bloom
