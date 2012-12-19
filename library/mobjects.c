@@ -174,6 +174,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 	int err, full_len;
 	char *full;
 
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: started\n", __func__);
+
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
 	if (!full) {
@@ -252,12 +254,20 @@ again:
 			err = eblob_generate_sorted_data(&dcfg);
 #else
 			err = eblob_generate_sorted_index(b, ctl, 0);
-			if (err)
+			if (err) {
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"bctl: index: %d/%d, type: %d/%d: eblob_generate_sorted_index: FAILED\n",
+						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
+			}
 			err = eblob_index_blocks_fill(ctl);
 #endif
-			if (err)
+			if (err) {
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"bctl: index: %d/%d, type: %d/%d: sarted_data/index_blocks_fill: FAILED\n",
+						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
+			}
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -312,6 +322,7 @@ again:
 
 	b->current_blob_size += ctl->data_size + ctl->index_size;
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: finished: %s\n", __func__, full);
 	free(full);
 
 	return 0;
@@ -336,6 +347,7 @@ err_out_destroy_lock:
 err_out_free:
 	free(full);
 err_out_exit:
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: FAILED: %d\n", __func__, err);
 	return err;
 }
 
