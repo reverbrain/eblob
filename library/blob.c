@@ -980,9 +980,9 @@ again:
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 err_out_exit:
 	if (binlog_enabled) {
-		if (pthread_mutex_unlock(&b->lock) != 0)
-			abort();
 		if (pthread_mutex_unlock(&ctl.bctl->lock) != 0)
+			abort();
+		if (pthread_mutex_unlock(&b->lock) != 0)
 			abort();
 	}
 	return err;
