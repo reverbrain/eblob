@@ -877,6 +877,11 @@ again:
 					"blob: binlog: %s: disappeared: %zd\n", __func__, err);
 			goto err_out_exit;
 		}
+		/*
+		 * This is ugly but we need to update offset in ctl, cause it
+		 * could be swapped by data-sort between lookup and lock
+		 */
+		goto again;
 	}
 
 	/* only for write */
