@@ -552,7 +552,7 @@ static int eblob_realloc_l2hash_nolock(struct eblob_backend *b, int start_type, 
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) == 0)
 		return 0;
 
-	ret = realloc(b->l2hash, (max_type + 1) * sizeof(void *));
+	ret = realloc(b->l2hash, (max_type + 1) * sizeof(struct eblob_l2hash *));
 	if (ret == NULL)
 		return -ENOMEM;
 	b->l2hash = ret;
