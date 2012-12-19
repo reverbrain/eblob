@@ -32,6 +32,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -128,47 +129,34 @@ err_out_unlock:
 static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
-	int len = strlen(b->cfg.file) + 256;
-	char *path;
-	int err = 0;
+	char path[PATH_MAX], base_path[PATH_MAX];
 
-	path = malloc(len);
-	if (!path) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	/* TODO: Simplify me */
-	snprintf(path, len, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
-	unlink(path);
+	snprintf(base_path, PATH_MAX, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	unlink(base_path);
 
 #ifdef DATASORT
-	snprintf(path, len, "%s-%d.%d" EBLOB_DATASORT_SORTED_MARK_SUFFIX,
-			b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, base_path);
 	unlink(path);
 #endif
 
-	snprintf(path, len, "%s-%d.%d.index", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, PATH_MAX, "%s.index", base_path);
 	unlink(path);
 
-	snprintf(path, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
 	unlink(path);
 
 	if (bctl->type == EBLOB_TYPE_DATA) {
-		snprintf(path, len, "%s.%d", b->cfg.file, bctl->index);
+		snprintf(base_path, PATH_MAX, "%s.%d", b->cfg.file, bctl->index);
+		unlink(base_path);
+
+		snprintf(path, PATH_MAX, "%s.index", base_path);
 		unlink(path);
 
-		snprintf(path, len, "%s.%d.index", b->cfg.file, bctl->index);
-		unlink(path);
-
-		snprintf(path, len, "%s.%d.index.sorted", b->cfg.file, bctl->index);
+		snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
 		unlink(path);
 	}
 
-	free(path);
-
-err_out_exit:
-	return err;
+	return 0;
 }
 
 /**
