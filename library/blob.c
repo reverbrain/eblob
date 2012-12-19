@@ -699,6 +699,9 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 	ssize_t alloc_size = len;
 	ssize_t max_size = 10 * EBLOB_1_M;
 
+	if (len <= 0)
+		return -EINVAL;
+
 	if (alloc_size > max_size)
 		alloc_size = max_size;
 
