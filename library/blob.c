@@ -315,6 +315,11 @@ err_out_check:
 						(unsigned long long)ctl->index_offset - sizeof(struct eblob_disk_control));
 
 				err = ftruncate(bc->index_fd, ctl->index_offset);
+				if (err == -1) {
+					eblob_log(ctl->log, EBLOB_LOG_ERROR,
+							"blob: truncation failed: fd: %d, err: %d\n", bc->index_fd, -errno);
+					ctl->err = -errno;
+				}
 			} else {
 				ctl->err = err;
 			}
