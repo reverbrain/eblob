@@ -1368,9 +1368,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	wc->offset = wc->size = 0;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
-	if (err < 0) {
+	if (err < 0)
 		goto err_out_exit;
-	}
 
 	if (size)
 		wc->size = wc->total_data_size = size;
