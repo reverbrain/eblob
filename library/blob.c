@@ -139,15 +139,9 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 					"blob: %s: key removed in index, but not in blob, fixing\n",
 					eblob_dump_id(dc->key.id));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
-			err = pwrite(bc->index_fd, dc, sizeof(struct eblob_disk_control), loc->index_offset);
-			if (err != sizeof(struct eblob_disk_control)) {
-				if (err < 0)
-					err = -errno;
-				else
-					err = -EPIPE;
-
+			err = blob_write_ll(bc->index_fd, dc, sizeof(struct eblob_disk_control), loc->index_offset);
+			if (err)
 				goto err_out_exit;
-			}
 		}
 	}
 
@@ -403,9 +397,9 @@ int blob_mark_index_removed(int fd, off_t offset)
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 	int err;
 
-	err = pwrite(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
-	if (err != (int)sizeof(flags))
-		return -errno;
+	err = blob_write_ll(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
+	if (err)
+		return err;
 
 	return 0;
 }
@@ -533,10 +527,9 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 
 	eblob_convert_disk_control(&dc);
 
-	err = pwrite(wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
-	if (err != (int)sizeof(dc)) {
-		err = -errno;
-		eblob_dump_wc(b, key, wc, "blob_update_index: ERROR-pwrite", err);
+	err = blob_write_ll(wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "blob_update_index: ERROR-blob_write_ll", err);
 		goto err_out_exit;
 	}
 	if (!b->cfg.sync)
@@ -550,35 +543,47 @@ err_out_exit:
 }
 
 /**
- * blob_write_low_level() - interruption-safe wrapper for pwrite(2)
- *
- * TODO: rename to blob_write_ll for consistency
- * TODO: make non-static for use in other routines
- * TODO: write pread(2) counterpart
+ * blob_write_ll() - interruption-safe wrapper for pwrite(2)
  */
-static int blob_write_low_level(int fd, void *data, size_t size, size_t offset)
+int blob_write_ll(int fd, void *data, size_t size, size_t offset)
 {
-	ssize_t err = 0;
+	ssize_t bytes;
 
 	while (size) {
-		err = pwrite(fd, data, size, offset);
-		if (err <= 0) {
-			err = -errno;
-			if (!err)
-				err = -EINVAL;
-			/* TODO: retry on -EINTR */
-			goto err_out_exit;
+again:
+		bytes = pwrite(fd, data, size, offset);
+		if (bytes == -1) {
+			if (errno == -EINTR)
+				goto again;
+			return -errno;
 		}
-
-		data += err;
-		size -= err;
-		offset += err;
+		data += bytes;
+		size -= bytes;
+		offset += bytes;
 	}
+	return 0;
+}
 
-	err = 0;
+/**
+ * blob_read_ll() - interruption-safe wrapper for pread(2)
+ */
+int blob_read_ll(int fd, void *data, size_t size, size_t offset)
+{
+	ssize_t bytes;
 
-err_out_exit:
-	return err;
+	while (size) {
+again:
+		bytes = pread(fd, data, size, offset);
+		if (bytes == -1) {
+			if (errno == -EINTR)
+				goto again;
+			return -errno;
+		}
+		data += bytes;
+		size -= bytes;
+		offset += bytes;
+	}
+	return 0;
 }
 
 /**
@@ -657,7 +662,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	eblob_convert_disk_control(&disk_ctl);
 
-	err = blob_write_low_level(wc->data_fd, &disk_ctl, sizeof(struct eblob_disk_control),
+	err = blob_write_ll(wc->data_fd, &disk_ctl, sizeof(struct eblob_disk_control),
 			wc->ctl_data_offset);
 	if (err)
 		goto err_out_exit;
@@ -675,7 +680,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 			if (sz > sizeof(blob_empty_buf))
 				sz = sizeof(blob_empty_buf);
 
-			err = blob_write_low_level(wc->data_fd, blob_empty_buf, sz, local_offset);
+			err = blob_write_ll(wc->data_fd, blob_empty_buf, sz, local_offset);
 			if (err)
 				goto err_out_exit;
 
@@ -1312,11 +1317,9 @@ int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned
 
 	eblob_convert_disk_footer(&f);
 
-	err = pwrite(wc->data_fd, &f, sizeof(f), offset);
-	if (err != (int)sizeof(f)) {
-		err = -errno;
+	err = blob_write_ll(wc->data_fd, &f, sizeof(f), offset);
+	if (err)
 		goto err_out_exit;
-	}
 
 err_out_sync:
 	if (!b->cfg.sync)
@@ -1339,7 +1342,7 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 
 	err = eblob_write_commit_ll(b, csum, csize, wc);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_write_commit_ll: ERROR-pwrite", err);
+		eblob_dump_wc(b, key, wc, "eblob_write_commit_ll: ERROR", err);
 		goto err_out_exit;
 	}
 
@@ -1400,10 +1403,9 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	if (err)
 		goto err_out_exit;
 
-	err = pwrite(wc->data_fd, data, wc->size, wc->data_offset);
-	if (err != (ssize_t)wc->size) {
-		err = -errno;
-		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-pwrite", err);
+	err = blob_write_ll(wc->data_fd, data, wc->size, wc->data_offset);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-blob_write_ll", err);
 		goto err_out_exit;
 	}
 
@@ -1431,14 +1433,12 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 	if (err)
 		goto err_out_exit;
 
-	err = pwrite(wc.data_fd, data, size, wc.data_offset);
-	if (err != (ssize_t)size) {
-		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_plain_write: pwrite: fd: %d: "
-				"size: %llu, offset: %llu: %zd.\n",
-				eblob_dump_id(key->id), wc.data_fd, (unsigned long long)size,
-				(unsigned long long)wc.data_offset,
-				err);
+	err = blob_write_ll(wc.data_fd, data, size, wc.data_offset);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: %s: eblob_plain_write: blob_write_ll: fd: %d: "
+				"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
+				eblob_dump_id(key->id), wc.data_fd, size, wc.data_offset, err);
 		goto err_out_exit;
 	}
 
@@ -1511,17 +1511,16 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	err = pwrite(wc.data_fd, data, size, wc.data_offset);
-	if (err != (ssize_t)size) {
-		err = -errno;
-		eblob_dump_wc(b, key, &wc, "eblob_write: ERROR-pwrite", err);
+	err = blob_write_ll(wc.data_fd, data, size, wc.data_offset);
+	if (err) {
+		eblob_dump_wc(b, key, &wc, "eblob_write: ERROR-blob_write_ll", err);
 		goto err_out_exit;
 	}
 
 	/* Only low-level commit, since we already updated index and in-ram key */
 	err = eblob_write_commit_ll(b, NULL, 0, &wc);
 	if (err) {
-		eblob_dump_wc(b, key, &wc, "eblob_write_commit_ll: ERROR-pwrite", err);
+		eblob_dump_wc(b, key, &wc, "eblob_write_commit_ll: ERROR", err);
 		goto err_out_exit;
 	}
 
