@@ -230,6 +230,7 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
+		/* TODO: Rewrite me using blob_read_ll() */
 		err = pread(bc->index_fd, dc, sizeof(struct eblob_disk_control) * local_max_num, ctl->index_offset);
 		if (err != (int)sizeof(struct eblob_disk_control) * local_max_num) {
 			if (err < 0) {
@@ -291,8 +292,8 @@ err_out_check:
 			/*
 			 * reading last record from index, read corresponding record from blob and truncate index to blob's index
 			 */
-			err = pread(bc->index_fd, &idc, sizeof(struct eblob_disk_control), ctl->index_offset - sizeof(struct eblob_disk_control));
-			if (err == (int)sizeof(struct eblob_disk_control)) {
+			err = blob_read_ll(bc->index_fd, &idc, sizeof(struct eblob_disk_control), ctl->index_offset - sizeof(struct eblob_disk_control));
+			if (!err) {
 				eblob_convert_disk_control(&idc);
 
 				memcpy(&data_dc, bc->data + idc.position, sizeof(struct eblob_disk_control));
@@ -905,17 +906,15 @@ again:
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
 
 
-	err = pread(ctl.bctl->index_fd, &dc, sizeof(dc), ctl.index_offset);
-	if (err != sizeof(dc)) {
-		err = -errno;
+	err = blob_read_ll(ctl.bctl->index_fd, &dc, sizeof(dc), ctl.index_offset);
+	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
 		/* we should repeat this read from data_fd */
 		memset(&dc, 0, sizeof(dc));
 	}
 
-	err = pread(ctl.bctl->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
-	if (err != sizeof(dc)) {
-		err = -errno;
+	err = blob_read_ll(ctl.bctl->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
+	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
 		goto err_out_exit;
 	}
@@ -1634,7 +1633,6 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	struct eblob_disk_footer *f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	struct eblob_map_fd m;
-	int alloc_size = EBLOB_1_M;
 	void *adata = NULL;
 	int err;
 
@@ -1646,37 +1644,20 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	m.offset = wc->ctl_data_offset;
 
 	/* If record is big - mmap it, otherwise alloc in heap */
-	if (m.size > (uint64_t)alloc_size) {
+	if (m.size > EBLOB_1_M) {
 		err = eblob_data_map(&m);
 		if (err)
 			goto err_out_exit;
 	} else {
-		void *ptr;
-		uint64_t offset = wc->ctl_data_offset;
-
-		ptr = adata = malloc(m.size);
+		adata = malloc(m.size);
 		if (!adata) {
 			err = -ENOMEM;
 			goto err_out_unmap;
 		}
 
-		alloc_size = m.size;
-		while (alloc_size > 0) {
-			err = pread(wc->data_fd, ptr, alloc_size, offset);
-			if (err < 0) {
-				err = -errno;
-				goto err_out_unmap;
-			}
-			if (err == 0) {
-				err = -EPIPE;
-				goto err_out_unmap;
-			}
-
-			alloc_size -= err;
-			offset += err;
-			ptr += err;
-		}
-
+		err = blob_read_ll(wc->data_fd, adata, m.size, wc->ctl_data_offset);
+		if (err)
+			goto err_out_unmap;
 		m.data = adata;
 	}
 
@@ -1748,9 +1729,8 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 		 * Check case when object was actually removed on disk, but
 		 * this was not updated in RAM yet
 		 */
-		err = pread(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
-		if (err != sizeof(dc)) {
-			err = -errno;
+		err = blob_read_ll(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
+		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread-index: fd: %d: offset: %llu: %d.\n",
 					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
 			goto err_out_exit;
