@@ -100,6 +100,7 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_mutex_destroy(&ctl->index_blocks_lock);
 
+	eblob_index_blocks_destroy(ctl);
 	munmap(ctl->data, ctl->data_size);
 
 	eblob_data_unmap(&ctl->sort);
