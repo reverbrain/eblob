@@ -367,7 +367,6 @@ void eblob_hash_iterator(struct rb_root *root, void *callback_priv,
 	if (root == NULL || callback == NULL)
 		return;
 
-	for (n = rb_first(root); n; n = rb_next(n)) {
+	for (n = rb_first(root); n; n = rb_next(n))
 		callback(callback_priv, rb_entry(n, struct eblob_hash_entry, node));
-	}
 }
