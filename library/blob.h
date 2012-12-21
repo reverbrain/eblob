@@ -207,12 +207,12 @@ struct eblob_backend {
 
 	/*
 	 * Set when defrag/data-sort are explicitly requested
-	 * While it's negative data-sort cant proceed even if explicitly
+	 * While it's negative data-sort can't proceed even if explicitly
 	 * requested by user. This is used to avoid races with
 	 * eblob_load_data()
-	 * 1:	data-sort is explicitly requested (i.e with
-	 * eblob_start_defrag())
-	 * 0:	data-sort preformed by according to defrag_timeout
+	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
+	 * 0:	data-sort should be preformed according to defrag_timeout
+	 * <0:	data-sort is disabled by eblob_load_data()
 	 */
 	int			want_defrag;
 	/* Current size of all bases and indexes */
