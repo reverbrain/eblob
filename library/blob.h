@@ -141,7 +141,7 @@ struct eblob_base_ctl {
 	 * If this pointer is not NULL then all operations for this base go
 	 * through a binlog.
 	 */
-	struct eblob_binlog_cfg	*binlog;
+	struct eblob_binlog_cfg	*volatile binlog;
 	/*
 	 * Is data in blob sorted?
 	 * 1 if sorted
