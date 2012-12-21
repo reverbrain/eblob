@@ -927,7 +927,8 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 
 err_out_exit:
 	free(rc);
-	*diskp = disk;
+	if (diskp != NULL)
+		*diskp = disk;
 	return err;
 }
 

@@ -457,6 +457,12 @@ struct eblob_write_control {
 	uint64_t			total_size, total_data_size;
 
 	int				on_disk;
+	/*
+	 * Pointer to base control
+	 * This is only used by binlog code to handle data-sort index/data
+	 * swaps
+	 */
+	struct eblob_base_ctl		*bctl;
 };
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);

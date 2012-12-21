@@ -29,6 +29,8 @@ enum eblob_binlog_record_types {
 	EBLOB_BINLOG_TYPE_FIRST,		/* Start sentinel */
 	EBLOB_BINLOG_TYPE_UPDATE,
 	EBLOB_BINLOG_TYPE_REMOVE,
+	EBLOB_BINLOG_TYPE_RAW_INDEX,
+	EBLOB_BINLOG_TYPE_RAW_DATA,
 	EBLOB_BINLOG_TYPE_LAST,			/* End sentinel */
 };
 
@@ -40,7 +42,7 @@ struct eblob_binlog_ctl;
 #define EBLOB_BINLOG_FLAGS_CFG_SYNC		(1<<1)
 /* Truncate binlog on open */
 #define EBLOB_BINLOG_FLAGS_CFG_TRUNCATE		(1<<2)
-/* All available flags */
+/* All available config flags */
 #define EBLOB_BINLOG_FLAGS_CFG_ALL		(EBLOB_BINLOG_FLAGS_CFG_PREALLOC | \
 						EBLOB_BINLOG_FLAGS_CFG_SYNC | \
 						EBLOB_BINLOG_FLAGS_CFG_TRUNCATE)
