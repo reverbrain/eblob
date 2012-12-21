@@ -136,8 +136,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
 		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
 			eblob_log(ctl->log, EBLOB_LOG_INFO,
-					"blob: %s: key removed in index, but not in blob, fixing\n",
-					eblob_dump_id(dc->key.id));
+					"blob: %s: key removed(%" PRIu64 ") in blob(%d), but not in index(%d), fixing\n",
+					eblob_dump_id(dc->key.id), dc_blob->flags, bc->data_fd, bc->index_fd);
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 			err = blob_write_ll(bc->index_fd, dc, sizeof(struct eblob_disk_control), loc->index_offset);
 			if (err)
