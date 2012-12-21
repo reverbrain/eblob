@@ -345,8 +345,11 @@ void *eblob_defrag(void *data)
 int eblob_start_defrag(struct eblob_backend *b)
 {
 	/* data-sort currently disabled */
-	if (b->want_defrag < 0)
+	if (b->want_defrag < 0) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: can't run while explicitly disabled.\n");
 		return -EAGAIN;
+	}
 	b->want_defrag = 1;
 	return 0;
 }

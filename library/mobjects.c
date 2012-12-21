@@ -1018,11 +1018,13 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	}
 
 	b->want_defrag = 0;
+#ifdef DATASORT
+	eblob_start_defrag(b);
+#endif
 	return 0;
 
 err_out_exit:
 	eblob_base_types_free(types, max_type);
-	b->want_defrag = 0;
 	return err;
 }
 
