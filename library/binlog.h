@@ -89,7 +89,7 @@ struct eblob_binlog_ctl {
 	/* Pointer to data location */
 	void			*data;
 	/* Size of data */
-	ssize_t			size;
+	ssize_t			data_size;
 	/* Pointer to metadata */
 	void			*meta;
 	/* Size of metadata */
@@ -130,17 +130,15 @@ struct eblob_binlog_disk_hdr {
  *
  * Record header position in binlog is a LSN.
  * Record starts with metadata, followed by data.
+ * One or both of them could be zero-sized
  */
 struct eblob_binlog_disk_record_hdr {
 	/* Record type from @eblob_binlog_record_types */
 	uint64_t		type;
-	/*
-	 * Size of record starting right after header
-	 * This is total size of data + metadata
-	 */
-	uint64_t		size;
-	/* How much of size given to metadata */
+	/* Size of metadata */
 	uint64_t		meta_size;
+	/* Size of data */
+	uint64_t		data_size;
 	/* Record-wide flags */
 	uint64_t		flags;
 	/* Record's key */

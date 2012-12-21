@@ -223,9 +223,10 @@ static int binlog_read_record_hdr(struct eblob_binlog_cfg *bcfg,
 		goto err;
 	}
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG, "pread: %s, type: %" PRIu64 ", size: %" PRIu64
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG,
+			"pread: %s, type: %" PRIu64 ", meta_size: %" PRIu64 " data_size: %" PRIu64
 			", flags: %" PRIu64 ", key: %s, offset: %" PRIu64,
-			bcfg->path, rhdr->type, rhdr->size,
+			bcfg->path, rhdr->type, rhdr->meta_size, rhdr->data_size,
 			rhdr->flags, eblob_dump_id(rhdr->key.id), offset);
 
 	err = binlog_verify_record_hdr(rhdr);
@@ -247,7 +248,7 @@ err:
  *
  * TODO: unify style acording to binlog_read_record_hdr()
  */
-static char *binlog_read_record_data(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size)
+static char *binlog_read_record(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size)
 {
 	ssize_t err;
 	char *buf;
@@ -290,7 +291,7 @@ static off_t binlog_get_next_lsn(struct eblob_binlog_cfg *bcfg)
 
 	lsn = sizeof(*bcfg->disk_hdr);
 	while (binlog_read_record_hdr(bcfg, &rhdr, lsn) == 0)
-		lsn += rhdr.size + sizeof(rhdr);
+		lsn += rhdr.meta_size + rhdr.data_size + sizeof(rhdr);
 
 	return lsn;
 }
@@ -466,7 +467,7 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 	assert(bcfg->position > 0);
 
 	/* Check if binlog needs to be extended */
-	record_len = sizeof(rhdr) + bctl->meta_size + bctl->size;
+	record_len = sizeof(rhdr) + bctl->meta_size + bctl->data_size;
 	if (bcfg->position + record_len >= bcfg->size) {
 		err = binlog_extend(bcfg, bcfg->fd);
 		if (err)
@@ -477,18 +478,18 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 	memset(&rhdr, 0, sizeof(rhdr));
 	rhdr.type = bctl->type;
 	rhdr.meta_size = bctl->meta_size;
-	/* On-disk size includes metadata */
-	rhdr.size = bctl->meta_size + bctl->size;
+	rhdr.data_size = bctl->data_size;
 	rhdr.flags = bctl->flags;
-	memcpy(&rhdr.key.id, bctl->key->id, sizeof(rhdr.key.id));
+	rhdr.key = *bctl->key;
 
 	/* Written header MUST be verifiable by us */
 	assert(binlog_verify_record_hdr(&rhdr) == 0);
 
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_DEBUG,
-			"pwrite: %s, type: %" PRIu64 ", size: %" PRIu64 ", flags: %" PRIu64 ", key: %s, "
-			"position: %" PRIu64, bcfg->path, rhdr.type, rhdr.size, rhdr.flags,
-			eblob_dump_id(rhdr.key.id), bcfg->position);
+			"pwrite: %s, type: %" PRIu64 ", meta_size: %" PRIu64 ", data_size: %" PRIu64
+			", flags: %" PRIu64 ", key: %s, position: %" PRIu64,
+			bcfg->path, rhdr.type, rhdr.meta_size, rhdr.data_size,
+			rhdr.flags, eblob_dump_id(rhdr.key.id), bcfg->position);
 
 	/* Write header */
 	offset = bcfg->position;
@@ -514,9 +515,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 	offset += bctl->meta_size;
 
 	/* Write data */
-	if (bctl->size > 0) {
-		err = pwrite(bcfg->fd, bctl->data, bctl->size, offset);
-		if (err != bctl->size) {
+	if (bctl->data_size > 0) {
+		err = pwrite(bcfg->fd, bctl->data, bctl->data_size, offset);
+		if (err != bctl->data_size) {
 			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err,
 					"pwrite data: %s, offset: %" PRId64, bcfg->path, offset);
@@ -568,11 +569,11 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
 	}
 
 	/* Read data */
-	if (rhdr.size) {
-		data = binlog_read_record_data(bcfg, offset + sizeof(rhdr), rhdr.size);
+	if (rhdr.meta_size + rhdr.data_size) {
+		data = binlog_read_record(bcfg, offset + sizeof(rhdr), rhdr.meta_size + rhdr.data_size);
 		if (data == NULL) {
 			err = -EIO;
-			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record_data: %" PRId64, offset + sizeof(rhdr));
+			EBLOB_WARNX(bcfg->log, EBLOB_LOG_ERROR, "binlog_read_record: %" PRId64, offset + sizeof(rhdr));
 			goto err;
 		}
 	}
@@ -586,8 +587,8 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
 	if (bctl->meta_size > 0)
 		bctl->meta = data;
 	/* Then goes data itself */
-	bctl->size = rhdr.size;
-	if (bctl->size > 0)
+	bctl->data_size = rhdr.data_size;
+	if (bctl->data_size > 0)
 		bctl->data = data + bctl->meta_size;
 
 err:
@@ -636,7 +637,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 		}
 		free(bctl.meta);
 
-		offset += bctl.size + sizeof(struct eblob_binlog_disk_record_hdr);
+		offset += bctl.data_size + bctl.meta_size + sizeof(struct eblob_binlog_disk_record_hdr);
 		count++;
 	}
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE,
