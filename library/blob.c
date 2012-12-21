@@ -427,7 +427,7 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
  */
 static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
 {
-	int err = 0;
+	int err = 0, locked_b = 0, locked_bctl = 0;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
@@ -445,18 +445,15 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
 			goto err;
 		}
+		locked_b = 1;
 		if ((err = pthread_mutex_lock(&old->bctl->lock)) != 0) {
-			if (pthread_mutex_unlock(&b->lock) != 0)
-				abort();
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: binlog: %s: pthread_mutex_lock: %d\n", __func__, err);
 			goto err;
 		}
+		locked_bctl = 1;
+
 		if (old->bctl->binlog == NULL) {
-			if (pthread_mutex_unlock(&old->bctl->lock) != 0)
-				abort();
-			if (pthread_mutex_unlock(&b->lock) != 0)
-				abort();
 			err = -EAGAIN;
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 					"blob: binlog: %s: disappeared: %d\n", __func__, err);
@@ -472,11 +469,6 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 		if (binlog_append(&bctl))
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: binlog: %s failed: %s\n",
 					__func__, eblob_dump_id(key->id));
-
-		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
-			abort();
-		if (pthread_mutex_unlock(&b->lock) != 0)
-			abort();
 	}
 
 	if ((err = blob_mark_index_removed(old->bctl->index_fd, old->index_offset)) != 0) {
@@ -502,6 +494,12 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 	}
 
 err:
+	if (locked_bctl != 0)
+		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
+			abort();
+	if (locked_b != 0)
+		if (pthread_mutex_unlock(&b->lock) != 0)
+			abort();
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: %s: finished: %d.\n",
 			eblob_dump_id(key->id), __func__, err);
 	return err;
