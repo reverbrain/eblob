@@ -396,13 +396,8 @@ err_out_exit:
 int blob_mark_index_removed(int fd, off_t offset)
 {
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
-	int err;
 
-	err = blob_write_ll(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
-	if (err)
-		return err;
-
-	return 0;
+	return blob_write_ll(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
 }
 
 /**
