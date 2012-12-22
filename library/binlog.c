@@ -794,8 +794,6 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: stop\n");
-
 	/* Lock base */
 	if ((err = pthread_mutex_lock(&bctl->lock)) != 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "pthread_mutex_lock: %d", err);
