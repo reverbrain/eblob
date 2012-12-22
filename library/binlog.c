@@ -617,7 +617,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 
 	assert(bcfg->position >= offset);
 
-	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "binlog_apply: %s: started", bcfg->path);
+	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE, "%s: started", bcfg->path);
 	while (offset < bcfg->position) {
 		memset(&bctl, 0, sizeof(bctl));
 		bctl.cfg = bcfg;
@@ -641,7 +641,7 @@ int binlog_apply(struct eblob_binlog_cfg *bcfg, void *priv,
 		count++;
 	}
 	EBLOB_WARNX(bcfg->log, EBLOB_LOG_NOTICE,
-			"binlog_apply: %s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
+			"%s: finished, offset: %" PRIu64 ", applied: %" PRIu64,
 			bcfg->path, offset, count);
 
 err:
