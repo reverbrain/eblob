@@ -89,7 +89,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 {
 	struct eblob_backend *b;
 	struct eblob_binlog_ctl binctl;
-	int err, locked = 0;
+	int binlog = 0, err, locked = 0;
 
 	assert(bctl != NULL);
 	assert(bctl->back != NULL);
@@ -123,7 +123,11 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		memset(&binctl, 0, sizeof(struct eblob_binlog_ctl));
 
 		if (fd == bctl->index_fd) {
-			binctl.type = EBLOB_BINLOG_TYPE_RAW_INDEX;
+			/*
+			 * We do not need to save index modifications to binlog
+			 * because they are mirrored to blob header
+			 */
+			goto skip_binlog;
 		} else if (fd == bctl->data_fd) {
 			binctl.type = EBLOB_BINLOG_TYPE_RAW_DATA;
 		} else {
@@ -143,6 +147,8 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		binctl.meta_size = sizeof(off_t);
 		binctl.data = data;
 		binctl.data_size = size;
+
+		binlog = 1;
 	}
 
 skip_binlog:
@@ -155,7 +161,7 @@ skip_binlog:
 	}
 
 	/* Write completed successfully append entry to binlog */
-	if (bctl->binlog != NULL) {
+	if (binlog) {
 		err = binlog_append(&binctl);
 		if (err)
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
