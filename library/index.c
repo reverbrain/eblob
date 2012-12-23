@@ -43,6 +43,12 @@
 
 #include "blob.h"
 
+
+int eblob_key_sort(const void *key1, const void *key2)
+{
+	return eblob_id_cmp(((struct eblob_key *)key1)->id, ((struct eblob_key *)key2)->id);
+}
+
 int eblob_disk_control_sort(const void *d1, const void *d2)
 {
 	const struct eblob_disk_control *dc1 = d1;

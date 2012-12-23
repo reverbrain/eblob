@@ -260,6 +260,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 
 ssize_t eblob_get_actual_size(int fd);
 
+int eblob_key_sort(const void *key1, const void *key2);
 int eblob_disk_control_sort(const void *d1, const void *d2);
 int eblob_disk_control_sort_with_flags(const void *d1, const void *d2);
 
