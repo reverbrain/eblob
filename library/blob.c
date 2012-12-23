@@ -140,7 +140,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		binctl.cfg = bctl->binlog;
 		binctl.key = key;
 		binctl.meta = &offset;
-		binctl.meta_size = sizeof(size_t);
+		binctl.meta_size = sizeof(off_t);
 		binctl.data = data;
 		binctl.data_size = size;
 	}
@@ -609,7 +609,7 @@ err_out_exit:
 /**
  * blob_write_ll() - interruption-safe wrapper for pwrite(2)
  */
-int blob_write_ll(int fd, void *data, size_t size, size_t offset)
+int blob_write_ll(int fd, void *data, size_t size, off_t offset)
 {
 	ssize_t bytes;
 
@@ -631,7 +631,7 @@ again:
 /**
  * blob_read_ll() - interruption-safe wrapper for pread(2)
  */
-int blob_read_ll(int fd, void *data, size_t size, size_t offset)
+int blob_read_ll(int fd, void *data, size_t size, off_t offset)
 {
 	ssize_t bytes;
 

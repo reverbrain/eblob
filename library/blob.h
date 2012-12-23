@@ -244,8 +244,8 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
-int blob_write_ll(int fd, void *data, size_t size, size_t offset);
-int blob_read_ll(int fd, void *data, size_t size, size_t offset);
+int blob_write_ll(int fd, void *data, size_t size, off_t offset);
+int blob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
 	int			bloom_null;
