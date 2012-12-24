@@ -26,6 +26,12 @@
 /* Suffix for flag-file that is created after data is sorted */
 #define EBLOB_DATASORT_SORTED_MARK_SUFFIX	".data_is_sorted"
 
+/* Mapping between key and old offset needed by binlog */
+struct datasort_offset_map {
+	struct eblob_key	key;
+	uint64_t		offset;
+};
+
 /*
  * One chunk of blob.
  */
@@ -44,6 +50,14 @@ struct datasort_chunk {
 	struct eblob_disk_control	*index;
 	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
+	/*
+	 * Offset mapping for binlog
+	 *
+	 * TODO: For memory efficiency it can be rewritten as rbtree map of
+	 * sorted_offset -> unsorted_offset
+	 */
+	struct datasort_offset_map	*offset_map;
+	uint64_t			offset_map_size;
 };
 
 /* Thread local structure for each iterator thread */

@@ -85,7 +85,7 @@ static struct eblob_base_ctl *eblob_bctl_from_index(struct eblob_backend *b, int
  * binlog
  */
 static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key,
-		int fd, void *data, size_t size, size_t offset)
+		int fd, void *data, size_t size, uint64_t offset)
 {
 	struct eblob_backend *b;
 	struct eblob_binlog_ctl binctl;
@@ -144,7 +144,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		binctl.cfg = bctl->binlog;
 		binctl.key = key;
 		binctl.meta = &offset;
-		binctl.meta_size = sizeof(off_t);
+		binctl.meta_size = sizeof(uint64_t);
 		binctl.data = data;
 		binctl.data_size = size;
 
