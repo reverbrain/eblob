@@ -314,7 +314,7 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	unsigned int sleep_time = b->cfg.defrag_timeout;
+	unsigned int sleep_time;
 
 	/*
 	 * XXX
