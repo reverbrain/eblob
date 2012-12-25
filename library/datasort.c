@@ -204,7 +204,7 @@ err:
 /*
  * Creates new chunk on disk
  */
-static struct datasort_chunk *datasort_split_add_chunk(struct datasort_cfg *dcfg)
+static struct datasort_chunk *datasort_add_chunk(struct datasort_cfg *dcfg)
 {
 	int fd;
 	char *path;
@@ -344,10 +344,10 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 			|| (dcfg->chunk_size > 0 && local->current->offset + dc->disk_size >= dcfg->chunk_size)
 			|| (dcfg->chunk_limit > 0 && local->current->count >= dcfg->chunk_limit)) {
 		/* TODO: here we can plug sort for speedup */
-		local->current = datasort_split_add_chunk(dcfg);
+		local->current = datasort_add_chunk(dcfg);
 		if (local->current == NULL) {
 			err = -EIO;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split_add_chunk: FAILED");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_add_chunk: FAILED");
 			goto err_unlock;
 		}
 		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
@@ -552,9 +552,9 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 			unsorted_chunk->fd, unsorted_chunk->count, unsorted_chunk->offset);
 
 	/* Create new sorted chunk */
-	sorted_chunk = datasort_split_add_chunk(dcfg);
+	sorted_chunk = datasort_add_chunk(dcfg);
 	if (sorted_chunk == NULL) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_split_add_chunk: FAILED");
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_add_chunk: FAILED");
 		goto err;
 	}
 
@@ -749,7 +749,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "merge: start");
 
 	/* Create resulting chunk */
-	merged_chunk = datasort_split_add_chunk(dcfg);
+	merged_chunk = datasort_add_chunk(dcfg);
 	if (merged_chunk == NULL)
 		goto err;
 
@@ -1258,7 +1258,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 				"datasort_split: no records passed through iteration process.");
 
 		/* Generate empty chunk */
-		dcfg->result = datasort_split_add_chunk(dcfg);
+		dcfg->result = datasort_add_chunk(dcfg);
 		if (dcfg->result == NULL)
 			goto err_rmdir;
 		goto skip_merge_sort;
