@@ -430,6 +430,7 @@ err_out_check:
 int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 {
 	int i, err, thread_num = ctl->thread_num;
+	int created = 0, inited = 0;
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
@@ -455,6 +456,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to init iterator: %d.\n", err);
 				break;
 			}
+			inited++;
 		}
 
 		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, &iter_priv[i]);
@@ -463,18 +465,14 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to create iterator thread: %d.\n", err);
 			break;
 		}
+		created++;
 	}
 
-	/*
-	 * FIXME: In case iterator_init or pthread_create failed - we have
-	 * garbage in tid[i] and iter_priv[i].thread_priv)
-	 */
-
-	for (i=0; i<thread_num; ++i) {
+	for (i=0; i<created; ++i) {
 		pthread_join(tid[i], NULL);
 	}
 
-	for (i = 0; ctl->iterator_cb.iterator_free && i < thread_num; ++i) {
+	for (i = 0; ctl->iterator_cb.iterator_free && i < inited; ++i) {
 		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
 	}
 
