@@ -20,7 +20,7 @@ option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
-option(WITH_DATASORT "Enable expirimental datasort support" OFF)
+option(WITH_DATASORT "Enable expirimental datasort support" ON)
 
 include(TestBigEndian)
 
