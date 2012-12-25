@@ -27,7 +27,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "test_datasort.h"
+#include "stress.h"
 
 /* Global variable for test config */
 struct test_cfg cfg;

@@ -1,6 +1,6 @@
 include_directories(../include)
-add_executable(test_datasort datasort/test_datasort.c datasort/options.c)
-target_link_libraries(test_datasort eblob)
+add_executable(eblob_stress stress/stress.c stress/options.c)
+target_link_libraries(eblob_stress eblob)
 
 enable_testing()
-add_test(data_sort test_datasort)
+add_test(data_sort eblob_stress)

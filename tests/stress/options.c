@@ -27,7 +27,7 @@
 #include <sysexits.h>
 #include <time.h>
 
-#include "test_datasort.h"
+#include "stress.h"
 
 
 /*
