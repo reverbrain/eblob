@@ -548,7 +548,8 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	assert(unsorted_chunk != NULL);
 	assert(unsorted_chunk->fd >= 0);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorting chunk: fd: %d, count: %" PRIu64 ", size: %" PRIu64,
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"sorting chunk: fd: %d, count: %" PRIu64 ", size: %" PRIu64,
 			unsorted_chunk->fd, unsorted_chunk->count, unsorted_chunk->offset);
 
 	/* Create new sorted chunk */
@@ -560,7 +561,8 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 
 	/* Hint unsorted */
 	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_WILLNEED))
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", unsorted_chunk->fd);
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
+				"eblob_pagecache_hint: %d", unsorted_chunk->fd);
 
 	/* Space for all headers */
 	index = calloc(unsorted_chunk->count, hdr_size);
@@ -597,7 +599,8 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		if (hdrp->disk_size <= hdrp->data_size
 				|| sorted_chunk->offset + hdrp->disk_size > unsorted_chunk->offset
 				|| hdrp->disk_size < (unsigned long long)hdr_size) {
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "chunk is inconsistient: %d, offset: %" PRIu64,
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
+					"chunk is inconsistient: %d, offset: %" PRIu64,
 					unsorted_chunk->fd, sorted_chunk->offset);
 			goto err_destroy_chunk;
 		}
@@ -624,15 +627,18 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, ++i) {
 		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
 		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_copy_record: FAILED");
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+					"datasort_copy_record: FAILED");
 			goto err_destroy_chunk;
 		}
 	}
 
 	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_pagecache_hint: %d", unsorted_chunk->fd);
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
+				"eblob_pagecache_hint: %d", unsorted_chunk->fd);
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sorted chunk: fd: %d, count: %" PRIu64 ", size: %" PRIu64,
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"sorted chunk: fd: %d, count: %" PRIu64 ", size: %" PRIu64,
 			sorted_chunk->fd, sorted_chunk->count, sorted_chunk->offset);
 
 	assert(sorted_chunk->fd != unsorted_chunk->fd);
