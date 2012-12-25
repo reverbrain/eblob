@@ -1516,8 +1516,11 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 
 	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META) || (flags & BLOB_DISK_CTL_OVERWRITE)) {
 		err = eblob_try_overwrite(b, key, &wc, data);
-		if (!err)
-			/* ok, we have overwritten old data, got out */
+		if (err == 0)
+			/* We have overwritten old data - go out */
+			goto err_out_exit;
+		else if (!(err == -E2BIG || err == -ENOENT))
+			/* Unknown error occured during rewrite */
 			goto err_out_exit;
 
 		/* it could be modified if EBLOB_DISK_CTL_APPEND flag is set */
