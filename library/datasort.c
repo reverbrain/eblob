@@ -149,7 +149,7 @@ int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir)
 	}
 
 	/* Remove them one by one */
-	for (i = 0; i < datasort_glob.gl_pathc; i++) {
+	for (i = 0; i < datasort_glob.gl_pathc; ++i) {
 		eblob_log(log, EBLOB_LOG_INFO, "removing chunk: %s\n", datasort_glob.gl_pathv[i]);
 		if (unlink(datasort_glob.gl_pathv[i]) == -1)
 			eblob_log(log, EBLOB_LOG_ERROR,
@@ -621,7 +621,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	}
 
 	/* Save entires in sorted order */
-	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, i++) {
+	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, ++i) {
 		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_copy_record: FAILED");

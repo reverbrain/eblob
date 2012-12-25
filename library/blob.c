@@ -1567,7 +1567,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	/* FIXME: l2hash does not support O(1) remove_all */
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		struct eblob_ram_control rctl;
-		for (i = 0; i <= b->l2hash_max; i++) {
+		for (i = 0; i <= b->l2hash_max; ++i) {
 			if ((err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl)) != 0)
 				continue;
 			eblob_remove_type(b, key, rctl.bctl->type);
