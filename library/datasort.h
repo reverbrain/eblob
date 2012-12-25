@@ -48,6 +48,8 @@ struct datasort_chunk {
 	char				*path;
 	/* Array of dc's for sorting and merging */
 	struct eblob_disk_control	*index;
+	/* Currently allocated space for index */
+	uint64_t			index_size;
 	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
 	/*

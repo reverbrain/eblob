@@ -39,6 +39,36 @@
 #include "binlog.h"
 #include "datasort.h"
 
+/**
+ * datasort_reallocf() - reallocates array @datap of @sizep elements with size
+ * of @elsize.
+ * Reallocation takes place only if @position is greater that current size
+ * pointed by @sizep
+ * On successful reallocation datap pointed to extended memory region and sizep
+ * is increased
+ * On failure @datap if freed and pointed to NULL.
+ */
+static void *datasort_reallocf(void **datap, size_t elsize, uint64_t *sizep, uint64_t position)
+{
+	if (*sizep <= position) {
+		uint64_t new_size;
+		void *new_data;
+
+		/*
+		 * If current size equals to 0 then init to 128 elements
+		 * FIXME: possible overflow
+		 */
+		new_size = (*sizep == 0) ? 128 : (*sizep) * 2;
+
+		new_data = realloc(*datap, elsize * new_size);
+		if (new_data == NULL)
+			free(*datap);
+
+		*datap = new_data;
+		*sizep = new_size;
+	}
+	return *datap;
+}
 
 /**
  * datasort_base_get_path() - makes path to base from @b and @bctl
@@ -359,27 +389,34 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 			dc->disk_size, dc->flags);
 
 	/* Extended offset_map if needed */
-	if (local->current->offset_map_size <= local->current->count) {
-		struct datasort_offset_map *new_map;
-
-		local->current->offset_map_size = local->current->count * 2 + 1;
-		new_map = realloc(local->current->offset_map,
+	local->current->offset_map = datasort_reallocf((void **)&local->current->offset_map,
+			sizeof(struct datasort_offset_map), &local->current->offset_map_size,
+			local->current->count);
+	if (local->current->offset_map == NULL) {
+		err = -ENOMEM;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: offset_map: %" PRIu64,
 				local->current->offset_map_size * sizeof(struct datasort_offset_map));
-		if (new_map == NULL) {
-			err = -ENOMEM;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"realloc: %" PRIu64,
-					local->current->offset_map_size * sizeof(struct datasort_offset_map));
-			goto err_unlock;
-		}
-		local->current->offset_map = new_map;
+		goto err_unlock;
 	}
+
 	/* Save unsorted position to be used by binlog_apply */
 	local->current->offset_map[local->current->count].key = dc->key;
 	local->current->offset_map[local->current->count].offset = dc->position;
 
 	/* Rewrite position */
 	dc->position = local->current->offset;
+
+	/* Extend in-memory index if needed */
+	local->current->index = datasort_reallocf((void **)&local->current->index,
+			sizeof(struct eblob_disk_control), &local->current->index_size,
+			local->current->count);
+	if (local->current->index == NULL) {
+		err = -ENOMEM;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: index: %" PRIu64,
+				local->current->index_size * sizeof(struct eblob_disk_control));
+		goto err_unlock;
+	}
+	local->current->index[local->current->count] = *dc;
 
 	/* Write header */
 	err = pwrite(local->current->fd, dc, hdr_size, local->current->offset);
@@ -539,7 +576,6 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 {
 	ssize_t err;
 	uint64_t i, offset;
-	struct eblob_disk_control *index;
 	struct datasort_chunk *sorted_chunk;
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
@@ -564,48 +600,24 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
 				"eblob_pagecache_hint: %d", unsorted_chunk->fd);
 
-	/* Space for all headers */
-	index = calloc(unsorted_chunk->count, hdr_size);
-	if (index == NULL) {
-		err = -errno;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "calloc: %" PRIu64, unsorted_chunk->count * hdr_size);
-		goto err_destroy_chunk;
-	}
-	sorted_chunk->index = index;
+	/* Copy metadata */
+	sorted_chunk->offset = unsorted_chunk->offset;
+	sorted_chunk->count = unsorted_chunk->count;
+
+	/* Move index */
+	assert(unsorted_chunk->index != NULL);
+	sorted_chunk->index = unsorted_chunk->index;
+	unsorted_chunk->index = NULL;
 
 	/* Move offset map to sorted blob */
 	sorted_chunk->offset_map = unsorted_chunk->offset_map;
 	unsorted_chunk->offset_map = NULL;
 
-	/* Read all headers */
-	while (sorted_chunk->offset < unsorted_chunk->offset) {
-		struct eblob_disk_control *hdrp = &index[sorted_chunk->count];
-
-		err = pread(unsorted_chunk->fd, hdrp, hdr_size, sorted_chunk->offset);
-		if (err != hdr_size) {
-			err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pread: fd: %d", unsorted_chunk->fd);
-			goto err_destroy_chunk;
-		}
-
-		/* Basic consistency checks */
-		if (hdrp->disk_size <= hdrp->data_size
-				|| sorted_chunk->offset + hdrp->disk_size > unsorted_chunk->offset
-				|| hdrp->disk_size < (unsigned long long)hdr_size) {
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
-					"chunk is inconsistient: %d, offset: %" PRIu64,
-					unsorted_chunk->fd, sorted_chunk->offset);
-			goto err_destroy_chunk;
-		}
-
-		sorted_chunk->offset += hdrp->disk_size;
-		sorted_chunk->count++;
-	}
-
 	/* Sort pointer array based on key */
-	qsort(index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
+	qsort(sorted_chunk->index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 	/* Sort offset_map */
-	qsort(sorted_chunk->offset_map, sorted_chunk->count, sizeof(struct datasort_offset_map), eblob_key_sort);
+	qsort(sorted_chunk->offset_map, sorted_chunk->count,
+			sizeof(struct datasort_offset_map), eblob_key_sort);
 
 	/* Preallocate space for sorted chunk */
 	err = eblob_preallocate(sorted_chunk->fd, sorted_chunk->offset);
@@ -617,14 +629,18 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	}
 
 	/* Save entires in sorted order */
-	for (offset = 0, i = 0; i < sorted_chunk->count; offset += index[i].disk_size, ++i) {
-		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, &index[i], offset);
+	for (i = 0, offset = 0; i < sorted_chunk->count; ++i) {
+		struct eblob_disk_control *dc = &sorted_chunk->index[i];
+
+		err = datasort_copy_record(dcfg, unsorted_chunk, sorted_chunk, dc, offset);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"datasort_copy_record: FAILED");
 			goto err_destroy_chunk;
 		}
+		offset += dc->disk_size;
 	}
+	assert(offset == sorted_chunk->offset);
 
 	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
@@ -633,10 +649,6 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 			"sorted chunk: fd: %d, count: %" PRIu64 ", size: %" PRIu64,
 			sorted_chunk->fd, sorted_chunk->count, sorted_chunk->offset);
-
-	assert(sorted_chunk->fd != unsorted_chunk->fd);
-	assert(sorted_chunk->count == unsorted_chunk->count);
-	assert(sorted_chunk->offset == unsorted_chunk->offset);
 
 	return sorted_chunk;
 
