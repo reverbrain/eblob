@@ -539,7 +539,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 {
 	ssize_t err;
 	uint64_t i, offset;
-	struct eblob_disk_control *index, *hdrp;
+	struct eblob_disk_control *index;
 	struct datasort_chunk *sorted_chunk;
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
@@ -584,7 +584,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 
 	/* Read all headers */
 	while (sorted_chunk->offset < unsorted_chunk->offset) {
-		hdrp = &index[sorted_chunk->count];
+		struct eblob_disk_control *hdrp = &index[sorted_chunk->count];
 
 		err = pread(unsorted_chunk->fd, hdrp, hdr_size, sorted_chunk->offset);
 		if (err != hdr_size) {
