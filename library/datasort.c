@@ -1312,20 +1312,22 @@ skip_merge_sort:
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
 			goto err_unlock_bctl;
 		}
-
-		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
-			goto err_unlock_bctl;
-		}
 	}
-	dcfg->use_binlog = 0;
 
 	/* Swap fd's and other internal structures */
 	err = datasort_swap(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_swap: %s", dcfg->dir);
 		goto err_unlock_bctl;
+	}
+
+	/* Now we can disable binlog */
+	if (dcfg->use_binlog) {
+		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
+		if (err) {
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
+			goto err_unlock_bctl;
+		}
 	}
 
 	/* Mark base as sorted */
