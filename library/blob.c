@@ -445,7 +445,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	ctl->data_size = ctl->base->data_size;
 	ctl->index_size = ctl->base->index_size;
 
-	for (i=0; i<thread_num; ++i) {
+	for (i = 0; i < thread_num; ++i) {
 		iter_priv[i].ctl = ctl;
 		iter_priv[i].thread_priv = NULL;
 
@@ -468,7 +468,7 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 		created++;
 	}
 
-	for (i=0; i<created; ++i) {
+	for (i = 0; i < created; ++i) {
 		pthread_join(tid[i], NULL);
 	}
 
