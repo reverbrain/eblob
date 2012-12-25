@@ -569,7 +569,7 @@ int binlog_read(struct eblob_binlog_ctl *bctl, off_t offset)
 	}
 
 	/* Read data */
-	if (rhdr.meta_size + rhdr.data_size) {
+	if (rhdr.meta_size > 0 || rhdr.data_size > 0) {
 		data = binlog_read_record(bcfg, offset + sizeof(rhdr), rhdr.meta_size + rhdr.data_size);
 		if (data == NULL) {
 			err = -EIO;
