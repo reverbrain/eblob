@@ -786,7 +786,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 			goto err;
 		}
 
-		/* Fill unsorted<->sorted map */
+		/* Fill offset map */
 		assert(chunk->offset_map != NULL);
 		merged_chunk->offset_map[total_count] = chunk->offset_map[current_count];
 
