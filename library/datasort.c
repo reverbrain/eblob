@@ -573,16 +573,9 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	}
 	sorted_chunk->index = index;
 
-	/* Copy offset map to sorted blob */
-	sorted_chunk->offset_map = calloc(unsorted_chunk->count, sizeof(struct datasort_offset_map));
-	if (sorted_chunk->offset_map == NULL) {
-		err = -ENOMEM;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "calloc: %" PRIu64,
-				unsorted_chunk->count * sizeof(struct datasort_offset_map));
-		goto err_destroy_chunk;
-	}
-	memcpy(sorted_chunk->offset_map, unsorted_chunk->offset_map,
-			unsorted_chunk->count * sizeof(struct datasort_offset_map));
+	/* Move offset map to sorted blob */
+	sorted_chunk->offset_map = unsorted_chunk->offset_map;
+	unsorted_chunk->offset_map = NULL;
 
 	/* Read all headers */
 	while (sorted_chunk->offset < unsorted_chunk->offset) {
