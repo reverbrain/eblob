@@ -55,32 +55,6 @@ struct eblob_iterate_local {
 };
 
 /**
- * eblob_bctl_from_index() - returns bctl for given @index_fd and @type
- *
- * This routine is O(n) where n is number of bases. It can be speeded up by
- * maintaining addtional index of index_fd -> bctl.
- */
-static struct eblob_base_ctl *eblob_bctl_from_index(struct eblob_backend *b, int index_fd, int type)
-{
-	struct eblob_base_ctl *ctl;
-
-	assert(b != NULL);
-	assert(index_fd >= 0);
-	assert(type <= b->max_type);
-
-	list_for_each_entry(ctl, &b->types[type].bases, base_entry) {
-		pthread_mutex_lock(&ctl->lock);
-		if (ctl->index_fd == index_fd) {
-			pthread_mutex_unlock(&ctl->lock);
-			return ctl;
-		}
-		pthread_mutex_unlock(&ctl->lock);
-	}
-
-	return NULL;
-}
-
-/**
  * eblob_write_binlog() - Low-level write function that passes all requests to
  * binlog
  */
