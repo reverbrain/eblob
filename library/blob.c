@@ -683,15 +683,8 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.size = wc->total_data_size;
 	ctl.data_offset = wc->ctl_data_offset;
 	ctl.index_offset = wc->ctl_index_offset;
-	/* FIXME: get bctl from wc */
-	ctl.bctl = eblob_bctl_from_index(b, wc->index_fd, wc->type);
-	if (ctl.bctl == NULL) {
-		err = -EAGAIN;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-				"blob: %s: %s: eblob_bctl_from_index: FAILED: %d.\n",
-				eblob_dump_id(key->id), __func__, err);
-		goto err_out_exit;
-	}
+	ctl.bctl = wc->bctl;
+	assert(ctl.bctl != NULL);
 
 	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
 	if (err) {
