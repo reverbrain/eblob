@@ -14,6 +14,6 @@ Status
 
 Links
 =====
-Homepage: http://www.reverbrain.com/eblob/
-Elliptics: http://www.reverbrain.com/elliptics/
-Google group: https://groups.google.com/forum/?fromgroups=#!forum/reverbrain
+| Homepage: http://www.reverbrain.com/eblob/
+| Elliptics: http://www.reverbrain.com/elliptics/
+| Google group: https://groups.google.com/forum/?fromgroups=#!forum/reverbrain
