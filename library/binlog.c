@@ -14,7 +14,7 @@
  */
 
 /*
- * This is implementation of very simple statement-based binary log conformig
+ * This is implementation of tiny binlog conforming
  * to following blueprint:
  * - http://doc.ioremap.net/blueprints:eblob:binlog
  *
