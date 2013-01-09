@@ -1345,8 +1345,11 @@ skip_merge_sort:
 	/*
 	 * Grace period after which we assume that all cached references of
 	 * data_fd and index_fd are gone.
+	 *
+	 * Also using grace period while not using binlog does not make sense
 	 */
-	sleep(10);
+	if (dcfg->use_binlog)
+		sleep(10);
 
 	/* FIXME: Check return values of close */
 	close(dcfg->bctl->old_index_fd);
