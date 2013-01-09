@@ -105,14 +105,8 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		} else if (fd == bctl->data_fd) {
 			binctl.type = EBLOB_BINLOG_TYPE_RAW_DATA;
 		} else {
-			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-					"blob: binlog: %s: %s: unknown fd: %d, index: %d, data: %d\n",
-					eblob_dump_id(key->id), __func__, fd, bctl->index_fd, bctl->data_fd);
-			/*
-			 * TODO: Here we can retry by fetching data with eblob_lookup_type()
-			 */
-			err = -EINVAL;
-			goto err_unlock;
+			/* Set type to 65535 */
+			binctl.type = -1;
 		}
 
 		binctl.cfg = bctl->binlog;
@@ -126,6 +120,18 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 	}
 
 skip_binlog:
+	/*
+	 * Check that @fd is either data_fd or index_fd otherwise data-sort has
+	 * swapped data under us.
+	 */
+	if (fd != bctl->data_fd && fd != bctl->index_fd) {
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+				"blob: %s: %s: unknown fd: %d, index: %d, data: %d\n",
+				eblob_dump_id(key->id), __func__, fd, bctl->index_fd, bctl->data_fd);
+		err = -EAGAIN;
+		goto err_unlock;
+	}
+
 	err = blob_write_ll(fd, data, size, offset);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
