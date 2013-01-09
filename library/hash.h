@@ -21,7 +21,6 @@
 #include "list.h"
 #include "rbtree.h"
 
-struct eblob_hash_entry;
 struct eblob_hash_head;
 struct eblob_hash {
 	unsigned int		flags;
@@ -43,10 +42,6 @@ int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
 int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
-
-int eblob_dump_hash(void *priv, struct eblob_hash_entry *entry);
-void eblob_hash_iterator(struct rb_root *n, void *callback_priv,
-		int (*callback)(void *priv, struct eblob_hash_entry *entry));
 
 /* Record is cached from disk index */
 #define EBLOB_HASH_FLAGS_CACHE          (1<<0)
