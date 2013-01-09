@@ -10,4 +10,4 @@ debuild -uc -us
 sudo dpkg -i ../*.deb
 
 # Run stress test
-$(find . -name eblob_stress) -m0 -f100 -D0 -I30000 -i1000 -r 1000 -S10 -F87
+$(find . -name eblob_stress) -m0 -f100 -D0 -I30000 -o20000 -i1000 -r 1000 -S10 -F87
