@@ -296,7 +296,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				bctl->need_sorting = 0;
 			}
 
-			eblob_log(ctl.log, EBLOB_LOG_INFO, "defrag: complete type: %d, index: %d\n", bctl->type, bctl->index);
+			eblob_log(ctl.log, EBLOB_LOG_INFO,
+					"defrag: complete type: %d, index: %d\n",
+					bctl->type, bctl->index);
 		}
 	}
 

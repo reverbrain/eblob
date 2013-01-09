@@ -1130,9 +1130,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 				"eblob_pagecache_hint: index: %d", bctl->old_index_fd);
 
-	close(bctl->old_index_fd);
-	close(bctl->old_data_fd);
-
 	/*
 	 * Original file created by mkstemp may have too restrictive
 	 * permissions for use.
@@ -1345,7 +1342,19 @@ skip_merge_sort:
 	_datasort_destroy_chunk(dcfg->result);
 	datasort_destroy(dcfg);
 
-	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
+	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success.\n");
+
+	/*
+	 * Grace period after which we assume that all cached references of
+	 * data_fd and index_fd are gone.
+	 */
+	sleep(10);
+
+	/* FIXME: Check return values of close */
+	close(dcfg->bctl->old_index_fd);
+	close(dcfg->bctl->old_data_fd);
+
+	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: grace period finished.\n");
 	dcfg->b->stat.sort_status = 0;
 	return 0;
 
