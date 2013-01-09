@@ -1269,6 +1269,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		dcfg->result = datasort_add_chunk(dcfg);
 		if (dcfg->result == NULL)
 			goto err_rmdir;
+		/* FIXME: remove base if it's empty */
 		goto skip_merge_sort;
 	}
 
