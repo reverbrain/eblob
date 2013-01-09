@@ -152,8 +152,7 @@ skip_binlog:
 
 err_unlock:
 	if (locked)
-		if (pthread_mutex_unlock(&bctl->lock) != 0)
-			abort();
+		pthread_mutex_unlock(&bctl->lock);
 	return err;
 }
 

@@ -440,8 +440,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	err = 0;
 
 err_unlock:
-	if (pthread_mutex_unlock(&dcfg->lock) != 0)
-		abort();
+	pthread_mutex_unlock(&dcfg->lock);
 err:
 	return err;
 }
@@ -1159,8 +1158,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "link: %s -> %s",
 				sorted_index_path, index_path);
 
-	if (pthread_mutex_unlock(&dcfg->b->hash->root_lock) != 0)
-		abort();
+	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 
 	/* Leave mark that data file is sorted */
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
@@ -1331,10 +1329,8 @@ skip_merge_sort:
 	dcfg->bctl->sorted = 1;
 
 	/* Unlock */
-	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
-		abort();
-	if (pthread_mutex_unlock(&dcfg->b->lock) != 0)
-		abort();
+	pthread_mutex_unlock(&dcfg->bctl->lock);
+	pthread_mutex_unlock(&dcfg->b->lock);
 
 	/* Cleanups */
 	if (rmdir(dcfg->dir) == -1)
@@ -1359,11 +1355,9 @@ skip_merge_sort:
 	return 0;
 
 err_unlock_bctl:
-	if (pthread_mutex_unlock(&dcfg->bctl->lock) != 0)
-		abort();
+	pthread_mutex_unlock(&dcfg->bctl->lock);
 err_unlock_b:
-	if (pthread_mutex_unlock(&dcfg->b->lock) != 0)
-		abort();
+	pthread_mutex_unlock(&dcfg->b->lock);
 err_unlink:
 	datasort_destroy_chunk(dcfg, dcfg->result);
 err_rmdir:

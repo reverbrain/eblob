@@ -776,8 +776,7 @@ err_destroy:
 	if (err)
 		binlog_destroy(bcfg);
 err_unlock:
-	if (pthread_mutex_unlock(&bctl->lock) != 0)
-		abort();
+	pthread_mutex_unlock(&bctl->lock);
 err_free:
 	free(path_copy);
 err:
@@ -802,9 +801,7 @@ int eblob_stop_binlog(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 
 	err = eblob_stop_binlog_nolock(b, bctl);
 
-	if (pthread_mutex_unlock(&bctl->lock) != 0)
-		abort();
-
+	pthread_mutex_unlock(&bctl->lock);
 	return err;
 }
 
