@@ -1071,7 +1071,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * NB! At this point we can't rollback, so fall through or abort()
+	 * NB! At this point we can't rollback, so fall through
 	 * TODO: Implement graceful rollback
 	 */
 
@@ -1102,11 +1102,13 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	bctl->index_fd = index.fd;
 	bctl->sort = index;
 
-	/* Setup new base */
-	if ((err = eblob_base_setup_data(bctl, 1)) != 0) {
+	/*
+	 * Setup new base
+	 * FIXME: We can not use abort in library but this error is
+	 * really critical
+	 */
+	if ((err = eblob_base_setup_data(bctl, 1)) != 0)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
-		abort();
-	}
 	assert(bctl->data_size == dcfg->result->offset);
 	assert(bctl->index_size == index.size);
 
