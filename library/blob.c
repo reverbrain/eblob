@@ -502,7 +502,7 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
  */
 static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
 {
-	int err = 0, locked_b = 0, locked_bctl = 0;
+	int err;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
 		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
@@ -535,12 +535,6 @@ static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *k
 	}
 
 err:
-	if (locked_bctl != 0)
-		if (pthread_mutex_unlock(&old->bctl->lock) != 0)
-			abort();
-	if (locked_b != 0)
-		if (pthread_mutex_unlock(&b->lock) != 0)
-			abort();
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: %s: finished: %d.\n",
 			eblob_dump_id(key->id), __func__, err);
 	return err;
