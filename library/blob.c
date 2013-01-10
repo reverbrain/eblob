@@ -1044,7 +1044,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
-	int have_old = 0, disk;
+	int have_old = 0, old_index_fd = -1, disk;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu\n",
 			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset);
@@ -1055,10 +1055,23 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
-	pthread_mutex_lock(&b->lock);
 	err = eblob_lookup_type(b, key, wc->type, &old, &disk);
-	if (!err)
+	if (!err) {
+		/*
+		 * FIXME: We have here tiny race between actual lookup and this
+		 * store
+		 */
+		old_index_fd = old.bctl->index_fd;
 		have_old = 1;
+	}
+
+	pthread_mutex_lock(&b->lock);
+
+	/* If index was swapped under us - fail */
+	if (have_old == 1 && old_index_fd != old.bctl->index_fd) {
+		err = -EAGAIN;
+		goto err_out_unlock_exit;
+	}
 
 	if (wc->type > b->max_type) {
 		err = eblob_add_new_base(b, wc->type);
