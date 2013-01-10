@@ -1055,11 +1055,11 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
+	pthread_mutex_lock(&b->lock);
 	err = eblob_lookup_type(b, key, wc->type, &old, &disk);
 	if (!err)
 		have_old = 1;
 
-	pthread_mutex_lock(&b->lock);
 	if (wc->type > b->max_type) {
 		err = eblob_add_new_base(b, wc->type);
 		if (err)
