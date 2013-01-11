@@ -1805,8 +1805,10 @@ err_out_exit:
 
 void eblob_data_unmap(struct eblob_map_fd *map)
 {
-	if (map->mapped_data && map->mapped_size)
+	if (map->mapped_data && map->mapped_size) {
 		munmap(map->mapped_data, map->mapped_size);
+		map->mapped_data = NULL;
+	}
 }
 
 /**

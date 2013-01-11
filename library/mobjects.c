@@ -93,22 +93,40 @@ err_out_exit:
 	return err;
 }
 
-void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
+/**
+ * _eblob_base_ctl_cleanup() - low level clean up that releases most of resources
+ * but leaves controling structures and locks in place.
+ */
+int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 {
-	pthread_mutex_destroy(&ctl->dlock);
-
-	pthread_mutex_destroy(&ctl->lock);
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
+	if (ctl == NULL)
+		return -EINVAL;
 
 	eblob_index_blocks_destroy(ctl);
-	munmap(ctl->data, ctl->data_size);
 
+	munmap(ctl->data, ctl->data_size);
 	eblob_data_unmap(&ctl->sort);
+
+	ctl->data_size = ctl->data_offset = 0;
+	ctl->index_size = ctl->index_offset = 0;
+
 	if (ctl->sort.fd >= 0)
 		close(ctl->sort.fd);
-
 	close(ctl->data_fd);
 	close(ctl->index_fd);
+
+	ctl->sort.fd = ctl->data_fd = ctl->index_fd = -1;
+
+	return 0;
+}
+
+void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
+{
+	_eblob_base_ctl_cleanup(ctl);
+
+	pthread_mutex_destroy(&ctl->dlock);
+	pthread_mutex_destroy(&ctl->lock);
+	pthread_mutex_destroy(&ctl->index_blocks_lock);
 }
 
 static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_base, const char *name, int name_len)
@@ -175,7 +193,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 	int err, full_len;
 	char *full;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: started\n", __func__);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: started\n", __func__);
 
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
@@ -242,17 +260,15 @@ again:
 
 		ctl->index_size = st.st_size;
 
-		if ((ctl->data_size >= b->cfg.blob_size) || (ctl->index < max_index) ||
-				(st.st_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
+		/*
+		 * Sort index/data only if base is not empty and either exceeds
+		 * thresholds.
+		 */
+		if (ctl->index_size &&
+				((ctl->data_size >= b->cfg.blob_size) ||
+				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
 #ifdef DATASORT
-			/* Sync datasort */
-			struct datasort_cfg dcfg = {
-				.b = b,
-				.bctl = ctl,
-				.log = b->cfg.log,
-			};
-
-			err = eblob_generate_sorted_data(&dcfg);
+			datasort_schedule_sort(b, ctl);
 #else
 			err = eblob_generate_sorted_index(b, ctl, 0);
 			if (err) {
@@ -262,13 +278,13 @@ again:
 				goto err_out_close_index;
 			}
 			err = eblob_index_blocks_fill(ctl);
-#endif
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 						"bctl: index: %d/%d, type: %d/%d: sarted_data/index_blocks_fill: FAILED\n",
 						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
 			}
+#endif
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -323,7 +339,7 @@ again:
 
 	b->current_blob_size += ctl->data_size + ctl->index_size;
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: finished: %s\n", __func__, full);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
 	free(full);
 
 	return 0;
@@ -1054,13 +1070,19 @@ int eblob_load_data(struct eblob_backend *b)
 	return eblob_iterate_existing(b, &ctl, &b->types, &b->max_type);
 }
 
-int eblob_add_new_base(struct eblob_backend *b, int type)
+/*
+ * eblob_add_new_base_ll() - sequentially tries bases until it finds unused one.
+ */
+struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type)
 {
-	int err = 0;
-	char *dir_base, *tmp, name[64];
-	const char *base;
 	struct eblob_base_type *t;
 	struct eblob_base_ctl *ctl;
+	int err;
+	char *dir_base, *tmp, name[64];
+	const char *base;
+
+	if (b == NULL || type < 0)
+		return NULL;
 
 	if (type > b->max_type) {
 		struct eblob_base_type *types;
@@ -1070,24 +1092,19 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 		 * and create new types from b->max_type+1 upto type (again inclusive)
 		 */
 		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
-		if (!types) {
-			err = -ENOMEM;
-			goto err_out_exit;
-		}
+		if (!types)
+			return NULL;
 
 		b->types = types;
 		b->max_type = type;
 	}
 
 	t = &b->types[type];
-
 	base = eblob_get_base(b->cfg.file);
 
 	dir_base = strdup(b->cfg.file);
-	if (!dir_base) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
+	if (dir_base == NULL)
+		return NULL;
 
 	tmp = strrchr(dir_base, '/');
 	if (tmp)
@@ -1106,14 +1123,28 @@ try_again:
 			 */
 			goto try_again;
 		}
-
 		goto err_out_free;
 	}
 
-	eblob_add_new_base_ctl(t, ctl);
-
 err_out_free:
 	free(dir_base);
+	return ctl;
+}
+
+/*
+ * eblob_add_new_base() - creates new base and adds it to the list of bases
+ */
+int eblob_add_new_base(struct eblob_backend *b, int type)
+{
+	struct eblob_base_ctl *ctl;
+	int err = 0;
+
+	if ((ctl = eblob_add_new_base_ll(b, type)) == NULL) {
+		err = -ENOENT;
+		goto err_out_exit;
+	}
+	eblob_add_new_base_ctl(&b->types[type], ctl);
+
 err_out_exit:
 	return err;
 }

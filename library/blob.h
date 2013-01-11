@@ -123,6 +123,7 @@ struct eblob_base_ctl {
 	/* Blob is closed and we should sort data in it by key */
 	int			need_sorting;
 
+	/* TODO: Unused - remove */
 	pthread_mutex_t		dlock;
 	int			df, dfi;
 
@@ -160,6 +161,7 @@ struct eblob_base_ctl {
 #define EBLOB_FLAGS_HINT_ALL (EBLOB_FLAGS_HINT_WILLNEED | EBLOB_FLAGS_HINT_DONTNEED)
 
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
+int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
@@ -219,6 +221,7 @@ struct eblob_backend {
 	uint64_t		current_blob_size;
 };
 
+struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type);
 int eblob_add_new_base(struct eblob_backend *b, int type);
 int eblob_load_data(struct eblob_backend *b);
 void eblob_base_types_cleanup(struct eblob_backend *b);

@@ -980,18 +980,17 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
 /*
  * Swaps original base with new shiny sorted one.
  *
- * - Save index to file
- * - mmap it
- * - swap index and data fd
- * - rename index and data
- * - flush cache
+ * - add new "sorted" base
+ * - flush "unsorted" cache
+ * - move sorted data and index to the new place
+ * - cleanup unsorted base and remove it's files
  *
  * TODO: Move index management to separate function
  */
 static int datasort_swap(struct datasort_cfg *dcfg)
 {
+	struct eblob_base_ctl *sorted_bctl, *unsorted_bctl;
 	struct eblob_map_fd index;
-	struct eblob_base_ctl *bctl;
 	char tmp_index_path[PATH_MAX], index_path[PATH_MAX];
 	char sorted_index_path[PATH_MAX], data_path[PATH_MAX];
 	char mark_path[PATH_MAX];
@@ -1005,11 +1004,18 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_swap: start");
 
 	/* Shortcut */
-	bctl = dcfg->bctl;
+	unsorted_bctl = dcfg->bctl;
+
+	/* Add new base */
+	if ((sorted_bctl = eblob_add_new_base_ll(dcfg->b, unsorted_bctl->type)) == NULL) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_add_new_base_ll: FAILED");
+		goto err;
+	}
+	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Construct index pathes */
-	if (datasort_base_get_path(dcfg->b, dcfg->bctl, data_path, PATH_MAX) != 0) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "datasort_base_get_path: FAILED");
+	if (datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX) != 0) {
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_base_get_path: FAILED");
 		goto err;
 	}
 	snprintf(mark_path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, data_path);
@@ -1058,11 +1064,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	} else
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "index size is zero: %s", tmp_index_path);
 
-	/* Backup data */
-	bctl->old_data_fd = bctl->data_fd;
-	bctl->old_index_fd = bctl->index_fd;
-	bctl->old_sort = bctl->sort;
-
 	/* Protect l2hash/hash from accessing stale fds */
 	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
 		err = -err;
@@ -1080,16 +1081,17 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	 *
 	 * We must do that before we swap index_fd - because l2hash is using it.
 	 */
-	for (offset = 0, i = 0; offset < dcfg->result->offset; offset += dcfg->result->index[i++].disk_size) {
+	for (offset = 0, i = 0; offset < dcfg->result->offset;
+			offset += dcfg->result->index[i++].disk_size) {
 		/* This entry was removed in binlog_apply */
 		if (dcfg->result->index[i].flags & BLOB_DISK_CTL_REMOVE)
 			continue;
 		/*
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
-		 * TODO: Maybe it's better to rewrite cache entries instead of deleting them
+		 * TODO: It's better to rewrite cache entries instead of deleting them
 		 */
-		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, bctl->type);
+		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, sorted_bctl->type);
 		if (err != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_DEBUG, -err,
 					"eblob_remove_type_nolock: %s, offset: %" PRIu64,
@@ -1097,39 +1099,42 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 	assert(i == dcfg->result->count);
 
-	/* Swap data */
-	bctl->data_fd = dcfg->result->fd;
-	bctl->index_fd = index.fd;
-	bctl->sort = index;
+	/*
+	 * Setup sorted base
+	 */
+	sorted_bctl->data_fd = dcfg->result->fd;
+	sorted_bctl->index_fd = index.fd;
+	sorted_bctl->sort = index;
 
 	/*
 	 * Setup new base
 	 * FIXME: We can not use abort in library but this error is
 	 * really critical
 	 */
-	if ((err = eblob_base_setup_data(bctl, 1)) != 0)
+	if ((err = eblob_base_setup_data(sorted_bctl, 1)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
-	assert(bctl->data_size == dcfg->result->offset);
-	assert(bctl->index_size == index.size);
+		abort();
+	}
+	assert(sorted_bctl->data_size == dcfg->result->offset);
+	assert(sorted_bctl->index_size == index.size);
 
-	eblob_data_unmap(&bctl->old_sort);
+	eblob_data_unmap(&unsorted_bctl->sort);
 
-	bctl->data_offset = bctl->data_size;
-	bctl->index_offset = bctl->index_size;
+	sorted_bctl->data_offset = sorted_bctl->data_size;
+	sorted_bctl->index_offset = sorted_bctl->index_size;
 
-	/* Flush and re-populate index blocks */
-	eblob_index_blocks_destroy(bctl);
-	eblob_index_blocks_fill(bctl);
+	/* Populate sorted index blocks */
+	eblob_index_blocks_fill(sorted_bctl);
 
 	/* We don't need 'em anymore */
-	err = eblob_pagecache_hint(dcfg->bctl->old_data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	err = eblob_pagecache_hint(unsorted_bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: data: %d", bctl->old_data_fd);
-	err = eblob_pagecache_hint(dcfg->bctl->old_index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+				"eblob_pagecache_hint: data: %d", unsorted_bctl->data_fd);
+	err = eblob_pagecache_hint(unsorted_bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: index: %d", bctl->old_index_fd);
+				"eblob_pagecache_hint: index: %d", unsorted_bctl->index_fd);
 
 	/*
 	 * Original file created by mkstemp may have too restrictive
@@ -1140,25 +1145,40 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	if (fchmod(dcfg->result->fd, 0644) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", dcfg->result->fd);
 
-	/* Remove old indexes */
-	if (unlink(index_path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", index_path);
-	if (access(sorted_index_path, R_OK | W_OK) == 0)
-		if (unlink(sorted_index_path) == -1)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_NOTICE, errno, "unlink: %s", sorted_index_path);
-
-	/* Swap files */
+	/* Move files */
 	if (rename(dcfg->result->path, data_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
 				dcfg->result->path, data_path);
 	if (rename(tmp_index_path, sorted_index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rename: %s -> %s",
-				tmp_index_path, sorted_index_path);
+				tmp_index_path, index_path);
+
+	/* This is very unlikely, but just in case... */
+	if (access(index_path, R_OK | W_OK) == 0)
+		if (unlink(index_path) == -1)
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
+					"unlink: %s", index_path);
 
 	/* Hardlink sorted index to unsorted one */
 	if (link(sorted_index_path, index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "link: %s -> %s",
 				sorted_index_path, index_path);
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
+			"datasort_swap: swapped: data: %s -> %s, "
+			"data_fd: %d -> %d, index_fd: %d -> %d",
+			dcfg->result->path, data_path,
+			sorted_bctl->data_fd, unsorted_bctl->data_fd,
+			sorted_bctl->index_fd, unsorted_bctl->index_fd);
+	/*
+	 * Cleanup unsorted base
+	 */
+	if (_eblob_base_ctl_cleanup(unsorted_bctl) != 0)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
+				"_eblob_base_ctl_cleanup: FAILED");
+
+	/* Remove old base */
+	eblob_base_remove(dcfg->b, unsorted_bctl);
 
 	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 
@@ -1170,11 +1190,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mark: %s", mark_path);
 	}
 
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"datasort_swap: swapped: data: %s -> %s, "
-			"data_fd: %d -> %d, index_fd: %d -> %d",
-			dcfg->result->path, data_path,
-			bctl->data_fd, bctl->old_data_fd, bctl->index_fd, bctl->old_index_fd);
 	return 0;
 
 err_unmap:
@@ -1341,22 +1356,7 @@ skip_merge_sort:
 	_datasort_destroy_chunk(dcfg->result);
 	datasort_destroy(dcfg);
 
-	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success.\n");
-
-	/*
-	 * Grace period after which we assume that all cached references of
-	 * data_fd and index_fd are gone.
-	 *
-	 * Also using grace period while not using binlog does not make sense
-	 */
-	if (dcfg->use_binlog)
-		sleep(10);
-
-	/* FIXME: Check return values of close */
-	close(dcfg->bctl->old_index_fd);
-	close(dcfg->bctl->old_data_fd);
-
-	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: grace period finished.\n");
+	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
 	dcfg->b->stat.sort_status = 0;
 	return 0;
 
