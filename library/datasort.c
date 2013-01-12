@@ -1011,7 +1011,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_add_new_base_ll: FAILED");
 		goto err;
 	}
-	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Construct index pathes */
 	if (datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX) != 0) {
@@ -1176,6 +1175,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	if (_eblob_base_ctl_cleanup(unsorted_bctl) != 0)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
 				"_eblob_base_ctl_cleanup: FAILED");
+
+	/* Replace unsorted bctl with sorted one */
+	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Remove old base */
 	eblob_base_remove(dcfg->b, unsorted_bctl);
