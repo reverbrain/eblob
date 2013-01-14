@@ -199,7 +199,8 @@ static int __eblob_l2hash_index_hdr(struct eblob_ram_control *rctl, struct eblob
 	assert(rctl->bctl != NULL);
 	assert(dc != NULL);
 
-	err = pread(rctl->bctl->index_fd, dc, sizeof(struct eblob_disk_control), rctl->index_offset);
+	err = pread(eblob_get_index_fd(rctl->bctl), dc,
+			sizeof(struct eblob_disk_control), rctl->index_offset);
 	if (err != sizeof(struct eblob_disk_control))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 	return 0;

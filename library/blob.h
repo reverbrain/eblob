@@ -274,4 +274,6 @@ int eblob_pagecache_hint(int fd, uint64_t flag);
 
 int blob_mark_index_removed(int fd, off_t offset);
 int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key);
+
+int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 #endif /* __EBLOB_BLOB_H */
