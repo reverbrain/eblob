@@ -1071,11 +1071,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * NB! At this point we can't rollback, so fall through
-	 * TODO: Implement graceful rollback
-	 */
-
-	/*
 	 * Flush hash
 	 *
 	 * We must do that before we swap index_fd - because l2hash is using it.
@@ -1116,8 +1111,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	}
 	assert(sorted_bctl->data_size == dcfg->result->offset);
 	assert(sorted_bctl->index_size == index.size);
-
-	eblob_data_unmap(&unsorted_bctl->sort);
 
 	sorted_bctl->data_offset = sorted_bctl->data_size;
 	sorted_bctl->index_offset = sorted_bctl->index_size;
