@@ -145,13 +145,6 @@ struct eblob_binlog_disk_record_hdr {
 	char			pad[32];
 };
 
-/* Logging helpers */
-#define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
-		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);
-
-#define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
-		"%s (%ld); " fmt, strerror(err), (long int)err, ## __VA_ARGS__);
-
 /*
  * Sync written data to disk
  *

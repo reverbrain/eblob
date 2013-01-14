@@ -276,4 +276,12 @@ int blob_mark_index_removed(int fd, off_t offset);
 int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key);
 
 int eblob_get_index_fd(struct eblob_base_ctl *bctl);
+
+/* Logging helpers */
+#define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
+		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);
+
+#define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
+		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
+
 #endif /* __EBLOB_BLOB_H */
