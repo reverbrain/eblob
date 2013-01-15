@@ -1136,8 +1136,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		wc->total_size = eblob_calculate_size(b, 0, wc->total_data_size);
 
 	/*
-	 * if we are doing prepare, and there is some old data - reserve 2 times as much as requested
-	 * This allows to not to copy data frequently if we append records
+	 * if we are doing prepare, and there is some old data - reserve 2
+	 * times as much as requested This allows to not to copy data
+	 * frequently if we append records
 	 */
 	if (have_old && (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE))) {
 		wc->total_size *= 2;
@@ -1153,8 +1154,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		goto err_out_rollback;
 
 	/*
-	 * We are doing early index update to prevent situations when system crashed (or even blob is closed),
-	 * but index entry was not yet written, since we only reserved space.
+	 * We are doing early index update to prevent situations when system
+	 * crashed (or even blob is closed), but index entry was not yet
+	 * written, since we only reserved space.
 	 */
 	err = blob_update_index(b, key, wc, 1);
 	if (err)
