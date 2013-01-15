@@ -1527,7 +1527,9 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	blob_update_index(b, key, &wc, 0);
+	err = blob_update_index(b, key, &wc, 0);
+	if (err)
+		goto err_out_exit;
 
 err_out_exit:
 	if ((flags & BLOB_DISK_CTL_WRITE_RETURN) && (size >= sizeof(struct eblob_write_control))) {
