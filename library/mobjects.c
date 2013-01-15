@@ -1140,7 +1140,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 	int err = 0;
 
 	if ((ctl = eblob_add_new_base_ll(b, type)) == NULL) {
-		err = -ENOENT;
+		err = -ENOMEM;
 		goto err_out_exit;
 	}
 	eblob_add_new_base_ctl(&b->types[type], ctl);
