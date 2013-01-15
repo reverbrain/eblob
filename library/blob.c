@@ -1061,7 +1061,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
-	int have_old = 0, disk;
+	int have_old, disk;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu\n",
 			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset);
@@ -1073,8 +1073,16 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		goto err_out_exit;
 
 	err = eblob_lookup_type(b, key, wc->type, &old, &disk);
-	if (!err)
+	switch (err) {
+	case -ENOENT:
+		have_old = 0;
+		break;
+	case 0:
 		have_old = 1;
+		break;
+	default:
+		goto err_out_exit;
+	}
 
 	pthread_mutex_lock(&b->lock);
 	if (wc->type > b->max_type) {
