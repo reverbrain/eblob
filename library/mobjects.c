@@ -725,9 +725,18 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		if (!strncmp(d->d_name, base, base_len)) {
 			struct eblob_base_ctl *ctl;
 
+			/*
+			 * FIXME: Error detection that is based on errno of
+			 * chain of functions is error prone - it would be
+			 * better if eblob_get_base_ctl() could explicitly
+			 * propagate an error through return value
+			 */
 			ctl = eblob_get_base_ctl(b, types, max_type, dir_base, base, d->d_name, d_len, &err);
-			if (!ctl)
+			if (!ctl) {
+				if (err != 0 && err != -EINVAL)
+					goto err_out_free_types;
 				continue;
+			}
 
 			if (ctl->type > max_type) {
 				struct eblob_base_type *tnew;
