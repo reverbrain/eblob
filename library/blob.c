@@ -779,7 +779,7 @@ static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_
 
 		err = pread(fd_in, buf, read_size, off_in);
 		if (err == 0) {
-			err = -EOF;
+			err = -ESPIPE;
 			goto err_out_free;
 		}
 		if (err < 0) {
