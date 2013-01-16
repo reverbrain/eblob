@@ -92,8 +92,6 @@ generate_random_flags(int type)
 		 */
 		switch (rnd) {
 		case 0:
-			return 0;
-		case 1:
 			return BLOB_DISK_CTL_REMOVE;
 		default:
 			return BLOB_DISK_CTL_OVERWRITE;
