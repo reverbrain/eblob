@@ -271,6 +271,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			int want = bctl->need_sorting;
 
+			eblob_log(ctl.log, EBLOB_LOG_INFO,
+					"defrag: start type: %d, index: %d\n",
+					bctl->type, bctl->index);
+
 			if (b->need_exit) {
 				err = 0;
 				goto err_out_exit;
@@ -302,6 +306,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				default:
 					/* eblob_want_defrag() failed - rolback
 					 * to default value */
+					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+							"eblob_want_defrag: FAILED");
 					want = bctl->need_sorting;
 				}
 
