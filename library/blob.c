@@ -1566,15 +1566,26 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		struct eblob_ram_control rctl;
 		for (i = 0; i <= b->l2hash_max; ++i) {
-			if ((err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl)) != 0)
+			/* Lookup hash entry */
+			pthread_mutex_lock(&b->hash->root_lock);
+			err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl);
+			pthread_mutex_unlock(&b->hash->root_lock);
+			if (err != 0)
 				continue;
-			eblob_remove_type(b, key, rctl.bctl->type);
+
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: %s: %s: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
+					"type: %d, index: %d.\n",
+					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size,
+					rctl.bctl->type, rctl.bctl->index);
+
+			/* Remove on disk */
 			if ((err = eblob_mark_entry_removed(b, key, &rctl)) != 0)
 				goto err_out_exit;
+
+			/* If succeeded - remove from ram too */
+			eblob_remove_type(b, key, rctl.bctl->type);
 			removed = 1;
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-					"blob: %s: %s: removed block at: %" PRIu64 ", size: %" PRIu64 ".\n",
-					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size);
 		}
 	}
 
@@ -1582,22 +1593,32 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
 		if (err && !removed) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
 					eblob_dump_id(key->id), err);
 			goto err_out_exit;
 		}
 	}
+
+	assert(size % sizeof(struct eblob_ram_control) == 0);
 
 	/*
 	 * Key may be found in number of bases across many types - remove all
 	 * of them
 	 */
 	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
-		eblob_remove_type(b, key, ctl[i].bctl->type);
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				"blob: %s: %s: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
+				"type: %d, index: %d.\n",
+				eblob_dump_id(key->id), __func__, ctl[i].data_offset, ctl[i].size,
+				ctl[i].bctl->type, ctl[i].bctl->index);
+
+		/* Remove from disk */
 		if ((err = eblob_mark_entry_removed(b, key, &ctl[i])) != 0)
 			goto err_out_free;
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove_all: removed block at: %llu, size: %llu.\n",
-			eblob_dump_id(key->id), (unsigned long long)ctl[i].data_offset, (unsigned long long)ctl[i].size);
+
+		/* If succeeded - remove from ram too */
+		eblob_remove_type(b, key, ctl[i].bctl->type);
 	}
 	err = 0;
 
