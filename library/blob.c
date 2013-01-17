@@ -918,9 +918,9 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 again:
 	err = eblob_lookup_type(b, key, wc->type, &ctl, &wc->on_disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: eblob_fill_write_control_from_ram: "
-				"eblob_lookup_type: type: %d: %zd, on_disk: %d\n",
-				eblob_dump_id(key->id), wc->type, err, wc->on_disk);
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: %s: eblob_lookup_type: "
+				"type: %d: %zd, on_disk: %d\n",
+				eblob_dump_id(key->id), __func__, wc->type, err, wc->on_disk);
 		goto err_out_exit;
 	}
 
