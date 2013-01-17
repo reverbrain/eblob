@@ -1172,9 +1172,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	/* Replace unsorted bctl with sorted one */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
-	/* Remove old base */
-	eblob_base_remove(dcfg->b, unsorted_bctl);
-
 	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 
 	/* Leave mark that data file is sorted */
@@ -1344,6 +1341,9 @@ skip_merge_sort:
 	/* Unlock */
 	pthread_mutex_unlock(&dcfg->bctl->lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
+
+	/* Remove old base */
+	eblob_base_remove(dcfg->b, dcfg->bctl);
 
 	/* Cleanups */
 	if (rmdir(dcfg->dir) == -1)
