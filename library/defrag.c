@@ -285,6 +285,11 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				case 0:
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
 							"empty blob - removing.");
+					/*
+					 * TODO: It's better to also preform
+					 * minimal cleanup: unmap data/index
+					 * and close fds
+					 */
 					eblob_base_remove(b, bctl);
 					continue;
 				case 1:
@@ -295,8 +300,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				case -1:
 					break;
 				default:
-					/* NOT REACHED */
-					assert(0);
+					/* eblob_want_defrag() failed - rolback
+					 * to default value */
+					want = bctl->need_sorting;
 				}
 
 			if (want) {
