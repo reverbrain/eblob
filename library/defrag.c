@@ -269,6 +269,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		 * delete entry, and add only to the end which is safe
 		 */
 		list_for_each_entry(bctl, &t->bases, base_entry) {
+			int want = bctl->need_sorting;
+
 			if (b->need_exit) {
 				err = 0;
 				goto err_out_exit;
@@ -278,7 +280,26 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (bctl->base_entry.next == &t->bases)
 				break;
 
-			if (bctl->need_sorting) {
+			if (want == 0)
+				switch ((want = eblob_want_defrag(bctl))) {
+				case 0:
+					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+							"empty blob - removing.");
+					eblob_base_remove(b, bctl);
+					continue;
+				case 1:
+					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+							"blob fragmented - forced datasort.");
+					want = 1;
+					break;
+				case -1:
+					break;
+				default:
+					/* NOT REACHED */
+					assert(0);
+				}
+
+			if (want) {
 				struct datasort_cfg dcfg = {
 					.b = b,
 					.bctl = bctl,
