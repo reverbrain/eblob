@@ -1372,7 +1372,7 @@ err_stop:
 err_mutex:
 	datasort_destroy(dcfg);
 err:
-	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: FAILED\n");
+	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: datasort: FAILED\n");
 	dcfg->b->stat.sort_status = err;
 	return err;
 }
