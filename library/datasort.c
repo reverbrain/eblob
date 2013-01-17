@@ -483,7 +483,7 @@ static int datasort_split(struct datasort_cfg *dcfg)
 	ictl.base = dcfg->bctl;
 	ictl.log = dcfg->b->cfg.log;
 	ictl.thread_num = dcfg->thread_num;
-	ictl.flags = EBLOB_ITERATE_FLAGS_ALL;
+	ictl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_READONLY;
 	ictl.iterator_cb.iterator = datasort_split_iterator;
 	ictl.iterator_cb.iterator_init = datasort_split_iterator_init;
 	ictl.iterator_cb.iterator_free = datasort_split_iterator_free;

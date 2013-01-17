@@ -217,7 +217,7 @@ static int __unused eblob_want_defrag(struct eblob_base_ctl *bctl)
 	ctl.iterator_cb.iterator_free = NULL;
 
 	ctl.b = b;
-	ctl.flags = EBLOB_ITERATE_FLAGS_ALL;
+	ctl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_READONLY;
 
 	ctl.base = bctl;
 	ctl.priv = bctl;
