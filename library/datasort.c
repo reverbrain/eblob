@@ -357,13 +357,6 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	assert(data != NULL);
 	assert(dc->disk_size >= (uint64_t)hdr_size);
 
-	err = pthread_mutex_lock(&dcfg->lock);
-	if (err) {
-		err = -err;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-		goto err;
-	}
-
 	/*
 	 * Create new chunk if:
 	 *   - No current chunk
@@ -378,9 +371,18 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 		if (local->current == NULL) {
 			err = -EIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_add_chunk: FAILED");
-			goto err_unlock;
+			goto err;
+		}
+
+		/* Add new chunk to the unsorted list */
+		err = pthread_mutex_lock(&dcfg->lock);
+		if (err) {
+			err = -err;
+			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
+			goto err;
 		}
 		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
+		pthread_mutex_unlock(&dcfg->lock);
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
@@ -396,7 +398,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: offset_map: %" PRIu64,
 				local->current->offset_map_size * sizeof(struct datasort_offset_map));
-		goto err_unlock;
+		goto err;
 	}
 
 	/* Save unsorted position to be used by binlog_apply */
@@ -414,7 +416,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: index: %" PRIu64,
 				local->current->index_size * sizeof(struct eblob_disk_control));
-		goto err_unlock;
+		goto err;
 	}
 	local->current->index[local->current->count] = *dc;
 
@@ -423,7 +425,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	if (err != hdr_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-hdr");
-		goto err_unlock;
+		goto err;
 	}
 	local->current->offset += hdr_size;
 
@@ -432,15 +434,13 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	if (err != (ssize_t)(dc->disk_size - hdr_size)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-data");
-		goto err_unlock;
+		goto err;
 	}
 
 	local->current->offset += dc->disk_size - hdr_size;
 	local->current->count++;
 	err = 0;
 
-err_unlock:
-	pthread_mutex_unlock(&dcfg->lock);
 err:
 	return err;
 }
