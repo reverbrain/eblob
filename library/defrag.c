@@ -235,10 +235,14 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	else
 		err = -1;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: index: %d, type: %d, removed: %d, total: %d, percentage: %d, want-defrag: %d\n",
-			bctl->index, bctl->type, removed, total, b->cfg.defrag_percentage, err);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			"%s: index: %d, type: %d, removed: %d, total: %d, "
+			"percentage: %d, want-defrag: %d\n",
+			__func__, bctl->index, bctl->type, removed, total,
+			b->cfg.defrag_percentage, err);
 
 err_out_exit:
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "%s: finished: %d", __func__, err);
 	return err;
 }
 
