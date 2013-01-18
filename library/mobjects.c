@@ -946,6 +946,7 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 	}
 
 	if (err) {
+		free(rc);
 		err = eblob_disk_index_lookup(b, key, type, &rc, &size);
 		if (err)
 			goto err_out_exit;
