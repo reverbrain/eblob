@@ -923,8 +923,16 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 
 	/* If l2hash is enabled - look in it first */
 	pthread_mutex_lock(&b->hash->root_lock);
-	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max)
+	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max) {
 		err = eblob_l2hash_lookup(b->l2hash[type], key, res);
+		if (err != 0 && err != -ENOENT) {
+			pthread_mutex_unlock(&b->hash->root_lock);
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
+					eblob_dump_id(key->id), __func__, type, err);
+			goto err_out_exit;
+		}
+	}
 	pthread_mutex_unlock(&b->hash->root_lock);
 
 	if (err) {

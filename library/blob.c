@@ -1570,7 +1570,13 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 			pthread_mutex_lock(&b->hash->root_lock);
 			err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl);
 			pthread_mutex_unlock(&b->hash->root_lock);
-			if (err != 0)
+			if (err != 0 && err != -ENOENT) {
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
+						eblob_dump_id(key->id), __func__, i, err);
+				goto err_out_exit;
+			}
+			if (err == -ENOENT)
 				continue;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
