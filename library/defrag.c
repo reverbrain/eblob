@@ -199,7 +199,7 @@ static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_co
  *	0: no entiries in blob
  *	-1: no defrag needed
  */
-static int __unused eblob_want_defrag(struct eblob_base_ctl *bctl)
+static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	struct eblob_iterate_control ctl;
@@ -283,7 +283,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			/* do not process last entry, it can be used for writing */
 			if (bctl->base_entry.next == &t->bases)
 				break;
-
+#if 0
 			if (want == 0)
 				switch ((want = eblob_want_defrag(bctl))) {
 				case 0:
@@ -310,6 +310,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 							"eblob_want_defrag: FAILED");
 					want = bctl->need_sorting;
 				}
+#endif
 
 			if (want) {
 				struct datasort_cfg dcfg = {
