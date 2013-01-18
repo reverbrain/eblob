@@ -105,12 +105,16 @@ void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLO
 static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int len, char *dst)
 {
 	unsigned int i;
+	static const char hex[] = "0123456789abcdef";
 
 	if (len > EBLOB_ID_SIZE)
 		len = EBLOB_ID_SIZE;
 
-	for (i=0; i<len; ++i)
-		sprintf(&dst[2*i], "%02x", id[i]);
+	for (i=0; i<len; ++i) {
+		dst[2*i  ] = hex[id[i] >>  4];
+		dst[2*i+1] = hex[id[i] & 0xf];
+	}
+	dst[len * 2] = '\0';
 	return dst;
 }
 
