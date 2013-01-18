@@ -138,6 +138,7 @@ struct eblob_base_ctl {
 
 	/* Number of valid non-removed entries */
 	int			good;
+
 	/*
 	 * If this pointer is not NULL then all operations for this base go
 	 * through a binlog.
