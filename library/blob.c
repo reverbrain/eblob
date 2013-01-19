@@ -1513,7 +1513,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			/* We have overwritten old data - go out */
 			goto err_out_exit;
 		else if (!(err == -E2BIG || err == -ENOENT))
-			/* Unknown error occured during rewrite */
+			/* Unknown error occurred during rewrite */
 			goto err_out_exit;
 
 		/* it could be modified if EBLOB_DISK_CTL_APPEND flag is set */
