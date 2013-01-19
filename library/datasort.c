@@ -1246,6 +1246,14 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
 			goto err_mutex;
 		}
+
+		/*
+		 * Grace period for that we assume all pending writes are
+		 * finished.
+		 * This is needed because we use double-check-locking inside
+		 * eblob_write_binlog().
+		 */
+		sleep(EBLOB_DATASORT_GRACE_PERIOD);
 	} else {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for datasort");
 	}

@@ -26,6 +26,9 @@
 /* Suffix for flag-file that is created after data is sorted */
 #define EBLOB_DATASORT_SORTED_MARK_SUFFIX	".data_is_sorted"
 
+/* Grace period between binlog and datasort */
+#define EBLOB_DATASORT_GRACE_PERIOD		(10)
+
 /* Mapping between key and old offset needed by binlog */
 struct datasort_offset_map {
 	struct eblob_key	key;
