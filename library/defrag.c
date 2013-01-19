@@ -287,8 +287,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			}
 
 			/* do not process last entry, it can be used for writing */
-			if (bctl->base_entry.next == &t->bases)
+			if (list_is_last(&bctl->base_entry, &t->bases))
 				break;
+
 #if 0
 			if (want == 0)
 				switch ((want = eblob_want_defrag(bctl))) {
