@@ -193,7 +193,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 	int err, full_len;
 	char *full;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: started\n", __func__);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: started: %s\n", __func__, name);
 
 	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
 	full = malloc(full_len);
@@ -202,30 +202,12 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		goto err_out_exit;
 	}
 
-	err = pthread_mutex_init(&ctl->lock, NULL);
-	if (err) {
-		err = -err;
-		goto err_out_free;
-	}
-
-	err = pthread_mutex_init(&ctl->dlock, NULL);
-	if (err) {
-		err = -err;
-		goto err_out_destroy_lock;
-	}
-
-	ctl->index_blocks_root.rb_node = NULL;
-	err = pthread_mutex_init(&ctl->index_blocks_lock, NULL);
-	if (err) {
-		err = -err;
-		goto err_out_destroy_dlock;
-	}
-
 	sprintf(full, "%s/%s", dir_base, name);
+
 	ctl->data_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 	if (ctl->data_fd < 0) {
 		err = -errno;
-		goto err_out_destroy_index_lock;
+		goto err_out_free;
 	}
 
 	err = eblob_base_setup_data(ctl, 0);
@@ -355,12 +337,6 @@ err_out_unmap:
 	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
 	close(ctl->data_fd);
-err_out_destroy_index_lock:
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
-err_out_destroy_dlock:
-	pthread_mutex_destroy(&ctl->dlock);
-err_out_destroy_lock:
-	pthread_mutex_destroy(&ctl->lock);
 err_out_free:
 	free(full);
 err_out_exit:
@@ -408,6 +384,51 @@ err_out_free_src:
 	free(src);
 err_out_exit:
 	return err;
+}
+
+/**
+ * eblob_base_ctl_new() - allocates and initializes base ctl to default values.
+ */
+struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
+		const char *name, int name_len)
+{
+	struct eblob_base_ctl *ctl;
+
+	ctl = calloc(1, sizeof(struct eblob_base_ctl) + name_len + 1);
+	if (ctl == NULL)
+		goto err_out;
+
+	ctl->back = b;
+
+	ctl->old_data_fd = ctl->old_index_fd = -1;
+
+	ctl->type = type;
+	ctl->index = index;
+
+	ctl->sort.fd = -1;
+
+	memcpy(ctl->name, name, name_len);
+	ctl->name[name_len] = '\0';
+
+	if (pthread_mutex_init(&ctl->lock, NULL))
+		goto err_out_free;
+
+	if (pthread_mutex_init(&ctl->dlock, NULL))
+		goto err_out_destroy_lock;
+
+	if (pthread_mutex_init(&ctl->index_blocks_lock, NULL))
+		goto err_out_destroy_dlock;
+
+	return ctl;
+
+err_out_destroy_dlock:
+	pthread_mutex_destroy(&ctl->dlock);
+err_out_destroy_lock:
+	pthread_mutex_destroy(&ctl->lock);
+err_out_free:
+	free(ctl);
+err_out:
+	return NULL;
 }
 
 static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
@@ -477,28 +498,9 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 		goto err_out_free_format;
 
 found:
-	ctl = malloc(sizeof(struct eblob_base_ctl) + name_len + 1);
-	if (!ctl) {
-		err = -ENOMEM;
+	ctl = eblob_base_ctl_new(b, type, index, name, name_len);
+	if (ctl == NULL)
 		goto err_out_free_format;
-	}
-	memset(ctl, 0, sizeof(struct eblob_base_ctl));
-
-	ctl->back = b;
-
-	ctl->old_data_fd = -1;
-	ctl->old_index_fd = -1;
-
-	ctl->type = type;
-	ctl->index = index;
-
-	ctl->sort.fd = -1;
-
-	ctl->data_offset = 0;
-	ctl->index_offset = 0;
-
-	memcpy(ctl->name, name, name_len);
-	ctl->name[name_len] = '\0';
 
 	tmp_len = snprintf(tmp, sizeof(tmp), "%s-%d.%d", base, type, index);
 	if (tmp_len != name_len) {
@@ -522,6 +524,9 @@ found:
 	return ctl;
 
 err_out_free_ctl:
+	pthread_mutex_destroy(&ctl->lock);
+	pthread_mutex_destroy(&ctl->dlock);
+	pthread_mutex_destroy(&ctl->index_blocks_lock);
 	free(ctl);
 err_out_free_format:
 	free(format);
@@ -1091,10 +1096,10 @@ int eblob_load_data(struct eblob_backend *b)
 	return eblob_iterate_existing(b, &ctl, &b->types, &b->max_type);
 }
 
-/*
+/**
  * eblob_add_new_base_ll() - sequentially tries bases until it finds unused one.
  */
-struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type)
+static struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type)
 {
 	struct eblob_base_type *t;
 	struct eblob_base_ctl *ctl;
@@ -1102,23 +1107,9 @@ struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type)
 	char *dir_base, *tmp, name[64];
 	const char *base;
 
-	if (b == NULL || type < 0)
-		return NULL;
-
-	if (type > b->max_type) {
-		struct eblob_base_type *types;
-
-		/*
-		 * +1 here means we will copy old types from 0 to b->max_type (inclusive),
-		 * and create new types from b->max_type+1 upto type (again inclusive)
-		 */
-		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
-		if (!types)
-			return NULL;
-
-		b->types = types;
-		b->max_type = type;
-	}
+	assert(b != NULL);
+	assert(type >= 0);
+	assert(type <= b->max_type);
 
 	t = &b->types[type];
 	base = eblob_get_base(b->cfg.file);
@@ -1147,18 +1138,38 @@ try_again:
 		/* FALLTHROUGH */
 	}
 
-err_out_free:
 	free(dir_base);
 	return ctl;
 }
 
-/*
- * eblob_add_new_base() - creates new base and adds it to the list of bases
+/**
+ * eblob_add_new_base() - relocates base type array, creates new base and adds
+ * it to the list of bases
  */
 int eblob_add_new_base(struct eblob_backend *b, int type)
 {
 	struct eblob_base_ctl *ctl;
 	int err = 0;
+
+	if (b == NULL || type < 0)
+		return -EINVAL;
+
+	if (type > b->max_type) {
+		struct eblob_base_type *types;
+
+		/*
+		 * +1 here means we will copy old types from 0 to b->max_type (inclusive),
+		 * and create new types from b->max_type+1 upto type (again inclusive)
+		 */
+		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
+		if (types == NULL) {
+			err = -ENOMEM;
+			goto err_out_exit;
+		}
+
+		b->types = types;
+		b->max_type = type;
+	}
 
 	if ((ctl = eblob_add_new_base_ll(b, type)) == NULL) {
 		err = -ENOMEM;

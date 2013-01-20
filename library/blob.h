@@ -226,7 +226,6 @@ struct eblob_backend {
 	uint64_t		current_blob_size;
 };
 
-struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int type);
 int eblob_add_new_base(struct eblob_backend *b, int type);
 int eblob_load_data(struct eblob_backend *b);
 void eblob_base_types_cleanup(struct eblob_backend *b);
@@ -286,6 +285,9 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 
 void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
+
+struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
+		const char *name, int name_len);
 
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \

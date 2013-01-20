@@ -101,6 +101,8 @@ struct datasort_cfg {
 	struct eblob_log		*log;
 	/* Pointer to base control */
 	struct eblob_base_ctl		*bctl;
+	/* Pointer to sorted bctl */
+	struct eblob_base_ctl		*sorted_bctl;
 };
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
