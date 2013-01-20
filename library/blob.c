@@ -1161,6 +1161,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		}
 	}
 
+	assert(ctl->sorted != 1);
 
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
