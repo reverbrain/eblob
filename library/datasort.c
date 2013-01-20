@@ -1009,14 +1009,16 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 
 	/* Add new base */
 	if ((sorted_bctl = eblob_add_new_base_ll(dcfg->b, unsorted_bctl->type)) == NULL) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_add_new_base_ll: FAILED");
+		err = -EIO;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_add_new_base_ll: FAILED");
 		goto err;
 	}
 
 	/* Construct index pathes */
 	if (datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX) != 0) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_base_get_path: FAILED");
-		goto err;
+		err = -ENOMEM;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");
+		goto err_remove_base;
 	}
 	snprintf(mark_path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, data_path);
 	snprintf(index_path, PATH_MAX, "%s.index", data_path);
@@ -1032,8 +1034,9 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	index.size = dcfg->result->count * sizeof(struct eblob_disk_control);
 	index.fd = open(tmp_index_path, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
 	if (index.fd == -1) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "open: %s", tmp_index_path);
-		goto err;
+		err = -errno;
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", tmp_index_path);
+		goto err_remove_base;
 	}
 
 	/* Preallocate space for index */
@@ -1041,7 +1044,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 				"eblob_preallocate: fd: %d, size: %" PRIu64, index.fd, index.size);
-		goto err;
+		goto err_remove_base;
 	}
 
 	/* mmap index */
@@ -1050,7 +1053,7 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"eblob_data_map: fd: %d, size: %" PRIu64, index.fd, index.size);
-			goto err;
+			goto err_remove_base;
 		}
 
 		/* Save index on disk */
@@ -1187,8 +1190,11 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 
 err_unmap:
 	eblob_data_unmap(&index);
+err_remove_base:
+	eblob_base_ctl_cleanup(sorted_bctl);
+	eblob_base_remove(dcfg->b, sorted_bctl);
 err:
-	return -EIO;
+	return err;
 }
 
 /*
