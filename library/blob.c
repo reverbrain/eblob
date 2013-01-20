@@ -70,6 +70,32 @@ int eblob_get_index_fd(struct eblob_base_ctl *bctl)
 }
 
 /**
+ * eblob_bctl_hold() - prevents iterators from seeing inconsistent data state.
+ */
+static void eblob_bctl_hold(struct eblob_base_ctl *bctl)
+{
+	assert(bctl != 0);
+	assert(bctl->critness >= 0);
+
+	pthread_mutex_lock(&bctl->lock);
+	bctl->critness++;
+	pthread_mutex_unlock(&bctl->lock);
+}
+
+/**
+ * eblob_bctl_release() - allows iterators to proceed
+ */
+static void eblob_bctl_release(struct eblob_base_ctl *bctl)
+{
+	assert(bctl != 0);
+	assert(bctl->critness > 0);
+
+	pthread_mutex_lock(&bctl->lock);
+	bctl->critness--;
+	pthread_mutex_unlock(&bctl->lock);
+}
+
+/**
  * eblob_write_binlog() - Low-level write function that passes all requests to
  * binlog
  */
@@ -90,9 +116,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		return -EINVAL;
 
 	/* Do not allow datasort to kick in in the middle of write */
-	pthread_mutex_lock(&bctl->lock);
-	bctl->critness++;
-	pthread_mutex_unlock(&bctl->lock);
+	eblob_bctl_hold(bctl);
 
 	/* Shortcut */
 	b = bctl->back;
@@ -161,9 +185,7 @@ skip_binlog:
 
 err_unlock:
 	/* Allow datasort to start */
-	pthread_mutex_lock(&bctl->lock);
-	bctl->critness--;
-	pthread_mutex_unlock(&bctl->lock);
+	eblob_bctl_release(bctl);
 
 	return err;
 }
