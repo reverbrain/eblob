@@ -40,6 +40,32 @@
 #include "datasort.h"
 
 /**
+ * datasort_wait_locked() - wait until number of bctl users inside critical
+ * region reaches zero.
+ * NB! To avoid race conditions bctl remains locked.
+ */
+static void datasort_wait_locked(struct eblob_base_ctl *bctl)
+{
+	assert(bctl != NULL);
+
+	for (;;) {
+		pthread_mutex_lock(&bctl->lock);
+		if (bctl->critness == 0)
+			return;
+		pthread_mutex_unlock(&bctl->lock);
+	}
+}
+
+/**
+ * datasort_wait() - wait until all pending writes are finished.
+ */
+static void datasort_wait(struct eblob_base_ctl *bctl)
+{
+	datasort_wait_locked(bctl);
+	pthread_mutex_unlock(&bctl->lock);
+}
+
+/**
  * datasort_reallocf() - reallocates array @datap of @sizep elements with size
  * of @elsize.
  * Reallocation takes place only if @position is greater that current size
@@ -1246,17 +1272,12 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
 			goto err_mutex;
 		}
-
-		/*
-		 * Grace period for that we assume all pending writes are
-		 * finished.
-		 * This is needed because we use double-check-locking inside
-		 * eblob_write_binlog().
-		 */
-		sleep(EBLOB_DATASORT_GRACE_PERIOD);
 	} else {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for datasort");
 	}
+
+	/* Wait until all pending writes are finished */
+	datasort_wait(dcfg->bctl);
 
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
@@ -1305,15 +1326,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 skip_merge_sort:
 	/* Lock backend */
-	if ((err = pthread_mutex_lock(&dcfg->b->lock)) != 0) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
-		goto err_unlink;
-	}
-	/* Lock base */
-	if ((err = pthread_mutex_lock(&dcfg->bctl->lock)) != 0) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock: %s", dcfg->dir);
-		goto err_unlock_b;
-	}
+	pthread_mutex_lock(&dcfg->b->lock);
+	/* Wait for pending writes and lock bctl */
+	datasort_wait_locked(dcfg->bctl);
 
 	/*
 	 * Rewind all records that have been modified since datasort was
@@ -1365,9 +1380,7 @@ skip_merge_sort:
 
 err_unlock_bctl:
 	pthread_mutex_unlock(&dcfg->bctl->lock);
-err_unlock_b:
 	pthread_mutex_unlock(&dcfg->b->lock);
-err_unlink:
 	datasort_destroy_chunk(dcfg, dcfg->result);
 err_rmdir:
 	if (rmdir(dcfg->dir) == -1)

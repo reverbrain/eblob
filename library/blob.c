@@ -78,7 +78,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 {
 	struct eblob_backend *b;
 	struct eblob_binlog_ctl binctl;
-	int binlog = 0, err, locked = 0;
+	int binlog = 0, err;
 
 	assert(bctl != NULL);
 	assert(bctl->back != NULL);
@@ -89,25 +89,16 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 	if (fd < 0)
 		return -EINVAL;
 
+	/* Do not allow datasort to kick in in the middle of write */
+	pthread_mutex_lock(&bctl->lock);
+	bctl->critness++;
+	pthread_mutex_unlock(&bctl->lock);
+
 	/* Shortcut */
 	b = bctl->back;
 
-	/* Double-check locking on SMP requires explicit barrier */
-	__sync_synchronize();
+	/* If binlog is requested */
 	if (bctl->binlog != NULL) {
-		pthread_mutex_lock(&bctl->lock);
-		locked = 1;
-
-		/*
-		 * Check that binlog is still enabled for this bctl
-		 */
-		if (bctl->binlog == NULL) {
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-					"blob: binlog: %s: %s: disappeared\n",
-					eblob_dump_id(key->id), __func__);
-			goto skip_binlog;
-		}
-
 		/* Fill binlog entry */
 		memset(&binctl, 0, sizeof(struct eblob_binlog_ctl));
 
@@ -116,6 +107,9 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 			 * We do not need to save index modifications to binlog
 			 * because they are mirrored to blob header
 			 */
+			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+					"%s: %s: index write - skipping binlog: %d\n",
+					eblob_dump_id(key->id), __func__, fd);
 			goto skip_binlog;
 		} else if (fd == bctl->data_fd) {
 			binctl.type = EBLOB_BINLOG_TYPE_RAW_DATA;
@@ -127,7 +121,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 		binctl.cfg = bctl->binlog;
 		binctl.key = key;
 		binctl.meta = &offset;
-		binctl.meta_size = sizeof(uint64_t);
+		binctl.meta_size = sizeof(offset);
 		binctl.data = data;
 		binctl.data_size = size;
 
@@ -166,8 +160,11 @@ skip_binlog:
 	}
 
 err_unlock:
-	if (locked)
-		pthread_mutex_unlock(&bctl->lock);
+	/* Allow datasort to start */
+	pthread_mutex_lock(&bctl->lock);
+	bctl->critness--;
+	pthread_mutex_unlock(&bctl->lock);
+
 	return err;
 }
 

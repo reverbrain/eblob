@@ -139,11 +139,15 @@ struct eblob_base_ctl {
 	/* Number of valid non-removed entries */
 	int			good;
 
+	/* Number of bctl users inside a critical section */
+	int			critness;
+
 	/*
 	 * If this pointer is not NULL then all operations for this base go
 	 * through a binlog.
 	 */
-	struct eblob_binlog_cfg	*volatile binlog;
+	struct eblob_binlog_cfg	*binlog;
+
 	/*
 	 * Is data in blob sorted?
 	 * 1 if sorted
