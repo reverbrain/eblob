@@ -70,6 +70,32 @@ int eblob_get_index_fd(struct eblob_base_ctl *bctl)
 }
 
 /**
+ * eblob_base_wait_locked() - wait until number of bctl users inside critical
+ * region reaches zero.
+ * NB! To avoid race conditions bctl remains locked.
+ */
+void eblob_base_wait_locked(struct eblob_base_ctl *bctl)
+{
+	assert(bctl != NULL);
+
+	for (;;) {
+		pthread_mutex_lock(&bctl->lock);
+		if (bctl->critness == 0)
+			return;
+		pthread_mutex_unlock(&bctl->lock);
+	}
+}
+
+/**
+ * eblob_base_wait() - wait until all pending writes are finished.
+ */
+void eblob_base_wait(struct eblob_base_ctl *bctl)
+{
+	eblob_base_wait_locked(bctl);
+	pthread_mutex_unlock(&bctl->lock);
+}
+
+/**
  * eblob_bctl_hold() - prevents iterators from seeing inconsistent data state.
  */
 static void eblob_bctl_hold(struct eblob_base_ctl *bctl)
@@ -115,7 +141,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 	if (fd < 0)
 		return -EINVAL;
 
-	/* Do not allow datasort to kick in in the middle of write */
+	/* Do not allow iterator to kick in in the middle of write */
 	eblob_bctl_hold(bctl);
 
 	/* Shortcut */
@@ -326,7 +352,8 @@ static void *eblob_blob_iterator(void *data)
 	loc.iter_priv = iter_priv;
 
 	while (ctl->thread_num > 0) {
-		pthread_mutex_lock(&bc->lock);
+		/* Wait until all pending writes are finished and lock */
+		eblob_base_wait_locked(bc);
 
 		if (!ctl->thread_num) {
 			err = 0;
@@ -1423,6 +1450,9 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 	if (err < 0)
 		goto err_out_exit;
 
+	/* Do not allow iterator in the middle of overwrite */
+	eblob_bctl_hold(wc->bctl);
+
 	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) && (b->cfg.blob_flags & EBLOB_OVERWRITE_COMMITS)) {
 		wc->size = size;
 		wc->total_data_size = wc->offset + wc->size;
@@ -1430,18 +1460,21 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
-		goto err_out_exit;
+		goto err_out_release;
 
 	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, data, wc->size, wc->data_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_binlog", err);
-		goto err_out_exit;
+		goto err_out_release;
 	}
 
 	err = eblob_write_commit_nolock(b, key, NULL, 0, wc);
 	if (err)
-		goto err_out_exit;
+		goto err_out_release;
 
+err_out_release:
+	/* Allow iterator to proceed */
+	eblob_bctl_release(wc->bctl);
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 	return err;

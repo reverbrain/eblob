@@ -39,31 +39,6 @@
 #include "binlog.h"
 #include "datasort.h"
 
-/**
- * datasort_wait_locked() - wait until number of bctl users inside critical
- * region reaches zero.
- * NB! To avoid race conditions bctl remains locked.
- */
-static void datasort_wait_locked(struct eblob_base_ctl *bctl)
-{
-	assert(bctl != NULL);
-
-	for (;;) {
-		pthread_mutex_lock(&bctl->lock);
-		if (bctl->critness == 0)
-			return;
-		pthread_mutex_unlock(&bctl->lock);
-	}
-}
-
-/**
- * datasort_wait() - wait until all pending writes are finished.
- */
-static void datasort_wait(struct eblob_base_ctl *bctl)
-{
-	datasort_wait_locked(bctl);
-	pthread_mutex_unlock(&bctl->lock);
-}
 
 /**
  * datasort_reallocf() - reallocates array @datap of @sizep elements with size
@@ -1276,9 +1251,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for datasort");
 	}
 
-	/* Wait until all pending writes are finished */
-	datasort_wait(dcfg->bctl);
-
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
 	if (dcfg->dir == NULL) {
@@ -1328,7 +1300,7 @@ skip_merge_sort:
 	/* Lock backend */
 	pthread_mutex_lock(&dcfg->b->lock);
 	/* Wait for pending writes and lock bctl */
-	datasort_wait_locked(dcfg->bctl);
+	eblob_base_wait_locked(dcfg->bctl);
 
 	/*
 	 * Rewind all records that have been modified since datasort was
