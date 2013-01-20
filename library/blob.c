@@ -1618,6 +1618,9 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	if (b == NULL || key == NULL)
 		return -EINVAL;
 
+	/* Lock whole blob so eblob_remove_all looks atomic */
+	pthread_mutex_lock(&b->lock);
+
 	/* FIXME: l2hash does not support O(1) remove_all */
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		struct eblob_ram_control rctl;
@@ -1687,6 +1690,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 err_out_free:
 	free(ctl);
 err_out_exit:
+	pthread_mutex_unlock(&b->lock);
 	return err;
 }
 
