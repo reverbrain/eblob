@@ -1122,16 +1122,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	/* Populate sorted index blocks */
 	eblob_index_blocks_fill(sorted_bctl);
 
-	/* We don't need 'em anymore */
-	err = eblob_pagecache_hint(unsorted_bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: data: %d", unsorted_bctl->data_fd);
-	err = eblob_pagecache_hint(unsorted_bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: index: %d", unsorted_bctl->index_fd);
-
 	/*
 	 * Original file created by mkstemp may have too restrictive
 	 * permissions for use.
@@ -1167,17 +1157,29 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 			dcfg->result->path, data_path,
 			sorted_bctl->data_fd, unsorted_bctl->data_fd,
 			sorted_bctl->index_fd, unsorted_bctl->index_fd);
+
+	/* Replace unsorted bctl with sorted one */
+	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
+
+	/* Unlock hash */
+	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
+
+	/* We don't need 'em anymore */
+	err = eblob_pagecache_hint(unsorted_bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: data: %d", unsorted_bctl->data_fd);
+	err = eblob_pagecache_hint(unsorted_bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: index: %d", unsorted_bctl->index_fd);
+
 	/*
 	 * Cleanup unsorted base
 	 */
 	if (_eblob_base_ctl_cleanup(unsorted_bctl) != 0)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
 				"_eblob_base_ctl_cleanup: FAILED");
-
-	/* Replace unsorted bctl with sorted one */
-	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
-
-	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 
 	/* Leave mark that data file is sorted */
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
