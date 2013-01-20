@@ -1136,7 +1136,8 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	 * Original file created by mkstemp may have too restrictive
 	 * permissions for use.
 	 *
-	 * FIXME: Copy permissions from original file
+	 * TODO: Copy permissions from original file
+	 * FIXME: File move to separate subroutine
 	 */
 	if (fchmod(dcfg->result->fd, 0644) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "fchmod: %d", dcfg->result->fd);
@@ -1182,9 +1183,8 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
 		if (close(err) == -1)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "close: %d", err);
-	} else {
+	} else
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mark: %s", mark_path);
-	}
 
 	return 0;
 
