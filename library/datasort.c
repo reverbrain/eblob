@@ -978,6 +978,40 @@ int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
 	/* NOT REACHED */
 }
 
+/**
+ * datasort_cleanup_remove_base() - remove processed base from disk and
+ * cleanup memory structures.
+ */
+static void datasort_cleanup_remove_base(struct eblob_backend *b,
+		struct eblob_base_ctl *bctl)
+{
+	int err;
+
+	assert(bctl == NULL);
+	assert(b == NULL);
+
+	/* We don't need 'em anymore */
+	err = eblob_pagecache_hint(bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: data: %d", bctl->data_fd);
+
+	err = eblob_pagecache_hint(bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+	if (err)
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+				"eblob_pagecache_hint: index: %d", bctl->index_fd);
+
+	/*
+	 * Cleanup unsorted base
+	 */
+	if ((err = _eblob_base_ctl_cleanup(bctl)) != 0)
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, err,
+				"_eblob_base_ctl_cleanup: FAILED");
+
+	/* Remove old base */
+	eblob_base_remove(b, bctl);
+}
+
 /*
  * Swaps original base with new shiny sorted one.
  *
@@ -1164,23 +1198,6 @@ static int datasort_swap(struct datasort_cfg *dcfg)
 	/* Unlock hash */
 	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
 
-	/* We don't need 'em anymore */
-	err = eblob_pagecache_hint(unsorted_bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: data: %d", unsorted_bctl->data_fd);
-	err = eblob_pagecache_hint(unsorted_bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
-	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"eblob_pagecache_hint: index: %d", unsorted_bctl->index_fd);
-
-	/*
-	 * Cleanup unsorted base
-	 */
-	if (_eblob_base_ctl_cleanup(unsorted_bctl) != 0)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
-				"_eblob_base_ctl_cleanup: FAILED");
-
 	/* Leave mark that data file is sorted */
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
 		if (close(err) == -1)
@@ -1345,8 +1362,8 @@ skip_merge_sort:
 	pthread_mutex_unlock(&dcfg->bctl->lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
 
-	/* Remove old base */
-	eblob_base_remove(dcfg->b, dcfg->bctl);
+	/* Remove sorted base and cleanups */
+	datasort_cleanup_remove_base(dcfg->b, dcfg->bctl);
 
 	/* Cleanups */
 	if (rmdir(dcfg->dir) == -1)
