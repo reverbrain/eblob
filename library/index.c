@@ -14,7 +14,7 @@
  */
 
 /*
- * Each base has index represented by continious array of disk control
+ * Each base has index represented by continuous array of disk control
  * structures.
  * Each "closed" base has sorted on-disk index for logarithmic search via
  * bsearch(3)
@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -648,10 +649,11 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->size = dc->data_size;
 			r->bctl = bctl;
 
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
-					"position: %llu, data_size: %llu\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: %s: index: disk: index: %d, type: %d, "
+					"position: %" PRIu64 ", data_size: %" PRIu64 "\n",
 					eblob_dump_id(key->id), r->bctl->index, r->bctl->type,
-					(unsigned long long)r->data_offset, (unsigned long long)r->size);
+					r->data_offset, r->size);
 
 			eblob_convert_disk_control(dc);
 			err = 0;
@@ -668,7 +670,8 @@ out_unlock:
 				goto err_out_exit;
 		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				"%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
 				"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
 				eblob_dump_id(key->id),	i, st.range_has_key, st.bloom_null,
 				st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);
