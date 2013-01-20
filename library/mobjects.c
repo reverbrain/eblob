@@ -1144,7 +1144,7 @@ try_again:
 			 */
 			goto try_again;
 		}
-		goto err_out_free;
+		/* FALLTHROUGH */
 	}
 
 err_out_free:
