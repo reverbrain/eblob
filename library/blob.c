@@ -98,7 +98,7 @@ void eblob_base_wait(struct eblob_base_ctl *bctl)
 /**
  * eblob_bctl_hold() - prevents iterators from seeing inconsistent data state.
  */
-static void eblob_bctl_hold(struct eblob_base_ctl *bctl)
+void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 {
 	assert(bctl != 0);
 	assert(bctl->critness >= 0);
@@ -111,7 +111,7 @@ static void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 /**
  * eblob_bctl_release() - allows iterators to proceed
  */
-static void eblob_bctl_release(struct eblob_base_ctl *bctl)
+void eblob_bctl_release(struct eblob_base_ctl *bctl)
 {
 	assert(bctl != 0);
 	assert(bctl->critness > 0);
@@ -1615,6 +1615,9 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 	unsigned int size;
 	int err, i, on_disk, removed = 0;
 
+	if (b == NULL || key == NULL)
+		return -EINVAL;
+
 	/* FIXME: l2hash does not support O(1) remove_all */
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		struct eblob_ram_control rctl;
@@ -1625,7 +1628,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 			pthread_mutex_unlock(&b->hash->root_lock);
 			if (err != 0 && err != -ENOENT) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
+						"blob: %s: %s: l2hash lookup: FAILED: type: %d: %d.\n",
 						eblob_dump_id(key->id), __func__, i, err);
 				goto err_out_exit;
 			}
@@ -1633,7 +1636,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 				continue;
 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-					"blob: %s: %s: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
+					"blob: %s: %s: l2hash: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
 					"type: %d, index: %d.\n",
 					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size,
 					rctl.bctl->type, rctl.bctl->index);
@@ -1653,8 +1656,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
 		if (err && !removed) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"blob: %s: eblob_remove_all: eblob_disk_index_lookup: all-types: %d.\n",
-					eblob_dump_id(key->id), err);
+					"blob: %s: %s: hash: eblob_disk_index_lookup: all-types: %d.\n",
+					eblob_dump_id(key->id), __func__, err);
 			goto err_out_exit;
 		}
 	}

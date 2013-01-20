@@ -284,6 +284,9 @@ int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);
 void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 
+void eblob_bctl_hold(struct eblob_base_ctl *bctl);
+void eblob_bctl_release(struct eblob_base_ctl *bctl);
+
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
 		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);

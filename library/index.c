@@ -583,7 +583,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	*dst = NULL;
 	*dsize = 0;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: index: disk: type: %d, max_type: %d\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+			"blob: %s: index: disk: type: %d, max_type: %d\n",
 			eblob_dump_id(key->id),	type, b->max_type);
 
 	if (type >= 0) {
@@ -611,7 +612,9 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			if (bctl->sort.fd < 0)
 				continue;
 
-			pthread_mutex_lock(&bctl->lock);
+			/* Protect against datasort */
+			eblob_bctl_hold(bctl);
+
 			if (bctl->sort.fd < 0) {
 				err = -ENOENT;
 				goto out_unlock;
@@ -620,7 +623,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 			if (!dc) {
 				err = -ENOENT;
-				eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
+				eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+						"blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
 				goto out_unlock;
 			}
@@ -652,7 +656,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			eblob_convert_disk_control(dc);
 			err = 0;
 out_unlock:
-			pthread_mutex_unlock(&bctl->lock);
+			eblob_bctl_release(bctl);
 
 			if (err == -ENOENT)
 				continue;
