@@ -625,10 +625,12 @@ static int eblob_mark_entry_removed_purge(struct eblob_backend *b,
 	/* Protect against datasort */
 	eblob_bctl_hold(old->bctl);
 
+	/* Remove from disk blob and index */
 	err = eblob_mark_entry_removed(b, key, old);
 	if (err)
 		goto err;
 
+	/* Remove from memory */
 	err = eblob_remove_type(b, key, old->bctl->type);
 	if (err != 0 && err != -ENOENT) {
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_NOTICE, -err,
