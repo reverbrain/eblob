@@ -1115,11 +1115,6 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/* Populate sorted index blocks */
 	eblob_index_blocks_fill(sorted_bctl);
 
-	/* Fail all pending writes */
-	unsorted_bctl->index_fd = -1;
-	unsorted_bctl->data_fd = -1;
-	unsorted_bctl->sort.fd = -1;
-
 	/* Replace unsorted bctl with sorted one */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
@@ -1218,11 +1213,12 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "mark: %s", mark_path);
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
-			"%s: swapped: data: %s -> %s, "
+			"swapped: data: %s -> %s, "
 			"data_fd: %d -> %d, index_fd: %d -> %d",
-			__func__, dcfg->result->path, data_path,
+			dcfg->result->path, data_path,
 			sorted_bctl->data_fd, unsorted_bctl->data_fd,
-			sorted_bctl->index_fd, unsorted_bctl->index_fd);
+			eblob_get_index_fd(sorted_bctl),
+			eblob_get_index_fd(unsorted_bctl));
 	return 0;
 
 err:
@@ -1230,14 +1226,14 @@ err:
 }
 
 /**
- * datasort_cleanup() - performs "slow" cleanups that do not require locks
- * being held.
+ * datasort_cleanup() - performs "slow" cleanups.
  */
 static void datasort_cleanup(struct datasort_cfg *dcfg)
 {
 	int err;
 
 	assert(dcfg != NULL);
+	assert(dcfg->bctl != NULL);
 
 	/* Remove unsorted base and cleanup */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
@@ -1403,6 +1399,12 @@ skip_merge_sort:
 		abort();
 	}
 
+	/*
+	 * Preform cleanups
+	 * TODO: Move the out of the lock.
+	 */
+	datasort_cleanup(dcfg);
+
 	/* Now we can disable binlog */
 	if (dcfg->use_binlog) {
 		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
@@ -1418,9 +1420,6 @@ skip_merge_sort:
 	/* Unlock */
 	pthread_mutex_unlock(&dcfg->bctl->lock);
 	pthread_mutex_unlock(&dcfg->b->lock);
-
-	/* Preform long operations that were skipped by swap() */
-	datasort_cleanup(dcfg);
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
 	dcfg->b->stat.sort_status = 0;
