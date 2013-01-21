@@ -554,13 +554,13 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 {
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: i%d, t%d: %s: position: %llu, "
 			"offset: %llu, size: %llu, flags: %llx, total data size: %llu, disk-size: %llu, "
-			"data_fd: %d, index_fd: %d: %d\n",
+			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
 			eblob_dump_id(key->id), wc->index, wc->type, str,
 			(unsigned long long)wc->ctl_data_offset,
 			(unsigned long long)wc->offset, (unsigned long long)wc->size,
 			(unsigned long long)wc->flags,
 			(unsigned long long)wc->total_data_size, (unsigned long long)wc->total_size,
-			wc->data_fd, wc->index_fd, err);
+			wc->data_fd, wc->index_fd, wc->bctl, err);
 }
 
 /**
