@@ -552,14 +552,12 @@ int blob_mark_index_removed_binlog(struct eblob_base_ctl *bctl, struct eblob_key
  */
 static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
 {
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: i%d, t%d: %s: position: %llu, "
-			"offset: %llu, size: %llu, flags: %llx, total data size: %llu, disk-size: %llu, "
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: i%d, t%d: %s: position: %" PRIu64 ", "
+			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: 0x%" PRIx64 ", "
+			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
 			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
-			eblob_dump_id(key->id), wc->index, wc->type, str,
-			(unsigned long long)wc->ctl_data_offset,
-			(unsigned long long)wc->offset, (unsigned long long)wc->size,
-			(unsigned long long)wc->flags,
-			(unsigned long long)wc->total_data_size, (unsigned long long)wc->total_size,
+			eblob_dump_id(key->id), wc->index, wc->type, str, wc->ctl_data_offset,
+			wc->offset, wc->size, wc->flags, wc->total_data_size, wc->total_size,
 			wc->data_fd, wc->index_fd, wc->bctl, err);
 }
 
