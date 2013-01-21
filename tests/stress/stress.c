@@ -153,9 +153,14 @@ again:
 	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
-		if (error == 0)
+		if (error == 0) {
 			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
 					item->key, eblob_dump_id(item->ekey.id));
+		} else if (error != -ENOENT) {
+			errc(EX_SOFTWARE, -error,
+					"got an error while reading removed key: %s (%s)",
+					item->key, eblob_dump_id(item->ekey.id));
+		}
 	} else {
 		/* Check data consistency */
 		if (error != 0) {
