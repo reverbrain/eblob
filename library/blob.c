@@ -608,6 +608,43 @@ err:
 }
 
 /**
+ * eblob_mark_entry_removed_purge() - remove entry from disk and memory.
+ *
+ * XXX: Rename!
+ */
+static int eblob_mark_entry_removed_purge(struct eblob_backend *b,
+		struct eblob_key *key, struct eblob_ram_control *old)
+{
+	int err;
+
+	assert(b != NULL);
+	assert(key != NULL);
+	assert(old != NULL);
+	assert(old->bctl != NULL);
+
+	/* Protect against datasort */
+	eblob_bctl_hold(old->bctl);
+
+	err = eblob_mark_entry_removed(b, key, old);
+	if (err)
+		goto err;
+
+	err = eblob_remove_type(b, key, old->bctl->type);
+	if (err != 0 && err != -ENOENT) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_NOTICE, -err,
+				"%s: eblob_remove_type: FAILED: %d",
+				eblob_dump_id(key->id), err);
+		goto err;
+	} else {
+		err = 0;
+	}
+
+err:
+	eblob_bctl_release(old->bctl);
+	return err;
+}
+
+/**
  * blob_update_index() - update on disk index with data from write control
  * @wc:		new data
  * @remove:	mark entry removed
@@ -1012,13 +1049,12 @@ again:
 		err = -ENOENT;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: pread-data-no-entry", err);
 
-		if ((err = eblob_mark_entry_removed(b, key, &ctl)) != 0) {
+		if ((err = eblob_mark_entry_removed_purge(b, key, &ctl)) != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: eblob_mark_entry_removed: %zd\n",
+					"%s: %s: eblob_mark_entry_removed_purge: %zd\n",
 					__func__, eblob_dump_id(key->id), -err);
 			goto err_out_exit;
 		}
-		eblob_remove_type(b, key, wc->type);
 
 		goto again;
 	}
@@ -1645,11 +1681,9 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 					rctl.bctl->type, rctl.bctl->index);
 
 			/* Remove on disk */
-			if ((err = eblob_mark_entry_removed(b, key, &rctl)) != 0)
+			if ((err = eblob_mark_entry_removed_purge(b, key, &rctl)) != 0)
 				goto err_out_exit;
 
-			/* If succeeded - remove from ram too */
-			eblob_remove_type(b, key, rctl.bctl->type);
 			removed = 1;
 		}
 	}
@@ -1679,11 +1713,8 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 				ctl[i].bctl->type, ctl[i].bctl->index);
 
 		/* Remove from disk */
-		if ((err = eblob_mark_entry_removed(b, key, &ctl[i])) != 0)
+		if ((err = eblob_mark_entry_removed_purge(b, key, &ctl[i])) != 0)
 			goto err_out_free;
-
-		/* If succeeded - remove from ram too */
-		eblob_remove_type(b, key, ctl[i].bctl->type);
 	}
 	err = 0;
 
@@ -1710,14 +1741,12 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		goto err_out_exit;
 	}
 
-	if ((err = eblob_mark_entry_removed(b, key, &ctl)) != 0) {
+	if ((err = eblob_mark_entry_removed_purge(b, key, &ctl)) != 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"%s: %s: eblob_mark_entry_removed: %d\n",
 				__func__, eblob_dump_id(key->id), -err);
 		goto err_out_exit;
 	}
-
-	eblob_remove_type(b, key, type);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
 		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
