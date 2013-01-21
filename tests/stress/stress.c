@@ -157,9 +157,8 @@ again:
 			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
 					item->key, eblob_dump_id(item->ekey.id));
 		} else if (error != -ENOENT) {
-			errc(EX_SOFTWARE, -error,
-					"got an error while reading removed key: %s (%s)",
-					item->key, eblob_dump_id(item->ekey.id));
+			errx(EX_SOFTWARE, "got an error while reading removed key: %s (%s): %d",
+					item->key, eblob_dump_id(item->ekey.id), -error);
 		}
 	} else {
 		/* Check data consistency */
