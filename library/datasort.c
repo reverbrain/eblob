@@ -1115,6 +1115,11 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/* Populate sorted index blocks */
 	eblob_index_blocks_fill(sorted_bctl);
 
+	/* Fail all pending writes */
+	unsorted_bctl->index_fd = -1;
+	unsorted_bctl->data_fd = -1;
+	unsorted_bctl->sort.fd = -1;
+
 	/* Replace unsorted bctl with sorted one */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
