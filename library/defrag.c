@@ -42,91 +42,6 @@
 
 #include "blob.h"
 
-/**
- * eblob_defrag_write() - interruption-safe wrapper for pwrite(2)
- *
- * TODO: Can be replaced with blob_write_low_level()
- */
-static int eblob_defrag_write(int fd, void *data, ssize_t size)
-{
-	ssize_t err;
-
-	while (size > 0) {
-		err = write(fd, data, size);
-		if (err < 0) {
-			err = -errno;
-			goto err_out_exit;
-		}
-
-		if (err == 0) {
-			err = -EPIPE;
-			goto err_out_exit;
-		}
-
-		data += err;
-		size -= err;
-	}
-
-	err = 0;
-err_out_exit:
-	return err;
-}
-
-static int eblob_defrag_iterator(struct eblob_disk_control *dc, struct eblob_ram_control *ctl,
-		void *data, void *priv, void *thread_priv __unused)
-{
-	struct eblob_base_ctl *bctl = priv;
-	struct eblob_disk_control *data_dc = data - sizeof(struct eblob_disk_control);
-	uint64_t disk_size;
-	int err;
-
-	if ((dc->flags & BLOB_DISK_CTL_REMOVE) && (eblob_bswap64(data_dc->flags) & BLOB_DISK_CTL_REMOVE))
-		return 0;
-
-	pthread_mutex_lock(&bctl->dlock);
-
-	dc->flags &= ~BLOB_DISK_CTL_REMOVE;
-	dc->position = lseek(bctl->df, 0, SEEK_CUR);
-	disk_size = dc->disk_size;
-	eblob_convert_disk_control(dc);
-
-	err = eblob_defrag_write(bctl->df, dc, sizeof(struct eblob_disk_control));
-	if (err) {
-		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 1: %s: size: %llu: position: %llu, "
-				"flags: %llx, type: %d, err: %d\n",
-				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->bctl->type, err);
-		goto err_out_unlock;
-	}
-
-	err = eblob_defrag_write(bctl->df, data, disk_size - sizeof(struct eblob_disk_control));
-	if (err) {
-		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 2: %s: size: %llu: position: %llu, "
-				"flags: %llx, type: %d, err: %d\n",
-				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->bctl->type, err);
-		goto err_out_unlock;
-	}
-
-	err = eblob_defrag_write(bctl->dfi, dc, sizeof(struct eblob_disk_control));
-	if (err) {
-		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "ERROR defrag 3: %s: size: %llu: position: %llu, "
-				"flags: %llx, type: %d, err: %d\n",
-				eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-				(unsigned long long)dc->flags, ctl->bctl->type, err);
-		goto err_out_unlock;
-	}
-
-	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "defrag: %s: size: %llu: position: %llu, "
-			"flags: %llx, type: %d\n",
-			eblob_dump_id(dc->key.id), (unsigned long long)dc->data_size, (unsigned long long)dc->position,
-			(unsigned long long)dc->flags, ctl->bctl->type);
-
-err_out_unlock:
-	pthread_mutex_unlock(&bctl->dlock);
-	return 0;
-}
-
 static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
@@ -251,20 +166,7 @@ err_out_exit:
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
 #ifdef DATASORT
-	struct eblob_iterate_control ctl;
 	int err = 0, i;
-
-	memset(&ctl, 0, sizeof(ctl));
-
-	ctl.thread_num = 1;
-	ctl.log = b->cfg.log;
-
-	ctl.iterator_cb.iterator = eblob_defrag_iterator;
-	ctl.iterator_cb.iterator_init = NULL;
-	ctl.iterator_cb.iterator_free = NULL;
-
-	ctl.b = b;
-	ctl.flags = EBLOB_ITERATE_FLAGS_ALL;
 
 	for (i = 0; i <= b->max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
@@ -277,7 +179,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		list_for_each_entry(bctl, &t->bases, base_entry) {
 			int want = bctl->need_sorting;
 
-			eblob_log(ctl.log, EBLOB_LOG_INFO,
+			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 					"defrag: start type: %d, index: %d\n",
 					bctl->type, bctl->index);
 
@@ -329,7 +231,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 				err = eblob_generate_sorted_data(&dcfg);
 				if (err) {
-					eblob_log(ctl.log, EBLOB_LOG_ERROR,
+					eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 							"defrag: datasort: FAILED: %d, %d, index: %d\n",
 							err, bctl->type, bctl->index);
 					continue;
@@ -337,7 +239,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				bctl->need_sorting = 0;
 			}
 
-			eblob_log(ctl.log, EBLOB_LOG_INFO,
+			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 					"defrag: complete type: %d, index: %d\n",
 					bctl->type, bctl->index);
 		}
