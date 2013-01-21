@@ -616,6 +616,12 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			/* Protect against datasort */
 			eblob_bctl_hold(bctl);
 
+			/* Check that bctl is invalidated by datasort */
+			if (bctl->index_fd < 0) {
+				err = -EAGAIN;
+				goto out_unlock;
+			}
+
 			if (bctl->sort.fd < 0) {
 				err = -ENOENT;
 				goto out_unlock;
