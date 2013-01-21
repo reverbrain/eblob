@@ -120,7 +120,7 @@ static int binlog_hdr_write(int fd, struct eblob_binlog_disk_hdr *dhdr)
 	if (err != sizeof(*dhdr))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 
-	err = binlog_datasync(fd);
+	err = eblob_fdatasync(fd);
 	if (err)
 		return err;
 	return 0;
@@ -527,9 +527,9 @@ int binlog_append(struct eblob_binlog_ctl *bctl)
 
 	/* Sync if not already opened with O_SYNC */
 	if (!(bcfg->flags & EBLOB_BINLOG_FLAGS_CFG_SYNC)) {
-		err = binlog_datasync(bcfg->fd);
+		err = eblob_fdatasync(bcfg->fd);
 		if (err) {
-			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_datasync: %s", bcfg->path);
+			EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "eblob_fdatasync: %s", bcfg->path);
 			goto err;
 		}
 	}
@@ -669,9 +669,9 @@ int binlog_close(struct eblob_binlog_cfg *bcfg)
 	}
 
 	/* Sync */
-	err = binlog_sync(bcfg->fd);
+	err = eblob_fsync(bcfg->fd);
 	if (err) {
-		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "binlog_sync: %s", bcfg->path);
+		EBLOB_WARNC(bcfg->log, EBLOB_LOG_ERROR, -err, "eblob_fsync: %s", bcfg->path);
 		goto err;
 	}
 

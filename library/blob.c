@@ -562,46 +562,48 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 }
 
 /**
- * eblob_mark_entry_removed() - removed entry both from index and data files.
+ * eblob_mark_entry_removed() - Mark entry as removed in both index and data file.
+ *
  * Also updates stats and syncs data.
  */
-static int eblob_mark_entry_removed(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *old)
+static int eblob_mark_entry_removed(struct eblob_backend *b,
+		struct eblob_key *key, struct eblob_ram_control *old)
 {
 	int err;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_mark_entry_removed: "
-		"index position: %llu (0x%llx)/fd: %d, data position: %llu (0x%llx)/fd: %d.\n",
-		eblob_dump_id(key->id),
-		(unsigned long long)old->index_offset,
-		(unsigned long long)old->index_offset, eblob_get_index_fd(old->bctl),
-		(unsigned long long)old->data_offset,
-		(unsigned long long)old->data_offset, old->bctl->data_fd);
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "%s: index position: %" PRIu64 ", index_fd: %d, "
+			"data position: %" PRIu64 ", data_fd: %d",
+			eblob_dump_id(key->id), old->index_offset, eblob_get_index_fd(old->bctl),
+			old->data_offset, old->bctl->data_fd);
 
-	if ((err = blob_mark_index_removed_binlog(old->bctl, key, eblob_get_index_fd(old->bctl), old->index_offset)) != 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-				"%s: %s: blob_mark_index_removed_binlog: FAILED: index, fd: %d, err: %d\n",
-				__func__, eblob_dump_id(key->id), old->bctl->index_fd, err);
+	err = blob_mark_index_removed_binlog(old->bctl, key,
+			eblob_get_index_fd(old->bctl), old->index_offset);
+	if (err != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+				"%s: blob_mark_index_removed_binlog: FAILED: index, fd: %d, err: %d",
+				eblob_dump_id(key->id), old->bctl->index_fd, err);
 		goto err;
 	}
 
-	if ((err = blob_mark_index_removed_binlog(old->bctl, key, old->bctl->data_fd, old->data_offset)) != 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-				"%s: %s: blob_mark_index_removed_binlog: FAILED: data, fd: %d, err: %d\n",
-				__func__, eblob_dump_id(key->id), old->bctl->data_fd, err);
+	err = blob_mark_index_removed_binlog(old->bctl, key,
+			old->bctl->data_fd, old->data_offset);
+	if (err != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+				"%s: blob_mark_index_removed_binlog: FAILED: data, fd: %d, err: %d",
+				eblob_dump_id(key->id), old->bctl->data_fd, err);
 		goto err;
 	}
 
 	eblob_stat_update(b, -1, 1, 0);
 
-	/* TODO: use fdatasync(2) if available */
 	if (!b->cfg.sync) {
-		fsync(old->bctl->data_fd);
-		fsync(eblob_get_index_fd(old->bctl));
+		eblob_fdatasync(old->bctl->data_fd);
+		eblob_fdatasync(eblob_get_index_fd(old->bctl));
 	}
 
 err:
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: %s: finished: %d.\n",
-			eblob_dump_id(key->id), __func__, err);
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "%s: finished: %d",
+			eblob_dump_id(key->id), err);
 	return err;
 }
 

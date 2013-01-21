@@ -15,6 +15,7 @@
 
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
+#include <unistd.h>
 
 #include "eblob/blob.h"
 #include "hash.h"
@@ -105,6 +106,29 @@ inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_
 	*bloom_bit_num = acc % 8;
 }
 
+/*
+ * Sync written data to disk
+ *
+ * On linux fdatasync call is available that syncs only data, but not metadata,
+ * which requires less disk seeks.
+ */
+inline static int eblob_fsync(int fd)
+{
+	if (fsync(fd) == -1)
+		return -errno;
+	return 0;
+}
+
+inline static int eblob_fdatasync(int fd)
+{
+#ifdef HAVE_FDATASYNC
+	if (fdatasync(fd) == -1)
+		return -errno;
+	return 0;
+#else
+	return eblob_fsync(fd);
+#endif
+}
 
 struct eblob_base_ctl {
 	struct eblob_backend	*back;
