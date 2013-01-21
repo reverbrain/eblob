@@ -793,6 +793,13 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		return -EINVAL;
 
 	pthread_mutex_lock(&b->hash->root_lock);
+
+	/* Do not accept bctls invalidated by data-sort */
+	if (ctl->bctl->index_fd < 0) {
+		err = -EAGAIN;
+		goto err_out_exit;
+	}
+
 	/* If l2hash is enabled and this is in-memory record - insert only there */
 	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
 		/* Extend l2hash if needed */
