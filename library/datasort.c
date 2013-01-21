@@ -1113,7 +1113,10 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	sorted_bctl->index_offset = sorted_bctl->index_size;
 
 	/* Populate sorted index blocks */
-	eblob_index_blocks_fill(sorted_bctl);
+	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_index_blocks_fill: FAILED");
+		goto err_unmap;
+	}
 
 	/* Replace unsorted bctl with sorted one */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
