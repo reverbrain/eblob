@@ -1075,8 +1075,6 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 
 	/*
 	 * Flush hash
-	 *
-	 * We must do that before we swap index_fd - because l2hash is using it.
 	 */
 	for (offset = 0, i = 0; offset < dcfg->result->offset;
 			offset += dcfg->result->index[i++].disk_size) {
