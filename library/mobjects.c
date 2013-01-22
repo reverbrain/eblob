@@ -857,10 +857,10 @@ int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int
 	int err, size, num, i, found = 0, on_disk;
 	struct eblob_ram_control *rc;
 
-	/* If l2hash is enabled - remove from it first */
+	/* If l2hash is enabled - remove from it only */
 	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max)
-		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) == 0)
-			return 0;
+		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) != -ENOENT)
+			return err;
 
 	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
 	if (err)
