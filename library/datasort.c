@@ -1118,6 +1118,10 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		goto err_unmap;
 	}
 
+	/* Account for new size */
+	dcfg->b->current_blob_size -= unsorted_bctl->index_size + unsorted_bctl->data_size;
+	dcfg->b->current_blob_size += sorted_bctl->index_size + sorted_bctl->data_size;
+
 	/* Replace unsorted bctl with sorted one */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 

@@ -198,11 +198,17 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				case 0:
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
 							"empty blob - removing.");
+
+					/* Accounting */
+					b->current_blob_size -= bctl->index_size;
+					b->current_blob_size -= bctl->data_size;
+
 					/*
 					 * TODO: It's better to also preform
 					 * minimal cleanup: unmap data/index
 					 * and close fds
 					 */
+
 					eblob_base_remove(b, bctl);
 					continue;
 				case 1:
