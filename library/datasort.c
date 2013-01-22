@@ -1066,6 +1066,30 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	} else
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "index size is zero: %s", tmp_index_path);
 
+	/*
+	 * Setup sorted base
+	 */
+	sorted_bctl->data_fd = dcfg->result->fd;
+	sorted_bctl->index_fd = index.fd;
+	sorted_bctl->sort = index;
+
+	/* Setup new base */
+	if ((err = eblob_base_setup_data(sorted_bctl, 1)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
+		goto err_unmap;
+	}
+	assert(sorted_bctl->data_size == dcfg->result->offset);
+	assert(sorted_bctl->index_size == index.size);
+
+	sorted_bctl->data_offset = sorted_bctl->data_size;
+	sorted_bctl->index_offset = sorted_bctl->index_size;
+
+	/* Populate sorted index blocks */
+	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_index_blocks_fill: FAILED");
+		goto err_unmap;
+	}
+
 	/* Protect l2hash/hash from accessing stale fds */
 	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
 		err = -err;
@@ -1093,30 +1117,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
-
-	/*
-	 * Setup sorted base
-	 */
-	sorted_bctl->data_fd = dcfg->result->fd;
-	sorted_bctl->index_fd = index.fd;
-	sorted_bctl->sort = index;
-
-	/* Setup new base */
-	if ((err = eblob_base_setup_data(sorted_bctl, 1)) != 0) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_base_setup_data: FAILED");
-		goto err_unmap;
-	}
-	assert(sorted_bctl->data_size == dcfg->result->offset);
-	assert(sorted_bctl->index_size == index.size);
-
-	sorted_bctl->data_offset = sorted_bctl->data_size;
-	sorted_bctl->index_offset = sorted_bctl->index_size;
-
-	/* Populate sorted index blocks */
-	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_index_blocks_fill: FAILED");
-		goto err_unmap;
-	}
+	assert(offset == dcfg->result->offset);
 
 	/* Account for new size */
 	dcfg->b->current_blob_size -= unsorted_bctl->index_size + unsorted_bctl->data_size;
