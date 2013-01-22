@@ -1020,7 +1020,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	if (datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX) != 0) {
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");
-		goto err_remove_base;
+		goto err_free_base;
 	}
 	snprintf(tmp_index_path, PATH_MAX, "%s.index.sorted.tmp", data_path);
 
@@ -1035,7 +1035,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	if (index.fd == -1) {
 		err = -errno;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "open: %s", tmp_index_path);
-		goto err_remove_base;
+		goto err_free_base;
 	}
 
 	/* Preallocate space for index */
@@ -1043,7 +1043,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 				"eblob_preallocate: fd: %d, size: %" PRIu64, index.fd, index.size);
-		goto err_remove_base;
+		goto err_free_base;
 	}
 
 	/* mmap index */
@@ -1052,7 +1052,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"eblob_data_map: fd: %d, size: %" PRIu64, index.fd, index.size);
-			goto err_remove_base;
+			goto err_free_base;
 		}
 
 		/* Save index on disk */
@@ -1137,8 +1137,9 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 
 err_unmap:
 	eblob_data_unmap(&index);
-err_remove_base:
+err_free_base:
 	eblob_base_ctl_cleanup(sorted_bctl);
+	free(sorted_bctl);
 err:
 	return err;
 }
