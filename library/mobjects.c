@@ -250,9 +250,6 @@ again:
 		if (ctl->index_size &&
 				((ctl->data_size >= b->cfg.blob_size) ||
 				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
-#ifdef DATASORT
-			datasort_schedule_sort(b, ctl);
-#else
 			err = eblob_generate_sorted_index(b, ctl, 0);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
@@ -267,7 +264,8 @@ again:
 						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
 			}
-#endif
+			/* Schedule datasort */
+			datasort_schedule_sort(ctl);
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -278,11 +276,9 @@ again:
 	} else {
 		struct stat st;
 
-#ifdef DATASORT
-		/* Async datasort */
-		if (datasort_base_is_sorted(b, ctl) != 1)
-			datasort_schedule_sort(b, ctl);
-#endif
+		/* If unsorted - mark blob for datasort */
+		if (datasort_base_is_sorted(ctl) != 1)
+			datasort_schedule_sort(ctl);
 
 		err = stat(full, &st);
 		if (err) {
@@ -716,11 +712,9 @@ static int eblob_scan_base(struct eblob_backend *b, struct eblob_base_type **typ
 		if (d->d_name[0] == '.' && d->d_name[1] == '.' && d->d_name[2] == '\0')
 			continue;
 
-#ifdef DATASORT
 		/* Check if this directory is a stale datasort */
 		if (d->d_type == DT_DIR && fnmatch(datasort_dir_pattern, d->d_name, 0) == 0)
 			datasort_cleanup_stale(b->cfg.log, dir_base, d->d_name);
-#endif
 
 		if (d->d_type == DT_DIR)
 			continue;
@@ -1072,9 +1066,11 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	}
 
 	b->want_defrag = 0;
-#ifdef DATASORT
-	eblob_start_defrag(b);
-#endif
+
+	/* If automatic data-sort is enabled - start it */
+	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
+		eblob_start_defrag(b);
+
 	return 0;
 
 err_out_exit:

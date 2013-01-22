@@ -109,7 +109,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
 int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
 int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
 
-int datasort_base_is_sorted(struct eblob_backend *b, struct eblob_base_ctl *bctl);
-int datasort_schedule_sort(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int datasort_base_is_sorted(struct eblob_base_ctl *bctl);
+int datasort_schedule_sort(struct eblob_base_ctl *bctl);
 
 #endif /* __EBLOB_DATASORT_H */

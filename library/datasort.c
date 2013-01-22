@@ -92,13 +92,18 @@ static int datasort_base_get_path(struct eblob_backend *b, struct eblob_base_ctl
  * datasort_schedule_sort() - mark base do be sorted on next defrag run and
  * kick defragmentation.
  */
-int datasort_schedule_sort(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+int datasort_schedule_sort(struct eblob_base_ctl *bctl)
 {
-	if (bctl == NULL)
+	if (bctl == NULL || bctl->back == NULL)
 		return -EINVAL;
 
+	/* Mark blob for sort */
 	bctl->need_sorting = 1;
-	return eblob_start_defrag(b);
+
+	/* Kick in data-sort if auto-sort is enabled */
+	if (bctl->back->cfg.blob_flags & EBLOB_AUTO_DATASORT)
+		return eblob_start_defrag(bctl->back);
+	return 0;
 }
 
 /**
@@ -110,13 +115,17 @@ int datasort_schedule_sort(struct eblob_backend *b, struct eblob_base_ctl *bctl)
  * 0:	if not
  * <0:	error
  */
-int datasort_base_is_sorted(struct eblob_backend *b, struct eblob_base_ctl *bctl)
+int datasort_base_is_sorted(struct eblob_base_ctl *bctl)
 {
+	struct eblob_backend *b;
 	struct stat st;
 	char mark[PATH_MAX];
 
-	if (b == NULL || bctl == NULL)
+	if (bctl == NULL || bctl->back == NULL)
 		return -EINVAL;
+
+	/* Shortcut */
+	b = bctl->back;
 
 	/* Check in memory */
 	if (bctl->sorted == 1)

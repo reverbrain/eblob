@@ -215,6 +215,13 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * This sacrifies IOPS in exchange for smaller memory footprint
  */
 #define EBLOB_L2HASH				(1<<6)
+/*
+ * Enable automatic data-sort.
+ * Data-sort will be kick-in on base "close" or on open of unsorted base.
+ *
+ * Without of this flag it's still possible to run datasort via dnet_ioclient -d
+ */
+#define EBLOB_AUTO_DATASORT			(1<<7)
 
 struct eblob_config {
 	/* blob flags above */

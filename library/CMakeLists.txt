@@ -4,6 +4,7 @@ set(EBLOB_SRCS
     blob.c
     compress.c
     crypto/sha512.c
+    datasort.c
     defrag.c
     hash.c
     index.c
@@ -14,13 +15,6 @@ set(EBLOB_SRCS
     rbtree.c
     stat.c
     )
-if(WITH_DATASORT)
-    add_definitions(-DDATASORT)
-    list(APPEND
-        EBLOB_SRCS
-        datasort.c
-    )
-endif()
 add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}

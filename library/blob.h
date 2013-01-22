@@ -23,9 +23,7 @@
 #include "list.h"
 
 #include "binlog.h"
-#ifdef DATASORT
 #include "datasort.h"
-#endif
 
 #ifndef __unused
 #define __unused	__attribute__ ((unused))

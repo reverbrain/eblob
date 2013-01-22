@@ -20,7 +20,6 @@ option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
-option(WITH_DATASORT "Enable expirimental datasort support" ON)
 
 include(TestBigEndian)
 
@@ -59,8 +58,6 @@ endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
-
-message(STATUS "Data-sort is: ${WITH_DATASORT}")
 
 # Check for threads
 if (UNIX AND BSD)

@@ -1190,7 +1190,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			goto err_out_unlock_exit;
 
 		if (ctl->sort.fd < 0)
-			ctl->need_sorting = 1;
+			datasort_schedule_sort(ctl);
 
 		ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
 	}
