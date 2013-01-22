@@ -1,18 +1,18 @@
 include_directories(../include)
 set(EBLOB_SRCS
-    blob.c
     binlog.c
-    hash.c
-    log.c
-    l2hash.c
-    range.c
-    mobjects.c
+    blob.c
     compress.c
-    defrag.c
-    index.c
     crypto/sha512.c
-    stat.c
+    defrag.c
+    hash.c
+    index.c
+    l2hash.c
+    log.c
+    mobjects.c
+    range.c
     rbtree.c
+    stat.c
     )
 if(WITH_DATASORT)
     add_definitions(-DDATASORT)
