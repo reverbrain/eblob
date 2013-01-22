@@ -262,13 +262,14 @@ void *eblob_defrag(void *data)
 	struct eblob_backend *b = data;
 	unsigned int sleep_time;
 
-	/*
-	 * XXX
-	 *
-	 * Turn off timed defrag
-	 */
+	if (b == NULL)
+		return NULL;
 
-	sleep_time = b->cfg.defrag_timeout = -1;
+	/* If auto-sort is disabled - disable timer data-sort */
+	if (!(b->cfg.blob_flags & EBLOB_AUTO_DATASORT))
+		b->cfg.defrag_timeout = -1;
+
+	sleep_time = b->cfg.defrag_timeout;
 
 	while (!b->need_exit) {
 		if ((sleep_time-- != 0) && (b->want_defrag <= 0)) {
