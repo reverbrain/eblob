@@ -219,8 +219,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				case -1:
 					break;
 				default:
-					/* eblob_want_defrag() failed - rolback
-					 * to default value */
+					/*
+					 * eblob_want_defrag() failed - rolback
+					 * to default value
+					 */
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
 							"eblob_want_defrag: FAILED");
 					want = bctl->need_sorting;
