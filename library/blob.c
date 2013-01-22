@@ -201,7 +201,9 @@ skip_binlog:
 
 	/* Write completed successfully append entry to binlog */
 	if (binlog) {
+		pthread_mutex_lock(&bctl->lock);
 		err = binlog_append(&binctl);
+		pthread_mutex_unlock(&bctl->lock);
 		if (err)
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: %s: binlog_append: FAILED: %d\n",
