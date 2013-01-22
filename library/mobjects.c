@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <fnmatch.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -287,16 +288,18 @@ again:
 		if (err) {
 			err = -errno;
 
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "bctl: index: %d, type: %d: can not scan unsorted index '%s': %s %d\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"bctl: index: %d, type: %d: can not scan unsorted index '%s': %s %d\n",
 					ctl->index, ctl->type, full, strerror(-err), err);
 			goto err_out_close_sort_fd;
 		}
 
 		if ((uint64_t)st.st_size != ctl->sort.size) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "bctl: index: %d, type: %d: unsorted index size mismatch for '%s': "
-					"sorted: %llu, unsorted: %llu: removing regenerating sorted index\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"bctl: index: %d, type: %d: unsorted index size mismatch for '%s': "
+					"sorted: %" PRIu64 ", unsorted: %" PRIu64 ": removing regenerating sorted index\n",
 					ctl->index, ctl->type, full,
-					(unsigned long long)ctl->sort.size, (unsigned long long)st.st_size);
+					ctl->sort.size, st.st_size);
 
 			eblob_data_unmap(&ctl->sort);
 			close(ctl->sort.fd);
@@ -313,10 +316,10 @@ again:
 			goto err_out_close_sort_fd;
 		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: using existing sorted index: size: %llu, num: %llu\n",
-				ctl->index, ctl->type, (unsigned long long)ctl->sort.size,
-				(unsigned long long)ctl->sort.size / sizeof(struct eblob_disk_control));
-
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d, type: %d: "
+				"using existing sorted index: size: %" PRIu64 ", num: %" PRIu64 "\n",
+				ctl->index, ctl->type, ctl->sort.size,
+				ctl->sort.size / sizeof(struct eblob_disk_control));
 	}
 
 	b->current_blob_size += ctl->data_size + ctl->index_size;
