@@ -2082,13 +2082,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
 
-	b = malloc(sizeof(struct eblob_backend));
+	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
 		err = -ENOMEM;
 		goto err_out_exit;
 	}
-
-	memset(b, 0, sizeof(struct eblob_backend));
 
 	b->max_type = -1;
 
