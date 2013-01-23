@@ -207,7 +207,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					 */
 
 					eblob_base_remove(b, bctl);
-					continue;
+					break;
 				case 1:
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
 							"blob fragmented - forced datasort.");
