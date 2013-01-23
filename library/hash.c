@@ -117,7 +117,7 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_hash *eblob_hash_init(uint64_t cache_size, int *errp)
+struct eblob_hash *eblob_hash_init()
 {
 	struct eblob_hash *h;
 	int err;
@@ -135,7 +135,7 @@ struct eblob_hash *eblob_hash_init(uint64_t cache_size, int *errp)
 	return h;
 
 err_out_exit:
-	*errp = err;
+	errno = err;
 	return NULL;
 }
 

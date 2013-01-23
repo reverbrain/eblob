@@ -2139,8 +2139,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->l2hash_max = -1;
 
-	b->hash = eblob_hash_init(b->cfg.cache_size, &err);
+	b->hash = eblob_hash_init();
 	if (!b->hash) {
+		err = errno;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
 		goto err_out_lock_destroy;
 	}
