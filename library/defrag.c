@@ -191,7 +191,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 #if 0
 			if (want == 0)
-				switch ((want = eblob_want_defrag(bctl))) {
+				switch (eblob_want_defrag(bctl)) {
 				case 0:
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
 							"empty blob - removing.");
@@ -214,15 +214,11 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					want = 1;
 					break;
 				case -1:
+					want = 0;
 					break;
 				default:
-					/*
-					 * eblob_want_defrag() failed - rolback
-					 * to default value
-					 */
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
 							"eblob_want_defrag: FAILED");
-					want = bctl->need_sorting;
 				}
 #endif
 
