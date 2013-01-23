@@ -722,7 +722,8 @@ again:
 			if (errno == -EINTR)
 				goto again;
 			return -errno;
-		}
+		} else if (bytes == 0)
+			return -ESPIPE;
 		data += bytes;
 		size -= bytes;
 		offset += bytes;
