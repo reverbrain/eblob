@@ -771,8 +771,6 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 		goto err_out_exit;
 	}
 
-	wc->bctl = ctl.bctl;
-
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_commit_ram: finished", err);
 	return err;
