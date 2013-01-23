@@ -54,34 +54,6 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
-/**
- * rebalance_cache() - in case cache grew too much:
- * - move LRU active entries (aka top queue) to inactive list (aka bottom
- *   queue),
- * - move LRU inactive enties out of the cache.
- */
-static inline void rebalance_cache(struct eblob_hash *hash)
-{
-	struct eblob_hash_entry *t;
-
-	t = NULL;
-	while ((hash->cache_top_cnt > hash->max_queue_size) && !list_empty(&hash->cache_top)) {
-		t = list_last_entry(&hash->cache_top, struct eblob_hash_entry, cache_entry);
-		list_move(&t->cache_entry, &hash->cache_bottom);
-		hash->cache_top_cnt--;
-		hash->cache_bottom_cnt++;
-	}
-
-	t = NULL;
-	while ((hash->cache_bottom_cnt > hash->max_queue_size) && !list_empty(&hash->cache_bottom)) {
-		t = list_last_entry(&hash->cache_bottom, struct eblob_hash_entry, cache_entry);
-		list_del(&t->cache_entry);
-		rb_erase(&t->node, &hash->root);
-		eblob_hash_entry_put(hash, t);
-		hash->cache_bottom_cnt--;
-	}
-}
-
 static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace, int on_disk)
 {
 	struct rb_node **n, *parent;
@@ -108,32 +80,12 @@ again:
 				goto err_out_exit;
 			}
 
-			if (t->flags & EBLOB_HASH_FLAGS_CACHE) {
-				/*
-				 * We can jump to out_cache and this entry will
-				 * be eventually deleted with stall cache_entry
-				 * pointer
-				 */
-				list_del_init(&t->cache_entry);
-				if (t->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
-					hash->cache_top_cnt--;
-				} else {
-					t->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
-					hash->cache_bottom_cnt--;
-				}
-			} else {
-				on_disk = 0;
-			}
-
 			if (t->dsize >= dsize) {
 				memcpy(t->data, data, dsize);
 				t->dsize = dsize;
 				err = 0;
 				e = t;
-				if (!on_disk) {
-					t->flags = 0;
-				}
-				goto out_cache;
+				goto err_out_exit;
 			}
 
 			rb_erase(&t->node, &hash->root);
@@ -151,8 +103,6 @@ again:
 	memset(e, 0, sizeof(struct eblob_hash_entry));
 
 	e->dsize = dsize;
-	if (on_disk)
-		e->flags = EBLOB_HASH_FLAGS_CACHE;
 	INIT_LIST_HEAD(&e->cache_entry);
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
@@ -162,20 +112,6 @@ again:
 	rb_insert_color(&e->node, &hash->root);
 
 	err = 0;
-
-out_cache:
-	if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
-		if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
-			list_add(&e->cache_entry, &hash->cache_top);
-			hash->cache_top_cnt++;
-		} else {
-			list_add(&e->cache_entry, &hash->cache_bottom);
-			hash->cache_bottom_cnt++;
-		}
-
-		rebalance_cache(hash);
-
-	}
 
 err_out_exit:
 	return err;
@@ -193,14 +129,7 @@ struct eblob_hash *eblob_hash_init(uint64_t cache_size, int *errp)
 	}
 	memset(h, 0, sizeof(struct eblob_hash));
 
-	h->flags = 0;
 	h->root = RB_ROOT;
-	INIT_LIST_HEAD(&h->cache_top);
-	INIT_LIST_HEAD(&h->cache_bottom);
-	h->cache_top_cnt = 0;
-	h->cache_bottom_cnt = 0;
-	h->max_queue_size = cache_size / 2;
-
 	pthread_mutex_init(&h->root_lock, NULL);
 
 	return h;
@@ -244,29 +173,15 @@ static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct e
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 {
 	struct eblob_hash_entry *e;
-	int err = -ENOENT;
 
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
-		/*
-		 * we should only remove it if EBLOB_HASH_FLAGS_CACHE is set.
-		 */
-		if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
-			list_del(&e->cache_entry);
-			if (e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE) {
-				h->cache_top_cnt--;
-			} else {
-				h->cache_bottom_cnt--;
-			}
-		}
 		rb_erase(&e->node, &h->root);
-		err = 0;
+		eblob_hash_entry_put(h, e);
+		return 0;
 	}
 
-	if (e)
-		eblob_hash_entry_put(h, e);
-
-	return err;
+	return -ENOENT;
 }
 
 /**
@@ -280,6 +195,7 @@ int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, 
 
 	*datap = NULL;
 	*dsizep = 0;
+	*on_diskp = 0;
 
 	e = eblob_hash_search(&h->root, key);
 	if (e) {
@@ -292,17 +208,6 @@ int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, 
 			*datap = data;
 
 			err = 0;
-		}
-
-		if (e->flags & EBLOB_HASH_FLAGS_CACHE) {
-			*on_diskp = 1;
-			list_move(&e->cache_entry, &h->cache_top);
-			if (!(e->flags & EBLOB_HASH_FLAGS_TOP_QUEUE)) {
-				e->flags |= EBLOB_HASH_FLAGS_TOP_QUEUE;
-				h->cache_top_cnt++;
-				h->cache_bottom_cnt--;
-			}
-			rebalance_cache(h);
 		}
 	}
 
