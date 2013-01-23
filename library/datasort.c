@@ -1132,7 +1132,12 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	dcfg->b->current_blob_size -= unsorted_bctl->index_size + unsorted_bctl->data_size;
 	dcfg->b->current_blob_size += sorted_bctl->index_size + sorted_bctl->data_size;
 
-	/* Replace unsorted bctl with sorted one */
+	/*
+	 * Replace unsorted bctl with sorted one
+	 *
+	 * TODO: Here we purposely leak unsorted bctl - we don't have any control
+	 * over it and it can still be used anywhere in code.
+	 */
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Unlock hash */
