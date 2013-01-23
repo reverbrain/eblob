@@ -189,7 +189,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (list_is_last(&bctl->base_entry, &t->bases))
 				break;
 
-#if 0
 			if (want == 0)
 				switch (eblob_want_defrag(bctl)) {
 				case 0:
@@ -220,7 +219,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
 							"eblob_want_defrag: FAILED");
 				}
-#endif
 
 			if (want) {
 				struct datasort_cfg dcfg = {
