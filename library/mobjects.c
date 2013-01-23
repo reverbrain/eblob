@@ -783,7 +783,7 @@ err_out_exit:
  */
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk)
 {
-	int err, size, rc_free = 0, disk;
+	int err, size, rc_free = 0;
 	struct eblob_ram_control *rc, *rc_old;
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
@@ -807,7 +807,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		goto err_out_exit;
 	}
 
-	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
+	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size);
 	if (!err) {
 		int num, i;
 
@@ -842,7 +842,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		eblob_stat_update(b, 0, 0, 1);
 	}
 
-	err = eblob_hash_replace_nolock(b->hash, key, rc, size, on_disk);
+	err = eblob_hash_replace_nolock(b->hash, key, rc, size);
 
 	if (rc_free)
 		free(rc);
@@ -854,7 +854,7 @@ err_out_exit:
 
 int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int type)
 {
-	int err, size, num, i, found = 0, on_disk;
+	int err, size, num, i, found = 0;
 	struct eblob_ram_control *rc;
 
 	/* If l2hash is enabled - remove from it only */
@@ -862,7 +862,7 @@ int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int
 		if ((err = eblob_l2hash_remove(b->l2hash[type], key)) != -ENOENT)
 			return err;
 
-	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size, &on_disk);
+	err = eblob_hash_lookup_alloc_nolock(b->hash, key, (void **)&rc, (unsigned int *)&size);
 	if (err)
 		goto err_out_exit;
 
@@ -885,7 +885,7 @@ int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int
 			eblob_hash_remove_nolock(b->hash, key);
 		} else {
 			size = num * sizeof(struct eblob_ram_control);
-			err = eblob_hash_replace_nolock(b->hash, key, rc, size, on_disk);
+			err = eblob_hash_replace_nolock(b->hash, key, rc, size);
 			if (err)
 				goto err_out_free;
 		}
@@ -948,9 +948,10 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 	pthread_mutex_unlock(&b->hash->root_lock);
 
 	if (err) {
-		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size, &disk);
+		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
 		if (!err) {
 			err = eblob_lookup_exact_type(rc, size, type, res);
+			disk = 0;
 		}
 	}
 

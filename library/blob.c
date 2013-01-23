@@ -1656,7 +1656,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct eblob_ram_control *ctl;
 	unsigned int size;
-	int err, i, on_disk, removed = 0;
+	int err, i, removed = 0;
 
 	if (b == NULL || key == NULL)
 		return -EINVAL;
@@ -1695,7 +1695,7 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		}
 	}
 
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size, &on_disk);
+	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size);
 	if (err) {
 		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
 		if (err && !removed) {

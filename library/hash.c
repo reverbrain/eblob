@@ -54,7 +54,7 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_
 	eblob_hash_entry_free(h, e);
 }
 
-static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace, int on_disk)
+static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace)
 {
 	struct rb_node **n, *parent;
 	uint64_t esize = sizeof(struct eblob_hash_entry) + dsize;
@@ -144,9 +144,9 @@ void eblob_hash_exit(struct eblob_hash *h)
 	free(h);
 }
 
-int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk)
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
 {
-	return eblob_hash_entry_add(h, key, data, dsize, 1, on_disk);
+	return eblob_hash_entry_add(h, key, data, dsize, 1);
 }
 
 static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct eblob_key *key)
@@ -187,39 +187,37 @@ int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 /**
  * eblob_hash_lookup_alloc_nolock() - returns copy of data stored in cache
  */
-int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
+int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key,
+		void **datap, unsigned int *dsizep)
 {
 	struct eblob_hash_entry *e;
 	void *data;
-	int err = -ENOENT;
 
 	*datap = NULL;
 	*dsizep = 0;
-	*on_diskp = 0;
 
 	e = eblob_hash_search(&h->root, key);
-	if (e) {
-		data = malloc(e->dsize);
-		if (!data) {
-			err = -ENOMEM;
-		} else {
-			memcpy(data, e->data, e->dsize);
-			*dsizep = e->dsize;
-			*datap = data;
+	if (e == NULL)
+		return -ENOENT;
 
-			err = 0;
-		}
-	}
+	data = malloc(e->dsize);
+	if (data == NULL)
+		return -ENOMEM;
 
-	return err;
+	memcpy(data, e->data, e->dsize);
+	*dsizep = e->dsize;
+	*datap = data;
+
+	return 0;
 }
 
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp)
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key,
+		void **datap, unsigned int *dsizep)
 {
 	int err;
 
 	pthread_mutex_lock(&h->root_lock);
-	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep, on_diskp);
+	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep);
 	pthread_mutex_unlock(&h->root_lock);
 	return err;
 }

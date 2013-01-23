@@ -30,9 +30,9 @@ struct eblob_hash {
 struct eblob_hash *eblob_hash_init();
 void eblob_hash_exit(struct eblob_hash *h);
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
-int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep, int *on_diskp);
-int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize, int on_disk);
+int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
+int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 
 struct eblob_hash_entry {
 	struct rb_node		node;
