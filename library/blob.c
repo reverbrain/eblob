@@ -757,6 +757,10 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	struct eblob_ram_control ctl;
 	int err;
 
+	/* Do not cache keys that are on disk */
+	if (wc->on_disk)
+		return 0;
+
 	ctl.size = wc->total_data_size;
 	ctl.data_offset = wc->ctl_data_offset;
 	ctl.index_offset = wc->ctl_index_offset;

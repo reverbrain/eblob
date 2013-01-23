@@ -962,14 +962,6 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 
 		disk = 1;
 		memcpy(res, rc, sizeof(struct eblob_ram_control));
-
-		/* Cache entry in RAM */
-		err = eblob_insert_type(b, key, rc, 1);
-		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"blob: %s: %s: eblob_insert_type err: %d\n",
-				eblob_dump_id(key->id), __func__, err);
-		}
 	}
 
 err_out_exit:
