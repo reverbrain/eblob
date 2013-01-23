@@ -14,13 +14,15 @@
  */
 
 /*
- * Defragmentation routines for blob. Kicked by either timer or eblob_start_defrag().
+ * Defragmentation routines for blob. Kicked by either timer or
+ * eblob_start_defrag().
  *
- * Main purpose of defrag is to copy all existing entries in base to another
- * file and then swap it with originals. Also these routines generate sorted
- * index file for closed bases.
+ * Defrag preforms following actions:
+ *	* Physically removes all deleted entries.
+ *	* Sorts data by key.
+ *	* Sorts index by key.
  *
- * Defrag will be partially replaced by data-sort in future.
+ * Old defrag was fully replaced by data-sort.
  */
 
 #include <sys/types.h>
