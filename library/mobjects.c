@@ -1190,7 +1190,7 @@ void eblob_remove_blobs(struct eblob_backend *b)
 		struct eblob_base_ctl *ctl, *tmp;
 
 		list_for_each_entry_safe(ctl, tmp, &t->bases, base_entry) {
-			eblob_base_remove(b, ctl);
+			eblob_base_remove(ctl);
 		}
 	}
 }
@@ -1242,4 +1242,38 @@ int eblob_pagecache_hint(int fd, uint64_t flag)
 	 */
 	return 0;
 #endif /* HAVE_POSIX_FADVISE */
+}
+
+/**
+ * eblob_base_remove() - removes files that belong to one base
+ *
+ * FIXME: Add logging
+ */
+void eblob_base_remove(struct eblob_base_ctl *bctl)
+{
+	struct eblob_backend *b = bctl->back;
+	char path[PATH_MAX], base_path[PATH_MAX];
+
+	snprintf(base_path, PATH_MAX, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	unlink(base_path);
+
+	snprintf(path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, base_path);
+	unlink(path);
+
+	snprintf(path, PATH_MAX, "%s.index", base_path);
+	unlink(path);
+
+	snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
+	unlink(path);
+
+	if (bctl->type == EBLOB_TYPE_DATA) {
+		snprintf(base_path, PATH_MAX, "%s.%d", b->cfg.file, bctl->index);
+		unlink(base_path);
+
+		snprintf(path, PATH_MAX, "%s.index", base_path);
+		unlink(path);
+
+		snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
+		unlink(path);
+	}
 }

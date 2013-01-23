@@ -1198,7 +1198,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 	 * XXX: Removal of files on some file systems is rather heavyweight
 	 * operation - move it out of the lock.
 	 */
-	eblob_base_remove(dcfg->b, dcfg->bctl);
+	eblob_base_remove(dcfg->bctl);
 
 	/*
 	 * No way back from here!

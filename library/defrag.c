@@ -44,46 +44,6 @@
 
 #include "blob.h"
 
-static int eblob_defrag_unlink(struct eblob_base_ctl *bctl)
-{
-	struct eblob_backend *b = bctl->back;
-	char path[PATH_MAX], base_path[PATH_MAX];
-
-	snprintf(base_path, PATH_MAX, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
-	unlink(base_path);
-
-	snprintf(path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, base_path);
-	unlink(path);
-
-	snprintf(path, PATH_MAX, "%s.index", base_path);
-	unlink(path);
-
-	snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
-	unlink(path);
-
-	if (bctl->type == EBLOB_TYPE_DATA) {
-		snprintf(base_path, PATH_MAX, "%s.%d", b->cfg.file, bctl->index);
-		unlink(base_path);
-
-		snprintf(path, PATH_MAX, "%s.index", base_path);
-		unlink(path);
-
-		snprintf(path, PATH_MAX, "%s.index.sorted", base_path);
-		unlink(path);
-	}
-
-	return 0;
-}
-
-/**
- * eblob_base_remove() - removes files that belong to one base
- * TODO: Move to mobjects.c
- */
-void eblob_base_remove(struct eblob_backend *b __unused, struct eblob_base_ctl *ctl)
-{
-	eblob_defrag_unlink(ctl);
-}
-
 /**
  * eblob_defrag_count() - iterator that counts non-removed entries in base
  */
@@ -207,7 +167,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					 * and close fds
 					 */
 
-					eblob_base_remove(b, bctl);
+					eblob_base_remove(bctl);
 					break;
 				case 1:
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
