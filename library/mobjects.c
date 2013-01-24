@@ -260,7 +260,7 @@ again:
 			err = eblob_index_blocks_fill(ctl);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"bctl: index: %d/%d, type: %d/%d: sarted_data/index_blocks_fill: FAILED\n",
+						"bctl: index: %d/%d, type: %d/%d: eblob_index_blocks_fill: FAILED\n",
 						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
 			}
