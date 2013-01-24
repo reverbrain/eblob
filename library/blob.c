@@ -348,6 +348,7 @@ static void *eblob_blob_iterator(void *data)
 	struct eblob_disk_control dc[local_max_num];
 	struct eblob_iterate_local loc;
 	int err = 0, index_fd = eblob_get_index_fd(bc);
+	static int hdr_size = sizeof(struct eblob_disk_control);
 
 	memset(&loc, 0, sizeof(loc));
 
@@ -371,33 +372,34 @@ static void *eblob_blob_iterator(void *data)
 		}
 
 		/* TODO: Rewrite me using blob_read_ll() */
-		err = pread(index_fd, dc, sizeof(struct eblob_disk_control) * local_max_num, ctl->index_offset);
-		if (err != (int)sizeof(struct eblob_disk_control) * local_max_num) {
+		err = pread(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
+		if (err != hdr_size * local_max_num) {
 			if (err < 0) {
 				err = -errno;
 				goto err_out_unlock;
 			}
 
-			local_max_num = err / sizeof(struct eblob_disk_control);
+			local_max_num = err / hdr_size;
 			if (local_max_num == 0) {
 				err = 0;
 				goto err_out_unlock;
 			}
 		}
 
-		if (ctl->index_offset + local_max_num * sizeof(struct eblob_disk_control) > ctl->index_size) {
+		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
-					"index_offset+local_max_num: %lld, but wanted less than index_size.\n",
+					"index_offset: %" PRIu64 ", index_size: %" PRIu64 ", "
+					"eblob_data_size: %" PRIu64 ", local_max_num: %d, "
+					"index_offset+local_max_num: %" PRId64 ", but wanted less than index_size.\n",
 					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
-					ctl->index_offset + local_max_num * sizeof(struct eblob_disk_control));
+					ctl->index_offset + local_max_num * hdr_size);
 			err = 0;
 			goto err_out_unlock;
 		}
 
 		loc.index_offset = ctl->index_offset;
 
-		ctl->index_offset += sizeof(struct eblob_disk_control) * local_max_num;
+		ctl->index_offset += hdr_size * local_max_num;
 		pthread_mutex_unlock(&bc->lock);
 
 		loc.dc = dc;
@@ -439,12 +441,11 @@ err_out_check:
 			 * Reading last record from index, read corresponding
 			 * record from blob and truncate index to current offset
 			 */
-			err = blob_read_ll(index_fd, &idc, sizeof(struct eblob_disk_control),
-					ctl->index_offset - sizeof(struct eblob_disk_control));
+			err = blob_read_ll(index_fd, &idc, hdr_size, ctl->index_offset - hdr_size);
 			if (err != 0) {
 				eblob_convert_disk_control(&idc);
 
-				memcpy(&data_dc, bc->data + idc.position, sizeof(struct eblob_disk_control));
+				memcpy(&data_dc, bc->data + idc.position, hdr_size);
 				eblob_convert_disk_control(&data_dc);
 
 				bc->data_offset = idc.position + data_dc.disk_size;
@@ -453,7 +454,7 @@ err_out_check:
 						"data_size(was): %" PRIu64 ", data_offset: %" PRIu64 ", "
 						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
 						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
-						ctl->index_offset - sizeof(struct eblob_disk_control));
+						ctl->index_offset - hdr_size);
 
 				err = ftruncate(index_fd, ctl->index_offset);
 				if (err == -1) {
