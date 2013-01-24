@@ -18,7 +18,6 @@
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <signal.h>
@@ -28,7 +27,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "test_datasort.h"
+#include "stress.h"
 
 /* Global variable for test config */
 struct test_cfg cfg;
@@ -156,9 +155,18 @@ again:
 	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
-		if (error == 0)
+		if (error == 0) {
 			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
 					item->key, eblob_dump_id(item->ekey.id));
+		} else if (error != -ENOENT) {
+			if (retries++ < max_retries) {
+				warnx("read failed: %s (%s), retrying, error: %d",
+				    item->key, eblob_dump_id(item->ekey.id), -error);
+				goto again;
+			}
+			errx(EX_SOFTWARE, "got an error while reading removed key: %s (%s): %d",
+					item->key, eblob_dump_id(item->ekey.id), -error);
+		}
 	} else {
 		/* Check data consistency */
 		if (error != 0) {

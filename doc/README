@@ -1,4 +1,4 @@
-libblob is a low-level IO library which stores data in large blob files.
+libeblob is a low-level IO library which stores data in large blob files.
 
 Following features are supported:
 
@@ -12,12 +12,12 @@ Following features are supported:
     * optional sha256 on-disk checksumming
     * 2-stage write: prepare (which reserves the space) and commit
     	(which calculates checksum and update in-memory and on-disk indexes).
-	One can (re)write data using pwrite() in between without locks
+	    One can (re)write data using pwrite() in between without locks
     * usual 1-stage write interface
     * flexible configuration of hash table size, flags, alignment
     * defragmentation tool: entries to be deleted are only marked as removed,
     	eblob_check tool can actually remove those blocks from blob files
-	by creating a copy and optionally rename it to original file
+	    by creating a copy and optionally rename it to original file
     * off-line blob consistency checker: we put a checksum into data blob,
     	eblob_check can verify if data matches
     * run-time sync support - library can sync files in background on timed base

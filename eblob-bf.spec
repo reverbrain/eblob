@@ -90,7 +90,7 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root,-)
-%doc AUTHORS README
+%doc AUTHORS README.rst
 %{_bindir}/*
 %{_libdir}/lib*.so.*
 %{python_sitelib}/eblob*

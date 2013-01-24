@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include <signal.h>
+
 #include "eblob/blob.h"
 #include "../../library/blob.h"
 
@@ -79,7 +81,7 @@ struct test_cfg {
 	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
 	/* Internal structures follow */
-	int			need_exit;	/* SIGINT caught */
+	sig_atomic_t		need_exit;	/* SIGINT caught */
 	long			log_fd;		/* Opened log file descriptor */
 	struct eblob_backend	*b;		/* Eblob backend */
 	struct shadow		*shadow;	/* Shadow storage pointer */

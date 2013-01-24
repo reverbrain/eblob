@@ -105,12 +105,16 @@ void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLO
 static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int len, char *dst)
 {
 	unsigned int i;
+	static const char hex[] = "0123456789abcdef";
 
 	if (len > EBLOB_ID_SIZE)
 		len = EBLOB_ID_SIZE;
 
-	for (i=0; i<len; ++i)
-		sprintf(&dst[2*i], "%02x", id[i]);
+	for (i=0; i<len; ++i) {
+		dst[2*i  ] = hex[id[i] >>  4];
+		dst[2*i+1] = hex[id[i] & 0xf];
+	}
+	dst[len * 2] = '\0';
 	return dst;
 }
 
@@ -211,6 +215,13 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * This sacrifies IOPS in exchange for smaller memory footprint
  */
 #define EBLOB_L2HASH				(1<<6)
+/*
+ * Enable automatic data-sort.
+ * Data-sort will be kick-in on base "close" or on open of unsorted base.
+ *
+ * Without of this flag it's still possible to run datasort via dnet_ioclient -d
+ */
+#define EBLOB_AUTO_DATASORT			(1<<7)
 
 struct eblob_config {
 	/* blob flags above */
@@ -338,6 +349,7 @@ struct eblob_iterate_callbacks {
 };
 
 #define EBLOB_ITERATE_FLAGS_ALL		(1<<0)	/* iterate over all blobs, not only the last one */
+#define EBLOB_ITERATE_READONLY		(1<<1)	/* do not modify entries while iterating a blob */
 
 /* Iterate over all blob files */
 struct eblob_iterate_control {
@@ -457,6 +469,12 @@ struct eblob_write_control {
 	uint64_t			total_size, total_data_size;
 
 	int				on_disk;
+	/*
+	 * Pointer to base control
+	 * This is only used by binlog code to handle data-sort index/data
+	 * swaps
+	 */
+	struct eblob_base_ctl		*bctl;
 };
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);
