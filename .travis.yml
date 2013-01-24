@@ -4,7 +4,4 @@ before_install:
   - sudo apt-get install -qq devscripts build-essential equivs
 compiler:
   - gcc
-branches:
-  only:
-    - data-sort
 script: "tests/ci/travis.sh"

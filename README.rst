@@ -9,7 +9,7 @@ Reverbrain wiki: http://doc.reverbrain.com/eblob:eblob
 
 Status
 ======
-.. image:: https://secure.travis-ci.org/SaveTheRbtz/eblob.png?branch=data-sort
+.. image:: https://secure.travis-ci.org/SaveTheRbtz/eblob.png?branch=devel
    :target: https://travis-ci.org/SaveTheRbtz/eblob
 
 Links
