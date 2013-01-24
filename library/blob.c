@@ -416,9 +416,15 @@ err_out_unlock:
 err_out_check:
 	ctl->thread_num = 0;
 
-	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, data_size: %llu, index_offset: %llu\n",
+	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, "
+			"data_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
 			bc->type, bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
 
+	/*
+	 * On open we are trying to auto-fix broken blobs by truncating them to
+	 * the last parsed entry.
+	 * This is questinable behaviour.
+	 */
 	if (!(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
 		pthread_mutex_lock(&bc->lock);
 
@@ -430,10 +436,12 @@ err_out_check:
 			struct eblob_disk_control idc;
 
 			/*
-			 * reading last record from index, read corresponding record from blob and truncate index to blob's index
+			 * Reading last record from index, read corresponding
+			 * record from blob and truncate index to current offset
 			 */
-			err = blob_read_ll(index_fd, &idc, sizeof(struct eblob_disk_control), ctl->index_offset - sizeof(struct eblob_disk_control));
-			if (!err) {
+			err = blob_read_ll(index_fd, &idc, sizeof(struct eblob_disk_control),
+					ctl->index_offset - sizeof(struct eblob_disk_control));
+			if (err != 0) {
 				eblob_convert_disk_control(&idc);
 
 				memcpy(&data_dc, bc->data + idc.position, sizeof(struct eblob_disk_control));
@@ -442,12 +450,10 @@ err_out_check:
 				bc->data_offset = idc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
-						"data_size(was): %llu, data_offset: %llu, data_position: %llu, disk_size: %llu, "
-						"index_offset: %llu\n",
-						bc->data_fd, index_fd, ctl->data_size,
-						(unsigned long long)bc->data_offset,
-						(unsigned long long)idc.position, (unsigned long long)idc.disk_size,
-						(unsigned long long)ctl->index_offset - sizeof(struct eblob_disk_control));
+						"data_size(was): %" PRIu64 ", data_offset: %" PRIu64 ", "
+						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
+						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
+						ctl->index_offset - sizeof(struct eblob_disk_control));
 
 				err = ftruncate(index_fd, ctl->index_offset);
 				if (err == -1) {
@@ -459,7 +465,6 @@ err_out_check:
 				ctl->err = err;
 			}
 		}
-
 		pthread_mutex_unlock(&bc->lock);
 	}
 
