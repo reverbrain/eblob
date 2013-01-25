@@ -880,7 +880,7 @@ static int datasort_binlog_apply_ll(int fd, uint64_t unsorted_ctl_offset, void *
 	assert(data_size > 0);
 
 	/* Is this record belongs to that reincarnation of key? */
-	if ((binlog_offset > unsorted_ctl_offset + dc->disk_size) ||
+	if ((binlog_offset >= unsorted_ctl_offset + dc->disk_size) ||
 			(binlog_offset < unsorted_ctl_offset))
 		return -ERANGE;
 
