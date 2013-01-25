@@ -103,7 +103,6 @@ again:
 	memset(e, 0, sizeof(struct eblob_hash_entry));
 
 	e->dsize = dsize;
-	INIT_LIST_HEAD(&e->cache_entry);
 
 	memcpy(&e->key, key, sizeof(struct eblob_key));
 	memcpy(e->data, data, dsize);

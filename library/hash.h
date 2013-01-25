@@ -35,12 +35,9 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 
 struct eblob_hash_entry {
-	struct rb_node		node;
-	struct list_head	cache_entry;
-
-	unsigned int		dsize;
-
 	struct eblob_key	key;
+	struct rb_node		node;
+	unsigned int		dsize;
 	unsigned char		data[0];
 };
 
