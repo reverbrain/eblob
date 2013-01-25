@@ -21,7 +21,6 @@
 #include "list.h"
 #include "rbtree.h"
 
-struct eblob_hash_head;
 struct eblob_hash {
 	struct rb_root		root;
 	pthread_mutex_t		root_lock;
