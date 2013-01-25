@@ -9,8 +9,8 @@ Reverbrain wiki: http://doc.reverbrain.com/eblob:eblob
 
 Status
 ======
-.. image:: https://secure.travis-ci.org/SaveTheRbtz/eblob.png?branch=devel
-   :target: https://travis-ci.org/SaveTheRbtz/eblob
+.. image:: https://secure.travis-ci.org/reverbrain/eblob.png?branch=master
+   :target: https://travis-ci.org/reverbrain/eblob
 
 Links
 =====
