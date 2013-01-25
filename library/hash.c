@@ -14,10 +14,8 @@
  */
 
 /*
- * This is in-memory cache for eblob entries.
- *
- * Cache consists of rbtree hash (key to data) and two linked lists for LRU
- * cache replacement.
+ * This is in-memory cache for eblob indexes in ram control format.
+ * Hash is a name for key to ram control mapping implemented as rb_tree.
  */
 
 #include <sys/types.h>
