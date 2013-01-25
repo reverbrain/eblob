@@ -1,8 +1,8 @@
 Source: eblob
-Section: net
+Section: database
 Priority: optional
 Maintainer: Evgeniy Polyakov <zbr@ioremap.net>
-Build-Depends: debhelper (>= 7),
+Build-Depends: debhelper (>= 7.0.50~),
                cmake (>= 2.6),
                libboost-dev,
                libboost-iostreams-dev,
@@ -14,7 +14,9 @@ Build-Depends: debhelper (>= 7),
                python-dev,
                python-support
 Standards-Version: 3.8.0
-Homepage: http://www.ioremap.net/projects/eblob
+Homepage: http://www.reverbrain.com/eblob/
+Vcs-Git: git://github.com/reverbrain/eblob.git
+Vcs-Browser: https://github.com/reverbrain/eblob
 
 Package: eblob
 Architecture: any
@@ -24,6 +26,8 @@ Description: BLOB data container
 
 Package: eblob-dbg
 Architecture: any
-Depends: eblob(=${binary:Version})
+Section: debug
+Priority: extra
+Depends: eblob (= ${binary:Version}), ${misc:Depends}
 Description: BLOB data container
  EBLOB is append data storage with fast indexes and comprehensive API

@@ -1,0 +1,7 @@
+language: c
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -qq devscripts build-essential equivs
+compiler:
+  - gcc
+script: "tests/ci/travis.sh"

@@ -21,7 +21,6 @@ option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
 option(WITH_SNAPPY "Enable Snappy support" ON)
 
-include(CheckAtomic)
 include(TestBigEndian)
 
 include_directories(${CMAKE_BINARY_DIR}/include/)
@@ -69,7 +68,6 @@ endif()
 
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
-include(CheckThreadSpinlock)
 
 # Check for boost
 #set(Boost_USE_STATIC_LIBS ON)
@@ -97,11 +95,24 @@ if(WITH_PYTHON)
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
 
-# Check for posix_fadvise
 include(CheckSymbolExists)
+
+# Check for posix_fadvise
 check_symbol_exists(posix_fadvise "fcntl.h" HAVE_POSIX_FADVISE)
 if (HAVE_POSIX_FADVISE)
     add_definitions(-DHAVE_POSIX_FADVISE)
+endif()
+
+# Check for posix_fallocate
+check_symbol_exists(posix_fallocate "fcntl.h" HAVE_POSIX_FALLOCATE)
+if (HAVE_POSIX_FALLOCATE)
+    add_definitions(-DHAVE_POSIX_FALLOCATE)
+endif()
+
+# Check for fdatasync
+check_symbol_exists(fdatasync "unistd.h" HAVE_FDATASYNC)
+if (HAVE_FDATASYNC)
+    add_definitions(-DHAVE_FDATASYNC)
 endif()
 
 # Collect all libraries together

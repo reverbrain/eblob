@@ -14,7 +14,7 @@
  */
 
 /*
- * Each base has index represented by continious array of disk control
+ * Each base has index represented by continuous array of disk control
  * structures.
  * Each "closed" base has sorted on-disk index for logarithmic search via
  * bsearch(3)
@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +44,13 @@
 
 #include "blob.h"
 
-static int eblob_disk_control_sort(const void *d1, const void *d2)
+
+int eblob_key_sort(const void *key1, const void *key2)
+{
+	return eblob_id_cmp(((struct eblob_key *)key1)->id, ((struct eblob_key *)key2)->id);
+}
+
+int eblob_disk_control_sort(const void *d1, const void *d2)
 {
 	const struct eblob_disk_control *dc1 = d1;
 	const struct eblob_disk_control *dc2 = d2;
@@ -51,7 +58,7 @@ static int eblob_disk_control_sort(const void *d1, const void *d2)
 	return eblob_id_cmp(dc1->key.id, dc2->key.id);
 }
 
-static int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
+int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 {
 	const struct eblob_disk_control *dc1 = d1;
 	const struct eblob_disk_control *dc2 = d2;
@@ -156,7 +163,7 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
 	struct eblob_index_block *t = NULL;
@@ -166,8 +173,6 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 
 	eblob_calculate_bloom(&dc->key, &bloom_byte_num, &bloom_bit_num,
 			bctl->back->cfg.index_block_bloom_length);
-
-	pthread_mutex_lock(&bctl->index_blocks_lock);
 
 	n = bctl->index_blocks_root.rb_node;
 
@@ -220,8 +225,6 @@ struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl,
 			t = NULL;
 		}
 	}
-
-	pthread_mutex_unlock(&bctl->index_blocks_lock);
 
 	/* n == NULL means that ID doesn't exist in this index */
 	if (!n)
@@ -302,7 +305,8 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
 
-	block = eblob_index_blocks_search(bctl, dc, st);
+	pthread_mutex_lock(&bctl->index_blocks_lock);
+	block = eblob_index_blocks_search_nolock(bctl, dc, st);
 	if (block) {
 		assert((bctl->sort.size - block->offset) / hdr_size > 0);
 		assert((bctl->sort.size - block->offset) % hdr_size == 0);
@@ -315,8 +319,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 		search_start = bctl->sort.data + block->offset;
 		search_end = search_start + (num - 1);
 	} else {
+		pthread_mutex_unlock(&bctl->index_blocks_lock);
 		goto out;
 	}
+	pthread_mutex_unlock(&bctl->index_blocks_lock);
 
 	st->bsearch_reached++;
 
@@ -482,7 +488,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		bctl->index_fd = bctl->dfi;
 		bctl->sort = dst;
 
-		err = eblob_base_setup_data(bctl);
+		err = eblob_base_setup_data(bctl, 1);
 		if (!err) {
 			bctl->data_offset = bctl->data_size;
 		} else {
@@ -578,7 +584,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 	*dst = NULL;
 	*dsize = 0;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: index: disk: type: %d, max_type: %d\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+			"blob: %s: index: disk: type: %d, max_type: %d\n",
 			eblob_dump_id(key->id),	type, b->max_type);
 
 	if (type >= 0) {
@@ -606,7 +613,15 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			if (bctl->sort.fd < 0)
 				continue;
 
-			pthread_mutex_lock(&bctl->lock);
+			/* Protect against datasort */
+			eblob_bctl_hold(bctl);
+
+			/* Check that bctl is invalidated by datasort */
+			if (bctl->index_fd < 0) {
+				err = -EAGAIN;
+				goto out_unlock;
+			}
+
 			if (bctl->sort.fd < 0) {
 				err = -ENOENT;
 				goto out_unlock;
@@ -615,7 +630,8 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 			if (!dc) {
 				err = -ENOENT;
-				eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
+				eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+						"blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
 						eblob_dump_id(key->id),	bctl->index, bctl->type);
 				goto out_unlock;
 			}
@@ -639,15 +655,16 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 			r->size = dc->data_size;
 			r->bctl = bctl;
 
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: index: disk: index: %d, type: %d, "
-					"position: %llu, data_size: %llu\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob: %s: index: disk: index: %d, type: %d, "
+					"position: %" PRIu64 ", data_size: %" PRIu64 "\n",
 					eblob_dump_id(key->id), r->bctl->index, r->bctl->type,
-					(unsigned long long)r->data_offset, (unsigned long long)r->size);
+					r->data_offset, r->size);
 
 			eblob_convert_disk_control(dc);
 			err = 0;
 out_unlock:
-			pthread_mutex_unlock(&bctl->lock);
+			eblob_bctl_release(bctl);
 
 			if (err == -ENOENT)
 				continue;
@@ -659,7 +676,8 @@ out_unlock:
 				goto err_out_exit;
 		}
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				"%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
 				"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
 				eblob_dump_id(key->id),	i, st.range_has_key, st.bloom_null,
 				st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);

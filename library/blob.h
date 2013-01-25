@@ -15,12 +15,15 @@
 
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
+#include <unistd.h>
 
 #include "eblob/blob.h"
 #include "hash.h"
 #include "l2hash.h"
-#include "lock.h"
 #include "list.h"
+
+#include "binlog.h"
+#include "datasort.h"
 
 #ifndef __unused
 #define __unused	__attribute__ ((unused))
@@ -101,6 +104,29 @@ inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_
 	*bloom_bit_num = acc % 8;
 }
 
+/*
+ * Sync written data to disk
+ *
+ * On linux fdatasync call is available that syncs only data, but not metadata,
+ * which requires less disk seeks.
+ */
+inline static int eblob_fsync(int fd)
+{
+	if (fsync(fd) == -1)
+		return -errno;
+	return 0;
+}
+
+inline static int eblob_fdatasync(int fd)
+{
+#ifdef HAVE_FDATASYNC
+	if (fdatasync(fd) == -1)
+		return -errno;
+	return 0;
+#else
+	return eblob_fsync(fd);
+#endif
+}
 
 struct eblob_base_ctl {
 	struct eblob_backend	*back;
@@ -116,8 +142,10 @@ struct eblob_base_ctl {
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
+	/* Blob is closed and we should sort data in it by key */
 	int			need_sorting;
 
+	/* TODO: Unused - remove */
 	pthread_mutex_t		dlock;
 	int			df, dfi;
 
@@ -130,8 +158,25 @@ struct eblob_base_ctl {
 	struct rb_root		index_blocks_root;
 	pthread_mutex_t		index_blocks_lock;
 
+	/* Number of valid non-removed entries */
 	int			good;
 
+	/* Number of bctl users inside a critical section */
+	int			critness;
+
+	/*
+	 * If this pointer is not NULL then all operations for this base go
+	 * through a binlog.
+	 */
+	struct eblob_binlog_cfg	*binlog;
+
+	/*
+	 * Is data in blob sorted?
+	 * 1 if sorted
+	 * 0 if unknown
+	 * -1 if not sorted
+	 */
+	int			sorted;
 	char			name[0];
 };
 
@@ -143,14 +188,22 @@ struct eblob_base_ctl {
 #define EBLOB_FLAGS_HINT_ALL (EBLOB_FLAGS_HINT_WILLNEED | EBLOB_FLAGS_HINT_DONTNEED)
 
 void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
+int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
-int eblob_base_setup_data(struct eblob_base_ctl *ctl);
+int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
 struct eblob_stat {
 	FILE			*file;
 	pthread_mutex_t		lock;
 
 	int			need_check;
+	/*
+	 * Current data-sort status:
+	 * <0:	data-sort aborted due an error
+	 * 1:	data-sort in progress
+	 * 0:	data-sort not running
+	 */
+	int			sort_status;
 
 	unsigned long long	disk;
 	unsigned long long	removed;
@@ -174,8 +227,6 @@ struct eblob_backend {
 	struct eblob_l2hash	**l2hash;
 	/* Maximum initialized l2hash */
 	int			l2hash_max;
-	/* Lock to protecct l2hash metadata in eblob_backend */
-	pthread_mutex_t		l2hash_lock;
 
 	struct eblob_stat	stat;
 
@@ -183,6 +234,15 @@ struct eblob_backend {
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
 
+	/*
+	 * Set when defrag/data-sort are explicitly requested
+	 * While it's negative data-sort can't proceed even if explicitly
+	 * requested by user. This is used to avoid races with
+	 * eblob_load_data()
+	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
+	 * 0:	data-sort should be preformed according to defrag_timeout
+	 * <0:	data-sort is disabled by eblob_load_data()
+	 */
 	int			want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;
@@ -194,6 +254,7 @@ void eblob_base_types_cleanup(struct eblob_backend *b);
 
 int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control *res, int *diskp);
 int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
+int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int type);
 int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
 
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type,
@@ -204,7 +265,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		struct eblob_base_type **typesp, int *max_typep);
 
 void *eblob_defrag(void *data);
-void eblob_base_remove(struct eblob_backend *b, struct eblob_base_ctl *ctl);
+void eblob_base_remove(struct eblob_base_ctl *bctl);
 
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag);
 
@@ -212,6 +273,8 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
+int blob_write_ll(int fd, void *data, size_t size, off_t offset);
+int blob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
 	int			bloom_null;
@@ -221,12 +284,38 @@ struct eblob_disk_search_stat {
 	int			additional_reads;
 };
 
-struct eblob_index_block *eblob_index_blocks_search(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st);
 
 ssize_t eblob_get_actual_size(int fd);
 
+int eblob_key_sort(const void *key1, const void *key2);
+int eblob_disk_control_sort(const void *d1, const void *d2);
+int eblob_disk_control_sort_with_flags(const void *d1, const void *d2);
+
+int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
+
 int eblob_preallocate(int fd, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
+
+int blob_mark_index_removed(int fd, off_t offset);
+int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key);
+
+int eblob_get_index_fd(struct eblob_base_ctl *bctl);
+void eblob_base_wait(struct eblob_base_ctl *bctl);
+void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
+
+void eblob_bctl_hold(struct eblob_base_ctl *bctl);
+void eblob_bctl_release(struct eblob_base_ctl *bctl);
+
+struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
+		const char *name, int name_len);
+
+/* Logging helpers */
+#define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \
+		"blob: %s: " fmt "\n", __func__, ## __VA_ARGS__);
+
+#define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
+		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
 
 #endif /* __EBLOB_BLOB_H */
