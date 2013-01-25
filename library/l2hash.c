@@ -28,7 +28,6 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -143,7 +142,7 @@ static inline eblob_l2hash_t eblob_l2hash_key(struct eblob_key *key)
  */
 struct eblob_l2hash *eblob_l2hash_init(void)
 {
-	struct eblob_l2hash *l2h;
+	struct eblob_l2hash *l2h = NULL;
 
 	l2h = calloc(1, sizeof(struct eblob_l2hash));
 	if (l2h == NULL)
@@ -151,15 +150,9 @@ struct eblob_l2hash *eblob_l2hash_init(void)
 
 	l2h->root = RB_ROOT;
 	l2h->collisions = RB_ROOT;
-	if (pthread_mutex_init(&l2h->root_lock, NULL) != 0)
-		goto err_free;
 
-	return l2h;
-
-err_free:
-	free(l2h);
 err:
-	return NULL;
+	return l2h;
 }
 
 /**
@@ -184,8 +177,6 @@ static void __eblob_l2hash_tree_destroy(struct rb_root *root) {
  */
 int eblob_l2hash_destroy(struct eblob_l2hash *l2h)
 {
-	int err;
-
 	if (l2h == NULL)
 		return -EINVAL;
 
@@ -193,10 +184,8 @@ int eblob_l2hash_destroy(struct eblob_l2hash *l2h)
 	__eblob_l2hash_tree_destroy(&l2h->root);
 	__eblob_l2hash_tree_destroy(&l2h->collisions);
 
-	err = pthread_mutex_destroy(&l2h->root_lock);
 	free(l2h);
-
-	return err;
+	return 0;
 }
 
 /**
@@ -208,11 +197,10 @@ static int __eblob_l2hash_index_hdr(struct eblob_ram_control *rctl, struct eblob
 
 	assert(rctl != NULL);
 	assert(rctl->bctl != NULL);
-	assert(rctl->bctl->index_fd >= 0);
 	assert(dc != NULL);
 
-	err = pread(rctl->bctl->sort.fd >= 0 ? rctl->bctl->sort.fd : rctl->bctl->index_fd,
-			dc, sizeof(struct eblob_disk_control), rctl->index_offset);
+	err = pread(eblob_get_index_fd(rctl->bctl), dc,
+			sizeof(struct eblob_disk_control), rctl->index_offset);
 	if (err != sizeof(struct eblob_disk_control))
 		return (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 	return 0;
@@ -451,7 +439,6 @@ __eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key)
 
 	assert(l2h != NULL);
 	assert(key != NULL);
-	assert(pthread_mutex_trylock(&l2h->root_lock) == EBUSY);
 
 	if ((n = __eblob_l2hash_noncollision_walk(&l2h->root, key, NULL, NULL)) == NULL)
 		return NULL;
@@ -477,7 +464,6 @@ static int eblob_l2hash_lookup_nolock(struct eblob_l2hash *l2h,
 	assert(l2h != NULL);
 	assert(key != NULL);
 	assert(rctl != NULL);
-	assert(pthread_mutex_trylock(&l2h->root_lock) == EBUSY);
 
 	if ((e = __eblob_l2hash_lookup(l2h, key)) != NULL)
 		return eblob_l2hash_resolve_collision(&l2h->collisions, e, key, rctl);
@@ -496,13 +482,7 @@ int eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key,
 	if (l2h == NULL || key == NULL || rctl == NULL)
 		return -EINVAL;
 
-	if ((err = pthread_mutex_lock(&l2h->root_lock)) != 0)
-		return -err;
-
 	err = eblob_l2hash_lookup_nolock(l2h, key, rctl);
-
-	if (pthread_mutex_unlock(&l2h->root_lock) != 0)
-		abort();
 
 	return err;
 };
@@ -524,7 +504,6 @@ static int eblob_l2hash_remove_nolock(struct eblob_l2hash *l2h,
 
 	assert(l2h != NULL);
 	assert(key != NULL);
-	assert(pthread_mutex_trylock(&l2h->root_lock) == EBUSY);
 
 	/* Find entry in tree */
 	if ((e = __eblob_l2hash_lookup(l2h, key)) == NULL)
@@ -568,13 +547,7 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h, struct eblob_key *key)
 	if (l2h == NULL || key == NULL)
 		return -EINVAL;
 
-	if ((err = pthread_mutex_lock(&l2h->root_lock)) != 0)
-		return -err;
-
 	err = eblob_l2hash_remove_nolock(l2h, key);
-
-	if (pthread_mutex_unlock(&l2h->root_lock) != 0)
-		abort();
 
 	return err;
 }
@@ -600,7 +573,6 @@ static int __eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key
 	assert(l2h != NULL);
 	assert(key != NULL);
 	assert(rctl != NULL);
-	assert(pthread_mutex_trylock(&l2h->root_lock) == EBUSY);
 
 	if (type <= EBLOB_L2HASH_TYPE_FIRST)
 		return -EINVAL;
@@ -672,13 +644,7 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 	if (l2h == NULL || key == NULL || rctl == NULL)
 		return -EINVAL;
 
-	if ((err = pthread_mutex_lock(&l2h->root_lock)) != 0)
-		return -err;
-
 	err = __eblob_l2hash_insert(l2h, key, rctl, type);
-
-	if (pthread_mutex_unlock(&l2h->root_lock) != 0)
-		abort();
 
 	return err;
 }

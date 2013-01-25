@@ -1,17 +1,19 @@
 include_directories(../include)
 set(EBLOB_SRCS
+    binlog.c
     blob.c
-    hash.c
-    log.c
-    l2hash.c
-    range.c
-    mobjects.c
     compress.c
-    defrag.c
-    index.c
     crypto/sha512.c
-    stat.c
+    datasort.c
+    defrag.c
+    hash.c
+    index.c
+    l2hash.c
+    log.c
+    mobjects.c
+    range.c
     rbtree.c
+    stat.c
     )
 add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
