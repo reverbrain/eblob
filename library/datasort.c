@@ -365,7 +365,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	assert(data != NULL);
 
 	/* Sainity check */
-	if (dc->disk_size < hdr_size)
+	if (dc->disk_size < (uint64_t)hdr_size)
 		return -EINVAL;
 
 	/* Shortcut */
