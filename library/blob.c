@@ -1206,6 +1206,11 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	}
 
 	if (have_old) {
+		/* Check that bctl is still valid */
+		if (old.bctl->index_fd == -1) {
+			err = -EAGAIN;
+			goto err_out_unlock_exit;
+		}
 		if (wc->flags & BLOB_DISK_CTL_APPEND) {
 			wc->offset += old.size;
 		}
