@@ -97,6 +97,7 @@ void eblob_base_wait(struct eblob_base_ctl *bctl)
 
 /**
  * eblob_bctl_hold() - prevents iterators from seeing inconsistent data state.
+ * TODO: Rewrite using atomic operations.
  */
 void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 {
@@ -110,6 +111,7 @@ void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 
 /**
  * eblob_bctl_release() - allows iterators to proceed
+ * TODO: Rewrite using atomic operations.
  */
 void eblob_bctl_release(struct eblob_base_ctl *bctl)
 {
