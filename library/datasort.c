@@ -1347,7 +1347,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
 	if (dcfg->dir == NULL) {
-		err = -ENXIO;
+		err = -EIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_mkdtemp");
 		goto err_stop;
 	}
@@ -1368,8 +1368,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 		/* Generate empty chunk */
 		dcfg->result = datasort_add_chunk(dcfg);
-		if (dcfg->result == NULL)
+		if (dcfg->result == NULL) {
+			err = -EIO;
 			goto err_rmdir;
+		}
 		goto skip_merge_sort;
 	}
 
