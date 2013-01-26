@@ -97,9 +97,6 @@ int datasort_schedule_sort(struct eblob_base_ctl *bctl)
 	if (bctl == NULL || bctl->back == NULL)
 		return -EINVAL;
 
-	/* Mark blob for sort */
-	bctl->need_sorting = 1;
-
 	/* Kick in data-sort if auto-sort is enabled */
 	if (bctl->back->cfg.blob_flags & EBLOB_AUTO_DATASORT)
 		return eblob_start_defrag(bctl->back);
