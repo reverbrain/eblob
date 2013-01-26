@@ -390,9 +390,8 @@ static void *eblob_blob_iterator(void *data)
 
 		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-					"index_offset: %" PRIu64 ", index_size: %" PRIu64 ", "
-					"eblob_data_size: %" PRIu64 ", local_max_num: %d, "
-					"index_offset+local_max_num: %" PRId64 ", but wanted less than index_size.\n",
+					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
+					"index_offset+local_max_num: %llu, but wanted less than index_size.\n",
 					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
 					ctl->index_offset + local_max_num * hdr_size);
 			err = 0;
@@ -421,7 +420,7 @@ err_out_check:
 	ctl->thread_num = 0;
 
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, "
-			"data_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
+			"data_size: %llu, index_offset: %llu\n",
 			bc->type, bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
 
 	/*
@@ -453,8 +452,8 @@ err_out_check:
 				bc->data_offset = idc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
-						"data_size(was): %" PRIu64 ", data_offset: %" PRIu64 ", "
-						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
+						"data_size(was): %llu, data_offset: %" PRIu64 ", "
+						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %llu\n",
 						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
 						ctl->index_offset - hdr_size);
 
