@@ -243,14 +243,6 @@ again:
 
 		ctl->index_size = st.st_size;
 
-		/*
-		 * If unsorted - mark blob for datasort
-		 * NB! Last base of each type will be skipped by defrag so
-		 * it'll be deferred until it "closes".
-		 */
-		if (datasort_base_is_sorted(ctl) != 1)
-			datasort_schedule_sort(ctl);
-
 		/* Sort index only if base is not empty and exceeds thresholds */
 		if (ctl->index_size &&
 				((ctl->data_size >= b->cfg.blob_size) ||
