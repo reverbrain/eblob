@@ -1211,9 +1211,8 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			err = -EAGAIN;
 			goto err_out_unlock_exit;
 		}
-		if (wc->flags & BLOB_DISK_CTL_APPEND) {
+		if (wc->flags & BLOB_DISK_CTL_APPEND)
 			wc->offset += old.size;
-		}
 	}
 
 	assert(datasort_base_is_sorted(ctl) != 1);
