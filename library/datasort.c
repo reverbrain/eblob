@@ -365,7 +365,9 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	assert(dcfg != NULL);
 	assert(local != NULL);
 	assert(data != NULL);
-	assert(dc->disk_size >= (uint64_t)hdr_size);
+
+	if (dc->disk_size < hdr_size)
+		return -EINVAL;
 
 	/*
 	 * Create new chunk if:
