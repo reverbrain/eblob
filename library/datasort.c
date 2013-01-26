@@ -1357,7 +1357,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_stop;
 	}
 
-	/* Split blob into unsorted chunks */
+	/*
+	 * Split blob into unsorted chunks
+	 * TODO: Think of possible optimizations for defragmenting already
+	 * sorted file.
+	 */
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->dir);
