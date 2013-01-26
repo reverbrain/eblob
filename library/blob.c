@@ -364,14 +364,6 @@ static void *eblob_blob_iterator(void *data)
 			err = 0;
 			goto err_out_unlock;
 		}
-		if (eblob_get_index_fd(bc) != index_fd) {
-			/* This can happen if data-sort kicks in between iterations */
-			eblob_log(ctl->log, EBLOB_LOG_ERROR,
-					"blob: index_fd changed: %d -> %d, iteration stops.\n",
-					eblob_get_index_fd(bc), index_fd);
-			err = 0;
-			goto err_out_unlock;
-		}
 
 		/* TODO: Rewrite me using blob_read_ll() */
 		err = pread(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
