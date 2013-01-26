@@ -1372,16 +1372,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 * If unsorted list is empty - generate empty chunk
 	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
 				"datasort_split: no records passed through iteration process.");
-
-		/* Generate empty chunk */
-		dcfg->result = datasort_add_chunk(dcfg);
-		if (dcfg->result == NULL) {
-			err = -EIO;
-			goto err_rmdir;
-		}
-		goto skip_merge_sort;
+		err = -ENOENT;
+		goto err_rmdir;
 	}
 
 	/* In-memory sort each chunk */
@@ -1399,7 +1393,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
-skip_merge_sort:
 	/* Lock backend */
 	pthread_mutex_lock(&dcfg->b->lock);
 	/* Wait for pending writes and lock bctl */
