@@ -2090,7 +2090,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
-		err = -ENOMEM;
+		errno = -ENOMEM;
 		goto err_out_exit;
 	}
 
@@ -2130,15 +2130,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->cfg.file = strdup(c->file);
 	if (!b->cfg.file) {
-		err = -ENOMEM;
+		errno = -ENOMEM;
 		goto err_out_stat_free;
 	}
 
 	err = pthread_mutex_init(&b->lock, NULL);
-	if (err) {
-		err = -errno;
+	if (err)
 		goto err_out_free_file;
-	}
 
 	b->l2hash_max = -1;
 
