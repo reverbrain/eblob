@@ -82,7 +82,6 @@ again:
 				memcpy(t->data, data, dsize);
 				t->dsize = dsize;
 				err = 0;
-				e = t;
 				goto err_out_exit;
 			}
 
