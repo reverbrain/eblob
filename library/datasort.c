@@ -1423,12 +1423,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		abort();
 	}
 
-	/*
-	 * Preform cleanups
-	 * TODO: Move the out of the lock.
-	 */
-	datasort_cleanup(dcfg);
-
 	/* Now we can disable binlog */
 	if (dcfg->use_binlog) {
 		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
@@ -1437,6 +1431,12 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			goto err_unlock_bctl;
 		}
 	}
+
+	/*
+	 * Preform cleanups
+	 * TODO: Move the out of the lock.
+	 */
+	datasort_cleanup(dcfg);
 
 	/* Mark base as sorted */
 	dcfg->bctl->sorted = 1;
