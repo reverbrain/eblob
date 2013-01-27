@@ -390,12 +390,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 		local->current = c;
 
 		/* Add new chunk to the unsorted list */
-		err = pthread_mutex_lock(&dcfg->lock);
-		if (err) {
-			err = -err;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-			goto err;
-		}
+		pthread_mutex_lock(&dcfg->lock);
 		list_add_tail(&c->list, &dcfg->unsorted_chunks);
 		pthread_mutex_unlock(&dcfg->lock);
 	}
@@ -451,7 +446,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 
 	c->offset += dc->disk_size - hdr_size;
 	c->count++;
-	err = 0;
+	return 0;
 
 err:
 	return err;
