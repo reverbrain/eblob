@@ -204,12 +204,14 @@ skip_binlog:
 	/* Write completed successfully append entry to binlog */
 	if (binlog) {
 		pthread_mutex_lock(&bctl->lock);
-		err = binlog_append(&binctl);
+		/* Recheck that binlog is still enabled after getting a lock */
+		if (bctl->binlog != NULL) {
+			if ((err = binlog_append(&binctl)) != 0)
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"%s: %s: binlog_append: FAILED: %d\n",
+						eblob_dump_id(key->id), __func__, err);
+		}
 		pthread_mutex_unlock(&bctl->lock);
-		if (err)
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: binlog_append: FAILED: %d\n",
-					eblob_dump_id(key->id), __func__, err);
 		/* FALLTHROUGH */
 	}
 
