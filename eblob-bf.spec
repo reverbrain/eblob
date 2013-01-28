@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.0
+Version:	0.18.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Jan 28 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.1
+- Data sort fixes
+
 * Sat Jan 26 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.0
 - Sort data blobs when doing defragmentation
 - A lot of changes for above task made by Alexey Ivanov <SaveTheRbtz@GMail.com>
