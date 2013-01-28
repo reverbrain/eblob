@@ -1,3 +1,11 @@
+eblob (0.18.0) unstable; urgency=low
+
+  * Sort data blobs when doing defragmentation
+  * A lot of changes for above task made by Alexey Ivanov <SaveTheRbtz@GMail.com>
+  * Fixed lookup leak
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 26 Jan 2013 18:20:29 +0400
+
 eblob (0.17.8) unstable; urgency=low
 
   * data-sort: fixed checkpatch errors
