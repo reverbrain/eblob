@@ -136,7 +136,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		 * delete entry, and add only to the end which is safe
 		 */
 		list_for_each_entry(bctl, &t->bases, base_entry) {
-			int want = bctl->need_sorting;
+			/* By default we want to sort any unsorted blob */
+			int want = (datasort_base_is_sorted(bctl) == 0);
 
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 					"defrag: start type: %d, index: %d\n",
@@ -151,36 +152,33 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			if (list_is_last(&bctl->base_entry, &t->bases))
 				break;
 
-			if (want == 0)
-				switch (eblob_want_defrag(bctl)) {
-				case 0:
-					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
-							"empty blob - removing.");
+			switch (eblob_want_defrag(bctl)) {
+			case 0:
+				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+						"empty blob - removing.");
 
-					/* Accounting */
-					b->current_blob_size -= bctl->index_size;
-					b->current_blob_size -= bctl->data_size;
+				/* Accounting */
+				b->current_blob_size -= bctl->index_size;
+				b->current_blob_size -= bctl->data_size;
 
-					/*
-					 * TODO: It's better to also preform
-					 * minimal cleanup: unmap data/index
-					 * and close fds
-					 */
-
-					eblob_base_remove(bctl);
-					break;
-				case 1:
-					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
-							"blob fragmented - forced datasort.");
-					want = 1;
-					break;
-				case -1:
-					want = 0;
-					break;
-				default:
-					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-							"eblob_want_defrag: FAILED");
-				}
+				/*
+				 * TODO: It's better to also preform minimal
+				 * cleanup: unmap data/index and close fds
+				 */
+				eblob_base_remove(bctl);
+				want = 0;
+				break;
+			case 1:
+				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+						"blob fragmented - forced datasort.");
+				want = 1;
+				break;
+			case -1:
+				break;
+			default:
+				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+						"eblob_want_defrag: FAILED");
+			}
 
 			if (want) {
 				struct datasort_cfg dcfg = {
@@ -197,7 +195,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 							err, bctl->type, bctl->index);
 					continue;
 				}
-				bctl->need_sorting = 0;
 			}
 
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO,

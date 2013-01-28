@@ -243,10 +243,7 @@ again:
 
 		ctl->index_size = st.st_size;
 
-		/*
-		 * Sort index/data only if base is not empty and either exceeds
-		 * thresholds.
-		 */
+		/* Sort index only if base is not empty and exceeds thresholds */
 		if (ctl->index_size &&
 				((ctl->data_size >= b->cfg.blob_size) ||
 				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
@@ -264,8 +261,6 @@ again:
 						ctl->index, max_index, ctl->type, max_type);
 				goto err_out_close_index;
 			}
-			/* Schedule datasort */
-			datasort_schedule_sort(ctl);
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, type: %d/%d: using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -275,10 +270,6 @@ again:
 		}
 	} else {
 		struct stat st;
-
-		/* If unsorted - mark blob for datasort */
-		if (datasort_base_is_sorted(ctl) != 1)
-			datasort_schedule_sort(ctl);
 
 		err = stat(full, &st);
 		if (err) {
