@@ -97,9 +97,6 @@ int datasort_schedule_sort(struct eblob_base_ctl *bctl)
 	if (bctl == NULL || bctl->back == NULL)
 		return -EINVAL;
 
-	/* Mark blob for sort */
-	bctl->need_sorting = 1;
-
 	/* Kick in data-sort if auto-sort is enabled */
 	if (bctl->back->cfg.blob_flags & EBLOB_AUTO_DATASORT)
 		return eblob_start_defrag(bctl->back);
@@ -359,13 +356,20 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
 	struct datasort_chunk_local *local = thread_priv;
+	struct datasort_chunk *c;
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
 	assert(dc != NULL);
 	assert(dcfg != NULL);
 	assert(local != NULL);
 	assert(data != NULL);
-	assert(dc->disk_size >= (uint64_t)hdr_size);
+
+	/* Sainity check */
+	if (dc->disk_size < (uint64_t)hdr_size)
+		return -EINVAL;
+
+	/* Shortcut */
+	c = local->current;
 
 	/*
 	 * Create new chunk if:
@@ -373,83 +377,76 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	 *   - Exceeded chunk's size limit
 	 *   - Exceeded chunk's count limit
 	 */
-	if (local->current == NULL
-			|| (dcfg->chunk_size > 0 && local->current->offset + dc->disk_size >= dcfg->chunk_size)
-			|| (dcfg->chunk_limit > 0 && local->current->count >= dcfg->chunk_limit)) {
+	if (c == NULL || (dcfg->chunk_size > 0 && c->offset + dc->disk_size >= dcfg->chunk_size)
+			|| (dcfg->chunk_limit > 0 && c->count >= dcfg->chunk_limit)) {
 		/* TODO: here we can plug sort for speedup */
-		local->current = datasort_add_chunk(dcfg);
-		if (local->current == NULL) {
+		c = datasort_add_chunk(dcfg);
+		if (c == NULL) {
 			err = -EIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_add_chunk: FAILED");
 			goto err;
 		}
+		/* Update pointer for current chunk */
+		local->current = c;
 
 		/* Add new chunk to the unsorted list */
-		err = pthread_mutex_lock(&dcfg->lock);
-		if (err) {
-			err = -err;
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
-			goto err;
-		}
-		list_add_tail(&local->current->list, &dcfg->unsorted_chunks);
+		pthread_mutex_lock(&dcfg->lock);
+		list_add_tail(&c->list, &dcfg->unsorted_chunks);
 		pthread_mutex_unlock(&dcfg->lock);
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
 			", size: %" PRIu64 ", flags: %" PRIu64,
-			eblob_dump_id(dc->key.id), local->current->fd, local->current->offset,
-			dc->disk_size, dc->flags);
+			eblob_dump_id(dc->key.id), c->fd, c->offset, dc->disk_size, dc->flags);
 
 	/* Extended offset_map if needed */
-	local->current->offset_map = datasort_reallocf((void **)&local->current->offset_map,
-			sizeof(struct datasort_offset_map), &local->current->offset_map_size,
-			local->current->count);
-	if (local->current->offset_map == NULL) {
+	c->offset_map = datasort_reallocf((void **)&c->offset_map,
+			sizeof(struct datasort_offset_map), &c->offset_map_size, c->count);
+	if (c->offset_map == NULL) {
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: offset_map: %" PRIu64,
-				local->current->offset_map_size * sizeof(struct datasort_offset_map));
+				c->offset_map_size * sizeof(struct datasort_offset_map));
 		goto err;
 	}
 
 	/* Save unsorted position to be used by binlog_apply */
-	local->current->offset_map[local->current->count].key = dc->key;
-	local->current->offset_map[local->current->count].offset = dc->position;
+	c->offset_map[c->count].key = dc->key;
+	c->offset_map[c->count].offset = dc->position;
 
 	/* Rewrite position */
-	dc->position = local->current->offset;
+	dc->position = c->offset;
 
 	/* Extend in-memory index if needed */
-	local->current->index = datasort_reallocf((void **)&local->current->index,
-			sizeof(struct eblob_disk_control), &local->current->index_size,
-			local->current->count);
-	if (local->current->index == NULL) {
+	c->index = datasort_reallocf((void **)&c->index, sizeof(struct eblob_disk_control),
+			&c->index_size, c->count);
+	if (c->index == NULL) {
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: index: %" PRIu64,
-				local->current->index_size * sizeof(struct eblob_disk_control));
+				c->index_size * sizeof(struct eblob_disk_control));
 		goto err;
 	}
-	local->current->index[local->current->count] = *dc;
+	c->index[c->count] = *dc;
 
 	/* Write header */
-	err = pwrite(local->current->fd, dc, hdr_size, local->current->offset);
+	err = pwrite(c->fd, dc, hdr_size, c->offset);
 	if (err != hdr_size) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-hdr");
 		goto err;
 	}
-	local->current->offset += hdr_size;
+	c->offset += hdr_size;
 
 	/* Write data */
-	err = pwrite(local->current->fd, data, dc->disk_size - hdr_size, local->current->offset);
+	err = pwrite(c->fd, data, dc->disk_size - hdr_size, c->offset);
 	if (err != (ssize_t)(dc->disk_size - hdr_size)) {
 		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite-data");
 		goto err;
 	}
 
-	local->current->offset += dc->disk_size - hdr_size;
-	local->current->count++;
-	err = 0;
+	c->offset += dc->disk_size - hdr_size;
+	c->count++;
+	return 0;
 
 err:
 	return err;
@@ -1347,12 +1344,16 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
 	if (dcfg->dir == NULL) {
-		err = -ENXIO;
+		err = -EIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_mkdtemp");
 		goto err_stop;
 	}
 
-	/* Split blob into unsorted chunks */
+	/*
+	 * Split blob into unsorted chunks
+	 * TODO: Think of possible optimizations for defragmenting already
+	 * sorted file.
+	 */
 	err = datasort_split(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_split: %s", dcfg->dir);
@@ -1363,14 +1364,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 * If unsorted list is empty - generate empty chunk
 	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
 				"datasort_split: no records passed through iteration process.");
-
-		/* Generate empty chunk */
-		dcfg->result = datasort_add_chunk(dcfg);
-		if (dcfg->result == NULL)
-			goto err_rmdir;
-		goto skip_merge_sort;
+		err = -ENOENT;
+		goto err_rmdir;
 	}
 
 	/* In-memory sort each chunk */
@@ -1388,7 +1385,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
-skip_merge_sort:
 	/* Lock backend */
 	pthread_mutex_lock(&dcfg->b->lock);
 	/* Wait for pending writes and lock bctl */
@@ -1422,12 +1418,6 @@ skip_merge_sort:
 		abort();
 	}
 
-	/*
-	 * Preform cleanups
-	 * TODO: Move the out of the lock.
-	 */
-	datasort_cleanup(dcfg);
-
 	/* Now we can disable binlog */
 	if (dcfg->use_binlog) {
 		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
@@ -1436,6 +1426,12 @@ skip_merge_sort:
 			goto err_unlock_bctl;
 		}
 	}
+
+	/*
+	 * Preform cleanups
+	 * TODO: Move the out of the lock.
+	 */
+	datasort_cleanup(dcfg);
 
 	/* Mark base as sorted */
 	dcfg->bctl->sorted = 1;

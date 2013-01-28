@@ -97,6 +97,7 @@ void eblob_base_wait(struct eblob_base_ctl *bctl)
 
 /**
  * eblob_bctl_hold() - prevents iterators from seeing inconsistent data state.
+ * TODO: Rewrite using atomic operations.
  */
 void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 {
@@ -110,6 +111,7 @@ void eblob_bctl_hold(struct eblob_base_ctl *bctl)
 
 /**
  * eblob_bctl_release() - allows iterators to proceed
+ * TODO: Rewrite using atomic operations.
  */
 void eblob_bctl_release(struct eblob_base_ctl *bctl)
 {
@@ -202,12 +204,14 @@ skip_binlog:
 	/* Write completed successfully append entry to binlog */
 	if (binlog) {
 		pthread_mutex_lock(&bctl->lock);
-		err = binlog_append(&binctl);
+		/* Recheck that binlog is still enabled after getting a lock */
+		if (bctl->binlog != NULL) {
+			if ((err = binlog_append(&binctl)) != 0)
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"%s: %s: binlog_append: FAILED: %d\n",
+						eblob_dump_id(key->id), __func__, err);
+		}
 		pthread_mutex_unlock(&bctl->lock);
-		if (err)
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: binlog_append: FAILED: %d\n",
-					eblob_dump_id(key->id), __func__, err);
 		/* FALLTHROUGH */
 	}
 
@@ -362,14 +366,6 @@ static void *eblob_blob_iterator(void *data)
 			err = 0;
 			goto err_out_unlock;
 		}
-		if (eblob_get_index_fd(bc) != index_fd) {
-			/* This can happen if data-sort kicks in between iterations */
-			eblob_log(ctl->log, EBLOB_LOG_ERROR,
-					"blob: index_fd changed: %d -> %d, iteration stops.\n",
-					eblob_get_index_fd(bc), index_fd);
-			err = 0;
-			goto err_out_unlock;
-		}
 
 		/* TODO: Rewrite me using blob_read_ll() */
 		err = pread(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
@@ -388,9 +384,8 @@ static void *eblob_blob_iterator(void *data)
 
 		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-					"index_offset: %" PRIu64 ", index_size: %" PRIu64 ", "
-					"eblob_data_size: %" PRIu64 ", local_max_num: %d, "
-					"index_offset+local_max_num: %" PRId64 ", but wanted less than index_size.\n",
+					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
+					"index_offset+local_max_num: %llu, but wanted less than index_size.\n",
 					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
 					ctl->index_offset + local_max_num * hdr_size);
 			err = 0;
@@ -419,7 +414,7 @@ err_out_check:
 	ctl->thread_num = 0;
 
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, "
-			"data_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
+			"data_size: %llu, index_offset: %llu\n",
 			bc->type, bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
 
 	/*
@@ -451,8 +446,8 @@ err_out_check:
 				bc->data_offset = idc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
-						"data_size(was): %" PRIu64 ", data_offset: %" PRIu64 ", "
-						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %" PRIu64 "\n",
+						"data_size(was): %llu, data_offset: %" PRIu64 ", "
+						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %llu\n",
 						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
 						ctl->index_offset - hdr_size);
 
@@ -1205,12 +1200,16 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	}
 
 	if (have_old) {
-		if (wc->flags & BLOB_DISK_CTL_APPEND) {
-			wc->offset += old.size;
+		/* Check that bctl is still valid */
+		if (old.bctl->index_fd == -1) {
+			err = -EAGAIN;
+			goto err_out_unlock_exit;
 		}
+		if (wc->flags & BLOB_DISK_CTL_APPEND)
+			wc->offset += old.size;
 	}
 
-	assert(ctl->sorted != 1);
+	assert(datasort_base_is_sorted(ctl) != 1);
 
 	wc->data_fd = ctl->data_fd;
 	wc->index_fd = ctl->index_fd;
@@ -2093,7 +2092,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
-		err = -ENOMEM;
+		errno = -ENOMEM;
 		goto err_out_exit;
 	}
 
@@ -2133,15 +2132,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b->cfg.file = strdup(c->file);
 	if (!b->cfg.file) {
-		err = -ENOMEM;
+		errno = -ENOMEM;
 		goto err_out_stat_free;
 	}
 
 	err = pthread_mutex_init(&b->lock, NULL);
-	if (err) {
-		err = -errno;
+	if (err)
 		goto err_out_free_file;
-	}
 
 	b->l2hash_max = -1;
 
