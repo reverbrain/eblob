@@ -22,6 +22,11 @@
 
 #include "features.h"
 
+#include "eblob/blob.h"
+#include "l2hash.h"
+#include "blob.h"
+#include "rbtree.h"
+
 #include <sys/types.h>
 #include <sys/uio.h>
 
@@ -31,11 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "eblob/blob.h"
-#include "blob.h"
-#include "l2hash.h"
-#include "rbtree.h"
 
 /*
  * TODO: Since hash itself is uniformly distributed we do not need separate

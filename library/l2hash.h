@@ -13,11 +13,11 @@
  * GNU General Public License for more details.
  */
 
-#include "list.h"
-#include "rbtree.h"
-
 #ifndef __EBLOB_L2HASH_H
 #define __EBLOB_L2HASH_H
+
+#include "list.h"
+#include "rbtree.h"
 
 /*
  * On x86_64:

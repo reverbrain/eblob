@@ -20,6 +20,10 @@
 
 #include "features.h"
 
+#include "datasort.h"
+#include "binlog.h"
+#include "blob.h"
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -34,10 +38,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
-#include "binlog.h"
-#include "datasort.h"
 
 
 /**

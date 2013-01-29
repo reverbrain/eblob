@@ -16,6 +16,12 @@
 #ifndef __EBLOB_BINLOG_H
 #define __EBLOB_BINLOG_H
 
+#include "eblob/blob.h"
+
+#include <errno.h>
+#include <inttypes.h>
+#include <unistd.h>
+
 #define EBLOB_BINLOG_MAGIC	"1337833"
 #define EBLOB_BINLOG_VERSION	1
 
@@ -28,8 +34,6 @@ enum eblob_binlog_record_types {
 	EBLOB_BINLOG_TYPE_RAW_DATA,
 	EBLOB_BINLOG_TYPE_LAST,			/* End sentinel */
 };
-
-struct eblob_binlog_ctl;
 
 /* Preallocate binlog */
 #define EBLOB_BINLOG_FLAGS_CFG_PREALLOC		(1<<0)

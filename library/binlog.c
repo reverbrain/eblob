@@ -31,6 +31,9 @@
 
 #include "features.h"
 
+#include "binlog.h"
+#include "blob.h"
+
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -46,9 +49,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
-#include "binlog.h"
 
 
 /* Extend fd by @bcfg->prealloc_step if PREALLOC is enabled */

@@ -93,6 +93,7 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 
 #ifndef	__DNET_RBTREE_H
 #define	__DNET_RBTREE_H
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {

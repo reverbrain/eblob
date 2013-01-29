@@ -16,10 +16,10 @@
 #ifndef __EBLOB_HASH_H
 #define __EBLOB_HASH_H
 
-#include <strings.h>
-
 #include "list.h"
 #include "rbtree.h"
+
+#include <strings.h>
 
 struct eblob_hash {
 	struct rb_root		root;
