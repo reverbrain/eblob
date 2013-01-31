@@ -118,6 +118,10 @@ static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int 
 	return dst;
 }
 
+/**
+ * XXX: We have a race here if eblob_dump_id_len() is used outside of lock
+ * because it uses static variable which is not itself inlined.
+ */
 static inline char *eblob_dump_id_len(const unsigned char *id, unsigned int len)
 {
 	static char __eblob_dump_str[2 * EBLOB_ID_SIZE + 1];
