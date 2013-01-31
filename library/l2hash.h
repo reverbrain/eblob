@@ -34,18 +34,18 @@ typedef uint64_t	eblob_l2hash_t;
 #define PRIl2h		PRIu64
 #endif
 
-/* Types for internal __eblob_l2hash_insert() */
-enum eblob_l2hash_insert_types {
+/* Flavours for internal _eblob_l2hash_insert() */
+enum {
 	/* Sentinel */
-	EBLOB_L2HASH_TYPE_FIRST,
+	EBLOB_L2HASH_FLAVOR_FIRST,
 	/* Updates entry, fails if entry does not exist */
-	EBLOB_L2HASH_TYPE_UPDATE,
+	EBLOB_L2HASH_FLAVOR_UPDATE,
 	/* Inserts or updates entry depending if it exists or not */
-	EBLOB_L2HASH_TYPE_UPSERT,
+	EBLOB_L2HASH_FLAVOR_UPSERT,
 	/* Insert entry, fails if entry already exist */
-	EBLOB_L2HASH_TYPE_INSERT,
+	EBLOB_L2HASH_FLAVOR_INSERT,
 	/* Sentinel */
-	EBLOB_L2HASH_TYPE_LAST,
+	EBLOB_L2HASH_FLAVOR_LAST,
 };
 
 /*

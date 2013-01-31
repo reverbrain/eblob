@@ -531,7 +531,7 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h,
 
 /**
  * _eblob_l2hash_insert() - inserts @rctl entry into l2hash.
- * @type:	changes behaviour depending on existence of @key in cache.
+ * @flavor:	changes behaviour depending on existence of @key in cache.
  *
  * This is very complicated routine - should be modified with care.
  *
@@ -542,7 +542,7 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h,
 static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 		const struct eblob_key *key,
 		const struct eblob_ram_control *rctl,
-		const unsigned int type)
+		const unsigned int flavor)
 {
 	struct eblob_l2hash_collision *collision;
 	struct eblob_l2hash_entry *e;
@@ -552,16 +552,16 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 	if (l2h == NULL || key == NULL || rctl == NULL)
 		return -EINVAL;
 
-	if (type <= EBLOB_L2HASH_TYPE_FIRST)
+	if (flavor <= EBLOB_L2HASH_FLAVOR_FIRST)
 		return -EINVAL;
-	if (type >= EBLOB_L2HASH_TYPE_LAST)
+	if (flavor >= EBLOB_L2HASH_FLAVOR_LAST)
 		return -EINVAL;
 
 	/* Search tree for matching entry */
 	e = __eblob_l2hash_lookup(l2h, key);
 	if (e == NULL) {
 		/* No entry with matching l2hash - inserting */
-		if (type == EBLOB_L2HASH_TYPE_UPDATE)
+		if (flavor == EBLOB_L2HASH_FLAVOR_UPDATE)
 			return -ENOENT;
 		return __eblob_l2hash_noncollision_insert(&l2h->root, key, rctl);
 	}
@@ -574,14 +574,14 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 			return err;
 		if (eblob_id_cmp(key->id, dc.key.id) == 0) {
 			/* Not a collision - updating in-place */
-			if (type == EBLOB_L2HASH_TYPE_INSERT)
+			if (flavor == EBLOB_L2HASH_FLAVOR_INSERT)
 				return -EEXIST;
 			e->rctl = *rctl;
 			return 0;
 		}
 
 		/* This is a collision */
-		if (type == EBLOB_L2HASH_TYPE_UPDATE)
+		if (flavor == EBLOB_L2HASH_FLAVOR_UPDATE)
 			return -ENOENT;
 
 		/* Move old entry to collision tree */
@@ -598,13 +598,13 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 	n = __eblob_l2hash_collision_walk(&l2h->collisions, key, &parent, &node);
 	if (n == NULL) {
 		/* No entry found - inserting one */
-		if (type == EBLOB_L2HASH_TYPE_UPDATE)
+		if (flavor == EBLOB_L2HASH_FLAVOR_UPDATE)
 			return -ENOENT;
 		return __eblob_l2hash_collision_insert(&l2h->collisions, key, rctl);
 	}
 
 	/* Entry found - modifying in-place  */
-	if (type == EBLOB_L2HASH_TYPE_INSERT)
+	if (flavor == EBLOB_L2HASH_FLAVOR_INSERT)
 		return -EEXIST;
 	collision = rb_entry(n, struct eblob_l2hash_collision, node);
 	collision->rctl = *rctl;
@@ -617,7 +617,7 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
  */
 int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_INSERT);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_INSERT);
 }
 
 /**
@@ -626,7 +626,7 @@ int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, c
  */
 int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_UPDATE);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPDATE);
 }
 
 /**
@@ -634,5 +634,5 @@ int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, c
  */
 int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_UPSERT);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPSERT);
 }
