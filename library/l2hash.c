@@ -131,7 +131,7 @@ static eblob_l2hash_t eblob_l2hash_data(const void *key, int len, eblob_l2hash_t
 /**
  * eblob_l2hash_key() - second hash for eblob key
  */
-static inline eblob_l2hash_t eblob_l2hash_key(struct eblob_key *key)
+static inline eblob_l2hash_t eblob_l2hash_key(const struct eblob_key *key)
 {
 	assert(key != NULL);
 	return eblob_l2hash_data(key, EBLOB_ID_SIZE, 0);
@@ -191,7 +191,7 @@ int eblob_l2hash_destroy(struct eblob_l2hash *l2h)
 /**
  * __eblob_l2hash_index_hdr() - extracts disk control from index
  */
-static int __eblob_l2hash_index_hdr(struct eblob_ram_control *rctl, struct eblob_disk_control *dc)
+static int __eblob_l2hash_index_hdr(const struct eblob_ram_control *rctl, struct eblob_disk_control *dc)
 {
 	int err;
 
@@ -216,7 +216,8 @@ static int __eblob_l2hash_index_hdr(struct eblob_ram_control *rctl, struct eblob
  *	1:	@key does not belong to @rctl
  *	Other:	Error
  */
-static int eblob_l2hash_compare_index(struct eblob_key *key, struct eblob_ram_control *rctl)
+static int eblob_l2hash_compare_index(const struct eblob_key *key,
+		const struct eblob_ram_control *rctl)
 {
 	struct eblob_disk_control dc;
 	ssize_t err;
@@ -241,7 +242,8 @@ static int eblob_l2hash_compare_index(struct eblob_key *key, struct eblob_ram_co
  * @parent and @node are needed for subsequent rb_link_node()
  */
 static struct rb_node *
-__eblob_l2hash_collision_walk(struct rb_root *root, struct eblob_key *key,
+__eblob_l2hash_collision_walk(struct rb_root *root,
+		const struct eblob_key *key,
 		struct rb_node  **parent, struct rb_node ***node)
 {
 	struct eblob_l2hash_collision *e;
@@ -274,7 +276,8 @@ __eblob_l2hash_collision_walk(struct rb_root *root, struct eblob_key *key,
  * __eblob_l2hash_collision_insert() - inserts entry into collision tree
  */
 static int __eblob_l2hash_collision_insert(struct rb_root *root,
-		struct eblob_key *key, struct eblob_ram_control *rctl)
+		const struct eblob_key *key,
+		const struct eblob_ram_control *rctl)
 {
 	struct eblob_l2hash_collision *collision;
 	struct rb_node *n, *parent, **node;
@@ -298,7 +301,8 @@ static int __eblob_l2hash_collision_insert(struct rb_root *root,
  * __eblob_l2hash_resolve_collision() - extracts rb_entry from found node
  */
 static struct eblob_l2hash_collision *
-__eblob_l2hash_resolve_collision(struct rb_root *root, struct eblob_key *key)
+__eblob_l2hash_resolve_collision(struct rb_root *root,
+		const struct eblob_key *key)
 {
 	struct rb_node *n;
 	struct eblob_l2hash_collision *collision = NULL;
@@ -321,7 +325,8 @@ __eblob_l2hash_resolve_collision(struct rb_root *root, struct eblob_key *key)
  *	Other:		Error
  */
 static int eblob_l2hash_resolve_collision(struct rb_root *root,
-		struct eblob_l2hash_entry *e, struct eblob_key *key,
+		struct eblob_l2hash_entry *e,
+		const struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
 	struct eblob_l2hash_collision *collision;
@@ -371,7 +376,8 @@ static int eblob_l2hash_resolve_collision(struct rb_root *root,
  * @parent and @node are needed for subsequent rb_link_node()
  */
 static struct rb_node *
-__eblob_l2hash_noncollision_walk(struct rb_root *root, struct eblob_key *key,
+__eblob_l2hash_noncollision_walk(struct rb_root *root,
+		const struct eblob_key *key,
 		struct rb_node **parent, struct rb_node ***node)
 {
 	struct eblob_l2hash_entry *e;
@@ -405,7 +411,8 @@ __eblob_l2hash_noncollision_walk(struct rb_root *root, struct eblob_key *key,
  * __eblob_l2hash_noncollision_insert() - inserts entry in l2hash tree
  */
 static int __eblob_l2hash_noncollision_insert(struct rb_root *root,
-		struct eblob_key *key, struct eblob_ram_control *rctl)
+		const struct eblob_key *key,
+		const struct eblob_ram_control *rctl)
 {
 	struct eblob_l2hash_entry *e;
 	struct rb_node *n, *parent, **node;
@@ -433,7 +440,8 @@ static int __eblob_l2hash_noncollision_insert(struct rb_root *root,
  * was not found.
  */
 static struct eblob_l2hash_entry *
-__eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key)
+__eblob_l2hash_lookup(struct eblob_l2hash *l2h,
+		const struct eblob_key *key)
 {
 	struct rb_node *n;
 
@@ -457,7 +465,8 @@ __eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key)
  *	<0:		Error during lookup
  */
 static int eblob_l2hash_lookup_nolock(struct eblob_l2hash *l2h,
-		struct eblob_key *key, struct eblob_ram_control *rctl)
+		const struct eblob_key *key,
+		struct eblob_ram_control *rctl)
 {
 	struct eblob_l2hash_entry *e;
 
@@ -474,7 +483,8 @@ static int eblob_l2hash_lookup_nolock(struct eblob_l2hash *l2h,
 /**
  * eblob_l2hash_lookup() - lock&check wrapper for eblob_l2hash_lookup_nolock()
  */
-int eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key,
+int eblob_l2hash_lookup(struct eblob_l2hash *l2h,
+		const struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
 	int err;
@@ -496,7 +506,7 @@ int eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key,
  *	Other:		Error
  */
 static int eblob_l2hash_remove_nolock(struct eblob_l2hash *l2h,
-		struct eblob_key *key)
+		const struct eblob_key *key)
 {
 	struct eblob_l2hash_collision *collision;
 	struct eblob_l2hash_entry *e;
@@ -540,7 +550,7 @@ static int eblob_l2hash_remove_nolock(struct eblob_l2hash *l2h,
 /**
  * eblob_l2hash_remove() - lock&check wrapper for eblob_l2hash_remove_nolock()
  */
-int eblob_l2hash_remove(struct eblob_l2hash *l2h, struct eblob_key *key)
+int eblob_l2hash_remove(struct eblob_l2hash *l2h, const struct eblob_key *key)
 {
 	int err;
 
@@ -562,8 +572,10 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h, struct eblob_key *key)
  *	0:	Success
  *	Other:	Error
  */
-static int __eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key,
-		struct eblob_ram_control *rctl, unsigned int type)
+static int __eblob_l2hash_insert(struct eblob_l2hash *l2h,
+		const struct eblob_key *key,
+		const struct eblob_ram_control *rctl,
+		const unsigned int type)
 {
 	struct eblob_l2hash_collision *collision;
 	struct eblob_l2hash_entry *e;
@@ -637,7 +649,9 @@ static int __eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key
  * _eblob_l2hash_insert() - lock&check wrapper for __eblob_l2hash_insert()
  */
 static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
-		struct eblob_key *key, struct eblob_ram_control *rctl, unsigned int type)
+		const struct eblob_key *key,
+		const struct eblob_ram_control *rctl,
+		const unsigned int type)
 {
 	int err;
 
@@ -653,7 +667,7 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
  * eblob_l2hash_insert() - inserts entry in cache. Fails if entry is already
  * there.
  */
-int eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl)
+int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
 	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_INSERT);
 }
@@ -662,7 +676,7 @@ int eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key, struct 
  * eblob_l2hash_update() - updates entry in cache. Fails if entry is not
  * already there.
  */
-int eblob_l2hash_update(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl)
+int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
 	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_UPDATE);
 }
@@ -670,7 +684,7 @@ int eblob_l2hash_update(struct eblob_l2hash *l2h, struct eblob_key *key, struct 
 /**
  * eblob_l2hash_upsert() - updates or inserts entry in cache (hence the name).
  */
-int eblob_l2hash_upsert(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl)
+int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
 	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_TYPE_UPSERT);
 }
