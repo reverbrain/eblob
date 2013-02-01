@@ -29,6 +29,9 @@
 #ifndef __attribute_unused__
 #define __attribute_unused__	__attribute__ ((unused))
 #endif
+#ifndef __attribute_pure__
+#define __attribute_pure__	__attribute__ ((pure))
+#endif
 
 #if defined(__APPLE__) || defined (__FreeBSD__)
 #define readdir64 readdir
