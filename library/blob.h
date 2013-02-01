@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifndef __unused
-#define __unused	__attribute__ ((unused))
+#ifndef __attribute_unused__
+#define __attribute_unused__	__attribute__ ((unused))
 #endif
 
 #if defined(__APPLE__) || defined (__FreeBSD__)

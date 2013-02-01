@@ -312,7 +312,7 @@ again:
  * TODO: Make file cleanup optional.
  */
 void
-sigint_cb(int signal __unused)
+sigint_cb(int signal __attribute_unused__)
 {
 	cfg.need_exit = 1;
 }

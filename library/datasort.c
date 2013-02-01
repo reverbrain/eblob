@@ -350,7 +350,7 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
  * - copy new entry to current chunk
  */
 static int datasort_split_iterator(struct eblob_disk_control *dc,
-		struct eblob_ram_control *rctl __unused,
+		struct eblob_ram_control *rctl __attribute_unused__,
 		void *data, void *priv, void *thread_priv)
 {
 	ssize_t err;
@@ -455,7 +455,8 @@ err:
 /*
  * Iterator callbacks
  */
-static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __attribute_unused__,
+		void **priv_thread)
 {
 	struct datasort_chunk_local *local;
 
@@ -466,7 +467,8 @@ static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unu
 	*priv_thread = local;
 	return 0;
 }
-static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __attribute_unused__,
+		void **priv_thread)
 {
 	free(*priv_thread);
 	return 0;

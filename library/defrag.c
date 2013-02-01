@@ -47,8 +47,10 @@
 /**
  * eblob_defrag_count() - iterator that counts non-removed entries in base
  */
-static int eblob_defrag_count(struct eblob_disk_control *dc, struct eblob_ram_control *ctl __unused,
-		void *data __unused, void *priv, void *thread_priv __unused)
+static int eblob_defrag_count(struct eblob_disk_control *dc,
+		struct eblob_ram_control *ctl __attribute_unused__,
+		void *data __attribute_unused__,
+		void *priv, void *thread_priv __attribute_unused__)
 {
 	struct eblob_base_ctl *bctl = priv;
 
