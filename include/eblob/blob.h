@@ -141,9 +141,9 @@ static inline char *eblob_dump_id(const unsigned char *id)
  */
 static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id2)
 {
-	unsigned int i = 0;
+	unsigned int i;
 
-	for (i*=sizeof(unsigned long); i<EBLOB_ID_SIZE; ++i) {
+	for (i=0; i<EBLOB_ID_SIZE; ++i) {
 		if (id1[i] < id2[i])
 			return -1;
 		if (id1[i] > id2[i])
