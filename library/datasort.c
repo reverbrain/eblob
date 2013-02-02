@@ -1117,6 +1117,8 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
 		 * TODO: It's better to rewrite cache entries instead of deleting them
+		 * TODO: Make it batch for speedup - for example add function
+		 * like "remove all keys with given bctl"
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, sorted_bctl->type);
 		if (err != 0)
