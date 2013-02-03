@@ -178,7 +178,10 @@ again:
 			errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
 			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
 		}
-
+		if (item->size > size)
+			errx(EX_SOFTWARE, "size mismatch for key: %s (%s): "
+					"stored: %" PRIu64 ", current: %" PRIu64,
+					item->key, eblob_dump_id(item->ekey.id), item->size, size);
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
@@ -254,7 +257,8 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-	    "generated item: %s (%s): flags %s -> %s, size %lld -> %lld, offset: %lld\n",
+	    "generated item: %s (%s): flags %s -> %s, "
+	    "size %" PRIu64 " -> %" PRIu64 ", offset: %" PRIu64 "\n",
 	    item->key, eblob_dump_id(item->ekey.id), old_item.hflags, item->hflags,
 	    old_item.size, item->size, item->offset);
 
