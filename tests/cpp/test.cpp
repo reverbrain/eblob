@@ -29,6 +29,7 @@ class eblob_test {
 			cfg.sync = 30;
 			cfg.defrag_timeout = 20;
 			cfg.blob_size = 1024 * 1024 * 1024;
+			cfg.blob_flags = EBLOB_AUTO_DATASORT;
 			cfg.records_in_blob = m_iterations / 4;
 			cfg.log = m_logger->log();
 			cfg.file = (char *)path.c_str();
@@ -141,10 +142,10 @@ int main()
 		t.check(types);
 
 		// Fragment
-		t.remove(iterations/2);
+		t.remove(iterations/4);
 
 		// Wait
-		int timeout = 60;
+		int timeout = 10;
 		std::cout << "Sleeping " << timeout << " seconds waiting for defragmentation" << std::endl;
 		sleep(timeout);
 
