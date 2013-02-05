@@ -1,24 +1,25 @@
 #include <eblob/eblob.hpp>
 
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 
 #include <boost/shared_ptr.hpp>
-#include <errno.h>
+#include <cerrno>
+#include <ctime>
+#include <stdint.h>
 
 using namespace ioremap::eblob;
 
 class eblob_test {
 	public:
-		eblob_test(const std::string &key_base, const std::string &test_dir, int log_level=5, int n=ITERATIONS_DEFAULT) :
+		eblob_test(const std::string& key_base, const std::string& test_dir, int log_level=5, int n=ITERATIONS_DEFAULT):
 				m_key_base(key_base),
-				m_iterations(n) {
+				m_iterations(n)
+		{
 			struct eblob_config cfg;
 
 			memset(&cfg, 0, sizeof(struct eblob_config));
 
-			this->create_dir(test_dir);
+			create_dir(test_dir);
 
 			std::string path = test_dir + "/data";
 			std::string log_path = test_dir + "/test.log";
@@ -34,46 +35,40 @@ class eblob_test {
 			cfg.log = m_logger->log();
 			cfg.file = (char *)path.c_str();
 
-			e = boost::shared_ptr<eblob> (new eblob(&cfg));
+			m_blob = boost::shared_ptr<eblob> (new eblob(&cfg));
 		}
 
-		void create(std::vector<int> types) {
+		void fill(const std::vector<int>& types)
+		{
+			static const uint64_t offset = 0;
+			static const uint64_t flags = 0;
+
 			for (int i = 0; i < m_iterations; ++i) {
-				std::ostringstream key;
+				std::ostringstream key, data;
 
 				key << m_key_base << i;
+				data << "Current unixtime: " << time(NULL);
 
-				uint64_t offset = 0;
-				uint64_t flags = 0;
-				struct timeval tv;
-
-				gettimeofday(&tv, NULL);
-
-				std::ostringstream data;
-				data << "Current date: " << tv.tv_sec << "." << tv.tv_usec;
-
-				for(std::vector<int>::iterator t = types.begin(); t != types.end(); ++t) {
-					e->write_hashed(key.str(), data.str(), offset, flags, *t);
+				for(std::vector<int>::const_iterator t = types.begin(); t != types.end(); ++t) {
+					m_blob->write_hashed(key.str(), data.str(), offset, flags, *t);
 				}
 			}
 		}
 
-		void check(std::vector<int> types) {
+		void check(const std::vector<int>& types)
+		{
+			static const uint64_t offset = 0;
+			static const uint64_t size = 0;
 			for (int i = 0; i < m_iterations; ++i) {
 				std::ostringstream key;
-
-				key << m_key_base << i;
-
-				uint64_t offset = 0;
-				uint64_t size = 0;
-
 				std::string first_data, data;
 
-				for(std::vector<int>::iterator t = types.begin(); t != types.end(); ++t) {
+				key << m_key_base << i;
+				for (std::vector<int>::const_iterator t = types.begin(); t != types.end(); ++t) {
 					if (t == types.begin()) {
-						first_data = e->read_hashed(key.str(), offset, size, *t);
+						first_data = m_blob->read_hashed(key.str(), offset, size, *t);
 					} else {
-						data = e->read_hashed(key.str(), offset, size, *t);
+						data = m_blob->read_hashed(key.str(), offset, size, *t);
 
 						if (first_data != data) {
 							std::ostringstream str;
@@ -87,37 +82,34 @@ class eblob_test {
 			}
 		}
 
-		void remove(int start) {
+		void remove(int start)
+		{
 			for (int i = start; i < m_iterations; ++i) {
 				std::ostringstream key;
 
 				key << m_key_base << i;
 
 				struct eblob_key ekey;
-				e->key(key.str(), ekey);
-				e->remove_all(ekey);
+				m_blob->key(key.str(), ekey);
+				m_blob->remove_all(ekey);
 			}
-
 			m_iterations = start;
 		}
 
 	private:
 		std::string m_key_base;
-		boost::shared_ptr<eblob> e;
+		boost::shared_ptr<eblob> m_blob;
 		boost::shared_ptr<eblob_logger> m_logger;
 		enum {ITERATIONS_DEFAULT = 1000};
 		int m_iterations;
 
-		void create_dir(const std::string &dir) const
+		static void create_dir(const std::string& dir)
 		{
 			int err;
-
-			err = mkdir(dir.c_str(), 0755);
-			if (err) {
+			if (mkdir(dir.c_str(), 0755)) {
 				err = -errno;
 				if (err != -EEXIST) {
 					std::ostringstream str;
-
 					str << "Could not create test dir '" << dir << "': " << err;
 					throw std::runtime_error(str.str());
 				}
@@ -125,27 +117,25 @@ class eblob_test {
 		}
 };
 
-
 int main()
 {
-	const std::string key_base = "test-";
-	const std::vector<int> types = std::vector<int>(0, 5);
-	const int iterations = 1000;
+	static const std::string key_base = "test-";
+	static const std::vector<int> types = std::vector<int>(0, 5);
+	static const int iterations = 1000, timeout = 10;
 
+	std::cout << "Tests started." << std::endl;
 	try {
 		// Init
-		std::cout << "Tests started." << std::endl;
 		eblob_test t(key_base, "/tmp/eblob-test-dir", 5, iterations);
-		t.create(types);
+		t.fill(types);
 
 		//Check
 		t.check(types);
 
 		// Fragment
-		t.remove(iterations/4);
+		t.remove(iterations / 4);
 
 		// Wait
-		int timeout = 10;
 		std::cout << "Sleeping " << timeout << " seconds waiting for defragmentation" << std::endl;
 		sleep(timeout);
 
@@ -155,7 +145,7 @@ int main()
 		std::cerr << "Got an exception: " << e.what() << std::endl;
 		exit(EXIT_FAILURE);
 	}
-
 	std::cout << "Tests completed successfully." << std::endl;
+
 	exit(EXIT_SUCCESS);
 }
