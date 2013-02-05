@@ -9,6 +9,9 @@ yes | debuild -e CC -e CXX --prepend-path="/usr/local/bin/" -uc -us
 # Install packages
 sudo -- dpkg -i ../*.deb
 
+# Run python bindings test
+$(find . -name test.py)
+
 # Run cpp bindings test
 $(find . -name eblob_cpp_test)
 
