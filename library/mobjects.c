@@ -96,7 +96,7 @@ err_out_exit:
 
 /**
  * _eblob_base_ctl_cleanup() - low level clean up that releases most of resources
- * but leaves controling structures and locks in place.
+ * but leaves controlling structures and locks in place.
  */
 int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 {
@@ -1149,7 +1149,7 @@ int eblob_add_new_base(struct eblob_backend *b, int type)
 
 		/*
 		 * +1 here means we will copy old types from 0 to b->max_type (inclusive),
-		 * and create new types from b->max_type+1 upto type (again inclusive)
+		 * and create new types from b->max_type+1 up to type (again inclusive)
 		 */
 		types = eblob_realloc_base_type(b->types, b->max_type + 1, type);
 		if (types == NULL) {

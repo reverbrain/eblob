@@ -78,7 +78,7 @@ static inline int binlog_verify_hdr(struct eblob_binlog_disk_hdr *dhdr)
 	if (strcmp(dhdr->magic, EBLOB_BINLOG_MAGIC))
 		return -EINVAL;
 
-	/* Here we can request format convertion. */
+	/* Here we can request format conversion. */
 	if (dhdr->version != EBLOB_BINLOG_VERSION)
 		return -ENOTSUP;
 
@@ -246,7 +246,7 @@ err:
  * TODO: This process involves lots of data copying - this can be solved by
  * using mmap(2) in case @size is bigger than some specified threshold.
  *
- * TODO: unify style acording to binlog_read_record_hdr()
+ * TODO: unify style according to binlog_read_record_hdr()
  */
 static char *binlog_read_record(struct eblob_binlog_cfg *bcfg, off_t offset, ssize_t size)
 {

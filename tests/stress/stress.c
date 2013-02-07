@@ -362,7 +362,7 @@ main(int argc, char **argv)
 		options_usage(argv[0], 1, stderr);
 	options_dump();
 
-	/* Construct pathes */
+	/* Construct paths */
 	snprintf(log_path, PATH_MAX, "%s/%s", cfg.test_path, "test.log");
 	snprintf(blob_path, PATH_MAX, "%s/%s", cfg.test_path, "test-blob");
 

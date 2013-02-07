@@ -21,7 +21,7 @@
 #include "binlog.h"
 #include "list.h"
 
-/* Aproximate size of sort chunk +- one record */
+/* Approximate size of sort chunk +- one record */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(1 * 1<<30)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 17)

@@ -1181,7 +1181,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "%s: start", __func__);
 
-	/* Construct index pathes */
+	/* Construct index paths */
 	if (datasort_base_get_path(dcfg->b, unsorted_bctl, data_path, PATH_MAX) != 0) {
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");
