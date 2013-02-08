@@ -14,6 +14,7 @@
  */
 
 #include <signal.h>
+#include <inttypes.h>
 
 #include "eblob/blob.h"
 #include "../../library/blob.h"
@@ -36,9 +37,9 @@ struct shadow {
 	char			key[32];	/* Unhashed key */
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
-	long long		size;		/* Size of data */
+	uint64_t		size;		/* Size of data */
 	int			type;		/* Column for data */
-	long long		offset;		/* Offset for writing data */
+	uint64_t		offset;		/* Offset for writing data */
 	int			flags;		/* Entry's eblob flags */
 	char			inited;		/* Entry is initialized */
 	char			hflags[64];	/* Human readable flags */

@@ -13,13 +13,15 @@
  * GNU General Public License for more details.
  */
 
-#include "eblob/blob.h"
-#include "list.h"
-
 #ifndef __EBLOB_DATASORT_H
 #define __EBLOB_DATASORT_H
 
-/* Aproximate size of sort chunk +- one record */
+#include "eblob/blob.h"
+
+#include "binlog.h"
+#include "list.h"
+
+/* Approximate size of sort chunk +- one record */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(1 * 1<<30)
 /* Maximum number of records in chunk */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 17)
