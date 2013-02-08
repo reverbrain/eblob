@@ -15,18 +15,22 @@
 
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
-#include <unistd.h>
-
+#include "binlog.h"
+#include "datasort.h"
 #include "eblob/blob.h"
 #include "hash.h"
 #include "l2hash.h"
 #include "list.h"
 
-#include "binlog.h"
-#include "datasort.h"
+#include <errno.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-#ifndef __unused
-#define __unused	__attribute__ ((unused))
+#ifndef __attribute_unused__
+#define __attribute_unused__	__attribute__ ((unused))
+#endif
+#ifndef __attribute_pure__
+#define __attribute_pure__	__attribute__ ((pure))
 #endif
 
 #if defined(__APPLE__) || defined (__FreeBSD__)

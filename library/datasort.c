@@ -20,6 +20,10 @@
 
 #include "features.h"
 
+#include "datasort.h"
+#include "binlog.h"
+#include "blob.h"
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 
@@ -34,10 +38,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
-#include "binlog.h"
-#include "datasort.h"
 
 
 /**
@@ -350,7 +350,7 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
  * - copy new entry to current chunk
  */
 static int datasort_split_iterator(struct eblob_disk_control *dc,
-		struct eblob_ram_control *rctl __unused,
+		struct eblob_ram_control *rctl __attribute_unused__,
 		void *data, void *priv, void *thread_priv)
 {
 	ssize_t err;
@@ -455,7 +455,8 @@ err:
 /*
  * Iterator callbacks
  */
-static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __attribute_unused__,
+		void **priv_thread)
 {
 	struct datasort_chunk_local *local;
 
@@ -466,7 +467,8 @@ static int datasort_split_iterator_init(struct eblob_iterate_control *ictl __unu
 	*priv_thread = local;
 	return 0;
 }
-static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __unused, void **priv_thread)
+static int datasort_split_iterator_free(struct eblob_iterate_control *ictl __attribute_unused__,
+		void **priv_thread)
 {
 	free(*priv_thread);
 	return 0;
@@ -1115,6 +1117,8 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
 		 * TODO: It's better to rewrite cache entries instead of deleting them
+		 * TODO: Make it batch for speedup - for example add function
+		 * like "remove all keys with given bctl"
 		 */
 		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, sorted_bctl->type);
 		if (err != 0)
@@ -1177,7 +1181,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "%s: start", __func__);
 
-	/* Construct index pathes */
+	/* Construct index paths */
 	if (datasort_base_get_path(dcfg->b, unsorted_bctl, data_path, PATH_MAX) != 0) {
 		err = -ENOMEM;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");

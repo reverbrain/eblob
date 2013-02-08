@@ -93,6 +93,7 @@ static inline struct page * rb_insert_page_cache(struct inode * inode,
 
 #ifndef	__DNET_RBTREE_H
 #define	__DNET_RBTREE_H
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -129,10 +130,6 @@ static inline void rb_set_color(struct rb_node *rb, int color)
 {
 	rb->rb_parent_color = (rb->rb_parent_color & ~1) | color;
 }
-
-#ifndef offsetof
-#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
-#endif
 
 #define container_of(ptr, type, member) ({			\
 	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\

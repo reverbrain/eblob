@@ -18,6 +18,13 @@
  * Hash is a name for key to ram control mapping implemented as rb_tree.
  */
 
+
+#include "eblob/blob.h"
+
+#include "hash.h"
+#include "blob.h"
+#include "list.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -36,13 +43,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "eblob/blob.h"
-
-#include "list.h"
-#include "hash.h"
-#include "blob.h"
-
-static void eblob_hash_entry_free(struct eblob_hash *h __unused, struct eblob_hash_entry *e)
+static void eblob_hash_entry_free(struct eblob_hash *h __attribute_unused__,
+		struct eblob_hash_entry *e)
 {
 	free(e);
 }

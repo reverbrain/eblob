@@ -13,11 +13,11 @@
  * GNU General Public License for more details.
  */
 
-#include "list.h"
-#include "rbtree.h"
-
 #ifndef __EBLOB_L2HASH_H
 #define __EBLOB_L2HASH_H
+
+#include "list.h"
+#include "rbtree.h"
 
 /*
  * On x86_64:
@@ -34,18 +34,18 @@ typedef uint64_t	eblob_l2hash_t;
 #define PRIl2h		PRIu64
 #endif
 
-/* Types for internal __eblob_l2hash_insert() */
-enum eblob_l2hash_insert_types {
+/* Flavours for internal _eblob_l2hash_insert() */
+enum {
 	/* Sentinel */
-	EBLOB_L2HASH_TYPE_FIRST,
+	EBLOB_L2HASH_FLAVOR_FIRST,
 	/* Updates entry, fails if entry does not exist */
-	EBLOB_L2HASH_TYPE_UPDATE,
+	EBLOB_L2HASH_FLAVOR_UPDATE,
 	/* Inserts or updates entry depending if it exists or not */
-	EBLOB_L2HASH_TYPE_UPSERT,
+	EBLOB_L2HASH_FLAVOR_UPSERT,
 	/* Insert entry, fails if entry already exist */
-	EBLOB_L2HASH_TYPE_INSERT,
+	EBLOB_L2HASH_FLAVOR_INSERT,
 	/* Sentinel */
-	EBLOB_L2HASH_TYPE_LAST,
+	EBLOB_L2HASH_FLAVOR_LAST,
 };
 
 /*
@@ -88,10 +88,10 @@ struct eblob_l2hash *eblob_l2hash_init(void);
 int eblob_l2hash_destroy(struct eblob_l2hash *l2h);
 
 /* Public API */
-int eblob_l2hash_insert(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl);
-int eblob_l2hash_lookup(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl);
-int eblob_l2hash_remove(struct eblob_l2hash *l2h, struct eblob_key *key);
-int eblob_l2hash_update(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl);
-int eblob_l2hash_upsert(struct eblob_l2hash *l2h, struct eblob_key *key, struct eblob_ram_control *rctl);
+int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
+int eblob_l2hash_lookup(struct eblob_l2hash *l2h, const struct eblob_key *key, struct eblob_ram_control *rctl);
+int eblob_l2hash_remove(struct eblob_l2hash *l2h, const struct eblob_key *key);
+int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
+int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
 
 #endif /* __EBLOB_L2HASH_H */
