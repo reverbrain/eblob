@@ -437,7 +437,7 @@ err_out_check:
 			 * record from blob and truncate index to current offset
 			 */
 			err = blob_read_ll(index_fd, &idc, hdr_size, ctl->index_offset - hdr_size);
-			if (err != 0) {
+			if (err == 0) {
 				eblob_convert_disk_control(&idc);
 
 				memcpy(&data_dc, bc->data + idc.position, hdr_size);
