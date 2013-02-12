@@ -49,9 +49,9 @@ struct eblob_iterate_priv {
 
 struct eblob_iterate_local {
 	struct eblob_iterate_priv	*iter_priv;
-	struct eblob_disk_control	*dc;
+	struct eblob_disk_control	*dc, *last_valid_dc;
 	int				num, pos;
-	long long			index_offset;
+	long long			index_offset, last_valid_offset;
 };
 
 /**
@@ -266,6 +266,10 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 		goto err_out_exit;
 	}
 
+	/* Save last non-corrupted dc position */
+	loc->last_valid_offset = loc->index_offset;
+	loc->last_valid_dc = dc;
+
 	rc.index_offset = loc->index_offset;
 	rc.data_offset = dc->position;
 	rc.size = dc->data_size;
@@ -420,7 +424,8 @@ err_out_check:
 	/*
 	 * On open we are trying to auto-fix broken blobs by truncating them to
 	 * the last parsed entry.
-	 * This is questinable behaviour.
+	 *
+	 * NB! This is questionable behaviour.
 	 */
 	if (!(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
 		pthread_mutex_lock(&bc->lock);
@@ -429,15 +434,17 @@ err_out_check:
 		bc->index_offset = ctl->index_offset;
 
 		if (err && !ctl->err) {
-			struct eblob_disk_control data_dc;
-			struct eblob_disk_control idc;
-
 			/*
-			 * Reading last record from index, read corresponding
-			 * record from blob and truncate index to current offset
+			 * Get last valid index pointer if it's possible, read corresponding
+			 * record from blob and truncate index to current offset.
 			 */
-			err = blob_read_ll(index_fd, &idc, hdr_size, ctl->index_offset - hdr_size);
-			if (err == 0) {
+			if (loc.last_valid_dc != NULL) {
+				struct eblob_disk_control data_dc;
+				struct eblob_disk_control idc;
+
+				/* Last valid dc and it's offset */
+				idc = *loc.last_valid_dc;
+				ctl->index_offset = loc.last_valid_offset;
 				eblob_convert_disk_control(&idc);
 
 				memcpy(&data_dc, bc->data + idc.position, hdr_size);
@@ -449,7 +456,7 @@ err_out_check:
 						"data_size(was): %llu, data_offset: %" PRIu64 ", "
 						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %llu\n",
 						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
-						ctl->index_offset - hdr_size);
+						ctl->index_offset);
 
 				err = ftruncate(index_fd, ctl->index_offset);
 				if (err == -1) {
