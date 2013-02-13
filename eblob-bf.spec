@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.1
+Version:	0.18.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,14 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Feb 13 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.2
+- blob: fix truncation of malformed blobs
+- blob: fix error code check
+- updated tests
+- comments
+- fixed setup.py
+- misc cleanups
+
 * Mon Jan 28 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.1
 - Data sort fixes
 

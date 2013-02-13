@@ -1,3 +1,14 @@
+eblob (0.18.2) unstable; urgency=low
+
+  * blob: fix truncation of malformed blobs
+  * blob: fix error code check
+  * updated tests
+  * comments
+  * fixed setup.py
+  * misc cleanups
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 13 Feb 2013 17:03:33 +0400
+
 eblob (0.18.1) unstable; urgency=low
 
   * Data sort fixes
