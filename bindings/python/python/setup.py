@@ -4,21 +4,9 @@ from distutils.core import setup
 
 vstr = '0.0.1'
 try:
-	f = open('../../../configure.in')
-	vstr = f.readline()
-
-	count = 0
-	version = ''
-	for c in vstr:
-		if c == '[':
-			count += 1
-		elif count == 2:
-			if c == ']':
-				break
-
-			version += c
-	if len(version) != 0:
-		vstr = version
+	f = open('../../../debian/changelog')
+	qstr = f.readline()
+	vstr = '.'.join(qstr.split()[1].strip("()").split(".")[:2])
 	f.close()
 except:
 	pass
