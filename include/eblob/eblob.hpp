@@ -35,7 +35,36 @@ namespace ioremap { namespace eblob {
 
 class eblob_logger {
 	public:
+		eblob_logger() : file_(NULL) {
+			init("/dev/stdout", EBLOB_LOG_ERROR);
+		}
+
 		eblob_logger(const char *log_file, const int log_level) : file_(NULL) {
+			init(log_file, log_level);
+		}
+
+		eblob_logger(const eblob_logger &l) {
+			init(l.log_file_.c_str(), l.logger_.log_level);
+		}
+
+		eblob_logger& operator = (const eblob_logger &l) {
+			if (this != &l) {
+				init(l.log_file_.c_str(), l.logger_.log_level);
+			}
+
+			return *this;
+		}
+
+		virtual ~eblob_logger() {
+			fclose(file_);
+		}
+
+		struct eblob_log *log() {
+			return &logger_;
+		}
+
+	private:
+		void init(const char *log_file, const int log_level) {
 			if (!log_file) {
 				log_file = "/dev/stdout";
 			}
@@ -54,21 +83,10 @@ class eblob_logger {
 			logger_.log = eblob_log_raw_formatted;
 		}
 
-		eblob_logger(const eblob_logger &l) {
-			eblob_logger(l.log_file_.c_str(), l.logger_.log_level);
-		}
-
-		virtual ~eblob_logger() {
-			fclose(file_);
-		}
-
-		struct eblob_log *log() {
-			return &logger_;
-		}
 	private:
 		struct eblob_log	logger_;
-		FILE			*file_;
-		std::string		log_file_;
+		FILE				*file_;
+		std::string			log_file_;
 };
 
 class eblob {
