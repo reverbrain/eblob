@@ -39,10 +39,12 @@ eblob::eblob(const char *log_file, const int log_level, const std::string &eblob
 	}
 }
 
-eblob::eblob(struct eblob_config *cfg) : logger_("/dev/stdout", EBLOB_LOG_ERROR)
+eblob::eblob(struct eblob_config *cfg)
 {
-	if (!cfg->log)
+	if (!cfg->log) {
 		cfg->log = logger_.log();
+	}
+
 	eblob_ = eblob_init(cfg);
 	if (!eblob_) {
 		throw std::runtime_error("Failed to initialize eblob");
