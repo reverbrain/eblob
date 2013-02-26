@@ -1590,6 +1590,9 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 	void *old_data = data;
 	ssize_t err;
 
+	if (b == NULL || key == NULL || data == NULL || wc == NULL)
+		return -EINVAL;
+
 	wc->size = size;
 	if (flags & BLOB_DISK_CTL_COMPRESS) {
 		if (offset) {
