@@ -417,6 +417,9 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
 int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
+int eblob_read_flags(struct eblob_backend *b, struct eblob_key *key, int *fd,
+		uint64_t *offset, uint64_t *size, int type,
+		enum eblob_read_flavour csum, uint64_t *flags);
 
 /*
  * Allocates buffer and reads data there.
@@ -433,8 +436,13 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
  * @flags are BLOB_DISK_CTL_* constants above.
  * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
+struct eblob_write_control;
+
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type);
+int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags,
+		int type, struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, int type);
