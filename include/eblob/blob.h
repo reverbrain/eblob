@@ -168,6 +168,11 @@ enum eblob_base_types {
 #define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
 #define BLOB_DISK_CTL_APPEND	(1<<4)
 #define BLOB_DISK_CTL_OVERWRITE	(1<<5)
+/*
+ * Flag that eblob user can set on record to indicate that this record should
+ * have special meaning. Useful for example for data format conversions.
+ */
+#define BLOB_DISK_CTL_USR1	(1<<6)
 
 struct eblob_disk_control {
 	/* key data */
