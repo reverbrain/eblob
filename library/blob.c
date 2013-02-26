@@ -1573,7 +1573,7 @@ err_out_exit:
 }
 
 /**
- * eblob_write() - pipeline function that manages compression/overwrites and
+ * eblob_write_ll() - pipeline function that manages compression/overwrites and
  * indexing. It prepares and commits one record.
  * @key:	hashed key of record
  * @data:	pointer to data which we want to write
@@ -1582,17 +1582,15 @@ err_out_exit:
  * @flags:	flags for write listed in `blob.h'
  * @type:	column of data (for now eblob supports columns)
  */
-int eblob_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
+static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type,
+		struct eblob_write_control *wc)
 {
-	struct eblob_write_control wc;
 	int compress_err = -1;
 	void *old_data = data;
 	ssize_t err;
 
-	memset(&wc, 0, sizeof(wc));
-
-	wc.size = size;
+	wc->size = size;
 	if (flags & BLOB_DISK_CTL_COMPRESS) {
 		if (offset) {
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: offset is not supported in compressed writes\n",
@@ -1606,17 +1604,17 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
-			eblob_dump_id(key->id),	(unsigned long long)wc.size, (unsigned long long)size, compress_err);
+			eblob_dump_id(key->id),	(unsigned long long)wc->size, (unsigned long long)size, compress_err);
 	}
 
-	wc.offset = offset;
-	wc.size = size;
-	wc.flags = flags;
-	wc.type = type;
-	wc.index = -1;
+	wc->offset = offset;
+	wc->size = size;
+	wc->flags = flags;
+	wc->type = type;
+	wc->index = -1;
 
 	if ((b->cfg.blob_flags & EBLOB_TRY_OVERWRITE) || (type == EBLOB_TYPE_META) || (flags & BLOB_DISK_CTL_OVERWRITE)) {
-		err = eblob_try_overwrite(b, key, &wc, data);
+		err = eblob_try_overwrite(b, key, wc, data);
 		if (err == 0)
 			/* We have overwritten old data - go out */
 			goto err_out_exit;
@@ -1625,27 +1623,27 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 			goto err_out_exit;
 
 		/* it could be modified if EBLOB_DISK_CTL_APPEND flag is set */
-		wc.offset = offset;
+		wc->offset = offset;
 	}
 
-	err = eblob_write_prepare_disk(b, key, &wc, 0);
+	err = eblob_write_prepare_disk(b, key, wc, 0);
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_write_binlog(wc.bctl, key, wc.data_fd, data, size, wc.data_offset);
+	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, data, size, wc->data_offset);
 	if (err) {
-		eblob_dump_wc(b, key, &wc, "eblob_write: ERROR-eblob_write_binlog", err);
+		eblob_dump_wc(b, key, wc, "eblob_write: ERROR-eblob_write_binlog", err);
 		goto err_out_exit;
 	}
 
 	/* Only low-level commit, since we already updated index and in-ram key */
-	err = eblob_write_commit_ll(b, NULL, 0, &wc, key);
+	err = eblob_write_commit_ll(b, NULL, 0, wc, key);
 	if (err) {
-		eblob_dump_wc(b, key, &wc, "eblob_write_commit_ll: ERROR", err);
+		eblob_dump_wc(b, key, wc, "eblob_write_commit_ll: ERROR", err);
 		goto err_out_exit;
 	}
 
-	err = blob_update_index(b, key, &wc, 0);
+	err = blob_update_index(b, key, wc, 0);
 	if (err)
 		goto err_out_exit;
 
@@ -1657,8 +1655,32 @@ err_out_exit:
 	if (!compress_err)
 		free(data);
 
-	eblob_dump_wc(b, key, &wc, "eblob_write", err);
+	eblob_dump_wc(b, key, wc, "eblob_write", err);
 	return err;
+}
+
+/*!
+ * Write data to eblob
+ */
+int eblob_write(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
+{
+	struct eblob_write_control wc = {};
+
+	return eblob_write_ll(b, key, data, offset, size, flags, type, &wc);
+}
+
+/*!
+ * Write and return wc.
+ * This API added mostly for purpose of BLOB_DISK_CTL_WRITE_RETURN removal
+ *
+ * TODO: Rename me!
+ */
+int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type,
+		struct eblob_write_control *wc)
+{
+	return eblob_write_ll(b, key, data, offset, size, flags, type, wc);
 }
 
 /**
