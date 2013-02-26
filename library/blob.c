@@ -1958,6 +1958,13 @@ int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 	return err;
 }
 
+int eblob_read_flags(struct eblob_backend *b, struct eblob_key *key, int *fd,
+		uint64_t *offset, uint64_t *size, int type,
+		enum eblob_read_flavour csum, uint64_t *flags)
+{
+	return eblob_read_ll(b, key, fd, offset, size, type, csum, flags);
+}
+
 /**
  * eblob_data_map() - mmap(2) data with respect to Linux alignment requirements.
  */
