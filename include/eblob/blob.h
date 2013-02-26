@@ -162,6 +162,12 @@ enum eblob_base_types {
 	EBLOB_TYPE_META,
 };
 
+/* Read with csum or without */
+enum eblob_read_flavour {
+	EBLOB_READ_NOCSUM = 0,
+	EBLOB_READ_CSUM,
+};
+
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 #define BLOB_DISK_CTL_COMPRESS	(1<<2)

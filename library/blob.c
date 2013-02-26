@@ -1866,10 +1866,11 @@ err_out_exit:
 }
 
 /**
- * eblob_read_nolock() - returns @fd, @offset and @size of data for given key.
+ * eblob_read_ll() - returns @fd, @offset and @size of data for given key.
  * Caller should the read data manually.
  */
-static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type, int csum)
+static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
+		uint64_t *offset, uint64_t *size, int type, enum eblob_read_flavour csum)
 {
 	struct eblob_write_control wc;
 	int err, compressed = 0;
@@ -1889,7 +1890,7 @@ static int eblob_read_nolock(struct eblob_backend *b, struct eblob_key *key, int
 	if (csum && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, &wc);
 		if (err) {
-			eblob_dump_wc(b, key, &wc, "eblob_read_nolock: checksum verification failed", err);
+			eblob_dump_wc(b, key, &wc, "eblob_read_ll: checksum verification failed", err);
 			goto err_out_exit;
 		}
 	}
@@ -1936,19 +1937,21 @@ err_out_exit:
 	return err;
 }
 
-int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd,
+		uint64_t *offset, uint64_t *size, int type)
 {
 	int err;
 
-	err = eblob_read_nolock(b, key, fd, offset, size, type, 1);
+	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM);
 	return err;
 }
 
-int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key, int *fd, uint64_t *offset, uint64_t *size, int type)
+int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
+		int *fd, uint64_t *offset, uint64_t *size, int type)
 {
 	int err;
 
-	err = eblob_read_nolock(b, key, fd, offset, size, type, 0);
+	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM);
 	return err;
 }
 
@@ -2000,7 +2003,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read_nolock(b, key, &m.fd, &m.offset, &m.size, type, 1);
+	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, 1);
 	if (err < 0)
 		goto err_out_exit;
 
