@@ -1879,6 +1879,9 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	struct eblob_write_control wc;
 	int err, compressed = 0;
 
+	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
+		return -EINVAL;
+
 	memset(&wc, 0, sizeof(struct eblob_write_control));
 
 	wc.type = type;
