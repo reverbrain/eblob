@@ -1870,7 +1870,8 @@ err_out_exit:
  * Caller should the read data manually.
  */
 static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
-		uint64_t *offset, uint64_t *size, int type, enum eblob_read_flavour csum)
+		uint64_t *offset, uint64_t *size, int type,
+		enum eblob_read_flavour csum, uint64_t *flags)
 {
 	struct eblob_write_control wc;
 	int err, compressed = 0;
@@ -1930,6 +1931,8 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	*fd = wc.data_fd;
 	*size = wc.size;
 	*offset = wc.data_offset;
+	if (flags != NULL)
+		*flags = wc.flags;
 
 	err = compressed;
 
@@ -1942,7 +1945,7 @@ int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd,
 {
 	int err;
 
-	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM);
+	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM, NULL);
 	return err;
 }
 
@@ -1951,7 +1954,7 @@ int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 {
 	int err;
 
-	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM);
+	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM, NULL);
 	return err;
 }
 
@@ -2003,7 +2006,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, 1);
+	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, EBLOB_READ_CSUM, NULL);
 	if (err < 0)
 		goto err_out_exit;
 
