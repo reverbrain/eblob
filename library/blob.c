@@ -1876,13 +1876,11 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 		uint64_t *offset, uint64_t *size, int type,
 		enum eblob_read_flavour csum, uint64_t *flags)
 {
-	struct eblob_write_control wc;
+	struct eblob_write_control wc = {};
 	int err, compressed = 0;
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
-
-	memset(&wc, 0, sizeof(struct eblob_write_control));
 
 	wc.type = type;
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 0);
