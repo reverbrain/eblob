@@ -1815,6 +1815,13 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	void *adata = NULL;
 	int err;
 
+	if (wc->total_size < sizeof(struct eblob_disk_footer)
+			|| wc->total_size < sizeof(struct eblob_disk_control)
+			|| wc->total_data_size > wc->total_size) {
+		err = -EINVAL;
+		goto err_out_exit;
+	}
+
 	memset(&m, 0, sizeof(struct eblob_map_fd));
 
 	/* mapping whole record including header and footer */
@@ -1824,6 +1831,7 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 
 	/* If record is big - mmap it, otherwise alloc in heap */
 	if (m.size > EBLOB_1_M) {
+		/* TODO: Here we can use existing data mapping in case of closed blob */
 		err = eblob_data_map(&m);
 		if (err)
 			goto err_out_exit;
@@ -1841,10 +1849,6 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	}
 
 	memset(csum, 0, sizeof(csum));
-	if (wc->total_size < sizeof(struct eblob_disk_footer)) {
-		err = -EINVAL;
-		goto err_out_unmap;
-	}
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
 	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = 0;
