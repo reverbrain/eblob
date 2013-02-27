@@ -1593,8 +1593,11 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (b == NULL || key == NULL || data == NULL || wc == NULL)
 		return -EINVAL;
 
-	wc->size = size;
+	memset(wc, 0, sizeof(struct eblob_write_control));
+
 	if (flags & BLOB_DISK_CTL_COMPRESS) {
+		uint64_t uncompressed_size = size;
+
 		if (offset) {
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: offset is not supported in compressed writes\n",
 					eblob_dump_id(key->id));
@@ -1607,7 +1610,7 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
-			eblob_dump_id(key->id),	(unsigned long long)wc->size, (unsigned long long)size, compress_err);
+			eblob_dump_id(key->id),	(unsigned long long)uncompressed_size, (unsigned long long)size, compress_err);
 	}
 
 	wc->offset = offset;
@@ -1881,6 +1884,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 	assert(key != NULL);
 	assert(wc != NULL);
 
+	memset(wc, 0, sizeof(struct eblob_write_control));
 	wc->type = type; /* FIXME */
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
