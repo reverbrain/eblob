@@ -1872,18 +1872,18 @@ err_out_exit:
  * eblob_read_ll() - returns @fd, @offset and @size of data for given key.
  * Caller should the read data manually.
  */
-static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
-		uint64_t *offset, uint64_t *size, int type,
-		enum eblob_read_flavour csum, uint64_t *flags)
+static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int type,
+		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
-	struct eblob_write_control wc = {};
 	int err, compressed = 0;
 
-	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
-		return -EINVAL;
+	assert(b != NULL);
+	assert(key != NULL);
+	assert(wc != NULL);
 
-	wc.type = type;
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 0);
+	wc->type = type; /* FIXME */
+
+	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
 	if (err < 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_fill_write_control_from_ram: type: %d: %d.\n",
 				eblob_dump_id(key->id), type, err);
@@ -1893,14 +1893,14 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	compressed = err;
 
 	if (csum && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
-		err = eblob_csum_ok(b, &wc);
+		err = eblob_csum_ok(b, wc);
 		if (err) {
-			eblob_dump_wc(b, key, &wc, "eblob_read_ll: checksum verification failed", err);
+			eblob_dump_wc(b, key, wc, "eblob_read_ll: checksum verification failed", err);
 			goto err_out_exit;
 		}
 	}
 
-	if (!wc.on_disk) {
+	if (!wc->on_disk) {
 		struct eblob_disk_control dc;
 		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
@@ -1908,16 +1908,16 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 		 * Check case when object was actually removed on disk, but
 		 * this was not updated in RAM yet
 		 */
-		err = blob_read_ll(wc.index_fd, &dc, sizeof(dc), wc.ctl_index_offset);
+		err = blob_read_ll(wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread-index: fd: %d: offset: %llu: %d.\n",
-					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
+					eblob_dump_id(key->id), wc->index_fd, (unsigned long long)wc->ctl_index_offset, err);
 			goto err_out_exit;
 		}
 
 		if (dc.flags & rem) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: index-removed: fd: %d: offset: %llu: %d.\n",
-					eblob_dump_id(key->id), wc.index_fd, (unsigned long long)wc.ctl_index_offset, err);
+					eblob_dump_id(key->id), wc->index_fd, (unsigned long long)wc->ctl_index_offset, err);
 			err = -ENOENT;
 			eblob_remove_type(b, key, type);
 			goto err_out_exit;
@@ -1928,15 +1928,9 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 			"data_fd: %d, ctl_data_offset: %llu, data_offset: %llu, index_fd: %d, index_offset: %llu, "
 			"size: %llu, total(disk)_size: %llu, on_disk: %d, want-csum: %d\n",
 			eblob_dump_id(key->id),
-			wc.data_fd, (unsigned long long)wc.ctl_data_offset, (unsigned long long)wc.data_offset,
-			wc.index_fd, (unsigned long long)wc.ctl_index_offset,
-			(unsigned long long)wc.size, (unsigned long long)wc.total_size, wc.on_disk, csum);
-
-	*fd = wc.data_fd;
-	*size = wc.size;
-	*offset = wc.data_offset;
-	if (flags != NULL)
-		*flags = wc.flags;
+			wc->data_fd, (unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
+			wc->index_fd, (unsigned long long)wc->ctl_index_offset,
+			(unsigned long long)wc->size, (unsigned long long)wc->total_size, wc->on_disk, csum);
 
 	err = compressed;
 
@@ -1944,29 +1938,48 @@ err_out_exit:
 	return err;
 }
 
+/*!
+ * Wrapper that reads via _eblob_read_ll expands wc into fd, offset, size
+ */
+static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
+		uint64_t *offset, uint64_t *size, int type, enum eblob_read_flavour csum)
+{
+	struct eblob_write_control wc = {};
+	int err;
+
+	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
+		return -EINVAL;
+
+	err = _eblob_read_ll(b, key, type, csum, &wc);
+	if (err < 0)
+		goto err;
+
+	*fd = wc.data_fd;
+	*size = wc.size;
+	*offset = wc.data_offset;
+err:
+	return err;
+}
+
 int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd,
 		uint64_t *offset, uint64_t *size, int type)
 {
-	int err;
-
-	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM, NULL);
-	return err;
+	return eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM);
 }
 
 int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type)
 {
-	int err;
-
-	err = eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM, NULL);
-	return err;
+	return eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM);
 }
 
-int eblob_read_flags(struct eblob_backend *b, struct eblob_key *key, int *fd,
-		uint64_t *offset, uint64_t *size, int type,
-		enum eblob_read_flavour csum, uint64_t *flags)
+int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
+		int type, enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
-	return eblob_read_ll(b, key, fd, offset, size, type, csum, flags);
+	if (b == NULL || key == NULL || wc == NULL)
+		return -EINVAL;
+
+	return _eblob_read_ll(b, key, type, csum, wc);
 }
 
 /**
@@ -2017,7 +2030,7 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t off
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, EBLOB_READ_CSUM, NULL);
+	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, EBLOB_READ_CSUM);
 	if (err < 0)
 		goto err_out_exit;
 
