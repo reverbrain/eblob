@@ -1414,8 +1414,8 @@ err_out_exit:
  * eblob_write_commit_ll() - low-level commit phase computes checksum and
  * writes footer.
  */
-int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize,
-		struct eblob_write_control *wc, struct eblob_key *key)
+static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum,
+		unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key)
 {
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
