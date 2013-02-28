@@ -1942,13 +1942,13 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 		}
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: "
-			"data_fd: %d, ctl_data_offset: %llu, data_offset: %llu, index_fd: %d, index_offset: %llu, "
-			"size: %llu, total(disk)_size: %llu, on_disk: %d, want-csum: %d\n",
-			eblob_dump_id(key->id),
-			wc->data_fd, (unsigned long long)wc->ctl_data_offset, (unsigned long long)wc->data_offset,
-			wc->index_fd, (unsigned long long)wc->ctl_index_offset,
-			(unsigned long long)wc->size, (unsigned long long)wc->total_size, wc->on_disk, csum);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: data_fd: %d"
+			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
+			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
+			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, err: %d\n",
+			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
+			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
+			csum, err);
 
 	err = compressed;
 
