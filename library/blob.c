@@ -1054,7 +1054,6 @@ again:
 	eblob_convert_disk_control(&dc);
 	eblob_convert_disk_control(&data_dc);
 
-
 	/* workaround for old indexes, which did not set dc.disk_size */
 	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
 		dc = data_dc;
@@ -1072,6 +1071,17 @@ again:
 		}
 
 		goto again;
+	}
+
+	/*
+	 * Set USR1 flag if it specified in dc so it can be returned in
+	 * *_return() fuctions.
+	 *
+	 * FIXME: This effectively makes USR1 flag permanent. Think of better
+	 * solution.
+	 */
+	if (data_dc.flags & BLOB_DISK_CTL_USR1) {
+		wc->flags |= BLOB_DISK_CTL_USR1;
 	}
 
 	wc->total_data_size = dc.data_size;
