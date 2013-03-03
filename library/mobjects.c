@@ -780,7 +780,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
 		return -EINVAL;
 
-	pthread_mutex_lock(&b->hash->root_lock);
+	pthread_rwlock_wrlock(&b->hash->root_lock);
 
 	/* Do not accept bctls invalidated by data-sort */
 	if (ctl->bctl->index_fd < 0) {
@@ -839,7 +839,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		free(rc);
 
 err_out_exit:
-	pthread_mutex_unlock(&b->hash->root_lock);
+	pthread_rwlock_unlock(&b->hash->root_lock);
 	return err;
 }
 
@@ -894,9 +894,9 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	int err;
 
-	pthread_mutex_lock(&b->hash->root_lock);
+	pthread_rwlock_wrlock(&b->hash->root_lock);
 	err = eblob_remove_type_nolock(b, key, type);
-	pthread_mutex_unlock(&b->hash->root_lock);
+	pthread_rwlock_unlock(&b->hash->root_lock);
 	return err;
 }
 
@@ -925,18 +925,18 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
-	pthread_mutex_lock(&b->hash->root_lock);
+	pthread_rwlock_rdlock(&b->hash->root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max) {
 		err = eblob_l2hash_lookup(b->l2hash[type], key, res);
 		if (err != 0 && err != -ENOENT) {
-			pthread_mutex_unlock(&b->hash->root_lock);
+			pthread_rwlock_unlock(&b->hash->root_lock);
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
 					eblob_dump_id(key->id), __func__, type, err);
 			goto err_out_exit;
 		}
 	}
-	pthread_mutex_unlock(&b->hash->root_lock);
+	pthread_rwlock_unlock(&b->hash->root_lock);
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);

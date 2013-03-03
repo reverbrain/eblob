@@ -1681,9 +1681,9 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
 		struct eblob_ram_control rctl;
 		for (i = 0; i <= b->l2hash_max; ++i) {
 			/* Lookup hash entry */
-			pthread_mutex_lock(&b->hash->root_lock);
+			pthread_rwlock_rdlock(&b->hash->root_lock);
 			err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl);
-			pthread_mutex_unlock(&b->hash->root_lock);
+			pthread_rwlock_unlock(&b->hash->root_lock);
 			if (err != 0 && err != -ENOENT) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 						"blob: %s: %s: l2hash lookup: FAILED: type: %d: %d.\n",
