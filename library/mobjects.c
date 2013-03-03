@@ -127,7 +127,7 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	pthread_mutex_destroy(&ctl->dlock);
 	pthread_mutex_destroy(&ctl->lock);
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
+	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 }
 
 static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_base, const char *name, int name_len)
@@ -406,7 +406,7 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int
 	if (pthread_mutex_init(&ctl->dlock, NULL))
 		goto err_out_destroy_lock;
 
-	if (pthread_mutex_init(&ctl->index_blocks_lock, NULL))
+	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
 		goto err_out_destroy_dlock;
 
 	return ctl;
@@ -516,7 +516,7 @@ found:
 err_out_free_ctl:
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_mutex_destroy(&ctl->dlock);
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
+	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 	free(ctl);
 err_out_free_format:
 	free(format);

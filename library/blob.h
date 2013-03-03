@@ -157,7 +157,7 @@ struct eblob_base_ctl {
 	struct eblob_map_fd	old_sort;
 
 	struct rb_root		index_blocks_root;
-	pthread_mutex_t		index_blocks_lock;
+	pthread_rwlock_t	index_blocks_lock;
 
 	/* Number of valid non-removed entries */
 	int			good;
