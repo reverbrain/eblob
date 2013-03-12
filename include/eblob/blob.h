@@ -95,7 +95,7 @@ void eblob_log_raw_formatted(void *priv, int level, const char *msg);
 void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
 #define eblob_log(l, level, format, a...)			\
 	do {							\
-		if (level < (l)->log_level)			\
+		if (level <= (l)->log_level)			\
 			eblob_log_raw((l), level, format, ##a); \
 	} while (0)
 
