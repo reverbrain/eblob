@@ -252,6 +252,13 @@ int eblob_start_defrag(struct eblob_backend *b)
 				"defrag: can't run while explicitly disabled.\n");
 		return -EAGAIN;
 	}
+
+	if (b->want_defrag) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: defragmentation is in progress.\n");
+		return -EALREADY;
+	}
+
 	b->want_defrag = 1;
 	return 0;
 }
