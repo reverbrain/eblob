@@ -262,3 +262,8 @@ int eblob_start_defrag(struct eblob_backend *b)
 	b->want_defrag = 1;
 	return 0;
 }
+
+int eblob_defrag_status(struct eblob_backend *b)
+{
+	return b->want_defrag;
+}

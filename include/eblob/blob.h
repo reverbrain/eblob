@@ -530,6 +530,7 @@ int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t
 void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
+int eblob_defrag_status(struct eblob_backend *b);
 
 #ifdef __cplusplus
 }
