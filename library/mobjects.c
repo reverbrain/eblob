@@ -1051,7 +1051,8 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	b->want_defrag = 0;
 
 	/* If automatic data-sort is enabled - start it */
-	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
+	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT
+			&& ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 		eblob_start_defrag(b);
 
 	return 0;
@@ -1077,11 +1078,11 @@ int eblob_load_data(struct eblob_backend *b)
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.log = b->cfg.log;
-	ctl.thread_num = b->cfg.iterate_threads;
 	ctl.priv = b;
 	ctl.iterator_cb.iterator = eblob_blob_iter;
 	ctl.start_type = 0;
 	ctl.max_type = INT_MAX;
+	ctl.flags = EBLOB_ITERATE_FLAGS_INITIAL_LOAD;
 
 	return eblob_iterate_existing(b, &ctl, &b->types, &b->max_type);
 }

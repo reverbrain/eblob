@@ -276,7 +276,7 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	rc.bctl = bc;
 
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL)
-			&& !(ctl->flags & EBLOB_ITERATE_READONLY)
+			&& !(ctl->flags & EBLOB_ITERATE_FLAGS_READONLY)
 			&& !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
 		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {

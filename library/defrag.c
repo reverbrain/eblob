@@ -96,7 +96,7 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	ctl.iterator_cb.iterator_free = NULL;
 
 	ctl.b = b;
-	ctl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_READONLY;
+	ctl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_FLAGS_READONLY;
 
 	ctl.base = bctl;
 	ctl.priv = bctl;
@@ -129,6 +129,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	int err = 0, i;
 
+	b->stat.sort_status = 1;
 	for (i = 0; i <= b->max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 		struct eblob_base_ctl *bctl;
@@ -206,6 +207,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	}
 
 err_out_exit:
+	b->stat.sort_status = err;
 	return err;
 }
 
