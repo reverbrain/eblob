@@ -95,7 +95,7 @@ void eblob_log_raw_formatted(void *priv, int level, const char *msg);
 void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
 #define eblob_log(l, level, format, a...)			\
 	do {							\
-		if (level < (l)->log_level)			\
+		if (level <= (l)->log_level)			\
 			eblob_log_raw((l), level, format, ##a); \
 	} while (0)
 
@@ -548,6 +548,7 @@ int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t
 void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
+int eblob_defrag_status(struct eblob_backend *b);
 
 #ifdef __cplusplus
 }
