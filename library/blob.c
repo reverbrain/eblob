@@ -415,6 +415,9 @@ static void *eblob_blob_iterator(void *data)
 err_out_unlock:
 	pthread_mutex_unlock(&bc->lock);
 err_out_check:
+	/*
+	 * Returning error from iterator callback is dangerous - iterator stops
+	 */
 	ctl->thread_num = 0;
 
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, "
