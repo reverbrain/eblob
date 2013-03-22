@@ -820,11 +820,20 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 
 	if (b->cfg.bsize) {
 		uint64_t local_offset = wc->data_offset + wc->total_data_size;
-		unsigned int alignment = wc->total_size - wc->total_data_size - sizeof(struct eblob_disk_control);
+		int64_t alignment = wc->total_size - (local_offset - wc->ctl_data_offset);
 
 		if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER))
 			alignment -= sizeof(struct eblob_disk_footer);
 
+		/* Sanity */
+		if (local_offset + alignment >= wc->ctl_data_offset + wc->total_size
+				|| local_offset >= wc->ctl_data_offset + wc->total_size
+				|| alignment <= 0) {
+			err = 0;
+			goto err_out_exit;
+		}
+
+		/* Write empty buffs until aligned on block size */
 		while (alignment && alignment < b->cfg.bsize) {
 			unsigned int sz = alignment;
 
