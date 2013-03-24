@@ -1266,7 +1266,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 	b->current_blob_size += wc->total_size + sizeof(struct eblob_disk_control);
 
-
 	err = blob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_rollback;
@@ -1279,6 +1278,18 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	err = blob_update_index(b, key, wc, 1);
 	if (err)
 		goto err_out_rollback;
+
+	/*
+	 * If no footer is set then commit phase would be skipped and
+	 * so iterator could consider record broken because offset+size
+	 * may be outside of blob. So extend blob manually.
+	 */
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER) {
+		ftruncate(wc->data_fd, wc->ctl_data_offset + wc->total_size);
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: ftruncate: fd: %d, "
+				"size: %" PRIu64 "\n", eblob_dump_id(key->id),
+				wc->data_fd, wc->ctl_data_offset + wc->total_size);
+	}
 
 	/*
 	 * We should copy old entry only in case:
@@ -1303,7 +1314,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 				old.data_offset + sizeof(struct eblob_disk_control),
 				wc->ctl_data_offset + sizeof(struct eblob_disk_control),
 				old.size, old.bctl->data_fd, wc->data_fd, err);
-
 		if (err < 0)
 			goto err_out_rollback;
 	}
