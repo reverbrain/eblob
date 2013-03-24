@@ -121,7 +121,7 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	len += fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
 	len += fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
 
-	ftruncate(fileno(b->stat.file), len);
+	(void)ftruncate(fileno(b->stat.file), len);
 
 	fflush(b->stat.file);
 #if 0
