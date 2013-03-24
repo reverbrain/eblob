@@ -23,7 +23,7 @@
 
 struct eblob_hash {
 	struct rb_root		root;
-	pthread_mutex_t		root_lock;
+	pthread_rwlock_t	root_lock;
 };
 
 struct eblob_hash *eblob_hash_init();

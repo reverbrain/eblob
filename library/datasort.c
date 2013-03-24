@@ -1099,7 +1099,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Protect l2hash/hash from accessing stale fds */
-	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash->root_lock)) != 0) {
 		err = -err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
 		goto err_unmap;
@@ -1142,7 +1142,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Unlock hash */
-	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
+	pthread_rwlock_unlock(&dcfg->b->hash->root_lock);
 
 	/* Save pointer to sorted_bctl for datasort_swap_disk() */
 	dcfg->sorted_bctl = sorted_bctl;

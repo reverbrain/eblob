@@ -92,7 +92,7 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 	struct eblob_index_block *t;
 	struct rb_node *n;
 
-	pthread_mutex_lock(&bctl->index_blocks_lock);
+	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
 
 	while((n = rb_first(&bctl->index_blocks_root))) {
 		t = rb_entry(n, struct eblob_index_block, node);
@@ -103,7 +103,7 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 		free(t);
 	}
 
-	pthread_mutex_unlock(&bctl->index_blocks_lock);
+	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
 	return 0;
 }
@@ -115,7 +115,7 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 	int err = 0;
 	int cmp;
 
-	pthread_mutex_lock(&bctl->index_blocks_lock);
+	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
 
 	n = &bctl->index_blocks_root.rb_node;
 
@@ -158,7 +158,7 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 	rb_insert_color(&block->node, &bctl->index_blocks_root);
 
 err_out_exit:
-	pthread_mutex_unlock(&bctl->index_blocks_lock);
+	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
 	return err;
 }
@@ -305,7 +305,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
 
-	pthread_mutex_lock(&bctl->index_blocks_lock);
+	pthread_rwlock_rdlock(&bctl->index_blocks_lock);
 	block = eblob_index_blocks_search_nolock(bctl, dc, st);
 	if (block) {
 		assert((bctl->sort.size - block->offset) / hdr_size > 0);
@@ -319,10 +319,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 		search_start = bctl->sort.data + block->offset;
 		search_end = search_start + (num - 1);
 	} else {
-		pthread_mutex_unlock(&bctl->index_blocks_lock);
+		pthread_rwlock_unlock(&bctl->index_blocks_lock);
 		goto out;
 	}
-	pthread_mutex_unlock(&bctl->index_blocks_lock);
+	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
 	st->bsearch_reached++;
 

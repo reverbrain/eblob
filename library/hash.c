@@ -128,7 +128,7 @@ struct eblob_hash *eblob_hash_init()
 	memset(h, 0, sizeof(struct eblob_hash));
 
 	h->root = RB_ROOT;
-	pthread_mutex_init(&h->root_lock, NULL);
+	pthread_rwlock_init(&h->root_lock, NULL);
 
 	return h;
 
@@ -214,8 +214,8 @@ int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key,
 {
 	int err;
 
-	pthread_mutex_lock(&h->root_lock);
+	pthread_rwlock_rdlock(&h->root_lock);
 	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep);
-	pthread_mutex_unlock(&h->root_lock);
+	pthread_rwlock_unlock(&h->root_lock);
 	return err;
 }
