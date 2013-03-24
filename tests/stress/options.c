@@ -41,7 +41,7 @@ options_usage(char *progname, int eval, FILE *stream)
 {
 	fprintf(stream, "usage: %s ", progname);
 	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-F eblob_flags] ");
-	fprintf(stream, "[-i test_items] [-I iterations] ");
+	fprintf(stream, "[-i test_items] [-I iterations] [-b block size]");
 	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
 	fprintf(stream, "[-y sync_time] ");
@@ -79,6 +79,7 @@ options_set_defaults(void)
 {
 
 	memset(&cfg, 0, sizeof(cfg));
+	cfg.blob_bsize = DEFAULT_BLOB_BSIZE;
 	cfg.blob_flags = DEFAULT_BLOB_FLAGS;
 	cfg.blob_defrag = DEFAULT_BLOB_DEFRAG;
 	cfg.blob_records = DEFAULT_BLOB_RECORDS;
@@ -106,6 +107,7 @@ options_get(int argc, char **argv)
 {
 	int ch;
 	struct option longopts[] = {
+		{ "blob-bsize",		required_argument,	NULL,		'b' },
 		{ "blob-flags",		required_argument,	NULL,		'F' },
 		{ "blob-defrag",	required_argument,	NULL,		'd' },
 		{ "blob-records",	required_argument,	NULL,		'r' },
@@ -128,8 +130,11 @@ options_get(int argc, char **argv)
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "b:d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
+		case 'b':
+			options_get_ll(&cfg.blob_bsize, optarg);
+			break;
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
 			break;
@@ -198,6 +203,7 @@ void
 options_dump(void)
 {
 
+	printf("Block size: %lld\n", cfg.blob_bsize);
 	printf("Flags: %lld\n", cfg.blob_flags);
 	printf("Defrag timeout in seconds: %ld\n", cfg.blob_defrag);
 	printf("Maximum number of records per base: %lld\n", cfg.blob_records);

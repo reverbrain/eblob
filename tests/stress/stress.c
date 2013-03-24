@@ -373,14 +373,15 @@ main(int argc, char **argv)
 		err(EX_OSFILE, "fopen: %s", log_path);
 
 	/* Init eblob */
-	bcfg.log = &logger;
-	bcfg.iterate_threads = cfg.blob_threads;
-	bcfg.defrag_timeout = cfg.blob_defrag;
+	bcfg.blob_flags = cfg.blob_flags;
 	bcfg.blob_size = cfg.blob_size;
+	bcfg.bsize = cfg.blob_bsize;
+	bcfg.defrag_timeout = cfg.blob_defrag;
+	bcfg.file = blob_path;
+	bcfg.iterate_threads = cfg.blob_threads;
+	bcfg.log = &logger;
 	bcfg.records_in_blob = cfg.blob_records;
 	bcfg.sync = cfg.blob_sync;
-	bcfg.file = blob_path;
-	bcfg.blob_flags = cfg.blob_flags;
 	cfg.b = eblob_init(&bcfg);
 	if (cfg.b == NULL)
 		errx(EX_OSERR, "eblob_init");
