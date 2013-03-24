@@ -162,12 +162,23 @@ enum eblob_base_types {
 	EBLOB_TYPE_META,
 };
 
+/* Read with csum or without */
+enum eblob_read_flavour {
+	EBLOB_READ_NOCSUM = 0,
+	EBLOB_READ_CSUM,
+};
+
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
 #define BLOB_DISK_CTL_COMPRESS	(1<<2)
 #define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
 #define BLOB_DISK_CTL_APPEND	(1<<4)
 #define BLOB_DISK_CTL_OVERWRITE	(1<<5)
+/*
+ * Flag that eblob user can set on record to indicate that this record should
+ * have special meaning. Useful for example for data format conversions.
+ */
+#define BLOB_DISK_CTL_USR1	(1<<6)
 
 struct eblob_disk_control {
 	/* key data */
@@ -403,10 +414,13 @@ int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key);
  * Returns negative error value or zero on success.
  * Positive return value means data on given offset is compressed.
  */
+struct eblob_write_control;
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
 int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
 		int *fd, uint64_t *offset, uint64_t *size, int type);
+int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
+		int type, enum eblob_read_flavour csum, struct eblob_write_control *wc);
 
 /*
  * Allocates buffer and reads data there.
@@ -425,6 +439,9 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type);
+int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t offset, uint64_t size, uint64_t flags,
+		int type, struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, int type);

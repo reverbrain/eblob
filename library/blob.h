@@ -300,7 +300,6 @@ int eblob_preallocate(int fd, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
 
 int blob_mark_index_removed(int fd, off_t offset);
-int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum, unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key);
 
 int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);
