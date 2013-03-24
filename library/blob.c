@@ -1702,7 +1702,7 @@ err_out_exit:
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
 {
-	struct eblob_write_control wc = {};
+	struct eblob_write_control wc = { .size = 0 };
 
 	return eblob_write_ll(b, key, data, offset, size, flags, type, &wc);
 }
@@ -1983,7 +1983,7 @@ err_out_exit:
 static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
 		uint64_t *offset, uint64_t *size, int type, enum eblob_read_flavour csum)
 {
-	struct eblob_write_control wc = {};
+	struct eblob_write_control wc = { .size = 0 };
 	int err;
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
