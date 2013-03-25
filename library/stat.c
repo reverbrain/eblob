@@ -109,6 +109,7 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 /*
  * Updates on-disk statistics.
  * TODO: Move to separate thread to avoid single-lock bottleneck.
+ * TODO: Make it atomic.
  */
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed)
 {
@@ -128,9 +129,5 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	(void)ftruncate(fileno(b->stat.file), len);
 
 	fflush(b->stat.file);
-#if 0
-	printf("disk: %llu, removed: %llu, hashed: %llu, cached_top: %llu, cached_bottom: %llu\n",
-		b->stat.disk, b->stat.removed, b->stat.hashed, cache_top_cnt, cache_bottom_cnt);
-#endif
 	pthread_mutex_unlock(&b->stat.lock);
 }
