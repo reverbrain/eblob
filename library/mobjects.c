@@ -127,7 +127,7 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	pthread_mutex_destroy(&ctl->dlock);
 	pthread_mutex_destroy(&ctl->lock);
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
+	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 }
 
 static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_base, const char *name, int name_len)
@@ -406,7 +406,7 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int
 	if (pthread_mutex_init(&ctl->dlock, NULL))
 		goto err_out_destroy_lock;
 
-	if (pthread_mutex_init(&ctl->index_blocks_lock, NULL))
+	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
 		goto err_out_destroy_dlock;
 
 	return ctl;
@@ -516,7 +516,7 @@ found:
 err_out_free_ctl:
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_mutex_destroy(&ctl->dlock);
-	pthread_mutex_destroy(&ctl->index_blocks_lock);
+	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 	free(ctl);
 err_out_free_format:
 	free(format);
@@ -780,7 +780,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
 		return -EINVAL;
 
-	pthread_mutex_lock(&b->hash->root_lock);
+	pthread_rwlock_wrlock(&b->hash->root_lock);
 
 	/* Do not accept bctls invalidated by data-sort */
 	if (ctl->bctl->index_fd < 0) {
@@ -839,7 +839,7 @@ int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct ebl
 		free(rc);
 
 err_out_exit:
-	pthread_mutex_unlock(&b->hash->root_lock);
+	pthread_rwlock_unlock(&b->hash->root_lock);
 	return err;
 }
 
@@ -894,9 +894,9 @@ int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type)
 {
 	int err;
 
-	pthread_mutex_lock(&b->hash->root_lock);
+	pthread_rwlock_wrlock(&b->hash->root_lock);
 	err = eblob_remove_type_nolock(b, key, type);
-	pthread_mutex_unlock(&b->hash->root_lock);
+	pthread_rwlock_unlock(&b->hash->root_lock);
 	return err;
 }
 
@@ -925,18 +925,20 @@ int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, 
 	struct eblob_ram_control *rc = NULL;
 
 	/* If l2hash is enabled - look in it first */
-	pthread_mutex_lock(&b->hash->root_lock);
-	if (b->cfg.blob_flags & EBLOB_L2HASH && type <= b->l2hash_max) {
-		err = eblob_l2hash_lookup(b->l2hash[type], key, res);
-		if (err != 0 && err != -ENOENT) {
-			pthread_mutex_unlock(&b->hash->root_lock);
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
-					eblob_dump_id(key->id), __func__, type, err);
-			goto err_out_exit;
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		pthread_rwlock_rdlock(&b->hash->root_lock);
+		if (type <= b->l2hash_max) {
+			err = eblob_l2hash_lookup(b->l2hash[type], key, res);
+			if (err != 0 && err != -ENOENT) {
+				pthread_rwlock_unlock(&b->hash->root_lock);
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"blob: %s: %s: l2hash lookup failed: type: %d: %d.\n",
+						eblob_dump_id(key->id), __func__, type, err);
+				goto err_out_exit;
+			}
 		}
+		pthread_rwlock_unlock(&b->hash->root_lock);
 	}
-	pthread_mutex_unlock(&b->hash->root_lock);
 
 	if (err) {
 		err = eblob_hash_lookup_alloc(b->hash, key, (void **)&rc, (unsigned int *)&size);
@@ -1051,7 +1053,8 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	b->want_defrag = 0;
 
 	/* If automatic data-sort is enabled - start it */
-	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
+	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT
+			&& ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 		eblob_start_defrag(b);
 
 	return 0;
@@ -1077,11 +1080,11 @@ int eblob_load_data(struct eblob_backend *b)
 	memset(&ctl, 0, sizeof(ctl));
 
 	ctl.log = b->cfg.log;
-	ctl.thread_num = b->cfg.iterate_threads;
 	ctl.priv = b;
 	ctl.iterator_cb.iterator = eblob_blob_iter;
 	ctl.start_type = 0;
 	ctl.max_type = INT_MAX;
+	ctl.flags = EBLOB_ITERATE_FLAGS_INITIAL_LOAD;
 
 	return eblob_iterate_existing(b, &ctl, &b->types, &b->max_type);
 }
