@@ -106,6 +106,10 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 	return eblob_stat_init_new(s, path, "w+");
 }
 
+/*
+ * Updates on-disk statistics.
+ * TODO: Move to separate thread to avoid single-lock bottleneck.
+ */
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed)
 {
 	int len = 0;
