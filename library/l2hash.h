@@ -52,8 +52,6 @@ enum {
  * Tree that used for last base when EBLOB_L2HASH flag is set
  */
 struct eblob_l2hash {
-	/* Global hash lock */
-	pthread_mutex_t		root_lock;
 	/* Tree of l2hashes */
 	struct rb_root		root;
 	/* Tree of collisions in l2hash */

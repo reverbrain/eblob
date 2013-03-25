@@ -126,7 +126,7 @@ public:
 		eblob::remove_all(key);
 	}
 
-	int py_iterate(class eblob_py_iterator &it) {
+	int py_iterate(struct eblob_py_iterator &it) {
 		struct eblob_iterate_control ctl;
 		int err;
 

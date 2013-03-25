@@ -58,6 +58,7 @@ enum rnd_flags_types {
  * Test configuration
  */
 struct test_cfg {
+	long long	blob_bsize;		/* Block size for record alignment */
 	long long	blob_flags;		/* Passed to cfg.eblob_flags */
 	long		blob_defrag;		/* Defrag timeout in seconds */
 	long long	blob_records;		/* Number of records in base */
@@ -94,6 +95,7 @@ extern struct test_cfg cfg;
 /*
  * Defaults for test_cfg above
  */
+#define DEFAULT_BLOB_BSIZE		(0)
 #define DEFAULT_BLOB_FLAGS		(0)
 #define DEFAULT_BLOB_DEFRAG		(10)
 #define DEFAULT_BLOB_RECORDS		(10000)

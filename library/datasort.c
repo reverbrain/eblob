@@ -492,7 +492,7 @@ static int datasort_split(struct datasort_cfg *dcfg)
 	ictl.base = dcfg->bctl;
 	ictl.log = dcfg->b->cfg.log;
 	ictl.thread_num = dcfg->thread_num;
-	ictl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_READONLY;
+	ictl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_FLAGS_READONLY;
 	ictl.iterator_cb.iterator = datasort_split_iterator;
 	ictl.iterator_cb.iterator_init = datasort_split_iterator_init;
 	ictl.iterator_cb.iterator_free = datasort_split_iterator_free;
@@ -1099,7 +1099,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Protect l2hash/hash from accessing stale fds */
-	if ((err = pthread_mutex_lock(&dcfg->b->hash->root_lock)) != 0) {
+	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash->root_lock)) != 0) {
 		err = -err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
 		goto err_unmap;
@@ -1142,7 +1142,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Unlock hash */
-	pthread_mutex_unlock(&dcfg->b->hash->root_lock);
+	pthread_rwlock_unlock(&dcfg->b->hash->root_lock);
 
 	/* Save pointer to sorted_bctl for datasort_swap_disk() */
 	dcfg->sorted_bctl = sorted_bctl;
@@ -1311,7 +1311,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		return -EINVAL;
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: start\n");
-	dcfg->b->stat.sort_status = 1;
 
 	/* Setup defaults */
 	if (dcfg->thread_num == 0)
@@ -1445,7 +1444,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	pthread_mutex_unlock(&dcfg->b->lock);
 
 	eblob_log(dcfg->log, EBLOB_LOG_NOTICE, "blob: datasort: success\n");
-	dcfg->b->stat.sort_status = 0;
 	return 0;
 
 err_unlock_bctl:
@@ -1464,6 +1462,5 @@ err_mutex:
 	datasort_destroy(dcfg);
 err:
 	eblob_log(dcfg->log, EBLOB_LOG_ERROR, "blob: datasort: FAILED\n");
-	dcfg->b->stat.sort_status = err;
 	return err;
 }
