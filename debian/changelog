@@ -1,3 +1,28 @@
+eblob (0.18.3) unstable; urgency=low
+
+  * bindings: python: fix class/struct mismatch
+  * tests: stress: added block size parameter
+  * fixed malformed write with EBLOB_NO_FOOTER flag at the end of the blob
+  * blob: properly handle offset writes when cfg.bsize is set
+  * mobjects: do not lock hash in common case
+  * Added defrag status checker function
+  * Return -EALREADY when defrag already started and client requests is again.
+  * Log when level == eblob->log_level, not only when level is lower than enabled in eblob.
+  * rwlock: hash->root_lock is now rwlock
+  * l2hash: removed unused l2hash lock
+  * blob: reformatted _eblob_read_ll() log
+  * blob: more checks to eblob_csum_ok()
+  * api: protect against misuse via zeroing out wc
+  * api: replaced hacky eblob_read_flags() with eblob_read_return()
+  * api: add new API to public interface
+  * api: simplified eblob_read_ll()
+  * api: basic protection for eblob_read_ll()
+  * api: renamed eblob_read_nolock() to eblob_read_ll()
+  * api: added new write* API
+  * api: added flag BLOB_DISK_CTL_USR1
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 27 Mar 2013 13:42:51 +0400
+
 eblob (0.18.2) unstable; urgency=low
 
   * blob: fix truncation of malformed blobs

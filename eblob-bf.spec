@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.2
+Version:	0.18.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,28 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Mar 27 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.3
+- bindings: python: fix class/struct mismatch
+- tests: stress: added block size parameter
+- fixed malformed write with EBLOB_NO_FOOTER flag at the end of the blob
+- blob: properly handle offset writes when cfg.bsize is set
+- mobjects: do not lock hash in common case
+- Added defrag status checker function
+- Return -EALREADY when defrag already started and client requests is again.
+- Log when level == eblob->log_level, not only when level is lower than enabled in eblob.
+- rwlock: hash->root_lock is now rwlock
+- l2hash: removed unused l2hash lock
+- blob: reformatted _eblob_read_ll() log
+- blob: more checks to eblob_csum_ok()
+- api: protect against misuse via zeroing out wc
+- api: replaced hacky eblob_read_flags() with eblob_read_return()
+- api: add new API to public interface
+- api: simplified eblob_read_ll()
+- api: basic protection for eblob_read_ll()
+- api: renamed eblob_read_nolock() to eblob_read_ll()
+- api: added new write* API
+- api: added flag BLOB_DISK_CTL_USR1
+
 * Wed Feb 13 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.2
 - blob: fix truncation of malformed blobs
 - blob: fix error code check
