@@ -237,6 +237,13 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * Without of this flag it's still possible to run datasort via dnet_ioclient -d
  */
 #define EBLOB_AUTO_DATASORT			(1<<7)
+/*
+ * When set, each read and write will try to free all pages from page cache,
+ * which belong to appropriate file descriptor. Useful for truly random read
+ * from eblob which total size is way larger than page cache and if there
+ * is background (active) write.
+ */
+#define EBLOB_DROP_PAGE_CACHE			(1<<8)
 
 struct eblob_config {
 	/* blob flags above */

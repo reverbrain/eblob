@@ -1670,6 +1670,9 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
+	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
+		posix_fadvise(wc->data_fd, 0, 0, POSIX_FADV_DONTNEED);
+
 	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, data, size, wc->data_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_write: ERROR-eblob_write_binlog", err);
@@ -1988,6 +1991,9 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 {
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
+
+	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
+		posix_fadvise(wc.data_fd, 0, 0, POSIX_FADV_DONTNEED);
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
