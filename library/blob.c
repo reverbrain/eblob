@@ -42,6 +42,10 @@
 #include "blob.h"
 #include "crypto/sha512.h"
 
+static int eblob_page_cache_flush_counter_max = 1024 * 1024;
+/* this is racy, test only so far */
+static int eblob_page_cache_flush_counter;
+
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
 	void *thread_priv;
@@ -1670,8 +1674,12 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
-		posix_fadvise(wc->data_fd, 0, 0, POSIX_FADV_DONTNEED);
+	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE) {
+		if (++eblob_page_cache_flush_counter >= eblob_page_cache_flush_counter_max) {
+			posix_fadvise(wc->data_fd, 0, 0, POSIX_FADV_DONTNEED);
+			eblob_page_cache_flush_counter = 0;
+		}
+	}
 
 	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, data, size, wc->data_offset);
 	if (err) {
@@ -1992,8 +2000,12 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
 
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
-		posix_fadvise(wc.data_fd, 0, 0, POSIX_FADV_DONTNEED);
+	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE) {
+		if (++eblob_page_cache_flush_counter >= eblob_page_cache_flush_counter_max) {
+			posix_fadvise(wc.data_fd, 0, 0, POSIX_FADV_DONTNEED);
+			eblob_page_cache_flush_counter = 0;
+		}
+	}
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
