@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.3
+Version:	0.18.4
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Apr 01 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.4
+- Added optional flag, which tries to free page cache on every read/write. Useful for random read with background (active) write.
+
 * Wed Mar 27 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.3
 - bindings: python: fix class/struct mismatch
 - tests: stress: added block size parameter
