@@ -1,3 +1,9 @@
+eblob (0.18.4) unstable; urgency=low
+
+  * Added optional flag, which tries to free page cache on every read/write. Useful for random read with background (active) write.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 01 Apr 2013 18:03:20 +0400
+
 eblob (0.18.3) unstable; urgency=low
 
   * bindings: python: fix class/struct mismatch
