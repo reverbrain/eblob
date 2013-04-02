@@ -1302,8 +1302,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: ftruncate: fd: %d, "
 				"size: %" PRIu64 ", err: %zu\n", eblob_dump_id(key->id),
 				wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
-		if (err)
+		if (err == -1) {
+			err = -errno;
 			goto err_out_rollback;
+		}
 	}
 
 	/*
