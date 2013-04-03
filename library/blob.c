@@ -61,8 +61,10 @@ static int eblob_fd_readlink(int fd, char **datap)
 	}
 
 	err = readlink(src, dst, dsize);
-	if (err < 0)
+	if (err < 0) {
+		err = -errno;
 		goto err_out_free;
+	}
 
 	dst[err] = '\0';
 	*datap = dst;
@@ -85,12 +87,13 @@ static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t
 	if (eblob_page_cache_size >= eblob_page_cache_limit) {
 		char *file = NULL;
 
-		posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+		eblob_pagecache_hint(fd, EBLOB_FLAGS_HINT_DONTNEED);
 		eblob_page_cache_size = 0;
 
 		eblob_fd_readlink(fd, &file);
 
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_read_ll: dropped cache for %s\n", file);
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+				"dropped cache for fd: %d, path: %s", fd, file);
 		free(file);
 	}
 }
@@ -1355,8 +1358,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: ftruncate: fd: %d, "
 				"size: %" PRIu64 ", err: %zu\n", eblob_dump_id(key->id),
 				wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
-		if (err)
+		if (err == -1) {
+			err = -errno;
 			goto err_out_rollback;
+		}
 	}
 
 	/*
@@ -2027,6 +2032,8 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, err);
 
+	eblob_try_flush_page_cache(b, wc->data_fd, 1024);
+
 	err = compressed;
 
 err_out_exit:
@@ -2044,8 +2051,6 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
-
-	eblob_try_flush_page_cache(b, wc.data_fd, 1024);
 
 	err = _eblob_read_ll(b, key, type, csum, &wc);
 	if (err < 0)
