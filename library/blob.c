@@ -85,7 +85,7 @@ static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t
 	if (eblob_page_cache_size >= eblob_page_cache_limit) {
 		char *file = NULL;
 
-		posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+		eblob_pagecache_hint(fd, EBLOB_FLAGS_HINT_DONTNEED);
 		eblob_page_cache_size = 0;
 
 		eblob_fd_readlink(fd, &file);
@@ -1750,9 +1750,6 @@ err_out_exit:
 	if (!compress_err)
 		free(data);
 
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
-		eblob_pagecache_hint(wc->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
-
 	eblob_dump_wc(b, key, wc, "eblob_write", err);
 	return err;
 }
@@ -2033,9 +2030,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			csum, err);
 
 	err = compressed;
-
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE)
-		eblob_pagecache_hint(wc->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
 
 err_out_exit:
 	return err;
