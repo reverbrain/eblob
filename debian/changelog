@@ -1,3 +1,9 @@
+eblob (0.18.5) unstable; urgency=low
+
+  * Fixed copying of eblob_write_control to data at eblob_write
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 03 Apr 2013 19:16:03 +0400
+
 eblob (0.18.4-1) unstable; urgency=low
 
   * Only flush page cache once per eblob_page_cache_flush_counter_max operations.
