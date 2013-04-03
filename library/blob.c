@@ -2031,6 +2031,8 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, err);
 
+	eblob_try_flush_page_cache(b, wc->data_fd, 1024);
+
 	err = compressed;
 
 err_out_exit:
@@ -2048,8 +2050,6 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
-
-	eblob_try_flush_page_cache(b, wc.data_fd, 1024);
 
 	err = _eblob_read_ll(b, key, type, csum, &wc);
 	if (err < 0)
