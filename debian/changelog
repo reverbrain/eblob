@@ -1,3 +1,21 @@
+eblob (0.18.5-1) unstable; urgency=low
+
+  * Another attempt to friendify massive write and random reads
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 03 Apr 2013 21:03:09 +0400
+
+eblob (0.18.5) unstable; urgency=low
+
+  * Fixed copying of eblob_write_control to data at eblob_write
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 03 Apr 2013 19:16:03 +0400
+
+eblob (0.18.4-1) unstable; urgency=low
+
+  * Only flush page cache once per eblob_page_cache_flush_counter_max operations.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 01 Apr 2013 21:03:16 +0400
+
 eblob (0.18.4) unstable; urgency=low
 
   * Added optional flag, which tries to free page cache on every read/write. Useful for random read with background (active) write.
