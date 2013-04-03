@@ -18,6 +18,10 @@
  * Each blob has corresponding .stat file with brief statistics.
  */
 
+#include "blob.h"
+
+#include <sys/mman.h>
+
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -25,15 +29,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "blob.h"
-
 void eblob_stat_cleanup(struct eblob_stat *s)
 {
-	fclose(s->file);
+	(void)munmap(s->file_map, EBLOB_STAT_SIZE_MAX);
+	(void)close(s->fd);
 	pthread_mutex_destroy(&s->lock);
 }
 
-static int eblob_stat_init_new(struct eblob_stat *s, char *path, char *mode)
+static int eblob_stat_init_new(struct eblob_stat *s, const char *path)
 {
 	int err;
 
@@ -45,44 +48,52 @@ static int eblob_stat_init_new(struct eblob_stat *s, char *path, char *mode)
 		goto err_out_exit;
 	}
 
-	s->file = fopen(path, mode);
-	if (!s->file) {
+	s->fd = open(path, O_RDWR|O_CREAT|O_CLOEXEC, 0644);
+	if (s->fd == -1) {
 		err = -errno;
 		goto err_out_destroy;
 	}
 
-	fcntl(fileno(s->file), F_SETFD, FD_CLOEXEC);
+	err = ftruncate(s->fd, EBLOB_STAT_SIZE_MAX);
+	if (err == -1) {
+		err = -errno;
+		goto err_out_close;
+	}
+
+	s->file_map = mmap(NULL, EBLOB_STAT_SIZE_MAX,
+			PROT_WRITE|PROT_READ, MAP_SHARED, s->fd, 0);
+	if (s->file_map == MAP_FAILED) {
+		err = -errno;
+		goto err_out_close;
+	}
+
+	/* Terminate file with \0 for sscanf */
+	*(char *)(s->file_map + EBLOB_STAT_SIZE_MAX - 1) = '\0';
 
 	s->need_check = 1;
 	return 0;
 
+err_out_close:
+	close(s->fd);
 err_out_destroy:
 	pthread_mutex_destroy(&s->lock);
 err_out_exit:
 	return err;
 }
 
-static int eblob_stat_init_existing(struct eblob_stat *s, char *path)
+static int eblob_stat_init_existing(struct eblob_stat *s, const char *path)
 {
 	int err;
 
-	err = eblob_stat_init_new(s, path, "r+");
+	err = eblob_stat_init_new(s, path);
 	if (err)
 		goto err_out_exit;
 
-	err = fscanf(s->file, "disk: %llu\n", &s->disk);
-	if (err != 1) {
+	err = sscanf(s->file_map, "disk: %llu\nremoved: %llu\n", &s->disk, &s->removed);
+	if (err != 2) {
 		err = -EINVAL;
 		goto err_out_free;
 	}
-
-	err = fscanf(s->file, "removed: %llu\n", &s->removed);
-	if (err != 1) {
-		err = -EINVAL;
-		goto err_out_free;
-	}
-
-	fseek(s->file, 0, SEEK_SET);
 	s->need_check = 0;
 	return 0;
 
@@ -92,7 +103,7 @@ err_out_exit:
 	return err;
 }
 
-int eblob_stat_init(struct eblob_stat *s, char *path)
+int eblob_stat_init(struct eblob_stat *s, const char *path)
 {
 	int err;
 
@@ -103,17 +114,17 @@ int eblob_stat_init(struct eblob_stat *s, char *path)
 			return 0;
 	}
 
-	return eblob_stat_init_new(s, path, "w+");
+	return eblob_stat_init_new(s, path);
 }
 
 /*
- * Updates on-disk statistics.
- * TODO: Move to separate thread to avoid single-lock bottleneck.
- * TODO: Make it atomic.
+ * Writes statistics to memory mapped region
  */
-void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed)
+void eblob_stat_update(struct eblob_backend *b, const long long disk,
+		const long long removed, const long long hashed)
 {
-	int len = 0;
+	if (b == NULL)
+		return;
 
 	pthread_mutex_lock(&b->stat.lock);
 
@@ -121,13 +132,13 @@ void eblob_stat_update(struct eblob_backend *b, long long disk, long long remove
 	b->stat.removed += removed;
 	b->stat.hashed += hashed;
 
-	fseek(b->stat.file, 0, SEEK_SET);
-	len += fprintf(b->stat.file, "disk: %llu\n", b->stat.disk);
-	len += fprintf(b->stat.file, "removed: %llu\n", b->stat.removed);
-	len += fprintf(b->stat.file, "hashed: %llu\n", b->stat.hashed);
+	if (b->stat.file_map == NULL)
+		goto err;
 
-	(void)ftruncate(fileno(b->stat.file), len);
-
-	fflush(b->stat.file);
+	/* Write stats and fill remaning space with spaces (pun intended) */
+	snprintf(b->stat.file_map, EBLOB_STAT_SIZE_MAX,
+			"disk: %llu\nremoved: %llu\nhashed: %llu\n" "%4096c",
+			b->stat.disk, b->stat.removed, b->stat.hashed, ' ');
+err:
 	pthread_mutex_unlock(&b->stat.lock);
 }

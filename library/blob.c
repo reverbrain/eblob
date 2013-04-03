@@ -1186,7 +1186,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 	int err;
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
-		err = fstatvfs(fileno(b->stat.file), &s);
+		err = fstatvfs(b->stat.fd, &s);
 		if (err)
 			return err;
 
