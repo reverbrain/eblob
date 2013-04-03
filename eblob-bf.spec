@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.5
+Version:	0.18.5-1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Apr 03 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.5-1
+- Another attempt to friendify massive write and random reads
+
 * Wed Apr 03 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.5
 - Fixed copying of eblob_write_control to data at eblob_write
 
