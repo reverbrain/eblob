@@ -61,8 +61,10 @@ static int eblob_fd_readlink(int fd, char **datap)
 	}
 
 	err = readlink(src, dst, dsize);
-	if (err < 0)
+	if (err < 0) {
+		err = -errno;
 		goto err_out_free;
+	}
 
 	dst[err] = '\0';
 	*datap = dst;
