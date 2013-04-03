@@ -20,6 +20,9 @@
 
 #include "features.h"
 
+#include "blob.h"
+#include "crypto/sha512.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -38,9 +41,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
-#include "crypto/sha512.h"
 
 static uint64_t eblob_page_cache_limit = 20 * 1024 * 1024 * 1024ULL;
 /* this is racy, test only so far */
