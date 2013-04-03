@@ -42,9 +42,58 @@
 #include "blob.h"
 #include "crypto/sha512.h"
 
-static int eblob_page_cache_flush_counter_max = 1024 * 1024;
+static uint64_t eblob_page_cache_limit = 20 * 1024 * 1024 * 1024ULL;
 /* this is racy, test only so far */
-static int eblob_page_cache_flush_counter;
+static uint64_t eblob_page_cache_size;
+
+static int eblob_fd_readlink(int fd, char **datap)
+{
+	char *dst, src[64];
+	int dsize = 4096;
+	int err;
+
+	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
+
+	dst = malloc(dsize);
+	if (!dst) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	err = readlink(src, dst, dsize);
+	if (err < 0)
+		goto err_out_free;
+
+	dst[err] = '\0';
+	*datap = dst;
+
+	return err + 1; /* including 0-byte */
+
+err_out_free:
+	free(dst);
+err_out_exit:
+	return err;
+}
+
+static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t size)
+{
+	if (!(b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE))
+		return;
+
+	eblob_page_cache_size += size;
+
+	if (eblob_page_cache_size >= eblob_page_cache_limit) {
+		char *file = NULL;
+
+		posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+		eblob_page_cache_size = 0;
+
+		eblob_fd_readlink(fd, &file);
+
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_read_ll: dropped cache for %s\n", file);
+		free(file);
+	}
+}
 
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
@@ -1674,13 +1723,6 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE) {
-		if (++eblob_page_cache_flush_counter >= eblob_page_cache_flush_counter_max) {
-			posix_fadvise(wc->data_fd, 0, 0, POSIX_FADV_DONTNEED);
-			eblob_page_cache_flush_counter = 0;
-		}
-	}
-
 	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, data, size, wc->data_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_write: ERROR-eblob_write_binlog", err);
@@ -2000,15 +2042,10 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
 
-	if (b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE) {
-		if (++eblob_page_cache_flush_counter >= eblob_page_cache_flush_counter_max) {
-			posix_fadvise(wc.data_fd, 0, 0, POSIX_FADV_DONTNEED);
-			eblob_page_cache_flush_counter = 0;
-		}
-	}
-
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
+
+	eblob_try_flush_page_cache(b, wc.data_fd, 1024);
 
 	err = _eblob_read_ll(b, key, type, csum, &wc);
 	if (err < 0)
