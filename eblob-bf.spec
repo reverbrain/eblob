@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.4
+Version:	0.18.5-1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Apr 03 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.5-1
+- Another attempt to friendify massive write and random reads
+
+* Wed Apr 03 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.5
+- Fixed copying of eblob_write_control to data at eblob_write
+
+* Mon Apr 01 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.4-1
+- Only flush page cache once per eblob_page_cache_flush_counter_max operations.
+
 * Mon Apr 01 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.4
 - Added optional flag, which tries to free page cache on every read/write. Useful for random read with background (active) write.
 
