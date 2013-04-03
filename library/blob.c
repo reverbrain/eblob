@@ -92,7 +92,8 @@ static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t
 
 		eblob_fd_readlink(fd, &file);
 
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_read_ll: dropped cache for %s\n", file);
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+				"dropped cache for fd: %d, path: %s", fd, file);
 		free(file);
 	}
 }
