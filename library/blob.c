@@ -2246,6 +2246,7 @@ void eblob_cleanup(struct eblob_backend *b)
 struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
+	pthread_mutexattr_t attr;
 	char stat_file[256];
 	int err;
 
@@ -2297,9 +2298,19 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_stat_free;
 	}
 
-	err = pthread_mutex_init(&b->lock, NULL);
-	if (err)
+	if ((err = pthread_mutexattr_init(&attr)) != 0)
 		goto err_out_free_file;
+#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#else
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
+#endif
+	err = pthread_mutex_init(&b->lock, &attr);
+	if (err) {
+		pthread_mutexattr_destroy(&attr);
+		goto err_out_free_file;
+	}
+	pthread_mutexattr_destroy(&attr);
 
 	b->l2hash_max = -1;
 
