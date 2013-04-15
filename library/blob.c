@@ -42,61 +42,6 @@
 #include <string.h>
 #include <unistd.h>
 
-static uint64_t eblob_page_cache_limit = 20 * 1024 * 1024 * 1024ULL;
-/* this is racy, test only so far */
-static uint64_t eblob_page_cache_size;
-
-static int eblob_fd_readlink(int fd, char **datap)
-{
-	char *dst, src[64];
-	int dsize = 4096;
-	int err;
-
-	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
-
-	dst = malloc(dsize);
-	if (!dst) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	err = readlink(src, dst, dsize);
-	if (err < 0) {
-		err = -errno;
-		goto err_out_free;
-	}
-
-	dst[err] = '\0';
-	*datap = dst;
-
-	return err + 1; /* including 0-byte */
-
-err_out_free:
-	free(dst);
-err_out_exit:
-	return err;
-}
-
-static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t size)
-{
-	if (!(b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE))
-		return;
-
-	eblob_page_cache_size += size;
-
-	if (eblob_page_cache_size >= eblob_page_cache_limit) {
-		char *file = NULL;
-
-		eblob_pagecache_hint(fd, EBLOB_FLAGS_HINT_DONTNEED);
-		eblob_page_cache_size = 0;
-
-		eblob_fd_readlink(fd, &file);
-
-		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-				"dropped cache for fd: %d, path: %s", fd, file);
-		free(file);
-	}
-}
 
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
@@ -2031,8 +1976,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, err);
-
-	eblob_try_flush_page_cache(b, wc->data_fd, 1024);
 
 	err = compressed;
 
