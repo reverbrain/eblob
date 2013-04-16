@@ -355,18 +355,26 @@ static int eblob_rename_blob(const char *dir_base, const char *name_base, int in
 	snprintf(src, len, "%s/%s.%d", dir_base, name_base, index);
 	snprintf(dst, len, "%s/%s-0.%d", dir_base, name_base, index);
 	err = rename(src, dst);
-	if (err)
+	if (err == -1) {
+		err = -errno;
 		goto err_out_free_dst;
+	}
 
 	snprintf(src, len, "%s/%s.%d.index", dir_base, name_base, index);
 	snprintf(dst, len, "%s/%s-0.%d.index", dir_base, name_base, index);
 	err = rename(src, dst);
-	if (err)
+	if (err == -1) {
+		err = -errno;
 		goto err_out_free_dst;
+	}
 
 	snprintf(src, len, "%s/%s.%d.index.sorted", dir_base, name_base, index);
 	snprintf(dst, len, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
-	rename(src, dst);
+	err = rename(src, dst);
+	if (err == -1) {
+		err = -errno;
+		goto err_out_free_dst;
+	}
 
 err_out_free_dst:
 	free(dst);
