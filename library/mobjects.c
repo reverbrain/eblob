@@ -336,50 +336,33 @@ err_out_exit:
 
 static int eblob_rename_blob(const char *dir_base, const char *name_base, int index)
 {
-	char *src, *dst;
-	int len = strlen(dir_base) + strlen(name_base) + 256;
+	char src[PATH_MAX], dst[PATH_MAX];
 	int err;
 
-	src = malloc(len);
-	if (!src) {
-		err = -ENOMEM;
+	snprintf(src, PATH_MAX, "%s/%s.%d", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d", dir_base, name_base, index);
+	err = rename(src, dst);
+	if (err == -1) {
+		err = -errno;
 		goto err_out_exit;
 	}
 
-	dst = malloc(len);
-	if (!dst) {
-		err = -ENOMEM;
-		goto err_out_free_src;
-	}
-
-	snprintf(src, len, "%s/%s.%d", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d", dir_base, name_base, index);
+	snprintf(src, PATH_MAX, "%s/%s.%d.index", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d.index", dir_base, name_base, index);
 	err = rename(src, dst);
 	if (err == -1) {
 		err = -errno;
-		goto err_out_free_dst;
+		goto err_out_exit;
 	}
 
-	snprintf(src, len, "%s/%s.%d.index", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d.index", dir_base, name_base, index);
+	snprintf(src, PATH_MAX, "%s/%s.%d.index.sorted", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
 	err = rename(src, dst);
 	if (err == -1) {
 		err = -errno;
-		goto err_out_free_dst;
+		goto err_out_exit;
 	}
 
-	snprintf(src, len, "%s/%s.%d.index.sorted", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
-	err = rename(src, dst);
-	if (err == -1) {
-		err = -errno;
-		goto err_out_free_dst;
-	}
-
-err_out_free_dst:
-	free(dst);
-err_out_free_src:
-	free(src);
 err_out_exit:
 	return err;
 }
