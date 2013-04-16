@@ -22,6 +22,7 @@
 #include "l2hash.h"
 #include "list.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -81,7 +82,9 @@ struct eblob_base_type {
 };
 
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
-/* Length of bloom filter should have at least 2 bits per index entry, we set 'this multiplier' number bits */
+/*
+ * Number of bits in bloom filter per index blob.
+ */
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
@@ -91,22 +94,7 @@ struct eblob_index_block {
 	struct eblob_key	end_key;
 
 	uint64_t		offset;
-	unsigned char		*bloom;
 };
-
-inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_num, int *bloom_bit_num, int bloom_len)
-{
-	unsigned int i, acc = 0;
-
-	for (i = 0; i < (EBLOB_ID_SIZE / sizeof(unsigned int)); ++i) {
-		acc += ((unsigned int*)key->id)[i];
-	}
-
-	acc = acc % bloom_len;
-
-	*bloom_byte_num = acc / 8;
-	*bloom_bit_num = acc % 8;
-}
 
 /*
  * Sync written data to disk
@@ -150,13 +138,18 @@ struct eblob_base_ctl {
 	pthread_mutex_t		dlock;
 	int			df, dfi;
 
-	/* cached old_ parameters which are used until defragmented blobs are copied to the place of original ones */
+	/*
+	 * OBSOLETE: cached old_ parameters which are used until defragmented
+	 * blobs are copied to the place of original ones
+	 */
 	int			old_data_fd, old_index_fd;
 
 	struct eblob_map_fd	sort;
 	struct eblob_map_fd	old_sort;
 
 	struct rb_root		index_blocks_root;
+	unsigned char		*bloom;
+	uint64_t		bloom_size;
 	pthread_rwlock_t	index_blocks_lock;
 
 	/* Number of valid non-removed entries */
@@ -180,6 +173,102 @@ struct eblob_base_ctl {
 	int			sorted;
 	char			name[0];
 };
+
+/*
+ * Bloom filter APIs
+ */
+
+/* Commands for eblob_bloom_ll */
+enum eblob_bloom_cmd {
+	EBLOB_BLOOM_CMD_GET,	/* Get bloom bit */
+	EBLOB_BLOOM_CMD_SET,	/* Set bloom bit */
+};
+
+/*!
+ * FNV-1a hash function implemented to spec:
+ *    https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+ */
+inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
+{
+	uint64_t i, hash = 14695981039346656037ULL;
+	for (i = 0; i < EBLOB_ID_SIZE; ++i) {
+		hash ^= key->id[i];
+		hash *= 1099511628211ULL;
+	}
+	return hash;
+}
+
+/*!
+ * djb2a hash function implemented to spec:
+ *    http://www.cse.yorku.ca/~oz/hash.html
+ */
+inline static uint64_t __eblob_bloom_hash_djb2a(const struct eblob_key *key)
+{
+	uint64_t i, hash = 5381ULL;
+	for (i = 0; i < EBLOB_ID_SIZE; ++i)
+		hash = ((hash << 5) + hash) ^ key->id[i];
+	return hash;
+}
+
+inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
+		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
+		uint64_t (*hash_func)(const struct eblob_key *key))
+{
+	uint64_t hash;
+
+	hash = hash_func(key) % bloom_len;
+
+	*bloom_byte_num = hash / 8;
+	*bloom_bit_num = hash % 8;
+}
+
+inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
+		enum eblob_bloom_cmd cmd)
+{
+	uint64_t bit, byte;
+	char result = 1;
+
+	/* Sainity */
+	if (key == NULL || bctl == NULL)
+		return -EINVAL;
+	if (bctl->bloom_size == 0 || bctl->bloom == NULL)
+		return -EINVAL;
+
+	/* Compute offset */
+	switch (cmd) {
+	case EBLOB_BLOOM_CMD_GET:
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_djb2a);
+		result &= !!(bctl->bloom[byte] & (1<<bit));
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_fnv1a);
+		result &= !!(bctl->bloom[byte] & (1<<bit));
+		return result;
+	case EBLOB_BLOOM_CMD_SET:
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_djb2a);
+		bctl->bloom[byte] |= 1<<bit;
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_fnv1a);
+		bctl->bloom[byte] |= 1<<bit;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+/*!
+ * Returns non-null if \a key is present in \a bctl bloom fileter
+ */
+inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblob_key *key)
+{
+	return eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_GET);
+}
+
+/*!
+ * Sets all bloom filter bits of \a bctl corresponding to \a key
+ */
+inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct eblob_key *key)
+{
+	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
+}
+
 
 /* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
 #define EBLOB_FLAGS_HINT_WILLNEED (1<<0)
