@@ -2348,8 +2348,9 @@ int eblob_get_types(struct eblob_backend *b, int **typesp)
 	if (types_num <= 1)
 		return -ENOENT;
 
-	types = (int *)malloc(sizeof(int) * types_num);
-	memset(types, 0, sizeof(int) * types_num);
+	types = calloc(types_num, sizeof(int));
+	if (types == NULL)
+		return -ENOMEM;
 
 	for (i = 0; i <= b->max_type; ++i) {
 		type = &b->types[i];
