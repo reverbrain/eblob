@@ -221,7 +221,7 @@ static char *datasort_mkdtemp(struct datasort_cfg *dcfg)
 
 	if (datasort_base_get_path(dcfg->b, dcfg->bctl, path, PATH_MAX) != 0) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "datasort_base_get_path");
-		goto err;
+		goto err_free_path;
 	}
 
 	tmppath = mkdtemp(strcat(path, tpl_suffix));

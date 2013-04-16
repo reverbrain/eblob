@@ -18,6 +18,9 @@
  * In future can be speeded up by data-sort.
  */
 
+#include "eblob/blob.h"
+#include "blob.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -31,9 +34,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "eblob/blob.h"
-#include "blob.h"
 
 static int eblob_id_in_range(const unsigned char *id, const unsigned char *start, const unsigned char *end)
 {

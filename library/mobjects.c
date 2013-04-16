@@ -20,6 +20,8 @@
 
 #include "features.h"
 
+#include "blob.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -37,8 +39,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
 
 #if !defined(_D_EXACT_NAMLEN) && (defined(__FreeBSD__) || defined(__APPLE__))
 #define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
@@ -336,42 +336,33 @@ err_out_exit:
 
 static int eblob_rename_blob(const char *dir_base, const char *name_base, int index)
 {
-	char *src, *dst;
-	int len = strlen(dir_base) + strlen(name_base) + 256;
+	char src[PATH_MAX], dst[PATH_MAX];
 	int err;
 
-	src = malloc(len);
-	if (!src) {
-		err = -ENOMEM;
+	snprintf(src, PATH_MAX, "%s/%s.%d", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d", dir_base, name_base, index);
+	err = rename(src, dst);
+	if (err == -1) {
+		err = -errno;
 		goto err_out_exit;
 	}
 
-	dst = malloc(len);
-	if (!dst) {
-		err = -ENOMEM;
-		goto err_out_free_src;
+	snprintf(src, PATH_MAX, "%s/%s.%d.index", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d.index", dir_base, name_base, index);
+	err = rename(src, dst);
+	if (err == -1) {
+		err = -errno;
+		goto err_out_exit;
 	}
 
-	snprintf(src, len, "%s/%s.%d", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d", dir_base, name_base, index);
+	snprintf(src, PATH_MAX, "%s/%s.%d.index.sorted", dir_base, name_base, index);
+	snprintf(dst, PATH_MAX, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
 	err = rename(src, dst);
-	if (err)
-		goto err_out_free_dst;
+	if (err == -1) {
+		err = -errno;
+		goto err_out_exit;
+	}
 
-	snprintf(src, len, "%s/%s.%d.index", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d.index", dir_base, name_base, index);
-	err = rename(src, dst);
-	if (err)
-		goto err_out_free_dst;
-
-	snprintf(src, len, "%s/%s.%d.index.sorted", dir_base, name_base, index);
-	snprintf(dst, len, "%s/%s-0.%d.index.sorted", dir_base, name_base, index);
-	rename(src, dst);
-
-err_out_free_dst:
-	free(dst);
-err_out_free_src:
-	free(src);
 err_out_exit:
 	return err;
 }
@@ -382,6 +373,7 @@ err_out_exit:
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
 		const char *name, int name_len)
 {
+	pthread_mutexattr_t attr;
 	struct eblob_base_ctl *ctl;
 
 	ctl = calloc(1, sizeof(struct eblob_base_ctl) + name_len + 1);
@@ -400,8 +392,18 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
 
-	if (pthread_mutex_init(&ctl->lock, NULL))
+	if (pthread_mutexattr_init(&attr) != 0)
 		goto err_out_free;
+#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#else
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
+#endif
+	if (pthread_mutex_init(&ctl->lock, &attr)) {
+		pthread_mutexattr_destroy(&attr);
+		goto err_out_free;
+	}
+	pthread_mutexattr_destroy(&attr);
 
 	if (pthread_mutex_init(&ctl->dlock, NULL))
 		goto err_out_destroy_lock;

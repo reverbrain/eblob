@@ -20,6 +20,9 @@
 
 #include "features.h"
 
+#include "blob.h"
+#include "crypto/sha512.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -39,64 +42,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "blob.h"
-#include "crypto/sha512.h"
-
-static uint64_t eblob_page_cache_limit = 20 * 1024 * 1024 * 1024ULL;
-/* this is racy, test only so far */
-static uint64_t eblob_page_cache_size;
-
-static int eblob_fd_readlink(int fd, char **datap)
-{
-	char *dst, src[64];
-	int dsize = 4096;
-	int err;
-
-	snprintf(src, sizeof(src), "/proc/self/fd/%d", fd);
-
-	dst = malloc(dsize);
-	if (!dst) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
-
-	err = readlink(src, dst, dsize);
-	if (err < 0) {
-		err = -errno;
-		goto err_out_free;
-	}
-
-	dst[err] = '\0';
-	*datap = dst;
-
-	return err + 1; /* including 0-byte */
-
-err_out_free:
-	free(dst);
-err_out_exit:
-	return err;
-}
-
-static void eblob_try_flush_page_cache(struct eblob_backend *b, int fd, uint64_t size)
-{
-	if (!(b->cfg.blob_flags & EBLOB_DROP_PAGE_CACHE))
-		return;
-
-	eblob_page_cache_size += size;
-
-	if (eblob_page_cache_size >= eblob_page_cache_limit) {
-		char *file = NULL;
-
-		eblob_pagecache_hint(fd, EBLOB_FLAGS_HINT_DONTNEED);
-		eblob_page_cache_size = 0;
-
-		eblob_fd_readlink(fd, &file);
-
-		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-				"dropped cache for fd: %d, path: %s", fd, file);
-		free(file);
-	}
-}
 
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
@@ -1186,7 +1131,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 	int err;
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
-		err = fstatvfs(fileno(b->stat.file), &s);
+		err = fstatvfs(b->stat.fd, &s);
 		if (err)
 			return err;
 
@@ -1701,8 +1646,9 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 		if (compress_err)
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
-			eblob_dump_id(key->id),	(unsigned long long)uncompressed_size, (unsigned long long)size, compress_err);
+		eblob_log(b->cfg.log, compress_err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
+				"blob: %s: eblob_write: write compress: %" PRIu64 " -> %" PRIu64 ": %d\n",
+				eblob_dump_id(key->id), uncompressed_size, size, compress_err);
 	}
 
 	wc->offset = offset;
@@ -2032,8 +1978,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, err);
 
-	eblob_try_flush_page_cache(b, wc->data_fd, 1024);
-
 	err = compressed;
 
 err_out_exit:
@@ -2246,6 +2190,7 @@ void eblob_cleanup(struct eblob_backend *b)
 struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
+	pthread_mutexattr_t attr;
 	char stat_file[256];
 	int err;
 
@@ -2297,9 +2242,19 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_stat_free;
 	}
 
-	err = pthread_mutex_init(&b->lock, NULL);
-	if (err)
+	if ((err = pthread_mutexattr_init(&attr)) != 0)
 		goto err_out_free_file;
+#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#else
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
+#endif
+	err = pthread_mutex_init(&b->lock, &attr);
+	if (err) {
+		pthread_mutexattr_destroy(&attr);
+		goto err_out_free_file;
+	}
+	pthread_mutexattr_destroy(&attr);
 
 	b->l2hash_max = -1;
 
@@ -2394,8 +2349,9 @@ int eblob_get_types(struct eblob_backend *b, int **typesp)
 	if (types_num <= 1)
 		return -ENOENT;
 
-	types = (int *)malloc(sizeof(int) * types_num);
-	memset(types, 0, sizeof(int) * types_num);
+	types = calloc(types_num, sizeof(int));
+	if (types == NULL)
+		return -ENOMEM;
 
 	for (i = 0; i <= b->max_type; ++i) {
 		type = &b->types[i];
