@@ -25,6 +25,8 @@
  * Old defrag was fully replaced by data-sort.
  */
 
+#include "blob.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -41,8 +43,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "blob.h"
 
 /**
  * eblob_defrag_count() - iterator that counts non-removed entries in base

@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#include "eblob/blob.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -26,8 +28,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-
-#include "eblob/blob.h"
 
 void eblob_log_raw_formatted(void *priv, int level, const char *msg)
 {
