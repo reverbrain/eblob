@@ -1646,8 +1646,9 @@ static int eblob_write_ll(struct eblob_backend *b, struct eblob_key *key,
 		if (compress_err)
 			flags &= ~BLOB_DISK_CTL_COMPRESS;
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write: write compress: %llu -> %llu: %d\n",
-			eblob_dump_id(key->id),	(unsigned long long)uncompressed_size, (unsigned long long)size, compress_err);
+		eblob_log(b->cfg.log, compress_err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
+				"blob: %s: eblob_write: write compress: %" PRIu64 " -> %" PRIu64 ": %d\n",
+				eblob_dump_id(key->id), uncompressed_size, size, compress_err);
 	}
 
 	wc->offset = offset;
