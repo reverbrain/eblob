@@ -184,10 +184,17 @@ enum eblob_bloom_cmd {
 	EBLOB_BLOOM_CMD_SET,	/* Set bloom bit */
 };
 
+/* Types of hash function */
+enum eblob_bloom_hash_type {
+	EBLOB_BLOOM_HASH_DJB,
+	EBLOB_BLOOM_HASH_FNV,
+};
+
 /*!
  * FNV-1a hash function implemented to spec:
  *    https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
  */
+__attribute__ ((always_inline))
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 {
 	uint64_t i, hash = 14695981039346656037ULL;
@@ -202,6 +209,7 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
  * djb2a hash function implemented to spec:
  *    http://www.cse.yorku.ca/~oz/hash.html
  */
+__attribute__ ((always_inline))
 inline static uint64_t __eblob_bloom_hash_djb2a(const struct eblob_key *key)
 {
 	uint64_t i, hash = 5381ULL;
@@ -210,23 +218,33 @@ inline static uint64_t __eblob_bloom_hash_djb2a(const struct eblob_key *key)
 	return hash;
 }
 
+__attribute__ ((always_inline))
 inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
 		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
-		uint64_t (*hash_func)(const struct eblob_key *key))
+		enum eblob_bloom_hash_type type)
 {
 	uint64_t hash;
 
-	hash = hash_func(key) % bloom_len;
+	switch (type) {
+	case EBLOB_BLOOM_HASH_DJB:
+		hash = __eblob_bloom_hash_djb2a(key) % bloom_len;
+		break;
+	case EBLOB_BLOOM_HASH_FNV:
+		hash = __eblob_bloom_hash_fnv1a(key) % bloom_len;
+		break;
+	default:
+		assert(0);
+	}
 
 	*bloom_byte_num = hash / 8;
 	*bloom_bit_num = hash % 8;
 }
 
+__attribute__ ((always_inline))
 inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
 		enum eblob_bloom_cmd cmd)
 {
 	uint64_t bit, byte;
-	char result = 1;
 
 	/* Sainity */
 	if (key == NULL || bctl == NULL)
@@ -237,15 +255,17 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 	/* Compute offset */
 	switch (cmd) {
 	case EBLOB_BLOOM_CMD_GET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_djb2a);
-		result &= !!(bctl->bloom[byte] & (1<<bit));
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_fnv1a);
-		result &= !!(bctl->bloom[byte] & (1<<bit));
-		return result;
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
+		if (!(bctl->bloom[byte] & (1<<bit)))
+			return 0;
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_DJB);
+		if (!(bctl->bloom[byte] & (1<<bit)))
+			return 0;
+		return 1;
 	case EBLOB_BLOOM_CMD_SET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_djb2a);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
 		bctl->bloom[byte] |= 1<<bit;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, __eblob_bloom_hash_fnv1a);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_DJB);
 		bctl->bloom[byte] |= 1<<bit;
 		return 0;
 	default:
@@ -256,6 +276,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 /*!
  * Returns non-null if \a key is present in \a bctl bloom fileter
  */
+__attribute__ ((always_inline))
 inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	return eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_GET);
@@ -264,6 +285,7 @@ inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblo
 /*!
  * Sets all bloom filter bits of \a bctl corresponding to \a key
  */
+__attribute__ ((always_inline))
 inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
