@@ -1354,8 +1354,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	/*
 	 * Split blob into unsorted chunks
-	 * TODO: Think of possible optimizations for defragmenting already
-	 * sorted file.
 	 */
 	err = datasort_split(dcfg);
 	if (err) {
@@ -1364,7 +1362,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * If unsorted list is empty - generate empty chunk
+	 * If unsorted list is empty - fall out
 	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
@@ -1373,7 +1371,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
-	/* In-memory sort each chunk */
+	/*
+	 * Sort each chunk
+	 * FIXME: For sorted blobs we can just move all entries from unsorted
+	 * list to sorted one.
+	 */
 	err = datasort_sort(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->dir);
