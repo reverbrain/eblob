@@ -186,7 +186,7 @@ enum eblob_bloom_cmd {
 
 /* Types of hash function */
 enum eblob_bloom_hash_type {
-	EBLOB_BLOOM_HASH_DJB,
+	EBLOB_BLOOM_HASH_KNR,
 	EBLOB_BLOOM_HASH_FNV,
 };
 
@@ -206,15 +206,16 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 }
 
 /*!
- * djb2a hash function implemented to spec:
- *    http://www.cse.yorku.ca/~oz/hash.html
+ * Slightly modified K&R hash function.
+ * We can use it because it gives us better distribution on keys already hashed
+ * by sha512.
  */
 __attribute__ ((always_inline))
-inline static uint64_t __eblob_bloom_hash_djb2a(const struct eblob_key *key)
+inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 {
-	uint64_t i, hash = 5381ULL;
-	for (i = 0; i < EBLOB_ID_SIZE; ++i)
-		hash = ((hash << 5) + hash) ^ key->id[i];
+	uint64_t i, hash = 0ULL;
+	for (i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
+		hash += ((uint64_t *)key->id)[i];
 	return hash;
 }
 
@@ -226,8 +227,8 @@ inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloo
 	uint64_t hash;
 
 	switch (type) {
-	case EBLOB_BLOOM_HASH_DJB:
-		hash = __eblob_bloom_hash_djb2a(key) % bloom_len;
+	case EBLOB_BLOOM_HASH_KNR:
+		hash = __eblob_bloom_hash_knr(key) % bloom_len;
 		break;
 	case EBLOB_BLOOM_HASH_FNV:
 		hash = __eblob_bloom_hash_fnv1a(key) % bloom_len;
@@ -255,17 +256,17 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 	/* Compute offset */
 	switch (cmd) {
 	case EBLOB_BLOOM_CMD_GET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
 		if (!(bctl->bloom[byte] & (1<<bit)))
 			return 0;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_DJB);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
 		if (!(bctl->bloom[byte] & (1<<bit)))
 			return 0;
 		return 1;
 	case EBLOB_BLOOM_CMD_SET:
 		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
 		bctl->bloom[byte] |= 1<<bit;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_DJB);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
 		bctl->bloom[byte] |= 1<<bit;
 		return 0;
 	default:
