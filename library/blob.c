@@ -2061,7 +2061,7 @@ void eblob_data_unmap(struct eblob_map_fd *map)
 }
 
 /**
- * eblob_read_data() - unlike eblob_read it mmaps data, reads it
+ * eblob_read_data_ll() - unlike eblob_read it mmaps data, reads it
  * adjusting @dst pointer and manages compressed data.
  * @key:	hashed key to read
  * @offset:	offset inside record
@@ -2069,14 +2069,15 @@ void eblob_data_unmap(struct eblob_map_fd *map)
  * @size:	pointer to store size of data
  * @type:	column of the @key
  */
-int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t offset, char **dst, uint64_t *size, int type, enum eblob_read_flavour csum)
 {
 	int err, compress = 0;
 	struct eblob_map_fd m;
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, EBLOB_READ_CSUM);
+	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, csum);
 	if (err < 0)
 		goto err_out_exit;
 
@@ -2129,6 +2130,17 @@ err_out_unmap:
 err_out_exit:
 	return err;
 }
+
+int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+{
+	return eblob_read_data_ll(b, key, offset, dst, size, type, EBLOB_READ_CSUM);
+}
+
+int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+{
+	return eblob_read_data_ll(b, key, offset, dst, size, type, EBLOB_READ_NOCSUM);
+}
+
 
 /**
  * eblob_sync() - sync thread.
