@@ -84,6 +84,7 @@ struct eblob_base_type {
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
 /*
  * Number of bits in bloom filter per index blob.
+ * FIXME: By default we have around 128 bits per key, which is kinda too much
  */
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
@@ -176,6 +177,7 @@ struct eblob_base_ctl {
 
 /*
  * Bloom filter APIs
+ * TODO: Move to separate file
  */
 
 /* Commands for eblob_bloom_ll */
@@ -192,7 +194,9 @@ enum eblob_bloom_hash_type {
 
 /*!
  * FNV-1a hash function implemented to spec:
- *    https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function#FNV-1a_hash
+ *    http://www.isthe.com/chongo/tech/comp/fnv/
+ * TODO: It operates on each octet of data which is kinda slow. We can use
+ * murmur from l2hash.
  */
 __attribute__ ((always_inline))
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
@@ -253,7 +257,16 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 	if (bctl->bloom_size == 0 || bctl->bloom == NULL)
 		return -EINVAL;
 
-	/* Compute offset */
+	/*
+	 * FIXME: We currently have 128 bits per key by default. Theory states
+	 * that we should have 128 * ln2 ~= 88(!) hash functions for optimal
+	 * perfomance. We have only two. But we can generate[1] any number of
+	 * hash functions from this two.
+	 * XXX: Yet again we have too many bits per key.
+	 *
+	 * [1] Less Hashing, Same Performance: Building a Better Bloom Filter by
+	 * Adam Kirsch and Michael Mitzenmacher, 2006
+	 */
 	switch (cmd) {
 	case EBLOB_BLOOM_CMD_GET:
 		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
