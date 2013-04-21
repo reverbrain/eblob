@@ -96,12 +96,10 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 
 	while((n = rb_first(&bctl->index_blocks_root))) {
 		t = rb_entry(n, struct eblob_index_block, node);
-
 		rb_erase(n, &bctl->index_blocks_root);
-
-		free(t->bloom);
 		free(t);
 	}
+	free(bctl->bloom);
 
 	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
@@ -168,11 +166,12 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 {
 	struct eblob_index_block *t = NULL;
 	struct rb_node *n;
-	int bloom_bit_num, bloom_byte_num;
 	int cmp;
 
-	eblob_calculate_bloom(&dc->key, &bloom_byte_num, &bloom_bit_num,
-			bctl->back->cfg.index_block_bloom_length);
+	if (!eblob_bloom_get(bctl, &dc->key)) {
+		st->bloom_null++;
+		return NULL;
+	}
 
 	n = bctl->index_blocks_root.rb_node;
 
@@ -219,13 +218,6 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	if (n)
 		st->range_has_key++;
 
-	if (n && t) {
-		if (!(t->bloom[bloom_byte_num] & 1<<bloom_bit_num)) {
-			st->bloom_null++;
-			t = NULL;
-		}
-	}
-
 	/* n == NULL means that ID doesn't exist in this index */
 	if (!n)
 		t = NULL;
@@ -233,14 +225,44 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	return t;
 }
 
+/*!
+ * Calulate bloom filter size based on index file size
+ */
+static uint64_t eblob_bloom_size(const struct eblob_base_ctl *bctl)
+{
+	uint64_t bloom_size = 0;
+
+	/* Number of record in base */
+	bloom_size += bctl->sort.size / sizeof(struct eblob_disk_control);
+	/* Number of index blocks in base */
+	bloom_size /= bctl->back->cfg.index_block_size;
+	/* Add one for tiny bases */
+	bloom_size += 1;
+	/* Number of bits in bloom for one block*/
+	bloom_size *= bctl->back->cfg.index_block_bloom_length;
+	/* Size of byte */
+	bloom_size /= 8;
+
+	return bloom_size;
+}
+
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
-	int bloom_byte_num, bloom_bit_num;
 	uint64_t offset = 0;
-	int err = 0;
 	unsigned int i;
+	int err = 0;
+
+	bctl->bloom_size = eblob_bloom_size(bctl);
+	EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_NOTICE,
+			"index: bloom filter size: %" PRIu64, bctl->bloom_size);
+
+	bctl->bloom = calloc(1, bctl->bloom_size);
+	if (bctl->bloom == NULL) {
+		err = -err;
+		goto err_out_exit;
+	}
 
 	while (offset < bctl->sort.size) {
 		block = calloc(1, sizeof(struct eblob_index_block));
@@ -248,14 +270,8 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			err = -ENOMEM;
 			goto err_out_drop_tree;
 		}
-		block->bloom = calloc(1, bctl->back->cfg.index_block_bloom_length / 8);
-		if (block->bloom == NULL) {
-			err = -ENOMEM;
-			goto err_out_drop_tree;
-		}
 
 		block->offset = offset;
-
 		for (i = 0; i < bctl->back->cfg.index_block_size && offset < bctl->sort.size; ++i) {
 			err = pread(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), offset);
 			if (err != sizeof(struct eblob_disk_control)) {
@@ -267,11 +283,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-			eblob_calculate_bloom(&dc.key, &bloom_byte_num, &bloom_bit_num,
-					bctl->back->cfg.index_block_bloom_length);
-
-			block->bloom[bloom_byte_num] |= 1<<bloom_bit_num;
-
+			eblob_bloom_set(bctl, &dc.key);
 			offset += sizeof(struct eblob_disk_control);
 		}
 
@@ -287,6 +299,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 err_out_drop_tree:
 	free(block);
 	eblob_index_blocks_destroy(bctl);
+err_out_exit:
 	return err;
 }
 
@@ -677,7 +690,7 @@ out_unlock:
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-				"%s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
+				"blob: %s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
 				"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
 				eblob_dump_id(key->id),	i, st.range_has_key, st.bloom_null,
 				st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);

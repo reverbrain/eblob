@@ -429,6 +429,8 @@ int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, int type);
+int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t offset, char **dst, uint64_t *size, int type);
 
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
