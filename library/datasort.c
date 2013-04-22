@@ -675,6 +675,22 @@ static int datasort_sort(struct datasort_cfg *dcfg)
 	assert(list_empty(&dcfg->sorted_chunks) == 1);
 	assert(list_empty(&dcfg->unsorted_chunks) == 0);
 
+	/*
+	 * If blob is already sorted, we can skip this stage, just move entries
+	 * from unsorted list to sorted one.
+	 */
+	if (datasort_base_is_sorted(dcfg->bctl) == 1) {
+		struct list_head *tmp, *chunk;
+
+		list_for_each_safe(chunk, tmp, &dcfg->unsorted_chunks)
+			list_move(chunk, &dcfg->sorted_chunks);
+
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO,
+				"Skipped. Base is already sorted.");
+		return 0;
+	}
+
+	/* Base is not sorted - sort it */
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "sort: start");
 	list_for_each_entry_safe(chunk, tmp, &dcfg->unsorted_chunks, list) {
 		sorted_chunk = datasort_sort_chunk(dcfg, chunk);
@@ -1354,8 +1370,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	/*
 	 * Split blob into unsorted chunks
-	 * TODO: Think of possible optimizations for defragmenting already
-	 * sorted file.
 	 */
 	err = datasort_split(dcfg);
 	if (err) {
@@ -1364,7 +1378,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	}
 
 	/*
-	 * If unsorted list is empty - generate empty chunk
+	 * If unsorted list is empty - fall out
 	 */
 	if (list_empty(&dcfg->unsorted_chunks)) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
@@ -1373,7 +1387,9 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_rmdir;
 	}
 
-	/* In-memory sort each chunk */
+	/*
+	 * Sort each chunk
+	 */
 	err = datasort_sort(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_sort: %s", dcfg->dir);
