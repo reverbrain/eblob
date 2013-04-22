@@ -34,6 +34,10 @@
 #define __attribute_pure__	__attribute__ ((pure))
 #endif
 
+#ifndef howmany
+#define howmany(x, y)		(((x) + ((y) - 1)) / (y))
+#endif
+
 #if defined(__APPLE__) || defined (__FreeBSD__)
 #define readdir64 readdir
 #define dirent64 dirent
@@ -89,6 +93,7 @@ struct eblob_base_type {
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
+	/* FIXME: Removing rb_node will decrease footprint by 15% on x86_64 */
 	struct rb_node		node;
 
 	struct eblob_key	start_key;
@@ -148,7 +153,13 @@ struct eblob_base_ctl {
 	struct eblob_map_fd	sort;
 	struct eblob_map_fd	old_sort;
 
+	/*
+	 * Index blocks tree
+	 * FIXME: We can remove it by using bsearch directly on index_blocks.
+	 */
 	struct rb_root		index_blocks_root;
+	/* Array of index blocks */
+	struct eblob_index_block	*index_blocks;
 	unsigned char		*bloom;
 	uint64_t		bloom_size;
 	pthread_rwlock_t	index_blocks_lock;
