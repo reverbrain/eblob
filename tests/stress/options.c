@@ -41,7 +41,7 @@ options_usage(char *progname, int eval, FILE *stream)
 {
 	fprintf(stream, "usage: %s ", progname);
 	fprintf(stream, "[-d defrag_time] [-D delay ] [-f force_defrag] [-F eblob_flags] ");
-	fprintf(stream, "[-i test_items] [-I iterations] [-b block size]");
+	fprintf(stream, "[-i test_items] [-I iterations] [-b block size] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
 	fprintf(stream, "[-y sync_time] ");
