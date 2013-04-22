@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.5-1
+Version:	0.18.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,21 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Apr 20 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.6
+- blob: improved error reporting
+- blob: check return code of malloc
+- mobjects: simplified eblob_rename_blob
+- mobjects: check return code of rename
+- data-sort: fixed memory leak in datasort_mkdtemp()
+- blob: removed experimental EBLOB_DROP_PAGE_CACHE flag
+- blob: switched to adaptive mutexes when available
+- stat: speedup statistics update
+- misc: move includes to the top to unhide include errors
+- blob: improved logging in eblob_try_flush_page_cache()
+- blob: fix location of eblob_try_flush_page_cache()
+- blob: fixed error handling in eblob_fd_readlink()
+- blob: fixed build under Mac OS X
+
 * Wed Apr 03 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.5-1
 - Another attempt to friendify massive write and random reads
 
