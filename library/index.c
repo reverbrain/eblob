@@ -89,20 +89,10 @@ static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted, st
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 {
-	struct eblob_index_block *t;
-	struct rb_node *n;
-
 	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
-
-	while((n = rb_first(&bctl->index_blocks_root))) {
-		t = rb_entry(n, struct eblob_index_block, node);
-		rb_erase(n, &bctl->index_blocks_root);
-		free(t);
-	}
+	free(bctl->index_blocks);
 	free(bctl->bloom);
-
 	pthread_rwlock_unlock(&bctl->index_blocks_lock);
-
 	return 0;
 }
 
@@ -250,10 +240,11 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
-	uint64_t offset = 0;
+	uint64_t offset = 0, block_id = 0;
 	unsigned int i;
 	int err = 0;
 
+	/* Allocate bloom filter*/
 	bctl->bloom_size = eblob_bloom_size(bctl);
 	EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_NOTICE,
 			"index: bloom filter size: %" PRIu64, bctl->bloom_size);
@@ -264,13 +255,16 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 		goto err_out_exit;
 	}
 
-	while (offset < bctl->sort.size) {
-		block = calloc(1, sizeof(struct eblob_index_block));
-		if (!block) {
-			err = -ENOMEM;
-			goto err_out_drop_tree;
-		}
+	/* Pre-allcate all index blocks */
+	bctl->index_blocks = calloc(ALIGN(bctl->sort.size, bctl->back->cfg.index_block_size)
+			/ bctl->back->cfg.index_block_size, sizeof(struct eblob_index_block));
+	if (bctl->index_blocks == NULL) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
 
+	while (offset < bctl->sort.size) {
+		block = &bctl->index_blocks[block_id++];
 		block->offset = offset;
 		for (i = 0; i < bctl->back->cfg.index_block_size && offset < bctl->sort.size; ++i) {
 			err = pread(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), offset);
@@ -289,6 +283,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 
 		memcpy(&block->end_key, &dc.key, sizeof(struct eblob_key));
 
+		/* FIXME: We don't need tree of index blocks now. */
 		err = eblob_index_blocks_insert(bctl, block);
 		if (err)
 			goto err_out_drop_tree;
@@ -297,7 +292,6 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	return err;
 
 err_out_drop_tree:
-	free(block);
 	eblob_index_blocks_destroy(bctl);
 err_out_exit:
 	return err;
