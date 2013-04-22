@@ -85,13 +85,16 @@ class eblob {
 		void write_hashed(const std::string &key, const std::string &data, const uint64_t offset,
 				uint64_t flags = 0, int type = EBLOB_TYPE_DATA);
 
-		std::string read(const struct eblob_key &key, const uint64_t offset, const uint64_t size, int type = EBLOB_TYPE_DATA);
+		std::string read(const struct eblob_key &key, const uint64_t offset, const uint64_t size,
+				int type = EBLOB_TYPE_DATA, enum eblob_read_flavour csum = EBLOB_READ_CSUM);
 
 		/* read() returns exception on error, zero on success, positive return value if data is compressed */
-		int read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size, int type = EBLOB_TYPE_DATA);
-
-		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size, int type = EBLOB_TYPE_DATA);
-		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size, int type = EBLOB_TYPE_DATA);
+		int read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
+				int type = EBLOB_TYPE_DATA, enum eblob_read_flavour csum = EBLOB_READ_CSUM);
+		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size,
+				int type = EBLOB_TYPE_DATA, enum eblob_read_flavour csum = EBLOB_READ_CSUM);
+		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size,
+				int type = EBLOB_TYPE_DATA, enum eblob_read_flavour csum = EBLOB_READ_CSUM);
 
 		void remove_all(const struct eblob_key &key);
 		void remove(const struct eblob_key &key, int type = EBLOB_TYPE_DATA);

@@ -132,6 +132,9 @@ int eblob_stat_init(struct eblob_stat *s, const char *path)
 
 /*
  * Writes statistics to memory mapped region
+ * FIXME: Still not atomic! There can be moment while status file is partially
+ * updated. It's cleaner to use separate thread that uses write(2) to tmp file
+ * and then uses rename(2).
  */
 void eblob_stat_update(struct eblob_backend *b, const long long disk,
 		const long long removed, const long long hashed)

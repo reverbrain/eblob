@@ -100,7 +100,7 @@ extern struct test_cfg cfg;
 #define DEFAULT_BLOB_DEFRAG		(10)
 #define DEFAULT_BLOB_RECORDS		(10000)
 #define DEFAULT_BLOB_SIZE		(100 * 1<<20)
-#define DEFAULT_BLOB_SYNC		(30)
+#define DEFAULT_BLOB_SYNC		(-1)
 #define DEFAULT_BLOB_THREADS		(16)
 #define DEFAULT_LOG_LEVEL		(EBLOB_LOG_DEBUG + 1)
 #define DEFAULT_TEST_DELAY		(10)
