@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.18.6
+Version:	0.19.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,21 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Apr 22 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.0
+- bloom: reworked bloom filter
+- bloom: optimize bloom computation
+- data-sort: actualize comments
+- bloom: replace djb with K&R hash
+- data-sort: skip sort stage for already sorted bases
+- api: added eblob_read_data_nocsum() public API
+- bloom: added (probably) usefull notes
+- stat: added notes about atomicity of update
+- index: allocate index blocks in contious region
+- stress: missing whitespace in help
+- stress: change default sync to -1
+- cpp: add ability to read w/o checksumming
+- Merge branch 'master' into devel
+
 * Sat Apr 20 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.18.6
 - blob: improved error reporting
 - blob: check return code of malloc
