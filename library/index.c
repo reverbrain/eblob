@@ -216,7 +216,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 }
 
 /*!
- * Calulate bloom filter size based on index file size
+ * Calculate bloom filter size based on index file size
  */
 static uint64_t eblob_bloom_size(const struct eblob_base_ctl *bctl)
 {
