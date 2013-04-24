@@ -365,7 +365,7 @@ struct eblob_iterate_callbacks {
 
 #define EBLOB_ITERATE_FLAGS_ALL			(1<<0)	/* iterate over all blobs, not only the last one */
 #define EBLOB_ITERATE_FLAGS_READONLY		(1<<1)	/* do not modify entries while iterating a blob */
-#define EBLOB_ITERATE_FLAGS_INITIAL_LOAD	(1<<2)	/* set on inital load */
+#define EBLOB_ITERATE_FLAGS_INITIAL_LOAD	(1<<2)	/* set on initial load */
 
 /* Iterate over all blob files */
 struct eblob_iterate_control {
