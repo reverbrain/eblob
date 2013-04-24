@@ -2149,7 +2149,7 @@ int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key, uint6
 static void *eblob_sync(void *data)
 {
 	struct eblob_backend *b = data;
-	int i, sleep_time = b->cfg.sync;
+	int i, max_type, sleep_time = b->cfg.sync;
 
 	while (b->cfg.sync && !b->need_exit) {
 		if (sleep_time != 0) {
@@ -2159,7 +2159,10 @@ static void *eblob_sync(void *data)
 		}
 
 		pthread_mutex_lock(&b->lock);
-		for (i = 0; i <= b->max_type; ++i) {
+		max_type = b->max_type;
+		pthread_mutex_unlock(&b->lock);
+
+		for (i = 0; i <= max_type; ++i) {
 			struct eblob_base_type *t = &b->types[i];
 			struct eblob_base_ctl *ctl;
 
@@ -2168,7 +2171,6 @@ static void *eblob_sync(void *data)
 				fsync(eblob_get_index_fd(ctl));
 			}
 		}
-		pthread_mutex_unlock(&b->lock);
 
 		sleep_time = b->cfg.sync;
 	}

@@ -2,17 +2,18 @@ Source: eblob
 Section: database
 Priority: optional
 Maintainer: Evgeniy Polyakov <zbr@ioremap.net>
-Build-Depends: debhelper (>= 7.0.50~),
-               cmake (>= 2.6),
-               libboost-dev,
-               libboost-iostreams-dev,
-               libboost-python-dev,
-               libboost-regex-dev,
-               libboost-system-dev,
-               libboost-thread-dev,
-               libsnappy-dev,
-               python-dev,
-               python-support
+Build-Depends:
+ cmake (>= 2.6),
+ debhelper (>= 7.0.50~),
+ libboost-dev,
+ libboost-iostreams-dev,
+ libboost-python-dev,
+ libboost-regex-dev,
+ libboost-system-dev,
+ libboost-thread-dev,
+ libsnappy-dev,
+ python-dev,
+ python-support,
 Standards-Version: 3.8.0
 Homepage: http://www.reverbrain.com/eblob/
 Vcs-Git: git://github.com/reverbrain/eblob.git

@@ -271,7 +271,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 	/*
 	 * FIXME: We currently have 128 bits per key by default. Theory states
 	 * that we should have 128 * ln2 ~= 88(!) hash functions for optimal
-	 * perfomance. We have only two. But we can generate[1] any number of
+	 * performance. We have only two. But we can generate[1] any number of
 	 * hash functions from this two.
 	 * XXX: Yet again we have too many bits per key.
 	 *
