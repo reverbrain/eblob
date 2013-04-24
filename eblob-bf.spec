@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.0
+Version:	0.19.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Apr 25 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.1
+- Do not hold lock while doing fsync
+- Codespell grammar nazzi
+- Debian package build-depends prettifications
+
 * Mon Apr 22 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.0
 - bloom: reworked bloom filter
 - bloom: optimize bloom computation
