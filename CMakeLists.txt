@@ -124,8 +124,6 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # Check for boost
-#set(Boost_USE_STATIC_LIBS ON)
-#set(Boost_USE_STLPORT ON)
 find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python)
 message(STATUS "Boost information:")
 message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
@@ -189,3 +187,5 @@ install(FILES
     include/eblob/blob.h
     DESTINATION include/eblob/
     )
+
+# vim: set ts=4:sw=4:expandtab:
