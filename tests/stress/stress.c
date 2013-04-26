@@ -315,13 +315,13 @@ again:
  *
  * TODO: Make file cleanup optional.
  */
-void
+static void
 sigint_cb(int signal __attribute_unused__)
 {
 	cfg.need_exit = 1;
 }
 
-void
+static void
 cleanups(void)
 {
 	int i;

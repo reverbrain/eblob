@@ -9,3 +9,5 @@ install(TARGETS eblob_python
     ARCHIVE DESTINATION lib${LIB_SUFFIX}
     BUNDLE DESTINATION library
     )
+
+# vim: set ts=4:sw=4:expandtab:
