@@ -16,6 +16,7 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 option(WITH_ASSERTS "Enable asserts" OFF)
+option(WITH_HARDENING "Enable hardening" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
@@ -30,6 +31,22 @@ if(!WITH_ASSERTS)
     add_definitions(-DNDEBUG)
 endif()
 message(STATUS "Asserts are: ${WITH_ASSERTS}")
+
+# Enable hardening
+if(WITH_HARDENING)
+    add_definitions(
+        -D_FORTIFY_SOURCE=2
+        -fpic
+    )
+    if("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+        add_definitions(
+            -pie
+            -z now
+            -z relro
+        )
+    endif()
+endif()
+message(STATUS "Hardening is: ${WITH_HARDENING}")
 
 # Test endianess
 test_big_endian(HAVE_BIG_ENDIAN)
