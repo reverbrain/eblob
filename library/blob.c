@@ -554,7 +554,7 @@ int blob_mark_index_removed(int fd, off_t offset)
  * @fd:		opened for write file descriptor of index
  * @offset:	position of entry's disk control in index
  */
-int blob_mark_index_removed_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key,
+static int blob_mark_index_removed_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key,
 		int fd, off_t offset)
 {
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
@@ -933,7 +933,7 @@ err_out_exit:
  * file descriptors are the same or refer to the same file
  */
 
-int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
+static int eblob_splice_data_one(int *fds, int fd_in, uint64_t *off_in,
 		int fd_out, uint64_t *off_out, ssize_t len)
 {
 	int err;

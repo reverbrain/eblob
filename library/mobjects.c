@@ -864,7 +864,7 @@ int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int
 		if (rc[i].bctl->type == type) {
 			if (i < num - 1) {
 				int rest = num - i - 1;
-				memcpy(&rc[i], &rc[i + 1], rest * sizeof(struct eblob_ram_control));
+				memmove(&rc[i], &rc[i + 1], rest * sizeof(struct eblob_ram_control));
 			}
 			found = 1;
 			break;

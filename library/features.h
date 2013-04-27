@@ -13,17 +13,9 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE 1024
-#endif
-
-#ifndef _GNU_SOURCE
+#define _XOPEN_SOURCE		700
 #define _GNU_SOURCE
-#endif
-
-#ifndef _DARWIN_C_SOURCE
 #define _DARWIN_C_SOURCE
-#endif
 
 /* Disable BSD's sys/queue.h because it defines conflicting LIST_HEAD */
 #define _SYS_QUEUE_H_
