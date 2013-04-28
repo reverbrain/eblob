@@ -621,7 +621,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	sorted_chunk->offset_map = unsorted_chunk->offset_map;
 	unsorted_chunk->offset_map = NULL;
 
-	/* Sort pointer array based on key */
+	/* Sort index */
 	qsort(sorted_chunk->index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 	/* Sort offset_map */
 	qsort(sorted_chunk->offset_map, sorted_chunk->count,
