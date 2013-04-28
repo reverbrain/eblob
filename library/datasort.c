@@ -648,7 +648,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		}
 		offset += dc->disk_size;
 	}
-	assert(offset == sorted_chunk->offset);
+	assert(offset == unsorted_chunk->offset);
 
 	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
