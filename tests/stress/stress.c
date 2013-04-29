@@ -99,9 +99,10 @@ generate_random_flags(int type)
 			return BLOB_DISK_CTL_OVERWRITE;
 		}
 	} else {
-		/* NOT REACHED */
 		assert(0);
 	}
+	/* NOT REACHED */
+	return -1;
 }
 
 /*

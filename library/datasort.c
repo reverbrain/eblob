@@ -449,6 +449,14 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	return 0;
 
 err:
+	/*
+	 * eblob_blob_iterate() does not propagate an error from it's
+	 * callbacks, so save it manually.
+	 * This is racy but OK. Anyway we can't decide which threads' error is
+	 * the most important one.
+	 */
+	dcfg->iterator_err = err;
+	/* Return err to eblob_blob_iterate to stop iteration */
 	return err;
 }
 
@@ -502,7 +510,9 @@ static int datasort_split(struct datasort_cfg *dcfg)
 
 	/* Run iteration */
 	err = eblob_blob_iterate(&ictl);
-	if (err) {
+	if (err != 0 || dcfg->iterator_err != 0) {
+		/* Select either internal iterator error or callback error */
+		err = err ? err : dcfg->iterator_err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 		goto err;
 	}
@@ -621,7 +631,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	sorted_chunk->offset_map = unsorted_chunk->offset_map;
 	unsorted_chunk->offset_map = NULL;
 
-	/* Sort pointer array based on key */
+	/* Sort index */
 	qsort(sorted_chunk->index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 	/* Sort offset_map */
 	qsort(sorted_chunk->offset_map, sorted_chunk->count,
@@ -648,7 +658,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 		}
 		offset += dc->disk_size;
 	}
-	assert(offset == sorted_chunk->offset);
+	assert(offset == unsorted_chunk->offset);
 
 	if (eblob_pagecache_hint(unsorted_chunk->fd, EBLOB_FLAGS_HINT_DONTNEED))
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
