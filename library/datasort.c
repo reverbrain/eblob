@@ -503,6 +503,10 @@ static int datasort_split(struct datasort_cfg *dcfg)
 	/* Run iteration */
 	err = eblob_blob_iterate(&ictl);
 	if (err) {
+		/*
+		 * XXX: eblob ignores errors returned from callbacks so this
+		 * will be executed!
+		 */
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 		goto err;
 	}
