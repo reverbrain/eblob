@@ -89,6 +89,12 @@ struct datasort_cfg {
 	 * TODO: Convert to flag
 	 */
 	int				use_binlog;
+	/*
+	 * Iterator error.
+	 * Iterator threads do not propagate callback error so we invent our
+	 * own error reporting.
+	 */
+	int				iterator_err;
 	/* Splitter chunks */
 	struct list_head		unsorted_chunks;
 	/* Sorter/merger chunks */

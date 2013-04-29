@@ -192,7 +192,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 		struct eblob_base_ctl *ctl, const char *dir_base, const char *name, int name_len)
 {
 	int err, full_len;
-	char *full;
+	const int oflags = O_RDWR | O_CLOEXEC, mode = 0644;
+	char *full, *created = NULL;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: started: %s\n", __func__, name);
 
@@ -205,11 +206,30 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_type *
 
 	sprintf(full, "%s/%s", dir_base, name);
 
-	ctl->data_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-	if (ctl->data_fd < 0) {
-		err = -errno;
-		goto err_out_free;
+	/*
+	 * Try opening blob, it it fails - create one.
+	 * This code is a bit redunant but it's cleaner this way.
+	 */
+	ctl->data_fd = open(full, oflags);
+	if (ctl->data_fd == -1) {
+		if (errno == ENOENT) {
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "creating base: %s", full);
+			created = strdup(full);
+			if (created == NULL) {
+				err = -errno;
+				goto err_out_free;
+			}
+			ctl->data_fd = open(created, oflags | O_CREAT, mode);
+			if (ctl->data_fd == -1) {
+				err = -errno;
+				goto err_out_free;
+			}
+		} else {
+			err = -errno;
+			goto err_out_free;
+		}
 	}
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "base opened: %s", full);
 
 	err = eblob_base_setup_data(ctl, 0);
 	if (err)
@@ -327,7 +347,13 @@ err_out_unmap:
 	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
 	close(ctl->data_fd);
+	if (created != NULL) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
+		if ((err = unlink(created)) == -1)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink: %s", created);
+	}
 err_out_free:
+	free(created);
 	free(full);
 err_out_exit:
 	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: FAILED: %d\n", __func__, err);
