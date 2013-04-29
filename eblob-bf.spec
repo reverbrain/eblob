@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.1
+Version:	0.19.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Apr 30 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.2
+- Propagate error from iterator callback to calling routine.
+-   This will fix various assert on data-sort if badly damaged blob file is provided.
+- Do not left garbage on FS if creating new blob failed.
+-   This bug can be triggered by setting low open files limit.
+
 * Thu Apr 25 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.1
 - Do not hold lock while doing fsync
 - Codespell grammar nazzi

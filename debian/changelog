@@ -1,3 +1,12 @@
+eblob (0.19.2) unstable; urgency=low
+
+  * Propagate error from iterator callback to calling routine.
+  *   This will fix various assert on data-sort if badly damaged blob file is provided.
+  * Do not left garbage on FS if creating new blob failed.
+  *   This bug can be triggered by setting low open files limit.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 30 Apr 2013 02:04:58 +0400
+
 eblob (0.19.1) unstable; urgency=low
 
   * Do not hold lock while doing fsync
