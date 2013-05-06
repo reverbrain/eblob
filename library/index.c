@@ -617,7 +617,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int 
 		struct eblob_base_type *t = &b->types[i];
 
 		memset(&st, 0, sizeof(st));
-		list_for_each_entry(bctl, &t->bases, base_entry) {
+		list_for_each_entry_reverse(bctl, &t->bases, base_entry) {
 			if (bctl->sort.fd < 0)
 				continue;
 
