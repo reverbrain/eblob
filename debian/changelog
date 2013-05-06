@@ -1,3 +1,10 @@
+eblob (0.19.3) unstable; urgency=low
+
+  * Search eblobs on disk in reverse order.
+  *   There is a theory that users prefer recently uploaded files, so it is better to search blobs in reverse order
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 06 May 2013 20:42:18 +0400
+
 eblob (0.19.2) unstable; urgency=low
 
   * Propagate error from iterator callback to calling routine.

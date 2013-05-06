@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.2
+Version:	0.19.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon May 06 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.3
+- Search eblobs on disk in reverse order.
+-   There is a theory that users prefer recently uploaded files, so it is better to search blobs in reverse order
+
 * Tue Apr 30 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.2
 - Propagate error from iterator callback to calling routine.
 -   This will fix various assert on data-sort if badly damaged blob file is provided.
