@@ -22,7 +22,6 @@
 #include "l2hash.h"
 #include "list.h"
 
-#include <assert.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -86,10 +85,7 @@ struct eblob_base_type {
 };
 
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
-/*
- * Number of bits in bloom filter per index blob.
- * FIXME: By default we have around 128 bits per key, which is kinda too much
- */
+/* Length of bloom filter should have at least 2 bits per index entry, we set 'this multiplier' number bits */
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
@@ -100,7 +96,22 @@ struct eblob_index_block {
 	struct eblob_key	end_key;
 
 	uint64_t		offset;
+	unsigned char		*bloom;
 };
+
+inline static void eblob_calculate_bloom(struct eblob_key *key, int *bloom_byte_num, int *bloom_bit_num, int bloom_len)
+{
+	unsigned int i, acc = 0;
+
+	for (i = 0; i < (EBLOB_ID_SIZE / sizeof(unsigned int)); ++i) {
+		acc += ((unsigned int*)key->id)[i];
+	}
+
+	acc = acc % bloom_len;
+
+	*bloom_byte_num = acc / 8;
+	*bloom_bit_num = acc % 8;
+}
 
 /*
  * Sync written data to disk
@@ -144,10 +155,7 @@ struct eblob_base_ctl {
 	pthread_mutex_t		dlock;
 	int			df, dfi;
 
-	/*
-	 * OBSOLETE: cached old_ parameters which are used until defragmented
-	 * blobs are copied to the place of original ones
-	 */
+	/* cached old_ parameters which are used until defragmented blobs are copied to the place of original ones */
 	int			old_data_fd, old_index_fd;
 
 	struct eblob_map_fd	sort;
@@ -158,10 +166,6 @@ struct eblob_base_ctl {
 	 * FIXME: We can remove it by using bsearch directly on index_blocks.
 	 */
 	struct rb_root		index_blocks_root;
-	/* Array of index blocks */
-	struct eblob_index_block	*index_blocks;
-	unsigned char		*bloom;
-	uint64_t		bloom_size;
 	pthread_rwlock_t	index_blocks_lock;
 
 	/* Number of valid non-removed entries */
@@ -185,137 +189,6 @@ struct eblob_base_ctl {
 	int			sorted;
 	char			name[0];
 };
-
-/*
- * Bloom filter APIs
- * TODO: Move to separate file
- */
-
-/* Commands for eblob_bloom_ll */
-enum eblob_bloom_cmd {
-	EBLOB_BLOOM_CMD_GET,	/* Get bloom bit */
-	EBLOB_BLOOM_CMD_SET,	/* Set bloom bit */
-};
-
-/* Types of hash function */
-enum eblob_bloom_hash_type {
-	EBLOB_BLOOM_HASH_KNR,
-	EBLOB_BLOOM_HASH_FNV,
-};
-
-/*!
- * FNV-1a hash function implemented to spec:
- *    http://www.isthe.com/chongo/tech/comp/fnv/
- * TODO: It operates on each octet of data which is kinda slow. We can use
- * murmur from l2hash.
- */
-__attribute__ ((always_inline))
-inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
-{
-	uint64_t i, hash = 14695981039346656037ULL;
-	for (i = 0; i < EBLOB_ID_SIZE; ++i) {
-		hash ^= key->id[i];
-		hash *= 1099511628211ULL;
-	}
-	return hash;
-}
-
-/*!
- * Slightly modified K&R hash function.
- * We can use it because it gives us better distribution on keys already hashed
- * by sha512.
- */
-__attribute__ ((always_inline))
-inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
-{
-	uint64_t i, hash = 0ULL;
-	for (i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
-		hash += ((uint64_t *)key->id)[i];
-	return hash;
-}
-
-__attribute__ ((always_inline))
-inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
-		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
-		enum eblob_bloom_hash_type type)
-{
-	uint64_t hash;
-
-	switch (type) {
-	case EBLOB_BLOOM_HASH_KNR:
-		hash = __eblob_bloom_hash_knr(key) % bloom_len;
-		break;
-	case EBLOB_BLOOM_HASH_FNV:
-		hash = __eblob_bloom_hash_fnv1a(key) % bloom_len;
-		break;
-	default:
-		assert(0);
-	}
-
-	*bloom_byte_num = hash / 8;
-	*bloom_bit_num = hash % 8;
-}
-
-__attribute__ ((always_inline))
-inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
-		enum eblob_bloom_cmd cmd)
-{
-	uint64_t bit, byte;
-
-	/* Sainity */
-	if (key == NULL || bctl == NULL)
-		return -EINVAL;
-	if (bctl->bloom_size == 0 || bctl->bloom == NULL)
-		return -EINVAL;
-
-	/*
-	 * FIXME: We currently have 128 bits per key by default. Theory states
-	 * that we should have 128 * ln2 ~= 88(!) hash functions for optimal
-	 * performance. We have only two. But we can generate[1] any number of
-	 * hash functions from this two.
-	 * XXX: Yet again we have too many bits per key.
-	 *
-	 * [1] Less Hashing, Same Performance: Building a Better Bloom Filter by
-	 * Adam Kirsch and Michael Mitzenmacher, 2006
-	 */
-	switch (cmd) {
-	case EBLOB_BLOOM_CMD_GET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
-		if (!(bctl->bloom[byte] & (1<<bit)))
-			return 0;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
-		if (!(bctl->bloom[byte] & (1<<bit)))
-			return 0;
-		return 1;
-	case EBLOB_BLOOM_CMD_SET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
-		bctl->bloom[byte] |= 1<<bit;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
-		bctl->bloom[byte] |= 1<<bit;
-		return 0;
-	default:
-		return -EINVAL;
-	}
-}
-
-/*!
- * Returns non-null if \a key is present in \a bctl bloom fileter
- */
-__attribute__ ((always_inline))
-inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblob_key *key)
-{
-	return eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_GET);
-}
-
-/*!
- * Sets all bloom filter bits of \a bctl corresponding to \a key
- */
-__attribute__ ((always_inline))
-inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct eblob_key *key)
-{
-	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
-}
-
 
 /* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
 #define EBLOB_FLAGS_HINT_WILLNEED (1<<0)
