@@ -1,3 +1,9 @@
+eblob (0.19.4) unstable; urgency=low
+
+  * Revert "bloom: reworked bloom filter"
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 09 May 2013 01:12:10 +0400
+
 eblob (0.19.3) unstable; urgency=low
 
   * Search eblobs on disk in reverse order.
