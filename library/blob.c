@@ -1022,11 +1022,10 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		struct eblob_write_control *wc, int for_write)
 {
 	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc, data_dc;
+	struct eblob_disk_control dc;
 	uint64_t orig_offset = wc->offset;
 	ssize_t err;
 
-again:
 	err = eblob_lookup_type(b, key, wc->type, &ctl, &wc->on_disk);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: %s: eblob_lookup_type: "
@@ -1054,37 +1053,9 @@ again:
 	err = blob_read_ll(wc->index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
-		/* we should repeat this read from data_fd */
-		memset(&dc, 0, sizeof(dc));
-	}
-
-	err = blob_read_ll(wc->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
-	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
 		goto err_out_exit;
 	}
-
 	eblob_convert_disk_control(&dc);
-	eblob_convert_disk_control(&data_dc);
-
-	/* workaround for old indexes, which did not set dc.disk_size */
-	if ((dc.disk_size == sizeof(struct eblob_disk_control)) || !dc.data_size || !dc.disk_size) {
-		dc = data_dc;
-	}
-
-	if (data_dc.flags & BLOB_DISK_CTL_REMOVE) {
-		err = -ENOENT;
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: pread-data-no-entry", err);
-
-		if ((err = eblob_mark_entry_removed_purge(b, key, &ctl)) != 0) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: eblob_mark_entry_removed_purge: %zd\n",
-					__func__, eblob_dump_id(key->id), -err);
-			goto err_out_exit;
-		}
-
-		goto again;
-	}
 
 	/*
 	 * Set USR1 flag if it specified in dc so it can be returned in
@@ -1093,7 +1064,7 @@ again:
 	 * FIXME: This effectively makes USR1 flag permanent. Think of better
 	 * solution.
 	 */
-	if (data_dc.flags & BLOB_DISK_CTL_USR1) {
+	if (dc.flags & BLOB_DISK_CTL_USR1) {
 		wc->flags |= BLOB_DISK_CTL_USR1;
 	}
 
