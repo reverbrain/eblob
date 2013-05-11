@@ -1110,6 +1110,10 @@ again:
 
 	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"%s: %s: eblob_fill_write_control_from_ram() size check failed: disk-size: %llu, calculated: %llu\n",
+					__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
+					(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-dc.disk_size", err);
 		goto err_out_exit;
 	}
@@ -1182,8 +1186,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	struct eblob_ram_control old;
 	int have_old, disk;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu\n",
-			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu, prepare: %llu\n",
+			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset,
+			(unsigned long long)prepare_disk_size);
 
 	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, prepare_disk_size > wc->size + wc->offset ?
 								prepare_disk_size :
@@ -1577,6 +1582,10 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 {
 	struct eblob_write_control wc;
 	ssize_t err;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			"blob: %s: eblob_plain_write: size: %" PRIu64 ", offset: %" PRIu64 ", type: %d.\n",
+			eblob_dump_id(key->id), size, offset, type);
 
 	memset(&wc, 0, sizeof(struct eblob_write_control));
 
