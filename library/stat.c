@@ -18,7 +18,6 @@
  * Each blob has corresponding .stat file with brief statistics.
  */
 
-#include "features.h"
 #include "blob.h"
 
 #include <sys/mman.h>
@@ -39,27 +38,15 @@ void eblob_stat_cleanup(struct eblob_stat *s)
 
 static int eblob_stat_init_new(struct eblob_stat *s, const char *path)
 {
-	pthread_mutexattr_t attr;
 	int err;
 
 	memset(s, 0, sizeof(struct eblob_stat));
 
-	if ((err = pthread_mutexattr_init(&attr)) != 0) {
-		err = -err;
-		goto err_out_exit;
-	}
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	err = pthread_mutex_init(&s->lock, &attr);
+	err = pthread_mutex_init(&s->lock, NULL);
 	if (err) {
-		pthread_mutexattr_destroy(&attr);
 		err = -err;
 		goto err_out_exit;
 	}
-	pthread_mutexattr_destroy(&attr);
 
 	s->fd = open(path, O_RDWR|O_CREAT|O_CLOEXEC, 0644);
 	if (s->fd == -1) {
