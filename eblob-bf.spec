@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.4
+Version:	0.19.4-1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun May 12 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.4-1
+- Revert "blob: switched to adaptive mutexes when available"
+- More debug on notice log level
+
 * Thu May 09 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.4
 - Revert "bloom: reworked bloom filter"
 

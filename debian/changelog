@@ -1,3 +1,10 @@
+eblob (0.19.4-1) unstable; urgency=low
+
+  * Revert "blob: switched to adaptive mutexes when available"
+  * More debug on notice log level
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 12 May 2013 03:52:17 +0400
+
 eblob (0.19.4) unstable; urgency=low
 
   * Revert "bloom: reworked bloom filter"
