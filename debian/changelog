@@ -1,3 +1,11 @@
+eblob (0.19.6) unstable; urgency=low
+
+  * features: remove include hack for Mac OS X / FreeBSD
+  * blob: do not read data file on fill()
+  * More debug on notice log level
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 15 May 2013 19:17:17 +0400
+
 eblob (0.19.4-1) unstable; urgency=low
 
   * Revert "blob: switched to adaptive mutexes when available"
