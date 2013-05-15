@@ -16,6 +16,3 @@
 #define _XOPEN_SOURCE		700
 #define _GNU_SOURCE
 #define _DARWIN_C_SOURCE
-
-/* Disable BSD's sys/queue.h because it defines conflicting LIST_HEAD */
-#define _SYS_QUEUE_H_
