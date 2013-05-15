@@ -1,3 +1,9 @@
+eblob (0.19.7) unstable; urgency=low
+
+  * Revert temporal revets: adaptive mutexes and new bloom-filter design
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 15 May 2013 19:44:50 +0400
+
 eblob (0.19.6) unstable; urgency=low
 
   * features: remove include hack for Mac OS X / FreeBSD
