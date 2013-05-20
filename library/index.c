@@ -278,7 +278,8 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-			eblob_bloom_set(bctl, &dc.key);
+			if (!(dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE)))
+				eblob_bloom_set(bctl, &dc.key);
 			offset += sizeof(struct eblob_disk_control);
 		}
 
