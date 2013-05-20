@@ -566,7 +566,12 @@ static int blob_mark_index_removed_binlog(struct eblob_base_ctl *bctl, struct eb
  */
 static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
 {
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: i%d, t%d: %s: position: %" PRIu64 ", "
+	int log_level = EBLOB_LOG_NOTICE;
+
+	if (err < 0)
+		log_level = EBLOB_LOG_ERROR;
+
+	eblob_log(b->cfg.log, log_level, "blob: %s: i%d, t%d: %s: position: %" PRIu64 ", "
 			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: 0x%" PRIx64 ", "
 			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
 			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
@@ -1918,7 +1923,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 
 	compressed = err;
 
-	if (csum && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
+	if ((csum != EBLOB_READ_NOCSUM) && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, wc);
 		if (err) {
 			eblob_dump_wc(b, key, wc, "eblob_read_ll: checksum verification failed", err);
