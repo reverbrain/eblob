@@ -1,3 +1,12 @@
+eblob (0.19.8) unstable; urgency=low
+
+  * blob: re-formatted eblob_write_prepare_disk()
+  * blob: re-formatted log message
+  * bloom: do not set bits for removed entries
+  * Debug. Cleanup.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 21 May 2013 00:30:01 +0400
+
 eblob (0.19.7) unstable; urgency=low
 
   * Revert temporal revets: adaptive mutexes and new bloom-filter design

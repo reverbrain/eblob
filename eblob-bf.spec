@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.7
+Version:	0.19.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue May 21 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.8
+- blob: re-formatted eblob_write_prepare_disk()
+- blob: re-formatted log message
+- bloom: do not set bits for removed entries
+- Debug. Cleanup.
+
 * Wed May 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.7
 - Revert temporal revets: adaptive mutexes and new bloom-filter design
 
