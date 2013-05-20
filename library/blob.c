@@ -1156,14 +1156,15 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	struct eblob_base_ctl *ctl = NULL;
 	struct eblob_ram_control old;
 	int have_old, disk;
+	uint64_t size;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_prepare_disk: start: size: %llu, offset: %llu, prepare: %llu\n",
-			eblob_dump_id(key->id), (unsigned long long)wc->size, (unsigned long long)wc->offset,
-			(unsigned long long)prepare_disk_size);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			"blob: %s: eblob_write_prepare_disk: start: "
+			"size: %" PRIu64 ", offset: %" PRIu64 ", prepare: %" PRIu64 "\n",
+			eblob_dump_id(key->id), wc->size, wc->offset, prepare_disk_size);
 
-	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, prepare_disk_size > wc->size + wc->offset ?
-								prepare_disk_size :
-								wc->size + wc->offset));
+	size = prepare_disk_size > wc->size + wc->offset ? prepare_disk_size : wc->size + wc->offset;
+	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, size));
 	if (err)
 		goto err_out_exit;
 
