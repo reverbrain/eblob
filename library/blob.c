@@ -1504,6 +1504,12 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (err < 0)
 		goto err_out_exit;
 
+	/* Sanity - we can't commit more than we've written */
+	if (size > wc->total_size) {
+		err = -ERANGE;
+		goto err_out_exit;
+	}
+
 	if (size)
 		wc->size = wc->total_data_size = size;
 
@@ -1584,7 +1590,7 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key, void *data
 	}
 
 	/* do not calculate partial csum */
-	wc.flags = BLOB_DISK_CTL_NOCSUM;
+	wc.flags |= BLOB_DISK_CTL_NOCSUM;
 	err = eblob_write_commit_nolock(b, key, NULL, 0, &wc);
 	if (err)
 		goto err_out_exit;
