@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.8
+Version:	v0.19.9
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu May 23 2013 Evgeniy Polyakov <zbr@ioremap.net> - v0.19.9
+- blob: allow to commit no more data than was written
+- blob: do not overwrite flags in eblob_plain_write()
+
 * Tue May 21 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.8
 - blob: re-formatted eblob_write_prepare_disk()
 - blob: re-formatted log message
