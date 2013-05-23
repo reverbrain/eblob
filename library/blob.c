@@ -279,11 +279,11 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL)
 			&& !(ctl->flags & EBLOB_ITERATE_FLAGS_READONLY)
 			&& !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
-		struct eblob_disk_control *dc_blob = (struct eblob_disk_control*)(bc->data + dc->position);
-		if (dc_blob->flags & BLOB_DISK_CTL_REMOVE) {
+		struct eblob_disk_control *dc_data = (struct eblob_disk_control *)(bc->data + dc->position);
+		if (dc_data->flags & BLOB_DISK_CTL_REMOVE) {
 			eblob_log(ctl->log, EBLOB_LOG_INFO,
-					"blob: %s: key removed(%" PRIu64 ") in blob(%d), but not in index(%d), fixing\n",
-					eblob_dump_id(dc->key.id), dc_blob->flags, bc->data_fd, eblob_get_index_fd(bc));
+					"blob: %s: key removed(0x%" PRIx64 ") in blob(%d), but not in index(%d), fixing\n",
+					eblob_dump_id(dc->key.id), dc_data->flags, bc->data_fd, eblob_get_index_fd(bc));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 			err = eblob_write_binlog(rc.bctl, &dc->key, eblob_get_index_fd(bc), dc, sizeof(struct eblob_disk_control), loc->index_offset);
 			if (err)
@@ -356,7 +356,12 @@ static void *eblob_blob_iterator(void *data)
 	int local_max_num = 1024;
 	struct eblob_disk_control dc[local_max_num];
 	struct eblob_iterate_local loc;
-	int err = 0, index_fd = eblob_get_index_fd(bc);
+	int err = 0;
+	/*
+	 * TODO: We should probably use unsorted index because order of records
+	 * in it is indentical to order of records in data blob.
+	 */
+	int index_fd = eblob_get_index_fd(bc);
 	static int hdr_size = sizeof(struct eblob_disk_control);
 
 	memset(&loc, 0, sizeof(loc));
@@ -406,7 +411,13 @@ static void *eblob_blob_iterator(void *data)
 		loc.pos = 0;
 		loc.num = local_max_num;
 
+		/*
+		 * Hold btcl for duration of one batch - thus nobody can
+		 * invalidate bctl->data
+		 */
+		eblob_bctl_hold(bc);
 		err = eblob_check_disk(&loc);
+		eblob_bctl_release(bc);
 		if (err)
 			goto err_out_check;
 	}
@@ -489,16 +500,19 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
 
+	/* Wait until nobody uses bctl->data */
+	eblob_base_wait_locked(ctl->base);
 	err = eblob_base_setup_data(ctl->base, 0);
 	if (err) {
+		pthread_mutex_unlock(&ctl->base->lock);
 		ctl->err = err;
 		goto err_out_exit;
 	}
 
 	ctl->index_offset = 0;
-
 	ctl->data_size = ctl->base->data_size;
 	ctl->index_size = ctl->base->index_size;
+	pthread_mutex_unlock(&ctl->base->lock);
 
 	for (i = 0; i < thread_num; ++i) {
 		iter_priv[i].ctl = ctl;
