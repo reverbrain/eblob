@@ -1,3 +1,10 @@
+eblob (0.19.9) unstable; urgency=low
+
+  * blob: allow to commit no more data than was written
+  * blob: do not overwrite flags in eblob_plain_write()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 23 May 2013 17:57:15 +0400
+
 eblob (0.19.8) unstable; urgency=low
 
   * blob: re-formatted eblob_write_prepare_disk()
