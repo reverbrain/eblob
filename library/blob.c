@@ -237,6 +237,9 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	struct eblob_ram_control rc;
 	int err;
 
+	if (bc->data == NULL)
+		return -EAGAIN;
+
 	memset(&rc, 0, sizeof(rc));
 
 	eblob_convert_disk_control(dc);
