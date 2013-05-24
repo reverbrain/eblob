@@ -713,7 +713,6 @@ static int blob_update_index(struct eblob_backend *b, struct eblob_key *key, str
 	if (!b->cfg.sync)
 		fsync(wc->index_fd);
 
-	err = 0;
 	eblob_dump_wc(b, key, wc, "blob_update_index", err);
 
 err_out_exit:
