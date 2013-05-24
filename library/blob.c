@@ -826,13 +826,13 @@ err_out_exit:
 }
 
 /**
- * blob_write_prepare_ll() - low level (hence the _ll suffix) prepare function.
+ * eblob_write_prepare_ll() - low level (hence the _ll suffix) prepare function.
  * Constructs disk control from write control and writes it to wc->data_fd.
  *
  * If b->cfg.bsize is set then writes are aligned and preformed in
  * `blob_empty_buf' portions.
  */
-static int blob_write_prepare_ll(struct eblob_backend *b,
+static int eblob_write_prepare_ll(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_write_control *wc)
 {
 	static unsigned char blob_empty_buf[40960];
@@ -1168,7 +1168,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 }
 
 /**
- * eblob_write_prepare_disk() - high level counterpart of blob_write_prepare_ll
+ * eblob_write_prepare_disk() - high level counterpart of eblob_write_prepare_ll
  * It uses locking, allocates new bases, commits to indexes and
  * manages overwrites/appends.
  */
@@ -1280,7 +1280,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 	b->current_blob_size += wc->total_size + sizeof(struct eblob_disk_control);
 
-	err = blob_write_prepare_ll(b, key, wc);
+	err = eblob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_rollback;
 
@@ -1557,7 +1557,7 @@ static int eblob_try_overwrite(struct eblob_backend *b, struct eblob_key *key, s
 		wc->total_data_size = wc->offset + wc->size;
 	}
 
-	err = blob_write_prepare_ll(b, key, wc);
+	err = eblob_write_prepare_ll(b, key, wc);
 	if (err)
 		goto err_out_release;
 
