@@ -683,11 +683,30 @@ err:
 }
 
 /**
+ * eblob_wc_to_dc() - convert write control to disk control
+ */
+static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write_control *wc,
+		struct eblob_disk_control *dc)
+{
+	/* FIXME: Not really needed */
+	memset(dc, 0, sizeof(struct eblob_disk_control));
+
+	memcpy(&dc->key, key, sizeof(struct eblob_key));
+	dc->flags = wc->flags;
+	dc->data_size = wc->total_data_size;
+	dc->disk_size = wc->total_size;
+	dc->position = wc->ctl_data_offset;
+
+	eblob_convert_disk_control(dc);
+}
+
+/**
  * eblob_update_index() - update on disk index with data from write control
  * @wc:		new data
  * @remove:	mark entry removed
  */
-static int eblob_update_index(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, int remove)
+static int eblob_update_index(struct eblob_backend *b, struct eblob_key *key,
+		struct eblob_write_control *wc, int remove)
 {
 	struct eblob_disk_control dc;
 	int err;
@@ -697,14 +716,7 @@ static int eblob_update_index(struct eblob_backend *b, struct eblob_key *key, st
 	else
 		wc->flags &= ~BLOB_DISK_CTL_REMOVE;
 
-	memcpy(&dc.key, key, sizeof(struct eblob_key));
-	dc.flags = wc->flags;
-	dc.data_size = wc->total_data_size;
-	dc.disk_size = wc->total_size;
-	dc.position = wc->ctl_data_offset;
-
-	eblob_convert_disk_control(&dc);
-
+	eblob_wc_to_dc(key, wc, &dc);
 	err = eblob_write_binlog(wc->bctl, key, wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_update_index: ERROR-eblob_write_binlog", err);
@@ -827,17 +839,7 @@ static int blob_write_prepare_ll(struct eblob_backend *b,
 	struct eblob_disk_control disk_ctl;
 	ssize_t err;
 
-	memset(&disk_ctl, 0, sizeof(disk_ctl));
-
-	disk_ctl.flags = wc->flags;
-	disk_ctl.position = wc->ctl_data_offset;
-	disk_ctl.data_size = wc->total_data_size;
-	disk_ctl.disk_size = wc->total_size;
-
-	memcpy(&disk_ctl.key, key, sizeof(struct eblob_key));
-
-	eblob_convert_disk_control(&disk_ctl);
-
+	eblob_wc_to_dc(key, wc, &disk_ctl);
 	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, &disk_ctl, sizeof(struct eblob_disk_control),
 			wc->ctl_data_offset);
 	if (err)
