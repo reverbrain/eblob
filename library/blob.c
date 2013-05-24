@@ -1718,7 +1718,7 @@ err_out_exit:
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type)
 {
-	struct eblob_write_control wc = { .size = 0 };
+	struct eblob_write_control wc;
 
 	return eblob_write_ll(b, key, data, offset, size, flags, type, &wc);
 }
