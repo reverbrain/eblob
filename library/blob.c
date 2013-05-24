@@ -244,8 +244,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	if (dc->position + dc->disk_size > (uint64_t)ctl->data_size) {
 		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
-				"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-				(unsigned long long)dc->position, (unsigned long long)dc->disk_size, ctl->data_size);
+				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
+				dc->position, dc->disk_size, ctl->data_size);
 		err = -ESPIPE;
 		goto err_out_exit;
 	}
@@ -261,9 +261,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	if (dc->disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
 		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
-				"pos: %llu, disk_size: %llu, eblob_data_size: %llu\n",
-				sizeof(struct eblob_disk_control),
-				(unsigned long long)dc->position, (unsigned long long)dc->disk_size, ctl->data_size);
+				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
+				sizeof(struct eblob_disk_control), dc->position, dc->disk_size, ctl->data_size);
 		err = -ESPIPE;
 		goto err_out_exit;
 	}
@@ -286,7 +285,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 					"blob: %s: key removed(0x%" PRIx64 ") in blob(%d), but not in index(%d), fixing\n",
 					eblob_dump_id(dc->key.id), dc_data->flags, bc->data_fd, eblob_get_index_fd(bc));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
-			err = eblob_write_binlog(rc.bctl, &dc->key, eblob_get_index_fd(bc), dc, sizeof(struct eblob_disk_control), loc->index_offset);
+			err = eblob_write_binlog(rc.bctl, &dc->key, eblob_get_index_fd(bc),
+					dc, sizeof(struct eblob_disk_control), loc->index_offset);
 			if (err)
 				goto err_out_exit;
 		}
@@ -305,17 +305,19 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 		eblob_stat_update(b, disk, removed, 0);
 	}
 
-	eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %llu, disk_size: %llu, data_size: %llu, flags: %llx, "
-			"stat: disk: %llu, removed: %llu, hashed: %llu\n",
-			eblob_dump_id(dc->key.id), (unsigned long long)dc->position,
-			(unsigned long long)dc->disk_size, (unsigned long long)dc->data_size,
-			(unsigned long long)dc->flags,
+	eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %" PRIu64 ", disk_size: %" PRIu64
+			", data_size: %" PRIu64 ", flags: 0x%" PRIx64
+			", stat: disk: %llu, removed: %llu, hashed: %llu\n",
+			eblob_dump_id(dc->key.id), dc->position,
+			dc->disk_size, dc->data_size, dc->flags,
 			b->stat.disk, b->stat.removed, b->stat.hashed);
 
 
-	err = 0;
-	if ((dc->flags & BLOB_DISK_CTL_REMOVE) || ((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)))
+	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
+			((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL))) {
+		err = 0;
 		goto err_out_exit;
+	}
 
 	err = ctl->iterator_cb.iterator(dc, &rc, bc->data + dc->position + sizeof(struct eblob_disk_control),
 			ctl->priv, iter_priv->thread_priv);
