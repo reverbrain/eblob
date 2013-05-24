@@ -250,13 +250,13 @@ again:
 		}
 
 		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-		if (ctl->index_fd < 0) {
+		if (ctl->index_fd == -1) {
 			err = -errno;
 			goto err_out_unmap;
 		}
 
 		err = fstat(ctl->index_fd, &st);
-		if (err) {
+		if (err == -1) {
 			err = -errno;
 			goto err_out_close_index;
 		}
@@ -1143,7 +1143,7 @@ try_again:
 	snprintf(name, sizeof(name), "%s-%d.%d", base, type, t->index);
 
 	ctl = eblob_get_base_ctl(b, b->types, b->max_type, dir_base, base, name, strlen(name), &err);
-	if (!ctl) {
+	if (ctl == NULL) {
 		if (err == -ENOENT) {
 			/*
 			 * trying again to open next file,
