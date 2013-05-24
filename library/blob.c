@@ -211,9 +211,9 @@ skip_binlog:
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 						"%s: %s: binlog_append: FAILED: %d\n",
 						eblob_dump_id(key->id), __func__, err);
+				/* FALLTHROUGH */
 		}
 		pthread_mutex_unlock(&bctl->lock);
-		/* FALLTHROUGH */
 	}
 
 err_unlock:
