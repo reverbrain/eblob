@@ -293,15 +293,11 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	}
 
 	if (b->stat.need_check) {
-		int disk, removed;
-
-		disk = removed = 0;
-
+		int disk = 0, removed = 0;
 		if (dc->flags & BLOB_DISK_CTL_REMOVE)
 			removed = 1;
 		else
 			disk = 1;
-
 		eblob_stat_update(b, disk, removed, 0);
 	}
 
