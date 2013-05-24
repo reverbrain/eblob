@@ -473,7 +473,7 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 
 	p = strstr(name, sorted_str);
 	if (p && ((int)(p - name) == name_len - (int)sizeof(sorted_str) + 1)) {
-		/* skip indexes */
+		/* skip sorted indexes */
 		goto err_out_exit;
 	}
 
@@ -482,7 +482,6 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 		/* skip tmp indexes */
 		goto err_out_exit;
 	}
-
 
 	flen = name_len + 128;
 	format = malloc(flen);
