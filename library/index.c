@@ -404,7 +404,7 @@ ssize_t eblob_get_actual_size(int fd)
 	return st.st_size;
 }
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag)
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl)
 {
 	struct eblob_map_fd src, dst;
 	int fd, err, len;
@@ -427,13 +427,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_file;
 	}
 
-	if (defrag) {
-		snprintf(file, len, "%s-defrag-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
-		snprintf(dst_file, len, "%s-defrag-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-	} else {
-		snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
-		snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
-	}
+	snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
+	snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
 
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0) {
@@ -443,11 +438,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_dst_file;
 	}
 
-	if (defrag) {
-		src.fd = bctl->dfi;
-	} else {
-		src.fd = bctl->index_fd;
-	}
+	src.fd = bctl->index_fd;
 
 	src.size = eblob_get_actual_size(src.fd);
 	if (src.size <= 0) {
@@ -483,77 +474,15 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	}
 
 	memcpy(dst.data, src.data, dst.size);
-
 	qsort(dst.data, dst.size / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
 			eblob_disk_control_sort_with_flags);
-
-	pthread_mutex_lock(&bctl->lock);
-	if (defrag) {
-		bctl->old_data_fd = bctl->data_fd;
-		bctl->old_index_fd = bctl->index_fd;
-		bctl->old_sort = bctl->sort;
-
-		bctl->data_fd = bctl->df;
-		bctl->index_fd = bctl->dfi;
-		bctl->sort = dst;
-
-		err = eblob_base_setup_data(bctl, 1);
-		if (!err) {
-			bctl->data_offset = bctl->data_size;
-		} else {
-			bctl->data_fd = bctl->old_data_fd;
-			bctl->index_fd = bctl->old_index_fd;
-			bctl->sort = bctl->old_sort;
-		}
-	} else {
-		bctl->sort = dst;
-	}
-	pthread_mutex_unlock(&bctl->lock);
-
-	if (err)
+	err = msync(dst.data, dst.size, MS_SYNC);
+	if (err == -1)
 		goto err_out_unmap_dst;
 
-	{
-		unsigned long i;
-		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
-		struct eblob_disk_control *found, *dc;
-		char id_str[EBLOB_ID_SIZE * 2 + 1];
-
-		for (i = 0; i < dst.size / sizeof(struct eblob_disk_control); ++i) {
-			dc = src.data + i * sizeof(struct eblob_disk_control);
-
-			eblob_remove_type(b, &dc->key, bctl->type);
-
-			/*
-			 * it is still possible that we removed object in window
-			 * between flags check and index remove,
-			 * so we recheck on-disk entry here.
-			 *
-			 * Small race still exists, since we can copy data from hash table,
-			 * but not yet update on-disk structure, so after below check will
-			 * complete we will only update non-sorted index.
-			 *
-			 * This will be fixed when ram-based structures will contain not
-			 * file descriptors, but pointer to eblob_base_ctl
-			 *
-			 * FIXME: Now we have pointer to bctl in ram control
-			 */
-
-			if (dc->flags & rem) {
-				struct eblob_disk_search_stat st;
-
-				found = eblob_find_on_disk(b, bctl, dc, eblob_find_exact_callback, &st);
-				if (found) {
-					found->flags |= rem;
-					eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: index: generated sorted: index: %d, type: %d: "
-							"flags: %llx, pos: %llu: %s\n",
-							bctl->index, bctl->type, (unsigned long long)eblob_bswap64(found->flags),
-							(unsigned long long)found->position,
-							eblob_dump_id_len_raw(found->key.id, EBLOB_ID_SIZE, id_str));
-				}
-			}
-		}
-	}
+	pthread_mutex_lock(&bctl->lock);
+	bctl->sort = dst;
+	pthread_mutex_unlock(&bctl->lock);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, "
 			"index-size: %llu, data-size: %llu, file: %s\n",

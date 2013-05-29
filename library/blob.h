@@ -403,7 +403,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag);
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
