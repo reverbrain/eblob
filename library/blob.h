@@ -24,6 +24,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -332,8 +333,7 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 #define EBLOB_STAT_SIZE_MAX	4096
 
 struct eblob_stat {
-	int			fd;
-	void			*file_map;
+	char			path[PATH_MAX];
 	pthread_mutex_t		lock;
 
 	int			need_check;
@@ -353,6 +353,7 @@ struct eblob_stat {
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, const char *path);
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
+int eblob_stat_commit(struct eblob_backend *b);
 
 struct eblob_backend {
 	struct eblob_config	cfg;

@@ -2197,7 +2197,10 @@ static void *eblob_periodic(void *data)
 
 		sleep(1);
 
-		/* TODO: Update statistics */
+		err = eblob_stat_commit(b);
+		if (err != 0)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+					"eblob_stat_commit: FAILED");
 		/* TODO: Calculate free space */
 	}
 

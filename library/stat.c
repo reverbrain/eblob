@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,17 +33,23 @@
 
 void eblob_stat_cleanup(struct eblob_stat *s)
 {
-	(void)munmap(s->file_map, EBLOB_STAT_SIZE_MAX);
-	(void)close(s->fd);
 	pthread_mutex_destroy(&s->lock);
 }
 
-static int eblob_stat_init_new(struct eblob_stat *s, const char *path)
+int eblob_stat_init(struct eblob_stat *s, const char *path)
 {
 	pthread_mutexattr_t attr;
+	FILE *fp;
 	int err;
 
+	/* Sanity */
+	if (s == NULL || path == NULL)
+		return -EINVAL;
+	if (strlen(path) > PATH_MAX)
+		return -ENAMETOOLONG;
+
 	memset(s, 0, sizeof(struct eblob_stat));
+	strncpy(s->path, path, PATH_MAX);
 
 	if ((err = pthread_mutexattr_init(&attr)) != 0) {
 		err = -err;
@@ -61,100 +68,90 @@ static int eblob_stat_init_new(struct eblob_stat *s, const char *path)
 	}
 	pthread_mutexattr_destroy(&attr);
 
-	s->fd = open(path, O_RDWR|O_CREAT|O_CLOEXEC, 0644);
-	if (s->fd == -1) {
+	fp = fopen(path, "a+");
+	if (fp == NULL) {
+		err = -errno;
+		goto err_out_destroy;
+	}
+	rewind(fp);
+
+	/* If we can't parse stats - we should schedule a check */
+	err = fscanf(fp, "disk: %llu\nremoved: %llu\n", &s->disk, &s->removed);
+	if (err == 2)
+		s->need_check = 0;
+	else
+		s->need_check = 1;
+
+	if (fclose(fp) == EOF) {
 		err = -errno;
 		goto err_out_destroy;
 	}
 
-	err = ftruncate(s->fd, EBLOB_STAT_SIZE_MAX);
-	if (err == -1) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	s->file_map = mmap(NULL, EBLOB_STAT_SIZE_MAX,
-			PROT_WRITE|PROT_READ, MAP_SHARED, s->fd, 0);
-	if (s->file_map == MAP_FAILED) {
-		err = -errno;
-		goto err_out_close;
-	}
-
-	/* Terminate file with \0 for sscanf */
-	*(char *)(s->file_map + EBLOB_STAT_SIZE_MAX - 1) = '\0';
-
-	s->need_check = 1;
 	return 0;
 
-err_out_close:
-	close(s->fd);
 err_out_destroy:
 	pthread_mutex_destroy(&s->lock);
 err_out_exit:
 	return err;
 }
 
-static int eblob_stat_init_existing(struct eblob_stat *s, const char *path)
-{
-	int err;
-
-	err = eblob_stat_init_new(s, path);
-	if (err)
-		goto err_out_exit;
-
-	err = sscanf(s->file_map, "disk: %llu\nremoved: %llu\n", &s->disk, &s->removed);
-	if (err != 2) {
-		err = -EINVAL;
-		goto err_out_free;
-	}
-	s->need_check = 0;
-	return 0;
-
-err_out_free:
-	eblob_stat_cleanup(s);
-err_out_exit:
-	return err;
-}
-
-int eblob_stat_init(struct eblob_stat *s, const char *path)
-{
-	int err;
-
-	err = access(path, R_OK | W_OK);
-	if (!err) {
-		err = eblob_stat_init_existing(s, path);
-		if (!err)
-			return 0;
-	}
-
-	return eblob_stat_init_new(s, path);
-}
-
 /*
- * Writes statistics to memory mapped region
- * FIXME: Still not atomic! There can be moment while status file is partially
- * updated. It's cleaner to use separate thread that uses write(2) to tmp file
- * and then uses rename(2).
+ * Updates in-memory statistics
  */
 void eblob_stat_update(struct eblob_backend *b, const long long disk,
 		const long long removed, const long long hashed)
 {
+	/* Sanity */
 	if (b == NULL)
 		return;
 
 	pthread_mutex_lock(&b->stat.lock);
-
 	b->stat.disk += disk;
 	b->stat.removed += removed;
 	b->stat.hashed += hashed;
-
-	if (b->stat.file_map == NULL)
-		goto err;
-
-	/* Write stats and fill remaning space with spaces (pun intended) */
-	snprintf(b->stat.file_map, EBLOB_STAT_SIZE_MAX,
-			"disk: %llu\nremoved: %llu\nhashed: %llu\n" "%4096c",
-			b->stat.disk, b->stat.removed, b->stat.hashed, ' ');
-err:
 	pthread_mutex_unlock(&b->stat.lock);
+}
+
+/*!
+ * Writes statistics to temporary file and then atomically moves it to the
+ * proper location, replacing current stats.
+ */
+int eblob_stat_commit(struct eblob_backend *b)
+{
+	FILE *fp;
+	unsigned long long disk, removed, hashed;
+	int sort_status;
+	char tmp_path[PATH_MAX];
+
+	/* Sanity */
+	if (b == NULL)
+		return -EINVAL;
+
+	/* Construct temporary path */
+	if (snprintf(tmp_path, PATH_MAX, "%s.tmp", b->stat.path) > PATH_MAX)
+		return -ENAMETOOLONG;
+
+	/* Read current stats */
+	pthread_mutex_lock(&b->stat.lock);
+	disk = b->stat.disk;
+	removed = b->stat.removed;
+	hashed = b->stat.hashed;
+	sort_status = b->stat.sort_status;
+	pthread_mutex_unlock(&b->stat.lock);
+
+	/* Create tmp file and atomically swap it with an existing stats */
+	fp = fopen(tmp_path, "w+");
+	if (fp == NULL)
+		return -errno;
+
+	fprintf(fp, "disk: %llu\nremoved: %llu\nhashed: %llu\nsort_status: %d\n",
+			disk, removed, hashed, sort_status);
+
+	if (fclose(fp) == EOF)
+		return -errno;
+
+	if (rename(tmp_path, b->stat.path) == -1)
+		return -errno;
+
+	return 0;
 }
