@@ -2251,7 +2251,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
 	pthread_mutexattr_t attr;
-	char stat_file[256];
+	char stat_file[PATH_MAX];
 	int err;
 
 	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
