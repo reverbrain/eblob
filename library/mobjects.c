@@ -1088,11 +1088,7 @@ err_out_exit:
 
 int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 {
-	int err;
-
-	err = eblob_iterate_existing(b, ctl, &b->types, &b->max_type);
-
-	return err;
+	return eblob_iterate_existing(b, ctl, &b->types, &b->max_type);
 }
 
 int eblob_load_data(struct eblob_backend *b)
