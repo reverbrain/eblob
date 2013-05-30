@@ -2243,8 +2243,36 @@ void eblob_cleanup(struct eblob_backend *b)
 	free(b->cfg.file);
 
 	eblob_stat_cleanup(&b->stat);
+	(void)lockf(b->lock_fd, F_ULOCK, 0);
+	(void)close(b->lock_fd);
 
 	free(b);
+}
+
+/**
+ * Try locking .lock file, so only one instance of libeblob can work with blobs
+ * with that name.
+ */
+static int eblob_lock_blob(struct eblob_backend *b)
+{
+	char lock_file[PATH_MAX];
+
+	if (b == NULL)
+		return -EINVAL;
+
+	if (snprintf(lock_file, PATH_MAX, "%s.lock", b->cfg.file) > PATH_MAX)
+		return -ENAMETOOLONG;
+
+	b->lock_fd = open(lock_file, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
+	if (b->lock_fd == -1)
+		return -errno;
+
+	if (lockf(b->lock_fd, F_TLOCK, 0) == -1) {
+		(void)close(b->lock_fd);
+		return -errno;
+	}
+
+	return 0;
 }
 
 struct eblob_backend *eblob_init(struct eblob_config *c)
@@ -2302,10 +2330,16 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_stat_free;
 	}
 
+	err = eblob_lock_blob(b);
+	if (err != 0) {
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_lock_blob: FAILED: %s: %d.\n", strerror(-err), err);
+		goto err_out_free_file;
+	}
+
 	err = eblob_cache_statvfs(b);
 	if (err != 0) {
 		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_cache_statvfs failed: %s: %d.\n", strerror(-err), err);
-		goto err_out_stat_free;
+		goto err_out_lockf;
 	}
 
 	if ((err = pthread_mutexattr_init(&attr)) != 0)
@@ -2369,6 +2403,9 @@ err_out_hash_destroy:
 	eblob_hash_exit(b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
+err_out_lockf:
+	(void)lockf(b->lock_fd, F_ULOCK, 0);
+	(void)close(b->lock_fd);
 err_out_free_file:
 	free(b->cfg.file);
 err_out_stat_free:

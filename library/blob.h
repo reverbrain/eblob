@@ -388,6 +388,8 @@ struct eblob_backend {
 	uint64_t		current_blob_size;
 	/* Cached vfs stats */
 	struct statvfs		vfs_stat;
+	/* File descriptor used for database locking */
+	int			lock_fd;
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);
