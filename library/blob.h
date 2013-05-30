@@ -22,6 +22,8 @@
 #include "l2hash.h"
 #include "list.h"
 
+#include <sys/statvfs.h>
+
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -384,6 +386,8 @@ struct eblob_backend {
 	int			want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;
+	/* Cached vfs stats */
+	struct statvfs		vfs_stat;
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);

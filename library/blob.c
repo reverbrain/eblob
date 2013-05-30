@@ -1119,18 +1119,12 @@ err_out_exit:
  */
 static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 {
-	struct statvfs s;
 	unsigned long long total, avail;
 	static int print_once;
-	int err;
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
-		err = statvfs(dirname(b->cfg.file), &s);
-		if (err)
-			return err;
-
-		avail = s.f_bsize * s.f_bavail;
-		total = s.f_frsize * s.f_blocks;
+		avail = b->vfs_stat.f_bsize * b->vfs_stat.f_bavail;
+		total = b->vfs_stat.f_frsize * b->vfs_stat.f_blocks;
 		if (avail < size)
 			return -ENOSPC;
 
@@ -2184,6 +2178,22 @@ static void *eblob_sync(void *data)
 	return NULL;
 }
 
+/*!
+ * Cache vfs statistics
+ */
+static int eblob_cache_statvfs(struct eblob_backend *b)
+{
+	char path_copy[PATH_MAX];
+
+	if (b == NULL)
+		return -EINVAL;
+
+	strncpy(path_copy, b->cfg.file, PATH_MAX);
+	if (statvfs(dirname(path_copy), &b->vfs_stat) == -1)
+		return -errno;
+	return 0;
+}
+
 /**
  * This is thread for various periodic tasks e.g: statistics update and free
  * space calculations.
@@ -2201,7 +2211,10 @@ static void *eblob_periodic(void *data)
 		if (err != 0)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 					"eblob_stat_commit: FAILED");
-		/* TODO: Calculate free space */
+		err = eblob_cache_statvfs(b);
+		if (err != 0)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+					"eblob_cache_statvfs: FAILED");
 	}
 
 	return NULL;
@@ -2283,6 +2296,12 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	b->cfg.file = strdup(c->file);
 	if (!b->cfg.file) {
 		errno = -ENOMEM;
+		goto err_out_stat_free;
+	}
+
+	err = eblob_cache_statvfs(b);
+	if (err != 0) {
+		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_cache_statvfs failed: %s: %d.\n", strerror(-err), err);
 		goto err_out_stat_free;
 	}
 
