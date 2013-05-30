@@ -76,11 +76,6 @@ int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 	return cmp;
 }
 
-static int eblob_find_exact_callback(struct eblob_disk_control *sorted, struct eblob_disk_control *dc)
-{
-	return sorted->position == dc->position;
-}
-
 static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted, struct eblob_disk_control *dc __eblob_unused)
 {
 	uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
