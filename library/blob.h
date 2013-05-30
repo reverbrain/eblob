@@ -370,9 +370,10 @@ struct eblob_backend {
 
 	struct eblob_stat	stat;
 
-	int			need_exit;
+	volatile int		need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
+	pthread_t		periodic_tid;
 
 	/*
 	 * Set when defrag/data-sort are explicitly requested

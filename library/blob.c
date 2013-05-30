@@ -2184,6 +2184,26 @@ static void *eblob_sync(void *data)
 	return NULL;
 }
 
+/**
+ * This is thread for various periodic tasks e.g: statistics update and free
+ * space calculations.
+ */
+static void *eblob_periodic(void *data)
+{
+	struct eblob_backend *b = data;
+
+	while (!b->need_exit) {
+		int err;
+
+		sleep(1);
+
+		/* TODO: Update statistics */
+		/* TODO: Calculate free space */
+	}
+
+	return NULL;
+}
+
 void eblob_cleanup(struct eblob_backend *b)
 {
 	int i;
@@ -2191,6 +2211,7 @@ void eblob_cleanup(struct eblob_backend *b)
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 	pthread_join(b->defrag_tid, NULL);
+	pthread_join(b->periodic_tid, NULL);
 
 	eblob_base_types_cleanup(b);
 
@@ -2303,8 +2324,17 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_join_sync;
 	}
 
+	err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
+		goto err_out_join_defrag;
+	}
+
 	return b;
 
+err_out_join_defrag:
+	b->need_exit = 1;
+	pthread_join(b->defrag_tid, NULL);
 err_out_join_sync:
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
