@@ -10,29 +10,22 @@ class my_iter(eblob_iterator):
 	def process(self, id, data):
 		print "Processing id ", id.id, ", data size = ", len(data), ", data = ", data;
 
-try:
+cfg = eblob_config()
+cfg.file = "/tmp/data"
+cfg.records_in_blob = 500
+cfg.blob_size = 50*1024;
 
-	#e = eblob("/dev/stdout", 10, "/tmp/data");
-	cfg = eblob_config()
-	cfg.file = "/tmp/data"
-	cfg.records_in_blob = 500
-	cfg.blob_size = 50*1024;
+e = eblob("/dev/stdout", 10, cfg)
+print e.elements()
 
-	e = eblob("/dev/stdout", 10, cfg)
-	print e.elements()
+for i in range(0,5):
+	e.write_hashed("keyi%d" % i, "data%d" % i, 0, 0, 0)
 
-	for i in range(0,5):
-		e.write_hashed("keyi%d" % i, "data%d" % i, 0, 0, 0)
+print e.elements()
 
-	print e.elements()
+iterator = my_iter()
+iterator.start_type = 0;
+iterator.max_type = 0;
+iterator.use_index = 1;
 
-	iterator = my_iter()
-	iterator.start_type = 0;
-	iterator.max_type = 0;
-	iterator.use_index = 1;
-
-	e.iterate(iterator)
-
-except:
-        print "Unexpected error:", sys.exc_info()
-
+e.iterate(iterator)
