@@ -229,7 +229,7 @@ void *eblob_defrag(void *data)
 	sleep_time = b->cfg.defrag_timeout;
 
 	while (!b->need_exit) {
-		if ((sleep_time-- != 0) && (b->want_defrag <= 0)) {
+		if ((sleep_time-- != 0) && (b->want_defrag == 0)) {
 			sleep(1);
 			continue;
 		}
@@ -248,13 +248,6 @@ void *eblob_defrag(void *data)
  */
 int eblob_start_defrag(struct eblob_backend *b)
 {
-	/* data-sort currently disabled */
-	if (b->want_defrag < 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
-				"defrag: can't run while explicitly disabled.\n");
-		return -EAGAIN;
-	}
-
 	if (b->want_defrag) {
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 				"defrag: defragmentation is in progress.\n");

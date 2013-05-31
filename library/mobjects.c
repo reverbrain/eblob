@@ -250,13 +250,13 @@ again:
 		}
 
 		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-		if (ctl->index_fd < 0) {
+		if (ctl->index_fd == -1) {
 			err = -errno;
 			goto err_out_unmap;
 		}
 
 		err = fstat(ctl->index_fd, &st);
-		if (err) {
+		if (err == -1) {
 			err = -errno;
 			goto err_out_close_index;
 		}
@@ -267,7 +267,7 @@ again:
 		if (ctl->index_size &&
 				((ctl->data_size >= b->cfg.blob_size) ||
 				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
-			err = eblob_generate_sorted_index(b, ctl, 0);
+			err = eblob_generate_sorted_index(b, ctl);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 						"bctl: index: %d/%d, type: %d/%d: eblob_generate_sorted_index: FAILED\n",
@@ -473,7 +473,7 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 
 	p = strstr(name, sorted_str);
 	if (p && ((int)(p - name) == name_len - (int)sizeof(sorted_str) + 1)) {
-		/* skip indexes */
+		/* skip sorted indexes */
 		goto err_out_exit;
 	}
 
@@ -482,7 +482,6 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 		/* skip tmp indexes */
 		goto err_out_exit;
 	}
-
 
 	flen = name_len + 128;
 	format = malloc(flen);
@@ -1015,9 +1014,6 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 	struct eblob_base_type *types = NULL;
 	int err, i, max_type = -1, thread_num = ctl->thread_num;
 
-	/* Disable data-sort while iterating over blob to prevent races */
-	b->want_defrag = -1;
-
 	ctl->log = b->cfg.log;
 	ctl->b = b;
 
@@ -1078,8 +1074,6 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		*max_typep = max_type;
 	}
 
-	b->want_defrag = 0;
-
 	/* If automatic data-sort is enabled - start it */
 	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT
 			&& ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
@@ -1094,11 +1088,7 @@ err_out_exit:
 
 int eblob_iterate(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 {
-	int err;
-
-	err = eblob_iterate_existing(b, ctl, &b->types, &b->max_type);
-
-	return err;
+	return eblob_iterate_existing(b, ctl, &b->types, &b->max_type);
 }
 
 int eblob_load_data(struct eblob_backend *b)
@@ -1148,7 +1138,7 @@ try_again:
 	snprintf(name, sizeof(name), "%s-%d.%d", base, type, t->index);
 
 	ctl = eblob_get_base_ctl(b, b->types, b->max_type, dir_base, base, name, strlen(name), &err);
-	if (!ctl) {
+	if (ctl == NULL) {
 		if (err == -ENOENT) {
 			/*
 			 * trying again to open next file,

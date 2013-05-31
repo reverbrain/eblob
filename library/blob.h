@@ -22,8 +22,11 @@
 #include "l2hash.h"
 #include "list.h"
 
+#include <sys/statvfs.h>
+
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -332,8 +335,7 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 #define EBLOB_STAT_SIZE_MAX	4096
 
 struct eblob_stat {
-	int			fd;
-	void			*file_map;
+	char			path[PATH_MAX];
 	pthread_mutex_t		lock;
 
 	int			need_check;
@@ -353,6 +355,7 @@ struct eblob_stat {
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, const char *path);
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
+int eblob_stat_commit(struct eblob_backend *b);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -370,22 +373,23 @@ struct eblob_backend {
 
 	struct eblob_stat	stat;
 
-	int			need_exit;
+	volatile int		need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
+	pthread_t		periodic_tid;
 
 	/*
 	 * Set when defrag/data-sort are explicitly requested
-	 * While it's negative data-sort can't proceed even if explicitly
-	 * requested by user. This is used to avoid races with
-	 * eblob_load_data()
 	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
 	 * 0:	data-sort should be preformed according to defrag_timeout
-	 * <0:	data-sort is disabled by eblob_load_data()
 	 */
 	int			want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;
+	/* Cached vfs stats */
+	struct statvfs		vfs_stat;
+	/* File descriptor used for database locking */
+	int			lock_fd;
 };
 
 int eblob_add_new_base(struct eblob_backend *b, int type);
@@ -407,7 +411,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int defrag);
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
