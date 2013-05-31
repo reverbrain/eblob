@@ -2211,10 +2211,13 @@ static void *eblob_periodic(void *data)
 		if (err != 0)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 					"eblob_stat_commit: FAILED");
-		err = eblob_cache_statvfs(b);
-		if (err != 0)
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-					"eblob_cache_statvfs: FAILED");
+
+		if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
+			err = eblob_cache_statvfs(b);
+			if (err != 0)
+				EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+						"eblob_cache_statvfs: FAILED");
+		}
 	}
 
 	return NULL;
