@@ -2234,7 +2234,7 @@ void eblob_cleanup(struct eblob_backend *b)
 
 	eblob_base_types_cleanup(b);
 
-	eblob_hash_exit(b->hash);
+	eblob_hash_destroy(b->hash);
 
 	for (i = b->l2hash_max; i >= 0; i--)
 		eblob_l2hash_destroy(b->l2hash[i]);
@@ -2400,7 +2400,7 @@ err_out_join_sync:
 err_out_cleanup:
 	eblob_base_types_cleanup(b);
 err_out_hash_destroy:
-	eblob_hash_exit(b->hash);
+	eblob_hash_destroy(b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
 err_out_lockf:
