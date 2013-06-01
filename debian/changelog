@@ -1,3 +1,20 @@
+eblob (0.19.10) unstable; urgency=low
+
+  * Lock database on start using lockf() to prevent multiple libeblob instances from using same database simultaneously;
+  * Introduce new periodic thread for various background tasks;
+  * Move statistics updates to periodic thread. This almost fully removes statistics update from write path.
+  *   Also stats update is now atomic - it creates temp file, writes data to it and then uses rename();
+  * Move heavy statvfs(3) call to periodic thread. This removes around 5-7 system calls (depending on libc implementation)
+  *   and speeds up write microbenchmarks by factor of two;
+  * Improved locking in iterator. Previously each following iterator could re-mmap
+  *   data used by already running iterator. Now we hold bctl for duration of one batch of dcs
+  *   preventing another thread by remmaping data underneath it;
+  * Now that we have working locks - allow iterator to proceed along with data-sort;
+  * Removed old defrag parts for good;
+  * Misc bugfixes and formatting / comment / CI improvements.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 01 Jun 2013 15:53:59 +0400
+
 eblob (0.19.9) unstable; urgency=low
 
   * blob: allow to commit no more data than was written
