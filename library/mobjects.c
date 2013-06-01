@@ -332,6 +332,8 @@ again:
 	b->current_blob_size += ctl->data_size + ctl->index_size;
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
+
+	free(created);
 	free(full);
 
 	return 0;
