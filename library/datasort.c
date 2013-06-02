@@ -1297,6 +1297,9 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
 
 	/*
 	 * Cleanup unsorted base
+	 *
+	 * NB! This will leak bctl itself. We can't free it for now because
+	 * pointer to it may still be alive in some rctl.
 	 */
 	if ((err = _eblob_base_ctl_cleanup(dcfg->bctl)) != 0)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, err,
