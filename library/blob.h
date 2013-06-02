@@ -355,6 +355,7 @@ struct eblob_stat {
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, const char *path);
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
+void eblob_stat_set_sort_status(struct eblob_backend *b, int value);
 int eblob_stat_commit(struct eblob_backend *b);
 
 struct eblob_backend {

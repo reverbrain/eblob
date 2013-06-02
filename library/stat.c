@@ -113,6 +113,18 @@ void eblob_stat_update(struct eblob_backend *b, const long long disk,
 }
 
 /*!
+ * Atomically sets sort_status
+ */
+void eblob_stat_set_sort_status(struct eblob_backend *b, int value)
+{
+	assert(b != NULL);
+
+	pthread_mutex_lock(&b->stat.lock);
+	b->stat.sort_status = value;
+	pthread_mutex_unlock(&b->stat.lock);
+}
+
+/*!
  * Writes statistics to temporary file and then atomically moves it to the
  * proper location, replacing current stats.
  */
