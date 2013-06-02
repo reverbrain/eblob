@@ -37,6 +37,9 @@
 #define __attribute_pure__	__attribute__ ((pure))
 #endif
 
+#ifndef ACCESS_ONCE
+#define ACCESS_ONCE(x)		(*(volatile typeof(x) *)&(x))
+#endif
 #ifndef howmany
 #define howmany(x, y)		(((x) + ((y) - 1)) / (y))
 #endif

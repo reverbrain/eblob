@@ -367,11 +367,11 @@ static void *eblob_blob_iterator(void *data)
 
 	loc.iter_priv = iter_priv;
 
-	while (ctl->thread_num > 0) {
+	while (ACCESS_ONCE(ctl->thread_num) > 0) {
 		/* Wait until all pending writes are finished and lock */
 		eblob_base_wait_locked(bc);
 
-		if (!ctl->thread_num) {
+		if (ACCESS_ONCE(ctl->thread_num) == 0) {
 			err = 0;
 			goto err_out_unlock;
 		}
