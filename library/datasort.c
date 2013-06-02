@@ -364,7 +364,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	assert(local != NULL);
 	assert(data != NULL);
 
-	/* Sainity check */
+	/* Sanity check */
 	if (dc->disk_size < (uint64_t)hdr_size)
 		return -EINVAL;
 
@@ -913,7 +913,7 @@ static int datasort_binlog_apply_ll(int fd, uint64_t unsorted_ctl_offset, void *
 	relative_offset = binlog_offset - unsorted_ctl_offset;
 	sorted_offset = relative_offset + dc->position;
 
-	/* Sainity checks, again */
+	/* Sanity checks, again */
 	assert(sorted_offset + data_size <= dc->position + dc->disk_size);
 	assert(sorted_offset >= dc->position);
 	assert(relative_offset >= 0);

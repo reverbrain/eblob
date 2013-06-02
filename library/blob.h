@@ -265,7 +265,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 {
 	uint64_t bit, byte;
 
-	/* Sainity */
+	/* Sanity */
 	if (key == NULL || bctl == NULL)
 		return -EINVAL;
 	if (bctl->bloom_size == 0 || bctl->bloom == NULL)
