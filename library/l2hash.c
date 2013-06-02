@@ -156,7 +156,7 @@ err:
 
 /**
  * __eblob_l2hash_tree_destroy() - removes all entries from given tree and
- * frees memory allocated by tree nodes
+ * frees memory allocated by tree entries.
  */
 static void __eblob_l2hash_tree_destroy(struct rb_root *root) {
 	struct rb_node *n, *t;
@@ -164,9 +164,31 @@ static void __eblob_l2hash_tree_destroy(struct rb_root *root) {
 	assert(root != NULL);
 
 	for (n = rb_first(root); n != NULL; n = t) {
+		struct eblob_l2hash_entry *e;
+
+		e = rb_entry(n, struct eblob_l2hash_entry, node);
 		t = rb_next(n);
 		rb_erase(n, root);
-		free(n);
+		free(e);
+	}
+}
+
+/**
+ * __eblob_l2hash_collision_tree_destroy() - removes all entries from given
+ * collision tree and frees memory allocated by tree entries.
+ */
+static void __eblob_l2hash_collision_tree_destroy(struct rb_root *root) {
+	struct rb_node *n, *t;
+
+	assert(root != NULL);
+
+	for (n = rb_first(root); n != NULL; n = t) {
+		struct eblob_l2hash_collision *e;
+
+		e = rb_entry(n, struct eblob_l2hash_collision, node);
+		t = rb_next(n);
+		rb_erase(n, root);
+		free(e);
 	}
 }
 
@@ -181,7 +203,7 @@ int eblob_l2hash_destroy(struct eblob_l2hash *l2h)
 
 	/* Destroy trees */
 	__eblob_l2hash_tree_destroy(&l2h->root);
-	__eblob_l2hash_tree_destroy(&l2h->collisions);
+	__eblob_l2hash_collision_tree_destroy(&l2h->collisions);
 
 	free(l2h);
 	return 0;
