@@ -47,7 +47,6 @@
 #if defined(__APPLE__) || defined (__FreeBSD__)
 #define readdir64 readdir
 #define dirent64 dirent
-typedef long long loff_t;
 #endif
 
 #ifndef O_CLOEXEC
