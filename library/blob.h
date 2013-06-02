@@ -386,7 +386,7 @@ struct eblob_backend {
 	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
 	 * 0:	data-sort should be preformed according to defrag_timeout
 	 */
-	int			want_defrag;
+	volatile int		want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;
 	/* Cached vfs stats */
