@@ -597,6 +597,10 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
  * eblob_mark_entry_removed() - Mark entry as removed in both index and data file.
  *
  * Also updates stats and syncs data.
+ *
+ * TODO: We can add task to periodic thread to punch holes (do fadvise
+ * FALLOC_FL_PUNCH_HOLE) in data files. This will free space utilized by
+ * removed entries.
  */
 static int eblob_mark_entry_removed(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_ram_control *old)
@@ -2206,6 +2210,9 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
 /**
  * This is thread for various periodic tasks e.g: statistics update and free
  * space calculations.
+ *
+ * TODO: We can generalize periodic thread to be simple task scheduler that
+ * pulls taks of the queue and executes it.
  */
 static void *eblob_periodic(void *data)
 {
