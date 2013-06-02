@@ -2183,14 +2183,23 @@ static void *eblob_sync(void *data)
  */
 static int eblob_cache_statvfs(struct eblob_backend *b)
 {
-	char path_copy[PATH_MAX];
+	char dir_base[PATH_MAX], *tmp;
 
-	if (b == NULL)
+	if (b == NULL || b->cfg.file == NULL)
 		return -EINVAL;
 
-	strncpy(path_copy, b->cfg.file, PATH_MAX);
-	if (statvfs(dirname(path_copy), &b->vfs_stat) == -1)
+	/* TODO: It's waste of CPU to do it every iteration */
+	if (snprintf(dir_base, PATH_MAX, "%s", b->cfg.file) >= PATH_MAX)
+		return -ENAMETOOLONG;
+
+	/* TODO: Create eblob_dirname function */
+	tmp = strrchr(dir_base, '/');
+	if (tmp != NULL)
+		*tmp = '\0';
+
+	if (statvfs(dir_base, &b->vfs_stat) == -1)
 		return -errno;
+
 	return 0;
 }
 
