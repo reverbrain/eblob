@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.10
+Version:	0.19.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -102,6 +102,20 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jun 06 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.11
+- data-sort: added leak note
+- blob: added periodic comments
+- mobjects: protect against malloc size overflow
+- blob: do not place want_defrag in register
+- blob: loff_t is used only in __linux__ code
+- blob: do not place ctl->thread_num in register
+- blob: do not depend on dirname implementation
+- stats: it's fine to use asserts in internal functions
+- stats: atomically set sort_status
+- l2hash: do not depend on rb_node being first structure member
+- hash: fix eblob_hash_exit()
+- Fixed new base duplicated name leak
+
 * Sat Jun 01 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.10
 - Lock database on start using lockf() to prevent multiple libeblob instances from using same database simultaneously;
 - Introduce new periodic thread for various background tasks;

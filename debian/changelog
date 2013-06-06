@@ -1,3 +1,20 @@
+eblob (0.19.11) unstable; urgency=low
+
+  * data-sort: added leak note
+  * blob: added periodic comments
+  * mobjects: protect against malloc size overflow
+  * blob: do not place want_defrag in register
+  * blob: loff_t is used only in __linux__ code
+  * blob: do not place ctl->thread_num in register
+  * blob: do not depend on dirname implementation
+  * stats: it's fine to use asserts in internal functions
+  * stats: atomically set sort_status
+  * l2hash: do not depend on rb_node being first structure member
+  * hash: fix eblob_hash_exit()
+  * Fixed new base duplicated name leak
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 06 Jun 2013 14:17:51 +0400
+
 eblob (0.19.10) unstable; urgency=low
 
   * Lock database on start using lockf() to prevent multiple libeblob instances from using same database simultaneously;
