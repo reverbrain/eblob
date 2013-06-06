@@ -129,7 +129,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 {
 	int err = 0, i;
 
-	b->stat.sort_status = 1;
+	eblob_stat_set_sort_status(b, 1);
 	for (i = 0; i <= b->max_type; ++i) {
 		struct eblob_base_type *t = &b->types[i];
 		struct eblob_base_ctl *bctl;
@@ -207,7 +207,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	}
 
 err_out_exit:
-	b->stat.sort_status = err;
+	eblob_stat_set_sort_status(b, err);
 	return err;
 }
 

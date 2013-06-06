@@ -101,14 +101,24 @@ err_out_exit:
 void eblob_stat_update(struct eblob_backend *b, const long long disk,
 		const long long removed, const long long hashed)
 {
-	/* Sanity */
-	if (b == NULL)
-		return;
+	assert(b != NULL);
 
 	pthread_mutex_lock(&b->stat.lock);
 	b->stat.disk += disk;
 	b->stat.removed += removed;
 	b->stat.hashed += hashed;
+	pthread_mutex_unlock(&b->stat.lock);
+}
+
+/*!
+ * Atomically sets sort_status
+ */
+void eblob_stat_set_sort_status(struct eblob_backend *b, int value)
+{
+	assert(b != NULL);
+
+	pthread_mutex_lock(&b->stat.lock);
+	b->stat.sort_status = value;
 	pthread_mutex_unlock(&b->stat.lock);
 }
 
@@ -123,9 +133,7 @@ int eblob_stat_commit(struct eblob_backend *b)
 	int sort_status;
 	char tmp_path[PATH_MAX];
 
-	/* Sanity */
-	if (b == NULL)
-		return -EINVAL;
+	assert(b != NULL);
 
 	/* Construct temporary path */
 	if (snprintf(tmp_path, PATH_MAX, "%s.tmp", b->stat.path) > PATH_MAX)

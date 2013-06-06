@@ -37,6 +37,9 @@
 #define __attribute_pure__	__attribute__ ((pure))
 #endif
 
+#ifndef ACCESS_ONCE
+#define ACCESS_ONCE(x)		(*(volatile typeof(x) *)&(x))
+#endif
 #ifndef howmany
 #define howmany(x, y)		(((x) + ((y) - 1)) / (y))
 #endif
@@ -44,7 +47,6 @@
 #if defined(__APPLE__) || defined (__FreeBSD__)
 #define readdir64 readdir
 #define dirent64 dirent
-typedef long long loff_t;
 #endif
 
 #ifndef O_CLOEXEC
@@ -265,7 +267,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 {
 	uint64_t bit, byte;
 
-	/* Sainity */
+	/* Sanity */
 	if (key == NULL || bctl == NULL)
 		return -EINVAL;
 	if (bctl->bloom_size == 0 || bctl->bloom == NULL)
@@ -355,6 +357,7 @@ struct eblob_stat {
 void eblob_stat_cleanup(struct eblob_stat *s);
 int eblob_stat_init(struct eblob_stat *s, const char *path);
 void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
+void eblob_stat_set_sort_status(struct eblob_backend *b, int value);
 int eblob_stat_commit(struct eblob_backend *b);
 
 struct eblob_backend {
@@ -383,7 +386,7 @@ struct eblob_backend {
 	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
 	 * 0:	data-sort should be preformed according to defrag_timeout
 	 */
-	int			want_defrag;
+	volatile int		want_defrag;
 	/* Current size of all bases and indexes */
 	uint64_t		current_blob_size;
 	/* Cached vfs stats */

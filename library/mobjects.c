@@ -631,7 +631,7 @@ static struct eblob_base_type *eblob_realloc_base_type(struct eblob_base_type *t
 	struct eblob_base_type *nt;
 	struct eblob_base_ctl *ctl, *tmp;
 
-	nt = malloc((max_type + 1) * sizeof(struct eblob_base_type));
+	nt = calloc(max_type + 1, sizeof(struct eblob_base_type));
 	if (!nt)
 		return NULL;
 

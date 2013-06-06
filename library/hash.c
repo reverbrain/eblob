@@ -43,15 +43,10 @@
 #include <string.h>
 #include <unistd.h>
 
-static void eblob_hash_entry_free(struct eblob_hash *h __attribute_unused__,
+static inline void eblob_hash_entry_put(struct eblob_hash *h __attribute_unused__,
 		struct eblob_hash_entry *e)
 {
 	free(e);
-}
-
-static inline void eblob_hash_entry_put(struct eblob_hash *h, struct eblob_hash_entry *e)
-{
-	eblob_hash_entry_free(h, e);
 }
 
 static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, uint64_t dsize, int replace)
@@ -137,8 +132,21 @@ err_out_exit:
 	return NULL;
 }
 
-void eblob_hash_exit(struct eblob_hash *h)
+void eblob_hash_destroy(struct eblob_hash *h)
 {
+	struct rb_node *n, *t;
+
+	assert(h != NULL);
+
+	for (n = rb_first(&h->root); n != NULL; n = t) {
+		struct eblob_hash_entry *e = rb_entry(n, struct eblob_hash_entry, node);
+
+		t = rb_next(n);
+		rb_erase(n, &h->root);
+		eblob_hash_entry_put(h, e);
+	}
+
+	pthread_rwlock_destroy(&h->root_lock);
 	free(h);
 }
 
