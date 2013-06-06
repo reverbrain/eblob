@@ -367,11 +367,11 @@ static void *eblob_blob_iterator(void *data)
 
 	loc.iter_priv = iter_priv;
 
-	while (ctl->thread_num > 0) {
+	while (ACCESS_ONCE(ctl->thread_num) > 0) {
 		/* Wait until all pending writes are finished and lock */
 		eblob_base_wait_locked(bc);
 
-		if (!ctl->thread_num) {
+		if (ACCESS_ONCE(ctl->thread_num) == 0) {
 			err = 0;
 			goto err_out_unlock;
 		}
@@ -597,6 +597,10 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
  * eblob_mark_entry_removed() - Mark entry as removed in both index and data file.
  *
  * Also updates stats and syncs data.
+ *
+ * TODO: We can add task to periodic thread to punch holes (do fadvise
+ * FALLOC_FL_PUNCH_HOLE) in data files. This will free space utilized by
+ * removed entries.
  */
 static int eblob_mark_entry_removed(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_ram_control *old)
@@ -2183,20 +2187,32 @@ static void *eblob_sync(void *data)
  */
 static int eblob_cache_statvfs(struct eblob_backend *b)
 {
-	char path_copy[PATH_MAX];
+	char dir_base[PATH_MAX], *tmp;
 
-	if (b == NULL)
+	if (b == NULL || b->cfg.file == NULL)
 		return -EINVAL;
 
-	strncpy(path_copy, b->cfg.file, PATH_MAX);
-	if (statvfs(dirname(path_copy), &b->vfs_stat) == -1)
+	/* TODO: It's waste of CPU to do it every iteration */
+	if (snprintf(dir_base, PATH_MAX, "%s", b->cfg.file) >= PATH_MAX)
+		return -ENAMETOOLONG;
+
+	/* TODO: Create eblob_dirname function */
+	tmp = strrchr(dir_base, '/');
+	if (tmp != NULL)
+		*tmp = '\0';
+
+	if (statvfs(dir_base, &b->vfs_stat) == -1)
 		return -errno;
+
 	return 0;
 }
 
 /**
  * This is thread for various periodic tasks e.g: statistics update and free
  * space calculations.
+ *
+ * TODO: We can generalize periodic thread to be simple task scheduler that
+ * pulls taks of the queue and executes it.
  */
 static void *eblob_periodic(void *data)
 {
@@ -2234,7 +2250,7 @@ void eblob_cleanup(struct eblob_backend *b)
 
 	eblob_base_types_cleanup(b);
 
-	eblob_hash_exit(b->hash);
+	eblob_hash_destroy(b->hash);
 
 	for (i = b->l2hash_max; i >= 0; i--)
 		eblob_l2hash_destroy(b->l2hash[i]);
@@ -2400,7 +2416,7 @@ err_out_join_sync:
 err_out_cleanup:
 	eblob_base_types_cleanup(b);
 err_out_hash_destroy:
-	eblob_hash_exit(b->hash);
+	eblob_hash_destroy(b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
 err_out_lockf:
