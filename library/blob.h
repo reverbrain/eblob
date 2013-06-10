@@ -321,6 +321,24 @@ inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct ebl
 	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
 }
 
+/*!
+ * Get max offset of passed iovects
+ */
+static inline uint64_t eblob_iovec_max_offset(const struct eblob_iovec *iov, uint16_t iovcnt)
+{
+	const struct eblob_iovec *tmp;
+	uint64_t max = 0;
+
+	assert(iovcnt >= EBLOB_IOVCNT_MIN || iovcnt <= EBLOB_IOVCNT_MAX);
+
+	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
+		uint64_t sum = tmp->offset + tmp->size;
+		if (max < sum)
+			max = sum;
+	}
+
+	return max;
+}
 
 /* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
 #define EBLOB_FLAGS_HINT_WILLNEED (1<<0)

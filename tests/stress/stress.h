@@ -38,7 +38,6 @@ struct shadow {
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
 	uint64_t		size;		/* Size of data */
-	int			type;		/* Column for data */
 	uint64_t		offset;		/* Offset for writing data */
 	int			flags;		/* Entry's eblob flags */
 	char			inited;		/* Entry is initialized */

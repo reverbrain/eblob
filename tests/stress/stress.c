@@ -76,7 +76,7 @@ generate_random_flags(int type)
 
 	/* TODO: Factor random proportions into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
-		rnd = random() % 10;
+		rnd = random() % 5;
 		/* Removed entry can not be removed or overwritten */
 		switch (rnd) {
 		case 0:
@@ -136,7 +136,6 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 	item->idx = idx;
 	item->inited = 0;
 	item->offset = 0;
-	item->type = 10 + random() % 5;
 	humanize_flags(item->flags, item->hflags);
 
 	/* Log */
@@ -167,7 +166,7 @@ again:
 			item->key, eblob_dump_id(item->ekey.id));
 
 	/* Read hashed key */
-	error = eblob_read_data(b, &item->ekey, 0, &data, &size, item->type);
+	error = eblob_read_data(b, &item->ekey, 0, &data, &size, 0);
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0) {
@@ -312,14 +311,16 @@ again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* We should test both removal functions */
 		if (random() % 2 == 0)
-			error = eblob_remove(b, &item->ekey, item->type);
+			error = eblob_remove(b, &item->ekey, 0);
 		else
 			error = eblob_remove_all(b, &item->ekey);
 	} else {
 		if (item->inited == 0)
 			item->inited = 1;
-		error = eblob_write(b, &item->ekey, item->value + item->offset, item->offset,
-				item->size - item->offset, item->flags, item->type);
+		/* Write with zero offset in case of append write */
+		error = eblob_write(b, &item->ekey, item->value + item->offset,
+				item->flags & BLOB_DISK_CTL_APPEND ? 0 : item->offset,
+				item->size - item->offset, item->flags, 0);
 	}
 	if (error != 0) {
 		if (retries++ < max_retries) {
@@ -454,13 +455,16 @@ main(int argc, char **argv)
 		item = &cfg.shadow[rnd];
 
 		if ((error = item_check(item, cfg.b)) != 0) {
-			errx(EX_TEMPFAIL, "item_check: %d", error);
+			errx(EX_TEMPFAIL, "item_pre_check: %d", error);
 		}
 		if ((error = item_generate_random(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_generate_random: %d", error);
 		}
 		if ((error = item_sync(item, cfg.b)) != 0) {
 			errx(EX_TEMPFAIL, "item_sync: %d", error);
+		}
+		if ((error = item_check(item, cfg.b)) != 0) {
+			errx(EX_TEMPFAIL, "item_post_check: %d", error);
 		}
 		/* Print progress each 'test_milestone' iterations */
 		if (cfg.test_milestone > 0 && (i % cfg.test_milestone) == 0)

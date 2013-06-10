@@ -153,6 +153,13 @@ static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id
 	return 0;
 }
 
+/* Extended iovec-like structure */
+struct eblob_iovec {
+	void				*base;
+	uint64_t			size;
+	uint64_t			offset;
+};
+
 struct eblob_key {
 	unsigned char		id[EBLOB_ID_SIZE];
 };
@@ -173,7 +180,7 @@ enum eblob_read_flavour {
 #define BLOB_DISK_CTL_COMPRESS	(1<<2)
 #define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
 #define BLOB_DISK_CTL_APPEND	(1<<4)
-#define BLOB_DISK_CTL_OVERWRITE	(1<<5)
+#define BLOB_DISK_CTL_OVERWRITE	(1<<5) /* DEPRECATED */
 /*
  * Flag that eblob user can set on record to indicate that this record should
  * have special meaning. Useful for example for data format conversions.
@@ -212,9 +219,15 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 
 /* when set, reserve 10% of free space and return -ENOSPC when there is not enough free space to reserve */
 #define EBLOB_RESERVE_10_PERCENTS	(1<<0)
-/* overwrite with smaller size automatically commits that write, i.e. truncates record to number of bytes written */
+/*
+ * Overwrite with smaller size automatically commits that write, i.e. truncates record to number of bytes written.
+ * DEPRECATED: Now it's default behavior.
+ */
 #define EBLOB_OVERWRITE_COMMITS		(1<<1)
-/* when set, eblob_write() allows to overwrite data in place */
+/*
+ * when set, eblob_write() allows to overwrite data in place
+ * DEPRECATED: Now it's default behavior.
+ */
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 /* do not add checksum footer */
 #define EBLOB_NO_FOOTER			(1<<3)
@@ -441,12 +454,16 @@ int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type);
+int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eblob_iovec *iov,
+		uint16_t iovcnt, uint64_t flags, struct eblob_write_control *wc);
 int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags,
 		int type, struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, int type);
+int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt);
 
 /*
  * The same as above, but these functions take key/ksize pair to hash using sha512 to
@@ -500,6 +517,7 @@ struct eblob_write_control {
 	 */
 	struct eblob_base_ctl		*bctl;
 };
+
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);
 
@@ -551,6 +569,14 @@ void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
 int eblob_defrag_status(struct eblob_backend *b);
+
+/*!
+ * Eblob vector io interface
+ */
+
+/* Limits on number of iovec's in request */
+#define EBLOB_IOVCNT_MIN		1
+#define EBLOB_IOVCNT_MAX		128
 
 #ifdef __cplusplus
 }
