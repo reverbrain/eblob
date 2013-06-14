@@ -82,7 +82,7 @@ struct eblob_l2hash_collision {
 };
 
 /* Constructor and destructor */
-struct eblob_l2hash *eblob_l2hash_init(void);
+int eblob_l2hash_init(struct eblob_l2hash *l2h);
 int eblob_l2hash_destroy(struct eblob_l2hash *l2h);
 
 /* Public API */

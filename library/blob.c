@@ -469,9 +469,9 @@ err_out_check:
 	 */
 	ctl->thread_num = 0;
 
-	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-%d.%d: iterated: data_fd: %d, index_fd: %d, "
+	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
 			"data_size: %llu, index_offset: %llu\n",
-			bc->type, bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
+			bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
 
 	/*
 	 * On open we are trying to auto-fix broken blobs by truncating them to
@@ -622,11 +622,11 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 	if (err < 0)
 		log_level = EBLOB_LOG_ERROR;
 
-	eblob_log(b->cfg.log, log_level, "blob: %s: i%d, t%d: %s: position: %" PRIu64 ", "
+	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
 			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: 0x%" PRIx64 ", "
 			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
 			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
-			eblob_dump_id(key->id), wc->index, wc->type, str, wc->ctl_data_offset,
+			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
 			wc->offset, wc->size, wc->flags, wc->total_data_size, wc->total_size,
 			wc->data_fd, wc->index_fd, wc->bctl, err);
 }
@@ -704,10 +704,10 @@ static int eblob_mark_entry_removed_purge(struct eblob_backend *b,
 		goto err;
 
 	/* Remove from memory */
-	err = eblob_remove_type(b, key, old->bctl->type);
+	err = eblob_cache_remove(b, key);
 	if (err != 0 && err != -ENOENT) {
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_NOTICE, -err,
-				"%s: eblob_remove_type: FAILED: %d",
+				"%s: eblob_cache_remove: FAILED: %d",
 				eblob_dump_id(key->id), err);
 		goto err;
 	} else {
@@ -849,10 +849,10 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.bctl = wc->bctl;
 	assert(ctl.bctl != NULL);
 
-	err = eblob_insert_type(b, key, &ctl, wc->on_disk);
+	err = eblob_cache_insert(b, key, &ctl, wc->on_disk);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-				"blob: %s: %s: eblob_insert_type: fd: %d: FAILED: %d.\n",
+				"blob: %s: %s: eblob_cache_insert: fd: %d: FAILED: %d.\n",
 				eblob_dump_id(key->id), __func__, eblob_get_index_fd(ctl.bctl), err);
 		goto err_out_exit;
 	}
@@ -1087,11 +1087,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	uint64_t orig_offset = wc->offset;
 	ssize_t err;
 
-	err = eblob_lookup_type(b, key, wc->type, &ctl, &wc->on_disk);
+	err = eblob_cache_lookup(b, key, &ctl, &wc->on_disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: %s: eblob_lookup_type: "
-				"type: %d: %zd, on_disk: %d\n",
-				eblob_dump_id(key->id), __func__, wc->type, err, wc->on_disk);
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+				"blob: %s: %s: eblob_cache_lookup: %zd, on_disk: %d\n",
+				eblob_dump_id(key->id), __func__, err, wc->on_disk);
 		goto err_out_exit;
 	}
 
@@ -1222,7 +1222,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_lookup_type(b, key, wc->type, &old, &disk);
+	err = eblob_cache_lookup(b, key, &old, &disk);
 	switch (err) {
 	case -ENOENT:
 		have_old = 0;
@@ -1235,29 +1235,23 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	}
 
 	pthread_mutex_lock(&b->lock);
-	if (wc->type > b->max_type) {
-		err = eblob_add_new_base(b, wc->type);
+	if (list_empty(&b->bases)) {
+		err = eblob_add_new_base(b);
 		if (err)
 			goto err_out_unlock_exit;
 	}
 
-	if (list_empty(&b->types[wc->type].bases)) {
-		err = eblob_add_new_base(b, wc->type);
-		if (err)
-			goto err_out_unlock_exit;
-	}
-
-	ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
+	ctl = list_last_entry(&b->bases, struct eblob_base_ctl, base_entry);
 	if ((ctl->data_offset >= (off_t)b->cfg.blob_size) || (ctl->sort.fd >= 0) ||
 			(ctl->index_offset / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
-		err = eblob_add_new_base(b, wc->type);
+		err = eblob_add_new_base(b);
 		if (err)
 			goto err_out_unlock_exit;
 
 		if (ctl->sort.fd < 0)
 			datasort_schedule_sort(ctl);
 
-		ctl = list_last_entry(&b->types[wc->type].bases, struct eblob_base_ctl, base_entry);
+		ctl = list_last_entry(&b->bases, struct eblob_base_ctl, base_entry);
 	}
 
 	if (have_old) {
@@ -1614,7 +1608,7 @@ err_out_exit:
 }
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size, int type __attribute_unused__)
+		void *data, uint64_t offset, uint64_t size)
 {
 	const struct eblob_iovec iov = {
 		.base = data,
@@ -1670,7 +1664,7 @@ err_out_exit:
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size,
-		uint64_t flags, int type __attribute_unused__)
+		uint64_t flags)
 {
 	struct eblob_write_control wc;
 	const struct eblob_iovec iov = {
@@ -1691,7 +1685,7 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags,
-		int type __attribute_unused__, struct eblob_write_control *wc)
+		struct eblob_write_control *wc)
 {
 	const struct eblob_iovec iov = {
 		.base = data,
@@ -1725,7 +1719,6 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eb
 	memset(wc, 0, sizeof(struct eblob_write_control));
 	wc->size = eblob_iovec_max_offset(iov, iovcnt);
 	wc->flags = flags;
-	wc->type = EBLOB_TYPE_DATA;
 	wc->index = -1;
 
 	/* XXX: Fix locking for read-copy-update of records */
@@ -1767,103 +1760,18 @@ err_out_exit:
 	return err;
 }
 
-
 /**
- * eblob_remove_all - removes key from all columns and hash.
+ * eblob_remove() - remove entry from backend
  */
-int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key)
-{
-	struct eblob_ram_control *ctl;
-	unsigned int size;
-	int err, i, removed = 0;
-
-	if (b == NULL || key == NULL)
-		return -EINVAL;
-
-	/* Lock whole blob so eblob_remove_all looks atomic */
-	pthread_mutex_lock(&b->lock);
-
-	/* FIXME: l2hash does not support O(1) remove_all */
-	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		struct eblob_ram_control rctl;
-		for (i = 0; i <= b->l2hash_max; ++i) {
-			/* Lookup hash entry */
-			pthread_rwlock_rdlock(&b->hash->root_lock);
-			err = eblob_l2hash_lookup(b->l2hash[i], key, &rctl);
-			pthread_rwlock_unlock(&b->hash->root_lock);
-			if (err != 0 && err != -ENOENT) {
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"blob: %s: %s: l2hash lookup: FAILED: type: %d: %d.\n",
-						eblob_dump_id(key->id), __func__, i, err);
-				goto err_out_exit;
-			}
-			if (err == -ENOENT)
-				continue;
-
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-					"blob: %s: %s: l2hash: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
-					"type: %d, index: %d.\n",
-					eblob_dump_id(key->id), __func__, rctl.data_offset, rctl.size,
-					rctl.bctl->type, rctl.bctl->index);
-
-			/* Remove on disk */
-			if ((err = eblob_mark_entry_removed_purge(b, key, &rctl)) != 0)
-				goto err_out_exit;
-
-			removed = 1;
-		}
-	}
-
-	err = eblob_hash_lookup_alloc(b->hash, key, (void **)&ctl, &size);
-	if (err) {
-		err = eblob_disk_index_lookup(b, key, -1, &ctl, (int *)&size);
-		if (err && !removed) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"blob: %s: %s: hash: eblob_disk_index_lookup: all-types: %d.\n",
-					eblob_dump_id(key->id), __func__, err);
-			goto err_out_exit;
-		}
-	}
-
-	assert(size % sizeof(struct eblob_ram_control) == 0);
-
-	/*
-	 * Key may be found in number of bases across many types - remove all
-	 * of them
-	 */
-	for (i = 0; (unsigned) i < size / sizeof(struct eblob_ram_control); ++i) {
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-				"blob: %s: %s: removing block at: %" PRIu64 ", size: %" PRIu64 ", "
-				"type: %d, index: %d.\n",
-				eblob_dump_id(key->id), __func__, ctl[i].data_offset, ctl[i].size,
-				ctl[i].bctl->type, ctl[i].bctl->index);
-
-		/* Remove from disk */
-		if ((err = eblob_mark_entry_removed_purge(b, key, &ctl[i])) != 0)
-			goto err_out_free;
-	}
-	err = 0;
-
-err_out_free:
-	free(ctl);
-err_out_exit:
-	pthread_mutex_unlock(&b->lock);
-	return err;
-}
-
-/**
- * eblob_remove() - remove entry from specified column
- * @type:	column's number
- */
-int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
+int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 {
 	struct eblob_ram_control ctl;
 	int err, disk;
 
-	err = eblob_lookup_type(b, key, type, &ctl, &disk);
+	err = eblob_cache_lookup(b, key, &ctl, &disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_remove: eblob_lookup_type: type: %d: %d.\n",
-				eblob_dump_id(key->id), type, err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: %s: eblob_cache_lookup: %d.\n",
+				eblob_dump_id(key->id), __func__, err);
 		goto err_out_exit;
 	}
 
@@ -1874,8 +1782,10 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type)
 		goto err_out_exit;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_remove: removed block at: %llu, size: %llu, type: %d.\n",
-		eblob_dump_id(key->id), (unsigned long long)ctl.data_offset, (unsigned long long)ctl.size, type);
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+		"blob: %s: eblob_remove: removed block at: %" PRIu64
+		", size: %" PRIu64 ".\n",
+		eblob_dump_id(key->id), ctl.data_offset, ctl.size);
 
 err_out_exit:
 	return err;
@@ -1958,7 +1868,7 @@ err_out_exit:
  * eblob_read_ll() - returns @fd, @offset and @size of data for given key.
  * Caller should the read data manually.
  */
-static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int type,
+static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
 	int err, compressed = 0;
@@ -1968,12 +1878,11 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 	assert(wc != NULL);
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
-	wc->type = type; /* FIXME */
-
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
 	if (err < 0) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: eblob_fill_write_control_from_ram: type: %d: %d.\n",
-				eblob_dump_id(key->id), type, err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: %s: %s: eblob_fill_write_control_from_ram: %d.\n",
+				eblob_dump_id(key->id), __func__, err);
 		goto err_out_exit;
 	}
 
@@ -2006,7 +1915,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int ty
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: index-removed: fd: %d: offset: %llu: %d.\n",
 					eblob_dump_id(key->id), wc->index_fd, (unsigned long long)wc->ctl_index_offset, err);
 			err = -ENOENT;
-			eblob_remove_type(b, key, type);
+			eblob_cache_remove(b, key);
 			goto err_out_exit;
 		}
 	}
@@ -2029,7 +1938,7 @@ err_out_exit:
  * Wrapper that reads via _eblob_read_ll expands wc into fd, offset, size
  */
 static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
-		uint64_t *offset, uint64_t *size, int type, enum eblob_read_flavour csum)
+		uint64_t *offset, uint64_t *size, enum eblob_read_flavour csum)
 {
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
@@ -2037,7 +1946,7 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	if (b == NULL || key == NULL || fd == NULL || offset == NULL || size == NULL)
 		return -EINVAL;
 
-	err = _eblob_read_ll(b, key, type, csum, &wc);
+	err = _eblob_read_ll(b, key, csum, &wc);
 	if (err < 0)
 		goto err;
 
@@ -2049,24 +1958,24 @@ err:
 }
 
 int eblob_read(struct eblob_backend *b, struct eblob_key *key, int *fd,
-		uint64_t *offset, uint64_t *size, int type)
+		uint64_t *offset, uint64_t *size)
 {
-	return eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_CSUM);
+	return eblob_read_ll(b, key, fd, offset, size, EBLOB_READ_CSUM);
 }
 
 int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
-		int *fd, uint64_t *offset, uint64_t *size, int type)
+		int *fd, uint64_t *offset, uint64_t *size)
 {
-	return eblob_read_ll(b, key, fd, offset, size, type, EBLOB_READ_NOCSUM);
+	return eblob_read_ll(b, key, fd, offset, size, EBLOB_READ_NOCSUM);
 }
 
 int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
-		int type, enum eblob_read_flavour csum, struct eblob_write_control *wc)
+		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
 	if (b == NULL || key == NULL || wc == NULL)
 		return -EINVAL;
 
-	return _eblob_read_ll(b, key, type, csum, wc);
+	return _eblob_read_ll(b, key, csum, wc);
 }
 
 /**
@@ -2108,17 +2017,16 @@ void eblob_data_unmap(struct eblob_map_fd *map)
  * @offset:	offset inside record
  * @dst:	pointer to destination pointer
  * @size:	pointer to store size of data
- * @type:	column of the @key
  */
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
-		uint64_t offset, char **dst, uint64_t *size, int type, enum eblob_read_flavour csum)
+		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
 	int err, compress = 0;
 	struct eblob_map_fd m;
 
 	memset(&m, 0, sizeof(m));
 
-	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, type, csum);
+	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, csum);
 	if (err < 0)
 		goto err_out_exit;
 
@@ -2175,25 +2083,26 @@ err_out_exit:
 	return err;
 }
 
-int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+int eblob_read_data(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size)
 {
-	return eblob_read_data_ll(b, key, offset, dst, size, type, EBLOB_READ_CSUM);
+	return eblob_read_data_ll(b, key, offset, dst, size, EBLOB_READ_CSUM);
 }
 
-int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size, int type)
+int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key, uint64_t offset, char **dst, uint64_t *size)
 {
-	return eblob_read_data_ll(b, key, offset, dst, size, type, EBLOB_READ_NOCSUM);
+	return eblob_read_data_ll(b, key, offset, dst, size, EBLOB_READ_NOCSUM);
 }
 
 
 /**
  * eblob_sync() - sync thread.
- * Ones in a while syncs all bases of all columns of current blob to disk.
+ * Ones in a while syncs all bases of current blob to disk.
  */
 static void *eblob_sync(void *data)
 {
 	struct eblob_backend *b = data;
-	int i, max_type, sleep_time = b->cfg.sync;
+	struct eblob_base_ctl *ctl;
+	int sleep_time = b->cfg.sync;
 
 	while (b->cfg.sync && !b->need_exit) {
 		if (sleep_time != 0) {
@@ -2202,18 +2111,9 @@ static void *eblob_sync(void *data)
 			continue;
 		}
 
-		pthread_mutex_lock(&b->lock);
-		max_type = b->max_type;
-		pthread_mutex_unlock(&b->lock);
-
-		for (i = 0; i <= max_type; ++i) {
-			struct eblob_base_type *t = &b->types[i];
-			struct eblob_base_ctl *ctl;
-
-			list_for_each_entry(ctl, &t->bases, base_entry) {
-				fsync(ctl->data_fd);
-				fsync(eblob_get_index_fd(ctl));
-			}
+		list_for_each_entry(ctl, &b->bases, base_entry) {
+			fsync(ctl->data_fd);
+			fsync(eblob_get_index_fd(ctl));
 		}
 
 		sleep_time = b->cfg.sync;
@@ -2281,20 +2181,15 @@ static void *eblob_periodic(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
-	int i;
-
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 	pthread_join(b->defrag_tid, NULL);
 	pthread_join(b->periodic_tid, NULL);
 
-	eblob_base_types_cleanup(b);
+	eblob_bases_cleanup(b);
 
-	eblob_hash_destroy(b->hash);
-
-	for (i = b->l2hash_max; i >= 0; i--)
-		eblob_l2hash_destroy(b->l2hash[i]);
-	free(b->l2hash);
+	eblob_hash_destroy(&b->hash);
+	eblob_l2hash_destroy(&b->l2hash);
 
 	free(b->cfg.file);
 
@@ -2345,8 +2240,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		errno = -ENOMEM;
 		goto err_out_exit;
 	}
-
-	b->max_type = -1;
 
 	snprintf(stat_file, sizeof(stat_file), "%s.stat", c->file);
 	err = eblob_stat_init(&b->stat, stat_file);
@@ -2412,13 +2305,19 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 	pthread_mutexattr_destroy(&attr);
 
-	b->l2hash_max = -1;
+	INIT_LIST_HEAD(&b->bases);
+	b->max_index = -1;
 
-	b->hash = eblob_hash_init();
-	if (!b->hash) {
-		err = errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
+	err = eblob_l2hash_init(&b->l2hash);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: l2hash initialization failed: %s %d.\n", strerror(-err), err);
 		goto err_out_lock_destroy;
+	}
+
+	err = eblob_hash_init(&b->hash);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: hash initialization failed: %s %d.\n", strerror(-err), err);
+		goto err_out_l2hash_destroy;
 	}
 
 	err = eblob_load_data(b);
@@ -2454,9 +2353,11 @@ err_out_join_sync:
 	b->need_exit = 1;
 	pthread_join(b->sync_tid, NULL);
 err_out_cleanup:
-	eblob_base_types_cleanup(b);
+	eblob_bases_cleanup(b);
+err_out_l2hash_destroy:
+	eblob_l2hash_destroy(&b->l2hash);
 err_out_hash_destroy:
-	eblob_hash_destroy(b->hash);
+	eblob_hash_destroy(&b->hash);
 err_out_lock_destroy:
 	pthread_mutex_destroy(&b->lock);
 err_out_lockf:
@@ -2479,54 +2380,30 @@ unsigned long long eblob_total_elements(struct eblob_backend *b)
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
 		const void *data, const uint64_t offset, const uint64_t dsize,
-		const uint64_t flags, int type)
+		const uint64_t flags)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
 
-	return eblob_write(b, &ekey, (void *)data, offset, dsize, flags, type);
+	return eblob_write(b, &ekey, (void *)data, offset, dsize, flags);
 }
 
 int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		int *fd, uint64_t *offset, uint64_t *size, int type)
+		int *fd, uint64_t *offset, uint64_t *size)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
 
-	return eblob_read(b, &ekey, fd, offset, size, type);
+	return eblob_read(b, &ekey, fd, offset, size);
 }
 
-int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize, int type)
+int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(b, ekey.id, sizeof(ekey.id), key, ksize);
 
-	return eblob_remove(b, &ekey, type);
-}
-
-int eblob_get_types(struct eblob_backend *b, int **typesp)
-{
-	struct eblob_base_type *type;
-	int types_num, i;
-	int *types;
-
-	types_num = b->max_type + 1;
-	if (types_num <= 1)
-		return -ENOENT;
-
-	types = calloc(types_num, sizeof(int));
-	if (types == NULL)
-		return -ENOMEM;
-
-	for (i = 0; i <= b->max_type; ++i) {
-		type = &b->types[i];
-		types[i] = type->type;
-	}
-
-	*typesp = types;
-
-	return types_num;
+	return eblob_remove(b, &ekey);
 }

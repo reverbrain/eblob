@@ -85,11 +85,6 @@ struct eblob_map_fd {
 int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
 
-struct eblob_base_type {
-	int			type, index;
-	struct list_head	bases;
-};
-
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
 /*
  * Number of bits in bloom filter per index blob.
@@ -135,7 +130,7 @@ struct eblob_base_ctl {
 	struct eblob_backend	*back;
 	struct list_head	base_entry;
 
-	int			type, index;
+	int			index;
 
 	pthread_mutex_t		lock;
 	int			data_fd, index_fd;
@@ -383,14 +378,13 @@ struct eblob_backend {
 
 	pthread_mutex_t		lock;
 
-	int			max_type;
-	struct eblob_base_type	*types;
+	struct list_head	bases;
+	int			max_index;
 
-	struct eblob_hash	*hash;
-	/* Array of pointers to level two hashes - one for each type */
-	struct eblob_l2hash	**l2hash;
-	/* Maximum initialized l2hash */
-	int			l2hash_max;
+	/* In memory cache */
+	struct eblob_hash	hash;
+	/* Level two hash table */
+	struct eblob_l2hash	l2hash;
 
 	struct eblob_stat	stat;
 
@@ -413,21 +407,20 @@ struct eblob_backend {
 	int			lock_fd;
 };
 
-int eblob_add_new_base(struct eblob_backend *b, int type);
+int eblob_add_new_base(struct eblob_backend *b);
 int eblob_load_data(struct eblob_backend *b);
-void eblob_base_types_cleanup(struct eblob_backend *b);
+void eblob_bases_cleanup(struct eblob_backend *b);
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control *res, int *diskp);
-int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
+int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
+int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
+int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
+int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
 
-int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type,
+int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control **dst, int *dsize);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
-int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,
-		struct eblob_base_type **typesp, int *max_typep);
+int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
@@ -472,7 +465,7 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
 
-struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
+struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
 
 /* Logging helpers */

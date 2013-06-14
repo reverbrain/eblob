@@ -110,26 +110,13 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_hash *eblob_hash_init()
+int eblob_hash_init(struct eblob_hash *h)
 {
-	struct eblob_hash *h;
-	int err;
-
-	h = malloc(sizeof(struct eblob_hash));
-	if (!h) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
 	memset(h, 0, sizeof(struct eblob_hash));
-
 	h->root = RB_ROOT;
 	pthread_rwlock_init(&h->root_lock, NULL);
 
-	return h;
-
-err_out_exit:
-	errno = err;
-	return NULL;
+	return 0;
 }
 
 void eblob_hash_destroy(struct eblob_hash *h)
@@ -147,7 +134,6 @@ void eblob_hash_destroy(struct eblob_hash *h)
 	}
 
 	pthread_rwlock_destroy(&h->root_lock);
-	free(h);
 }
 
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)

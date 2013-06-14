@@ -26,7 +26,7 @@ struct eblob_hash {
 	pthread_rwlock_t	root_lock;
 };
 
-struct eblob_hash *eblob_hash_init();
+int eblob_hash_init(struct eblob_hash *h);
 void eblob_hash_destroy(struct eblob_hash *h);
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);

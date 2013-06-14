@@ -84,7 +84,7 @@ static int datasort_base_get_path(struct eblob_backend *b, struct eblob_base_ctl
 	if (b == NULL || bctl == NULL || path == NULL)
 		return -EINVAL;
 
-	snprintf(path, path_max, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, path_max, "%s-0.%d", b->cfg.file, bctl->index);
 	return 0;
 }
 
@@ -1042,7 +1042,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/*
 	 * Manually add new base.
 	 */
-	sorted_bctl = eblob_base_ctl_new(dcfg->b, unsorted_bctl->type, unsorted_bctl->index,
+	sorted_bctl = eblob_base_ctl_new(dcfg->b, unsorted_bctl->index,
 			unsorted_bctl->name, strlen(unsorted_bctl->name));
 	if (sorted_bctl == NULL) {
 		err = -ENOMEM;
@@ -1125,7 +1125,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Protect l2hash/hash from accessing stale fds */
-	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash->root_lock)) != 0) {
+	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash.root_lock)) != 0) {
 		err = -err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
 		goto err_unmap;
@@ -1146,10 +1146,10 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		 * TODO: Make it batch for speedup - for example add function
 		 * like "remove all keys with given bctl"
 		 */
-		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, sorted_bctl->type);
+		err = eblob_cache_remove_nolock(dcfg->b, &dcfg->result->index[i].key);
 		if (err != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_DEBUG, -err,
-					"eblob_remove_type_nolock: %s, offset: %" PRIu64,
+					"eblob_hash_remove_nolock: %s, offset: %" PRIu64,
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
@@ -1168,7 +1168,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Unlock hash */
-	pthread_rwlock_unlock(&dcfg->b->hash->root_lock);
+	pthread_rwlock_unlock(&dcfg->b->hash.root_lock);
 
 	/* Save pointer to sorted_bctl for datasort_swap_disk() */
 	dcfg->sorted_bctl = sorted_bctl;

@@ -69,9 +69,9 @@ void eblob::key(const std::string &key, struct eblob_key &ekey)
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
 }
 
-void eblob::write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize, uint64_t flags, int type)
+void eblob::write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize, uint64_t flags)
 {
-	int err = eblob_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, dsize, flags, type);
+	int err = eblob_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, dsize, flags);
 	if (err) {
 		std::ostringstream str;
 		str << "eblob write failed: dsize: " << dsize << ": " << strerror(-err);
@@ -79,25 +79,25 @@ void eblob::write(const struct eblob_key &key, const void *data, const uint64_t 
 	}
 }
 
-void eblob::write(const struct eblob_key &key, const std::string &data, const uint64_t offset, uint64_t flags, int type)
+void eblob::write(const struct eblob_key &key, const std::string &data, const uint64_t offset, uint64_t flags)
 {
-	write(key, data.data(), offset, data.size(), flags, type);
+	write(key, data.data(), offset, data.size(), flags);
 }
 
-int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size, int type)
+int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size)
 {
-	return read(key, fd, offset, size, EBLOB_READ_CSUM, type);
+	return read(key, fd, offset, size, EBLOB_READ_CSUM);
 }
 
 int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
-		enum eblob_read_flavour csum, int type)
+		enum eblob_read_flavour csum)
 {
 	int err;
 
 	if (csum)
-		err = eblob_read(eblob_, (struct eblob_key *)&key, fd, offset, size, type);
+		err = eblob_read(eblob_, (struct eblob_key *)&key, fd, offset, size);
 	else
-		err = eblob_read_nocsum(eblob_, (struct eblob_key *)&key, fd, offset, size, type);
+		err = eblob_read_nocsum(eblob_, (struct eblob_key *)&key, fd, offset, size);
 	if (err < 0) {
 		std::ostringstream str;
 		str << "eblob read failed: " << strerror(-err);
@@ -107,13 +107,13 @@ int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t
 	return err;
 }
 
-std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset, const uint64_t req_size, int type)
+std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset, const uint64_t req_size)
 {
-	return read(key, req_offset, req_size, EBLOB_READ_CSUM, type);
+	return read(key, req_offset, req_size, EBLOB_READ_CSUM);
 }
 
 std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset,
-		const uint64_t req_size, enum eblob_read_flavour csum, int type)
+		const uint64_t req_size, enum eblob_read_flavour csum)
 {
 	std::string ret;
 
@@ -122,9 +122,9 @@ std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset,
 	uint64_t dsize = req_size;
 
 	if (csum)
-		err = eblob_read_data(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize, type);
+		err = eblob_read_data(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize);
 	else
-		err = eblob_read_data_nocsum(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize, type);
+		err = eblob_read_data_nocsum(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize);
 	if (err < 0) {
 		std::ostringstream str;
 		str << "eblob read failed: " << strerror(-err);
@@ -142,50 +142,45 @@ std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset,
 	return ret;
 }
 
-void eblob::write_hashed(const std::string &key, const std::string &data, const uint64_t offset, uint64_t flags, int type)
+void eblob::write_hashed(const std::string &key, const std::string &data, const uint64_t offset, uint64_t flags)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
-	write(ekey, data, offset, flags, type);
+	write(ekey, data, offset, flags);
 }
 
-void eblob::read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size, int type)
+void eblob::read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size)
 {
-	read_hashed(key, fd, offset, size, EBLOB_READ_CSUM, type);
+	read_hashed(key, fd, offset, size, EBLOB_READ_CSUM);
 }
 
 void eblob::read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size,
-		enum eblob_read_flavour csum, int type)
+		enum eblob_read_flavour csum)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
-	read(ekey, fd, offset, size, csum, type);
+	read(ekey, fd, offset, size, csum);
 }
 
-std::string eblob::read_hashed(const std::string &key, const uint64_t offset, const uint64_t size, int type)
+std::string eblob::read_hashed(const std::string &key, const uint64_t offset, const uint64_t size)
 {
-	return read_hashed(key, offset, size, EBLOB_READ_CSUM, type);
+	return read_hashed(key, offset, size, EBLOB_READ_CSUM);
 }
 
 std::string eblob::read_hashed(const std::string &key, const uint64_t offset, const uint64_t size,
-		enum eblob_read_flavour csum, int type)
+		enum eblob_read_flavour csum)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
-	return read(ekey, offset, size, csum, type);
+	return read(ekey, offset, size, csum);
 }
 
-void eblob::remove(const struct eblob_key &key, int type)
+void eblob::remove(const struct eblob_key &key)
 {
-	eblob_remove(eblob_, (struct eblob_key *)&key, type);
-}
-
-void eblob::remove_all(const struct eblob_key &key)
-{
-	eblob_remove_all(eblob_, (struct eblob_key *)&key);
+	eblob_remove(eblob_, (struct eblob_key *)&key);
 }
 
 unsigned long long eblob::elements(void)
@@ -193,9 +188,9 @@ unsigned long long eblob::elements(void)
 	return eblob_total_elements(eblob_);
 }
 
-void eblob::remove_hashed(const std::string &key, int type)
+void eblob::remove_hashed(const std::string &key)
 {
-	eblob_remove_hashed(eblob_, key.data(), key.size(), type);
+	eblob_remove_hashed(eblob_, key.data(), key.size());
 }
 
 void eblob::remove_blobs(void)
@@ -208,7 +203,7 @@ int eblob::iterate(struct eblob_iterate_control &ctl)
 	return eblob_iterate(eblob_, &ctl);
 }
 
-void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags, const int type)
+void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
 	struct eblob_write_control wc;
 	int err;
@@ -217,26 +212,25 @@ void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uin
 
 	wc.size = size;
 	wc.flags = flags;
-	wc.type = type;
 
 	err = eblob_write_commit(eblob_, (struct eblob_key *)&key, NULL, 0, &wc);
 	if (err < 0) {
 		std::ostringstream str;
 		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to truncate/commit to " << size <<
-			", flags: " << flags << ", type: " << type << ", err: " << err;
+			", flags: " << flags << ", err: " << err;
 		throw std::runtime_error(str.str());
 	}
 }
 
-void eblob::truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags, const int type)
+void eblob::truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags)
 {
 	struct eblob_key ekey;
 
 	eblob_hash(eblob_, ekey.id, sizeof(ekey.id), key.data(), key.size());
-	truncate(ekey, size, flags, type);
+	truncate(ekey, size, flags);
 }
 
-void eblob::prepare(const struct eblob_key &key, const uint64_t prepare_size, const uint64_t flags, const int type)
+void eblob::prepare(const struct eblob_key &key, const uint64_t prepare_size, const uint64_t flags)
 {
 	int err;
 	struct eblob_write_control wc;
@@ -245,30 +239,29 @@ void eblob::prepare(const struct eblob_key &key, const uint64_t prepare_size, co
 
 	wc.size = prepare_size;
 	wc.flags = flags;
-	wc.type = type;
 
 	err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, &wc);
 	if (err) {
 		std::ostringstream str;
 		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to prepare for size: " << prepare_size <<
-			", flags: " << flags << ", type: " << type << ", err: " << err;
+			", flags: " << flags << ", err: " << err;
 		throw std::runtime_error(str.str());
 	}
 }
 
-void eblob::prepare_hashed(const std::string &kdata, const uint64_t prepare_size, const uint64_t flags, const int type)
+void eblob::prepare_hashed(const std::string &kdata, const uint64_t prepare_size, const uint64_t flags)
 {
 	struct eblob_key key;
 
 	eblob_hash(eblob_, key.id, sizeof(key.id), kdata.data(), kdata.size());
-	prepare(key, prepare_size, flags, type);
+	prepare(key, prepare_size, flags);
 }
 
-void eblob::commit(const struct eblob_key &key, const uint64_t size, const uint64_t flags, const int type)
+void eblob::commit(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
-	truncate(key, size, flags, type);
+	truncate(key, size, flags);
 }
-void eblob::commit_hashed(const std::string &key, const uint64_t size, const uint64_t flags, const int type)
+void eblob::commit_hashed(const std::string &key, const uint64_t size, const uint64_t flags)
 {
-	truncate_hashed(key, size, flags, type);
+	truncate_hashed(key, size, flags);
 }

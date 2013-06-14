@@ -56,9 +56,9 @@ static int eblob_defrag_count(struct eblob_disk_control *dc,
 
 	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG,
 			"defrag: count: %s: size: %" PRIu64 ", position: %" PRIu64 ", "
-			"flags: %" PRIu64 ", type: %d, good: %d\n",
+			"flags: %" PRIu64 ", good: %d\n",
 			eblob_dump_id(dc->key.id), dc->data_size, dc->position,
-			dc->flags, ctl->bctl->type, bctl->good);
+			dc->flags, bctl->good);
 
 	pthread_mutex_lock(&bctl->dlock);
 	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
@@ -115,9 +115,9 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		err = -1;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-			"%s: index: %d, type: %d, removed: %d, total: %d, "
+			"%s: index: %d, removed: %d, total: %d, "
 			"percentage: %d, want-defrag: %d\n",
-			__func__, bctl->index, bctl->type, removed, total,
+			__func__, bctl->index, removed, total,
 			b->cfg.defrag_percentage, err);
 
 err_out_exit:
@@ -127,83 +127,78 @@ err_out_exit:
 
 static int eblob_defrag_raw(struct eblob_backend *b)
 {
-	int err = 0, i;
+	struct eblob_base_ctl *bctl;
+	int err = 0;
 
 	eblob_stat_set_sort_status(b, 1);
-	for (i = 0; i <= b->max_type; ++i) {
-		struct eblob_base_type *t = &b->types[i];
-		struct eblob_base_ctl *bctl;
 
-		/*
-		 * It should be safe to iterate without locks, since we never
-		 * delete entry, and add only to the end which is safe
-		 */
-		list_for_each_entry(bctl, &t->bases, base_entry) {
-			/* By default we want to sort any unsorted blob */
-			int want = (datasort_base_is_sorted(bctl) == 0);
+	/*
+	 * It should be safe to iterate without locks, since we never
+	 * delete entry, and add only to the end which is safe
+	 */
+	list_for_each_entry(bctl, &b->bases, base_entry) {
+		/* By default we want to sort any unsorted blob */
+		int want = (datasort_base_is_sorted(bctl) == 0);
 
-			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
-					"defrag: start type: %d, index: %d\n",
-					bctl->type, bctl->index);
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: start: index: %d\n", bctl->index);
 
-			if (b->need_exit) {
-				err = 0;
-				goto err_out_exit;
-			}
-
-			/* do not process last entry, it can be used for writing */
-			if (list_is_last(&bctl->base_entry, &t->bases))
-				break;
-
-			switch (eblob_want_defrag(bctl)) {
-			case 0:
-				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-						"empty blob - removing.");
-
-				/* Accounting */
-				b->current_blob_size -= bctl->index_size;
-				b->current_blob_size -= bctl->data_size;
-
-				/*
-				 * TODO: It's better to also preform minimal
-				 * cleanup: unmap data/index and close fds
-				 */
-				eblob_base_remove(bctl);
-				want = 0;
-				break;
-			case 1:
-				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
-						"blob fragmented - forced datasort.");
-				want = 1;
-				break;
-			case -1:
-				break;
-			default:
-				EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-						"eblob_want_defrag: FAILED");
-			}
-
-			if (want) {
-				struct datasort_cfg dcfg = {
-					.b = b,
-					.bctl = bctl,
-					.log = b->cfg.log,
-					.use_binlog = 1,
-				};
-
-				err = eblob_generate_sorted_data(&dcfg);
-				if (err) {
-					eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-							"defrag: datasort: FAILED: %d, %d, index: %d\n",
-							err, bctl->type, bctl->index);
-					continue;
-				}
-			}
-
-			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
-					"defrag: complete type: %d, index: %d\n",
-					bctl->type, bctl->index);
+		if (b->need_exit) {
+			err = 0;
+			goto err_out_exit;
 		}
+
+		/* do not process last entry, it can be used for writing */
+		if (list_is_last(&bctl->base_entry, &b->bases))
+			break;
+
+		switch (eblob_want_defrag(bctl)) {
+		case 0:
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+					"empty blob - removing.");
+
+			/* Accounting */
+			b->current_blob_size -= bctl->index_size;
+			b->current_blob_size -= bctl->data_size;
+
+			/*
+			 * TODO: It's better to also preform minimal
+			 * cleanup: unmap data/index and close fds
+			 */
+			eblob_base_remove(bctl);
+			want = 0;
+			break;
+		case 1:
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+					"blob fragmented - forced datasort.");
+			want = 1;
+			break;
+		case -1:
+			break;
+		default:
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
+					"eblob_want_defrag: FAILED");
+		}
+
+		if (want) {
+			struct datasort_cfg dcfg = {
+				.b = b,
+				.bctl = bctl,
+				.log = b->cfg.log,
+				.use_binlog = 1,
+			};
+
+			err = eblob_generate_sorted_data(&dcfg);
+			if (err) {
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+						"defrag: datasort: FAILED: %d, index: %d\n",
+						err, bctl->index);
+				continue;
+			}
+		}
+
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: complete: index: %d\n", bctl->index);
 	}
 
 err_out_exit:

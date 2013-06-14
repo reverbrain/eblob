@@ -422,14 +422,14 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_free_file;
 	}
 
-	snprintf(file, len, "%s-%d.%d.index.tmp", b->cfg.file, bctl->type, bctl->index);
-	snprintf(dst_file, len, "%s-%d.%d.index.sorted", b->cfg.file, bctl->type, bctl->index);
+	snprintf(file, len, "%s-0.%d.index.tmp", b->cfg.file, bctl->index);
+	snprintf(dst_file, len, "%s-0.%d.index.sorted", b->cfg.file, bctl->index);
 
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: open: index: %d, type: %d: %s: %s %d\n",
-				bctl->index, bctl->type, file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: open: index: %d: %s: %s %d\n",
+				bctl->index, file, strerror(-err), err);
 		goto err_out_free_dst_file;
 	}
 
@@ -438,15 +438,15 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	src.size = eblob_get_actual_size(src.fd);
 	if (src.size <= 0) {
 		err = src.size;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: actual-size: index: %d, type: %d: %s: %s %d\n",
-				bctl->index, bctl->type, file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: actual-size: index: %d: %s: %s %d\n",
+				bctl->index, file, strerror(-err), err);
 		goto err_out_close;
 	}
 
 	err = eblob_data_map(&src);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, type: %d: size: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, (unsigned long long)src.size, file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: src-map: index: %d, size: %llu: %s: %s %d\n",
+				bctl->index, (unsigned long long)src.size, file, strerror(-err), err);
 		goto err_out_close;
 	}
 
@@ -456,15 +456,15 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	err = ftruncate(dst.fd, dst.size);
 	if (err) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: ftruncate: index: %d, type: %d: offset: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, (unsigned long long)dst.size, file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: ftruncate: index: %d, offset: %llu: %s: %s %d\n",
+				bctl->index, (unsigned long long)dst.size, file, strerror(-err), err);
 		goto err_out_unmap_src;
 	}
 
 	err = eblob_data_map(&dst);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, type: %d: size: %llu: %s: %s %d\n",
-				bctl->index, bctl->type, (unsigned long long)dst.size, file, strerror(-err), err);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: dst-map: index: %d, size: %llu: %s: %s %d\n",
+				bctl->index, (unsigned long long)dst.size, file, strerror(-err), err);
 		goto err_out_unmap_src;
 	}
 
@@ -479,10 +479,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	bctl->sort = dst;
 	pthread_mutex_unlock(&bctl->lock);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, type: %d, "
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, "
 			"index-size: %llu, data-size: %llu, file: %s\n",
-			bctl->index, bctl->type, (unsigned long long)dst.size, (unsigned long long)bctl->data_offset,
-			file);
+			bctl->index, (unsigned long long)dst.size, (unsigned long long)bctl->data_offset, file);
 
 	rename(file, dst_file);
 
@@ -505,116 +504,95 @@ err_out_exit:
 	return err;
 }
 
-int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control **dst, int *dsize)
+int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control **dst, int *dsize)
 {
 	struct eblob_base_ctl *bctl;
 	struct eblob_ram_control *rc = NULL, *r;
 	struct eblob_disk_control *dc, tmp;
-	int num = 0, i, err;
-	int start_type, max_type;
+	int num = 0, err;
 	struct eblob_disk_search_stat st;
 
 	*dst = NULL;
 	*dsize = 0;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-			"blob: %s: index: disk: type: %d, max_type: %d\n",
-			eblob_dump_id(key->id),	type, b->max_type);
-
-	if (type >= 0) {
-		if (type > b->max_type) {
-			err = -ENOENT;
-			goto err_out_exit;
-		}
-
-		start_type = max_type = type;
-	} else {
-		start_type = 0;
-		max_type = b->max_type;
-	}
+			"blob: %s: index: disk.\n", eblob_dump_id(key->id));
 
 	memset(&tmp, 0, sizeof(tmp));
 	memcpy(&tmp.key, key, sizeof(struct eblob_key));
 
-	assert(start_type <= max_type);
+	memset(&st, 0, sizeof(st));
+	list_for_each_entry_reverse(bctl, &b->bases, base_entry) {
+		if (bctl->sort.fd < 0)
+			continue;
 
-	for (i = start_type; i <= max_type; ++i) {
-		struct eblob_base_type *t = &b->types[i];
+		/* Protect against datasort */
+		eblob_bctl_hold(bctl);
 
-		memset(&st, 0, sizeof(st));
-		list_for_each_entry_reverse(bctl, &t->bases, base_entry) {
-			if (bctl->sort.fd < 0)
-				continue;
-
-			/* Protect against datasort */
-			eblob_bctl_hold(bctl);
-
-			/* Check that bctl is invalidated by datasort */
-			if (bctl->index_fd < 0) {
-				err = -EAGAIN;
-				goto out_unlock;
-			}
-
-			if (bctl->sort.fd < 0) {
-				err = -ENOENT;
-				goto out_unlock;
-			}
-
-			dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
-			if (!dc) {
-				err = -ENOENT;
-				eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-						"blob: %s: index: disk: index: %d, type: %d: NO DATA\n",
-						eblob_dump_id(key->id),	bctl->index, bctl->type);
-				goto out_unlock;
-			}
-
-			num++;
-			r = realloc(rc, sizeof(struct eblob_ram_control) * num);
-			if (!r) {
-				free(rc);
-				err = -ENOMEM;
-				goto out_unlock;
-			}
-
-			rc = r;
-			r = &rc[num - 1];
-
-			eblob_convert_disk_control(dc);
-
-			r->data_offset = dc->position;
-			r->index_offset = (void *)dc - bctl->sort.data;
-
-			r->size = dc->data_size;
-			r->bctl = bctl;
-
-			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-					"blob: %s: index: disk: index: %d, type: %d, "
-					"position: %" PRIu64 ", data_size: %" PRIu64 "\n",
-					eblob_dump_id(key->id), r->bctl->index, r->bctl->type,
-					r->data_offset, r->size);
-
-			eblob_convert_disk_control(dc);
-			err = 0;
-out_unlock:
-			eblob_bctl_release(bctl);
-
-			if (err == -ENOENT)
-				continue;
-
-			if (err == 0)
-				break;
-
-			if (err < 0)
-				goto err_out_exit;
+		/* Check that bctl is invalidated by datasort */
+		if (bctl->index_fd < 0) {
+			err = -EAGAIN;
+			goto out_unlock;
 		}
 
+		if (bctl->sort.fd < 0) {
+			err = -ENOENT;
+			goto out_unlock;
+		}
+
+		dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
+		if (!dc) {
+			err = -ENOENT;
+			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+					"blob: %s: index: disk: index: %d, NO DATA\n",
+					eblob_dump_id(key->id),	bctl->index);
+			goto out_unlock;
+		}
+
+		num++;
+		r = realloc(rc, sizeof(struct eblob_ram_control) * num);
+		if (!r) {
+			free(rc);
+			err = -ENOMEM;
+			goto out_unlock;
+		}
+
+		rc = r;
+		r = &rc[num - 1];
+
+		eblob_convert_disk_control(dc);
+
+		r->data_offset = dc->position;
+		r->index_offset = (void *)dc - bctl->sort.data;
+
+		r->size = dc->data_size;
+		r->bctl = bctl;
+
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-				"blob: %s: type: %d, stat: range_has_key: %d, bloom_null: %d, "
-				"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
-				eblob_dump_id(key->id),	i, st.range_has_key, st.bloom_null,
-				st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);
+				"blob: %s: index: disk: index: %d, position: %" PRIu64
+				", data_size: %" PRIu64 "\n", eblob_dump_id(key->id),
+				r->bctl->index, r->data_offset, r->size);
+
+		eblob_convert_disk_control(dc);
+		err = 0;
+out_unlock:
+		eblob_bctl_release(bctl);
+
+		if (err == -ENOENT)
+			continue;
+
+		if (err == 0)
+			break;
+
+		if (err < 0)
+			goto err_out_exit;
 	}
+
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+			"blob: %s: stat: range_has_key: %d, bloom_null: %d, "
+			"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, found: %d\n",
+			eblob_dump_id(key->id),	st.range_has_key, st.bloom_null,
+			st.bsearch_reached, st.bsearch_found, st.additional_reads, !!rc);
 
 	err = 0;
 	if (!rc)
