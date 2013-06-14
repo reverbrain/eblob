@@ -1137,8 +1137,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	if (!wc->size)
 		wc->size = dc.data_size;
 
-	err = !!(dc.flags & BLOB_DISK_CTL_COMPRESS);
-
 	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
@@ -1871,7 +1869,7 @@ err_out_exit:
 static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
-	int err, compressed = 0;
+	int err;
 
 	assert(b != NULL);
 	assert(key != NULL);
@@ -1886,7 +1884,10 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	compressed = err;
+	if (wc->flags & BLOB_DISK_CTL_COMPRESS) {
+		err = -ENOTSUP;
+		goto err_out_exit;
+	}
 
 	if ((csum != EBLOB_READ_NOCSUM) && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, wc);
@@ -1927,8 +1928,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
 			csum, err);
-
-	err = compressed;
 
 err_out_exit:
 	return err;
@@ -2012,7 +2011,7 @@ void eblob_data_unmap(struct eblob_map_fd *map)
 
 /**
  * eblob_read_data_ll() - unlike eblob_read it mmaps data, reads it
- * adjusting @dst pointer and manages compressed data.
+ * adjusting @dst pointer;
  * @key:	hashed key to read
  * @offset:	offset inside record
  * @dst:	pointer to destination pointer
@@ -2021,7 +2020,8 @@ void eblob_data_unmap(struct eblob_map_fd *map)
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
-	int err, compress = 0;
+	int err;
+	void *data;
 	struct eblob_map_fd m;
 
 	memset(&m, 0, sizeof(m));
@@ -2029,9 +2029,6 @@ static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, csum);
 	if (err < 0)
 		goto err_out_exit;
-
-	if (err > 0)
-		compress = 1;
 
 	if (offset >= m.size) {
 		err = -E2BIG;
@@ -2053,29 +2050,16 @@ static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	if (compress) {
-		err = eblob_decompress(m.data, m.size, dst, size);
-
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: read compress: %llu -> %llu: %d\n",
-				eblob_dump_id(key->id),
-				(unsigned long long)m.size, (unsigned long long)*size, err);
-
-		if (err)
-			goto err_out_unmap;
-	} else {
-		void *data;
-
-		data = malloc(m.size);
-		if (!data) {
-			err = -ENOMEM;
-			goto err_out_unmap;
-		}
-
-		memcpy(data, m.data, m.size);
-
-		*size = m.size;
-		*dst = data;
+	data = malloc(m.size);
+	if (!data) {
+		err = -ENOMEM;
+		goto err_out_unmap;
 	}
+
+	memcpy(data, m.data, m.size);
+
+	*size = m.size;
+	*dst = data;
 
 err_out_unmap:
 	eblob_data_unmap(&m);

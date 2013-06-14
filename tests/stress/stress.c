@@ -49,8 +49,6 @@ humanize_flags(int flags, char *buf)
 		strcat(buf, "remove,");
 	if (flags & BLOB_DISK_CTL_NOCSUM)
 		strcat(buf, "nocsum,");
-	if (flags & BLOB_DISK_CTL_COMPRESS)
-		strcat(buf, "compress,");
 	if (flags & BLOB_DISK_CTL_OVERWRITE)
 		strcat(buf, "overwrite,");
 	if (flags & BLOB_DISK_CTL_APPEND)
@@ -81,8 +79,6 @@ generate_random_flags(int type)
 		switch (rnd) {
 		case 0:
 			return BLOB_DISK_CTL_NOCSUM;
-		case 1:
-			return BLOB_DISK_CTL_COMPRESS;
 		default:
 			return 0;
 		}
@@ -264,11 +260,9 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		item->value = ra;
 
 		/*
-		 * Offset only makes sense on overwrite of non-compressed data
+		 * Offset only makes sense on overwrite of existing entry
 		 */
-		if (item->flags & BLOB_DISK_CTL_COMPRESS ||
-				old_item.flags & BLOB_DISK_CTL_COMPRESS ||
-				old_item.flags & BLOB_DISK_CTL_REMOVE)
+		if (old_item.flags & BLOB_DISK_CTL_REMOVE)
 			item->offset = 0;
 		else
 			item->offset = random() % item->size;

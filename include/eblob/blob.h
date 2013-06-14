@@ -172,8 +172,8 @@ enum eblob_read_flavour {
 
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
-#define BLOB_DISK_CTL_COMPRESS	(1<<2)
-#define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
+#define BLOB_DISK_CTL_COMPRESS	(1<<2)  /* DEPRECATED */
+#define BLOB_DISK_CTL_WRITE_RETURN	(1<<3) /* DEPRECATED */
 #define BLOB_DISK_CTL_APPEND	(1<<4)
 #define BLOB_DISK_CTL_OVERWRITE	(1<<5) /* DEPRECATED */
 /*
@@ -415,7 +415,6 @@ int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t
  * and its data size.
  *
  * Returns negative error value or zero on success.
- * Positive return value means data on given offset is compressed.
  */
 struct eblob_write_control;
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
@@ -427,7 +426,6 @@ int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
 
 /*
  * Allocates buffer and reads data there.
- * Automatically handles compressed data.
  * @size will contain number of bytes read
  */
 int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
@@ -545,9 +543,6 @@ int eblob_read_range(struct eblob_range_request *req);
 unsigned long long eblob_total_elements(struct eblob_backend *b);
 
 int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
-
-int eblob_compress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
-int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
 
 void eblob_remove_blobs(struct eblob_backend *b);
 
