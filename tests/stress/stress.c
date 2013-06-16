@@ -53,6 +53,8 @@ humanize_flags(int flags, char *buf)
 		strcat(buf, "compress,");
 	if (flags & BLOB_DISK_CTL_OVERWRITE)
 		strcat(buf, "overwrite,");
+	if (flags & BLOB_DISK_CTL_APPEND)
+		strcat(buf, "append,");
 
 	assert(strlen(buf) >= 1);
 
@@ -85,7 +87,7 @@ generate_random_flags(int type)
 			return 0;
 		}
 	} else if (type == FLAG_TYPE_EXISTING) {
-		rnd = random() % 3;
+		rnd = random() % 4;
 		/*
 		 * Existing entry can be replaced with new one, removed or
 		 * rewritten
@@ -95,6 +97,8 @@ generate_random_flags(int type)
 			return 0;
 		case 1:
 			return BLOB_DISK_CTL_REMOVE;
+		case 2:
+			return BLOB_DISK_CTL_APPEND;
 		default:
 			return BLOB_DISK_CTL_OVERWRITE;
 		}
@@ -103,6 +107,15 @@ generate_random_flags(int type)
 	}
 	/* NOT REACHED */
 	return -1;
+}
+
+/*
+ * Generates one character from some readable subset of ASCII table
+ */
+static char
+generate_char()
+{
+	return 48 + random() % 75;
 }
 
 /*
@@ -133,6 +146,7 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 
 /*
  * Reads data from blob and compares it to shadow copy
+ * FIXME: Simplify
  */
 static int
 item_check(struct shadow *item, struct eblob_backend *b)
@@ -204,7 +218,6 @@ static int
 item_generate_random(struct shadow *item, struct eblob_backend *b)
 {
 	struct shadow old_item;
-	void *ra;
 
 	assert(b != NULL);
 	assert(item != NULL);
@@ -225,9 +238,27 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 
 	/*
 	 * Randomize data
-	 * If new entry not removed
 	 */
-	if (!(item->flags & BLOB_DISK_CTL_REMOVE)) {
+	if (item->flags & BLOB_DISK_CTL_REMOVE) {
+		free(item->value);
+		item->size = 0;
+		item->offset = 0;
+		item->value = NULL;
+	} else if (item->flags & BLOB_DISK_CTL_APPEND) {
+		uint64_t append_size;
+		void *ra;
+
+		append_size = 1 + random() % cfg.test_item_size;
+		if ((ra = realloc(item->value, item->size + append_size)) == NULL)
+			return errno;
+		item->value = ra;
+		item->offset = item->size;
+
+		memset(item->value + item->offset, generate_char(), append_size);
+		item->size += append_size;
+	} else {
+		void *ra;
+
 		item->size = 1 + random() % cfg.test_item_size;
 		if ((ra = realloc(item->value, item->size)) == NULL)
 			return errno;
@@ -249,12 +280,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		if (item->offset > old_item.size)
 			item->offset = old_item.size;
 		/* memset with respect to offset */
-		memset(item->value + item->offset, random(), item->size - item->offset);
-	} else {
-		free(item->value);
-		item->size = 0;
-		item->offset = 0;
-		item->value = NULL;
+		memset(item->value + item->offset, generate_char(), item->size - item->offset);
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
