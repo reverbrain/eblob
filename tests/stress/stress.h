@@ -114,7 +114,6 @@ extern struct test_cfg cfg;
 
 void options_get_l(long *cfg_entry, const char *optarg);
 void options_get_ll(long long *cfg_entry, const char *optarg);
-int item_sync(struct shadow *item, struct eblob_backend *b);
 int options_get(int argc, char **argv);
 void options_dump(void);
 void options_set_defaults(void);

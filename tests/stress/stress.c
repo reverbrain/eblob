@@ -269,7 +269,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 /*
  * "Syncs" item from shadow list to blob by removing or updating it
  */
-int
+static int
 item_sync(struct shadow *item, struct eblob_backend *b)
 {
 	int error;
