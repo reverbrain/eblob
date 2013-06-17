@@ -141,14 +141,12 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 
 /*
  * Reads data from blob and compares it to shadow copy
- * FIXME: Simplify
  */
 static int
 item_check(struct shadow *item, struct eblob_backend *b)
 {
 	uint64_t size = 0;
-	int error, retries = 0;
-	const int max_retries = 1;
+	int error;
 	char *data = NULL;
 
 	assert(item != NULL);
@@ -157,7 +155,6 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	if (item->inited == 0)
 		return 0;
 
-again:
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "checking: %s (%s)\n",
 			item->key, eblob_dump_id(item->ekey.id));
 
@@ -169,24 +166,16 @@ again:
 			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
 					item->key, eblob_dump_id(item->ekey.id));
 		} else if (error != -ENOENT) {
-			if (retries++ < max_retries) {
-				warnx("read failed: %s (%s), retrying, error: %d",
-				    item->key, eblob_dump_id(item->ekey.id), -error);
-				goto again;
-			}
-			errx(EX_SOFTWARE, "got an error while reading removed key: %s (%s): %d",
-					item->key, eblob_dump_id(item->ekey.id), -error);
+			warnx("read failed: %s (%s), retrying, error: %d",
+			    item->key, eblob_dump_id(item->ekey.id), -error);
+			return error;
 		}
 	} else {
 		/* Check data consistency */
 		if (error != 0) {
-			if (retries++ < max_retries) {
-				warnx("read failed: %s (%s), retrying, error: %d",
-				    item->key, eblob_dump_id(item->ekey.id), -error);
-				goto again;
-			}
-			errx(EX_SOFTWARE, "key supposed to exist: %s (%s), flags: %s, error: %d",
+			warnx("key supposed to exist: %s (%s), flags: %s, error: %d",
 			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
+			return error;
 		}
 		if (item->size > size)
 			errx(EX_SOFTWARE, "size mismatch for key: %s (%s): "
@@ -292,8 +281,6 @@ static int
 item_sync(struct shadow *item, struct eblob_backend *b)
 {
 	int error;
-	int retries = 0;
-	const int max_retries = 1;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -301,7 +288,6 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	/*
 	 * TODO: Do not store the value itself - only hash of it
 	 */
-again:
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		error = eblob_remove(b, &item->ekey);
 	} else {
@@ -313,13 +299,9 @@ again:
 				item->size - item->offset, item->flags);
 	}
 	if (error != 0) {
-		if (retries++ < max_retries) {
-			warnx("writing key failed: %s: retrying: %d",
-			    item->key, -error);
-			goto again;
-		}
-		errx(EX_SOFTWARE, "writing key failed: %s: flags: %s, error: %d",
+		warnx("writing key failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
+		return error;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "synced: %s (%s)\n",
@@ -370,7 +352,7 @@ main(int argc, char **argv)
 	static struct eblob_log logger;
 	static char log_path[PATH_MAX], blob_path[PATH_MAX];
 	struct shadow *item;
-	int error, i;
+	int i;
 
 	warnx("started");
 
@@ -444,18 +426,11 @@ main(int argc, char **argv)
 		rnd = random() % cfg.test_items;
 		item = &cfg.shadow[rnd];
 
-		if ((error = item_check(item, cfg.b)) != 0) {
-			errx(EX_TEMPFAIL, "item_pre_check: %d", error);
-		}
-		if ((error = item_generate_random(item, cfg.b)) != 0) {
-			errx(EX_TEMPFAIL, "item_generate_random: %d", error);
-		}
-		if ((error = item_sync(item, cfg.b)) != 0) {
-			errx(EX_TEMPFAIL, "item_sync: %d", error);
-		}
-		if ((error = item_check(item, cfg.b)) != 0) {
-			errx(EX_TEMPFAIL, "item_post_check: %d", error);
-		}
+		RETRY(item_check(item, cfg.b));
+		RETRY(item_generate_random(item, cfg.b));
+		RETRY(item_sync(item, cfg.b));
+		RETRY(item_check(item, cfg.b));
+
 		/* Print progress each 'test_milestone' iterations */
 		if (cfg.test_milestone > 0 && (i % cfg.test_milestone) == 0)
 			warnx("iteration: %d", i);

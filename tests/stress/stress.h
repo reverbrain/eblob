@@ -118,4 +118,14 @@ void options_dump(void);
 void options_set_defaults(void);
 void options_usage(char *progname, int eval, FILE *stream);
 
+/* Retry statement until either it succeeds or max_retries is reached */
+#define RETRY(stmt) do {								\
+	int error, retries = 0;								\
+	static const int max_retries = 1;						\
+	while ((error = (stmt)) != 0)							\
+		if (++retries > max_retries)						\
+			errx(1, #stmt " retried %d times and failed with %d.",		\
+					retries, error);				\
+} while(0)
+
 #endif /* __EBLOB_TEST_DATASORT_H */
