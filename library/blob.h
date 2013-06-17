@@ -57,10 +57,6 @@
 #define FD_CLOEXEC	1
 #endif
 
-#ifndef EBADFD
-#define	EBADFD		77	/* File descriptor in bad state */
-#endif
-
 #define EBLOB_1_M				(1UL<<20)
 #define EBLOB_1_G				(1ULL<<30)
 

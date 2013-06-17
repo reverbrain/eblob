@@ -1843,11 +1843,7 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	}
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
-		/*
-		 * TODO: Replace non standard EBADFD with something POSIX-like
-		 * i.e. EIO
-		 */
-		err = -EBADFD;
+		err = -EILSEQ;
 		goto err_out_unmap;
 	}
 
