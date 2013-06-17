@@ -36,6 +36,9 @@
 #ifndef __attribute_pure__
 #define __attribute_pure__	__attribute__ ((pure))
 #endif
+#ifndef __attribute_always_inline__
+#define __attribute_always_inline__ __attribute__ ((always_inline))
+#endif
 
 #ifndef ACCESS_ONCE
 #define ACCESS_ONCE(x)		(*(volatile typeof(x) *)&(x))
@@ -205,7 +208,7 @@ enum eblob_bloom_hash_type {
  * TODO: It operates on each octet of data which is kinda slow. We can use
  * murmur from l2hash.
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 {
 	uint64_t i, hash = 14695981039346656037ULL;
@@ -221,7 +224,7 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
  * We can use it because it gives us better distribution on keys already hashed
  * by sha512.
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 {
 	uint64_t i, hash = 0ULL;
@@ -230,7 +233,7 @@ inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 	return hash;
 }
 
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
 		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
 		enum eblob_bloom_hash_type type)
@@ -252,7 +255,7 @@ inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloo
 	*bloom_bit_num = hash % 8;
 }
 
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
 		enum eblob_bloom_cmd cmd)
 {
@@ -297,7 +300,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 /*!
  * Returns non-null if \a key is present in \a bctl bloom fileter
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	return eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_GET);
@@ -306,7 +309,7 @@ inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblo
 /*!
  * Sets all bloom filter bits of \a bctl corresponding to \a key
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
