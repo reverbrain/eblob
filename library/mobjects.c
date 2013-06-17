@@ -874,8 +874,10 @@ void eblob_remove_blobs(struct eblob_backend *b)
 {
 	struct eblob_base_ctl *ctl, *tmp;
 
+	pthread_mutex_lock(&b->lock);
 	list_for_each_entry_safe(ctl, tmp, &b->bases, base_entry)
 		eblob_base_remove(ctl);
+	pthread_mutex_unlock(&b->lock);
 }
 
 /*
