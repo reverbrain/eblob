@@ -738,11 +738,11 @@ static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write
 }
 
 /**
- * eblob_update_index() - update on disk index with data from write control
+ * eblob_commit_disk() - update on disk index with data from write control
  * @wc:		new data
  * @remove:	mark entry removed
  */
-static int eblob_update_index(struct eblob_backend *b, struct eblob_key *key,
+static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int remove)
 {
 	struct eblob_disk_control dc;
@@ -756,13 +756,13 @@ static int eblob_update_index(struct eblob_backend *b, struct eblob_key *key,
 	eblob_wc_to_dc(key, wc, &dc);
 	err = eblob_write_binlog(wc->bctl, key, wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_update_index: ERROR-eblob_write_binlog", err);
+		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-eblob_write_binlog", err);
 		goto err_out_exit;
 	}
 	if (!b->cfg.sync)
 		fsync(wc->index_fd);
 
-	eblob_dump_wc(b, key, wc, "eblob_update_index", err);
+	eblob_dump_wc(b, key, wc, "eblob_commit_disk", err);
 
 err_out_exit:
 	return err;
@@ -1312,7 +1312,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 * crashed (or even blob is closed), but index entry was not yet
 	 * written, since we only reserved space.
 	 */
-	err = eblob_update_index(b, key, wc, 1);
+	err = eblob_commit_disk(b, key, wc, 1);
 	if (err)
 		goto err_out_rollback;
 
@@ -1520,7 +1520,7 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 		goto err_out_exit;
 	}
 
-	err = eblob_update_index(b, key, wc, 0);
+	err = eblob_commit_disk(b, key, wc, 0);
 	if (err)
 		goto err_out_exit;
 
@@ -1749,7 +1749,7 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eb
 		goto err_out_exit;
 	}
 
-	err = eblob_update_index(b, key, wc, 0);
+	err = eblob_commit_disk(b, key, wc, 0);
 	if (err)
 		goto err_out_exit;
 
