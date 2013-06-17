@@ -13,6 +13,8 @@
  * GNU General Public License for more details.
  */
 
+#define _XOPEN_SOURCE 700
+
 #include <sys/types.h>
 
 #include <assert.h>
@@ -139,6 +141,60 @@ item_init(struct shadow *item, struct eblob_backend *b, int idx)
 			item->key, eblob_dump_id(item->ekey.id));
 }
 
+static inline int
+_blob_read_ll(void **datap, uint64_t *sizep,
+		int fd, uint64_t size, uint64_t offset)
+{
+	void *data;
+	ssize_t error;
+
+	data = malloc(size);
+	if (data == NULL)
+		abort();
+
+	error = pread(fd, data, size, offset);
+	if (error != (ssize_t)size) {
+		free(data);
+		return errno ? -errno : -EINTR;
+	}
+
+	*sizep = size;
+	*datap = data;
+
+	return 0;
+}
+
+/* Read using fast fd-based interface */
+static int
+blob_read_fd(struct eblob_backend *b, struct eblob_key *key,
+		void **datap, uint64_t *sizep)
+{
+	int fd = -1, error = -EFAULT;
+	uint64_t offset, size;
+
+	error = eblob_read(b, key, &fd, &offset, &size);
+	if (error != 0)
+		return error;
+
+	return _blob_read_ll(datap, sizep, fd, size, offset);
+}
+
+/* Read using extended wc-based interface */
+static int
+blob_read_return(struct eblob_backend *b, struct eblob_key *key,
+		void **datap, uint64_t *sizep)
+{
+	ssize_t error = -EFAULT;
+	struct eblob_write_control wc;
+
+	error = eblob_read_return(b, key, EBLOB_READ_CSUM, &wc);
+	if (error != 0)
+		return error;
+
+	return _blob_read_ll(datap, sizep,
+			wc.data_fd, wc.total_data_size, wc.data_offset);
+}
+
 /*
  * Reads data from blob and compares it to shadow copy
  */
@@ -146,8 +202,8 @@ static int
 item_check(struct shadow *item, struct eblob_backend *b)
 {
 	uint64_t size = 0;
-	int error;
-	char *data = NULL;
+	int rnd, error;
+	void *data = NULL;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -159,7 +215,20 @@ item_check(struct shadow *item, struct eblob_backend *b)
 			item->key, eblob_dump_id(item->ekey.id));
 
 	/* Read hashed key */
-	error = eblob_read_data(b, &item->ekey, 0, &data, &size);
+	switch (rnd = random() % 3) {
+	case 0:
+		error = eblob_read_data(b, &item->ekey, 0, (char **)&data, &size);
+		break;
+	case 1:
+		error = blob_read_fd(b, &item->ekey, &data, &size);
+		break;
+	case 2:
+		error = blob_read_return(b, &item->ekey, &data, &size);
+		break;
+	default:
+		/* Unknown read type */
+		abort();
+	}
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0) {
