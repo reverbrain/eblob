@@ -618,7 +618,8 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
 		return -EINVAL;
-	eblob_stat_update(b, 0, 0, 1);
+	if (on_disk != 0)
+		return -EROFS;
 
 	pthread_rwlock_wrlock(&b->hash.root_lock);
 
@@ -628,35 +629,38 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	/* If l2hash is enabled and this is in-memory record - insert only there */
-	if ((b->cfg.blob_flags & EBLOB_L2HASH) && on_disk == 0) {
-		/* Extend l2hash if needed */
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		/* If l2hash is enabled and this is in-memory record - insert only there */
 		err = eblob_l2hash_upsert(&b->l2hash, key, ctl);
-		goto err_out_exit;
+	} else {
+		err = eblob_hash_replace_nolock(&b->hash, key, ctl, sizeof(struct eblob_ram_control));
 	}
-
-	err = eblob_hash_replace_nolock(&b->hash, key, ctl, sizeof(struct eblob_ram_control));
 
 err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
+
+	if (err == 0)
+		eblob_stat_update(b, 0, 0, 1);
 
 	return err;
 }
 
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 {
+	int err;
+
 	/* If l2hash is enabled - remove from it only */
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		int err;
-
-		if ((err = eblob_l2hash_remove(&b->l2hash, key)) != -ENOENT)
-			return err;
+		err = eblob_l2hash_remove(&b->l2hash, key);
+	} else {
+		err = eblob_hash_remove_nolock(&b->hash, key);
 	}
 
-	eblob_hash_remove_nolock(&b->hash, key);
-	eblob_stat_update(b, 0, 0, -1);
+	/* FIXME: Introduce eblob_stat_update_nolock */
+	if (err == 0)
+		eblob_stat_update(b, 0, 0, -1);
 
-	return 0;
+	return err;
 }
 
 int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key)
@@ -672,41 +676,27 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key)
 int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *res, int *diskp)
 {
-	int err = 1, size, disk = 0;
-	struct eblob_ram_control *rc = NULL;
+	int err = 1, disk = 0;
 
-	/* If l2hash is enabled - look in it first */
+	pthread_rwlock_rdlock(&b->hash.root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		pthread_rwlock_rdlock(&b->hash.root_lock);
+		/* If l2hash is enabled - look in it */
 		err = eblob_l2hash_lookup(&b->l2hash, key, res);
-		if (err != 0 && err != -ENOENT) {
-			pthread_rwlock_unlock(&b->hash.root_lock);
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"blob: %s: %s: l2hash lookup failed: %d.\n",
-					eblob_dump_id(key->id), __func__, err);
-			goto err_out_exit;
-		}
-		pthread_rwlock_unlock(&b->hash.root_lock);
+	} else {
+		/* Look in memory cache */
+		err = eblob_hash_lookup_nolock(&b->hash, key, res);
 	}
+	pthread_rwlock_unlock(&b->hash.root_lock);
 
-	/* Look in memory cache */
-	if (err)
-		err = eblob_hash_lookup_alloc(&b->hash, key, (void **)&rc, (unsigned int *)&size);
-
-	/* Look on disk */
-	if (err) {
-		err = eblob_disk_index_lookup(b, key, &rc, &size);
+	if (err == -ENOENT) {
+		/* Look on disk */
+		err = eblob_disk_index_lookup(b, key, res);
 		if (err)
 			goto err_out_exit;
 		disk = 1;
 	}
 
-	/* XXX: Simplify code */
-	if (rc != NULL)
-		memcpy(res, rc, sizeof(struct eblob_ram_control));
-
 err_out_exit:
-	free(rc);
 	if (diskp != NULL)
 		*diskp = disk;
 	return err;

@@ -179,37 +179,24 @@ int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 /**
  * eblob_hash_lookup_alloc_nolock() - returns copy of data stored in cache
  */
-int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key,
-		void **datap, unsigned int *dsizep)
+int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *data)
 {
 	struct eblob_hash_entry *e;
-	void *data;
-
-	*datap = NULL;
-	*dsizep = 0;
 
 	e = eblob_hash_search(&h->root, key);
 	if (e == NULL)
 		return -ENOENT;
 
-	data = malloc(e->dsize);
-	if (data == NULL)
-		return -ENOMEM;
-
 	memcpy(data, e->data, e->dsize);
-	*dsizep = e->dsize;
-	*datap = data;
-
 	return 0;
 }
 
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key,
-		void **datap, unsigned int *dsizep)
+int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data)
 {
 	int err;
 
 	pthread_rwlock_rdlock(&h->root_lock);
-	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep);
+	err = eblob_hash_lookup_nolock(h, key, data);
 	pthread_rwlock_unlock(&h->root_lock);
 	return err;
 }
