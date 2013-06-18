@@ -754,11 +754,20 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		wc->flags &= ~BLOB_DISK_CTL_REMOVE;
 
 	eblob_wc_to_dc(key, wc, &dc);
-	err = eblob_write_binlog(wc->bctl, key, wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
+
+	err = eblob_write_binlog(wc->bctl, key, wc->index_fd, &dc,
+			sizeof(dc), wc->ctl_index_offset);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-eblob_write_binlog", err);
+		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-write-index", err);
 		goto err_out_exit;
 	}
+	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, &dc,
+			sizeof(dc), wc->ctl_data_offset);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-write-data", err);
+		goto err_out_exit;
+	}
+
 	if (!b->cfg.sync)
 		fsync(wc->index_fd);
 
@@ -859,63 +868,6 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_commit_ram: finished", err);
-	return err;
-}
-
-/**
- * eblob_write_prepare_ll() - low level (hence the _ll suffix) prepare function.
- * Constructs disk control from write control and writes it to wc->data_fd.
- *
- * If b->cfg.bsize is set then writes are aligned and preformed in
- * `blob_empty_buf' portions.
- */
-static int eblob_write_prepare_ll(struct eblob_backend *b,
-		struct eblob_key *key, struct eblob_write_control *wc)
-{
-	static unsigned char blob_empty_buf[40960];
-	struct eblob_disk_control disk_ctl;
-	ssize_t err;
-
-	eblob_wc_to_dc(key, wc, &disk_ctl);
-	err = eblob_write_binlog(wc->bctl, key, wc->data_fd, &disk_ctl,
-			sizeof(struct eblob_disk_control), wc->ctl_data_offset);
-	if (err)
-		goto err_out_exit;
-
-	/* FIXME: We can use posix_fallocate for that */
-	if (b->cfg.bsize) {
-		uint64_t local_offset = wc->data_offset + wc->total_data_size;
-		int64_t alignment = wc->total_size - (local_offset - wc->ctl_data_offset);
-
-		if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER))
-			alignment -= sizeof(struct eblob_disk_footer);
-
-		/* Sanity */
-		if (local_offset + alignment >= wc->ctl_data_offset + wc->total_size
-				|| local_offset >= wc->ctl_data_offset + wc->total_size
-				|| alignment <= 0) {
-			err = 0;
-			goto err_out_exit;
-		}
-
-		/* Write empty buffs until aligned on block size */
-		while (alignment && alignment < b->cfg.bsize) {
-			unsigned int sz = alignment;
-
-			if (sz > sizeof(blob_empty_buf))
-				sz = sizeof(blob_empty_buf);
-
-			err = eblob_write_binlog(wc->bctl, key, wc->data_fd,
-					blob_empty_buf, sz, local_offset);
-			if (err)
-				goto err_out_exit;
-
-			alignment -= sz;
-			local_offset += sz;
-		}
-	}
-
-err_out_exit:
 	return err;
 }
 
@@ -1197,7 +1149,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 }
 
 /**
- * eblob_write_prepare_disk() - high level counterpart of eblob_write_prepare_ll
+ * eblob_write_prepare_disk() - allocates space for new record
  * It uses locking, allocates new bases, commits to indexes and
  * manages overwrites/appends.
  */
@@ -1302,10 +1254,6 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
 	b->current_blob_size += wc->total_size + sizeof(struct eblob_disk_control);
-
-	err = eblob_write_prepare_ll(b, key, wc);
-	if (err)
-		goto err_out_rollback;
 
 	/*
 	 * We are doing early index update to prevent situations when system
@@ -1583,10 +1531,6 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 
 	wc->size = size;
 	wc->total_data_size = wc->offset + wc->size;
-
-	err = eblob_write_prepare_ll(b, key, wc);
-	if (err)
-		goto err_out_release;
 
 	err = eblob_writev_raw(wc->bctl, key, wc->data_offset, iov, iovcnt);
 	if (err) {
