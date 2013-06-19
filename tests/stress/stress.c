@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "stress.h"
@@ -459,6 +460,7 @@ main(int argc, char **argv)
 	static struct eblob_config bcfg;
 	static struct eblob_log logger;
 	static char log_path[PATH_MAX], blob_path[PATH_MAX];
+	static struct timespec sleep_time = {0, 0};
 	struct shadow *item;
 	int i;
 
@@ -509,6 +511,10 @@ main(int argc, char **argv)
 	if (cfg.test_item_size <= 0)
 		err(EX_USAGE, "test_item_size must be positive");
 
+	cfg.test_delay *= EBLOB_TEST_US_IN_S;
+	sleep_time.tv_sec = cfg.test_delay / EBLOB_TEST_NS_IN_S;
+	sleep_time.tv_nsec = cfg.test_delay % EBLOB_TEST_NS_IN_S;
+
 	/* Init shadow storage with some set of key-values */
 	for (i = 0; i < cfg.test_items; i++) {
 		item_init(&cfg.shadow[i], cfg.b, i);
@@ -557,8 +563,8 @@ main(int argc, char **argv)
 		/* Exit on signal */
 		if (cfg.need_exit)
 			goto out_cleanups;
-		/* Sleep for 'test_delay' milliseconds */
-		usleep(cfg.test_delay * 1000);
+		/* Sleep */
+		nanosleep(&sleep_time, NULL);
 	}
 
 out_cleanups:

@@ -23,6 +23,8 @@
 #define __EBLOB_TEST_DATASORT_H
 
 #define EBLOB_TEST_DATASORT_VERSION	"0.0.1"
+#define EBLOB_TEST_NS_IN_S		(1000LL * 1000LL * 1000LL)
+#define EBLOB_TEST_US_IN_S		(1000LL * 1000LL)
 
 /*
  * Shadow storage for eblob
