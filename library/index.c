@@ -76,7 +76,8 @@ int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 	return cmp;
 }
 
-static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted, struct eblob_disk_control *dc __eblob_unused)
+static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted,
+		struct eblob_disk_control *dc __attribute_unused__)
 {
 	uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 	return !(sorted->flags & rem);

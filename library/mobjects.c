@@ -703,7 +703,8 @@ err_out_exit:
 }
 
 static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_control *ctl,
-		void *data __eblob_unused, void *priv, void *thread_priv __eblob_unused)
+		void *data __attribute_unused__, void *priv,
+		void *thread_priv __attribute_unused__)
 {
 	struct eblob_backend *b = priv;
 	char id[EBLOB_ID_SIZE*2+1];

@@ -55,10 +55,6 @@ extern "C" {
 #define eblob_bswap64(x) (x)
 #endif
 
-#ifndef __eblob_unused
-#define __eblob_unused	__attribute__ ((unused))
-#endif
-
 #ifdef __GNUC__
 #define EBLOB_LOG_CHECK  __attribute__ ((format(printf, 3, 4)))
 #else
