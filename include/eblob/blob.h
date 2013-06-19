@@ -430,10 +430,13 @@ int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags);
-int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eblob_iovec *iov,
-		uint16_t iovcnt, uint64_t flags, struct eblob_write_control *wc);
 int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags,
+		struct eblob_write_control *wc);
+int eblob_writev(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags);
+int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
 		struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
