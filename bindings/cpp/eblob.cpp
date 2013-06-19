@@ -205,15 +205,9 @@ int eblob::iterate(struct eblob_iterate_control &ctl)
 
 void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
-	struct eblob_write_control wc;
 	int err;
 
-	memset(&wc, 0, sizeof(struct eblob_write_control));
-
-	wc.size = size;
-	wc.flags = flags;
-
-	err = eblob_write_commit(eblob_, (struct eblob_key *)&key, NULL, 0, &wc);
+	err = eblob_write_commit(eblob_, (struct eblob_key *)&key, size, flags);
 	if (err < 0) {
 		std::ostringstream str;
 		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to truncate/commit to " << size <<
@@ -230,31 +224,25 @@ void eblob::truncate_hashed(const std::string &key, const uint64_t size, const u
 	truncate(ekey, size, flags);
 }
 
-void eblob::prepare(const struct eblob_key &key, const uint64_t prepare_size, const uint64_t flags)
+void eblob::prepare(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
 	int err;
-	struct eblob_write_control wc;
 
-	memset(&wc, 0, sizeof(struct eblob_write_control));
-
-	wc.size = prepare_size;
-	wc.flags = flags;
-
-	err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, &wc);
+	err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, size, flags);
 	if (err) {
 		std::ostringstream str;
-		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to prepare for size: " << prepare_size <<
-			", flags: " << flags << ", err: " << err;
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to prepare for size: "
+			<< size << ", err: " << err;
 		throw std::runtime_error(str.str());
 	}
 }
 
-void eblob::prepare_hashed(const std::string &kdata, const uint64_t prepare_size, const uint64_t flags)
+void eblob::prepare_hashed(const std::string &kdata, const uint64_t size, const uint64_t flags)
 {
 	struct eblob_key key;
 
 	eblob_hash(eblob_, key.id, sizeof(key.id), kdata.data(), kdata.size());
-	prepare(key, prepare_size, flags);
+	prepare(key, size, flags);
 }
 
 void eblob::commit(const struct eblob_key &key, const uint64_t size, const uint64_t flags)

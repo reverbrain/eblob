@@ -437,9 +437,9 @@ int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size);
+		void *data, uint64_t offset, uint64_t size, uint64_t flags);
 int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt);
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags);
 
 /*
  * The same as above, but these functions take key/ksize pair to hash using sha512 to
@@ -493,13 +493,9 @@ struct eblob_write_control {
 };
 
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_write_control *wc);
-
-/* Client may provide checksum himself, otherwise it will be calculated (if opposite
- * was not requested in control flags) */
+		uint64_t size, uint64_t flags);
 int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
-		unsigned char *csum, unsigned int csize,
-		struct eblob_write_control *wc);
+		uint64_t size, uint64_t flags);
 
 struct eblob_disk_footer {
 	unsigned char			csum[EBLOB_ID_SIZE];

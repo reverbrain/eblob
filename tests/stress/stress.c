@@ -347,34 +347,29 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 /* Three stage write protocol: prepare / plain_write / commit */
 static int
 blob_three_stage_write(struct eblob_backend *b, struct eblob_key *key,
-		uint64_t flags, void *data, uint64_t offset, uint64_t size)
+		void *data, uint64_t offset, uint64_t size, uint64_t flags)
 {
-	struct eblob_write_control wc = {
-		.flags = flags,
-		.size = size,
-		.offset = offset,
-	};
 	int error;
 
-	error = eblob_write_prepare(b, key, &wc);
+	error = eblob_write_prepare(b, key, size, flags);
 	if (error) {
 		warnx("prepare failed: %s: size: %" PRIu64 ", err: %d",
-				eblob_dump_id(key->id), wc.size, -error);
+				eblob_dump_id(key->id), size, -error);
 		return error;
 	}
 
-	error = eblob_plain_write(b, key, data, wc.offset, wc.size);
+	error = eblob_plain_write(b, key, data, offset, size, flags);
 	if (error) {
 		warnx("plain write failed: %s: offset: %" PRIu64
 				", size: %" PRIu64 ", err: %d",
-				eblob_dump_id(key->id), wc.offset, wc.size, -error);
+				eblob_dump_id(key->id), offset, size, -error);
 		return error;
 	}
 
-	error = eblob_write_commit(b, key, NULL, 0, &wc);
+	error = eblob_write_commit(b, key, size, flags);
 	if (error) {
 		warnx("commit failed: %s: size: %" PRIu64 ", err: %d",
-		    eblob_dump_id(key->id), wc.size, -error);
+		    eblob_dump_id(key->id), size, -error);
 		return error;
 	}
 
@@ -399,8 +394,8 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 			item->inited = 1;
 
 		if (item->offset == 0)
-			error = blob_three_stage_write(b, &item->ekey, item->flags,
-					item->value + item->offset, 0, item->size);
+			error = blob_three_stage_write(b, &item->ekey,
+					item->value + item->offset, 0, item->size, item->flags);
 		else
 			/* Write with zero offset in case of append write */
 			error = eblob_write(b, &item->ekey, item->value + item->offset,

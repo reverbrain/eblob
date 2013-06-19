@@ -1338,29 +1338,27 @@ err_out_exit:
 /**
  * eblob_write_prepare() - prepare phase reserves space in blob file.
  */
-int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc)
+int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t size, uint64_t flags)
 {
+	struct eblob_write_control wc = { .flags = flags, };
 	int err;
-	uint64_t prepare_disk_size = wc->size;
-
-	wc->size = wc->offset = 0;
 
 	/*
 	 * For eblob_write_prepare() this can not fail with -E2BIG, since
 	 * size/offset are zero.
 	 */
-	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
-	if (!err && (wc->total_size >= eblob_calculate_size(b, 0, prepare_disk_size))) {
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
+	if (!err && (wc.total_size >= eblob_calculate_size(b, 0, size))) {
 		err = 0;
 		goto err_out_exit;
 	}
 
-	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size, EBLOB_COPY_RECORD);
+	err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD);
 	if (err)
 		goto err_out_exit;
 
 err_out_exit:
-	wc->size = prepare_disk_size;
 	return err;
 }
 
@@ -1411,8 +1409,8 @@ err_out_exit:
  * eblob_write_commit_ll() - low-level commit phase computes checksum and
  * writes footer.
  */
-static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum,
-		unsigned int csize, struct eblob_write_control *wc, struct eblob_key *key)
+static int eblob_write_commit_ll(struct eblob_backend *b,
+		struct eblob_write_control *wc, struct eblob_key *key)
 {
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
@@ -1424,13 +1422,9 @@ static int eblob_write_commit_ll(struct eblob_backend *b, unsigned char *csum,
 	memset(&f, 0, sizeof(f));
 
 	if (!(wc->flags & BLOB_DISK_CTL_NOCSUM)) {
-		if (csum) {
-			memcpy(f.csum, csum, (csize < EBLOB_ID_SIZE) ? csize : EBLOB_ID_SIZE);
-		} else {
-			err = eblob_csum(b, f.csum, sizeof(f.csum), wc);
-			if (err)
-				goto err_out_exit;
-		}
+		err = eblob_csum(b, f.csum, sizeof(f.csum), wc);
+		if (err)
+			goto err_out_exit;
 	}
 
 	f.offset = wc->ctl_data_offset;
@@ -1455,11 +1449,11 @@ err_out_exit:
  * index and puts entry to hash.
  */
 static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
-		unsigned char *csum, unsigned int csize, struct eblob_write_control *wc)
+		struct eblob_write_control *wc)
 {
 	int err;
 
-	err = eblob_write_commit_ll(b, csum, csize, wc, key);
+	err = eblob_write_commit_ll(b, wc, key);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_write_commit_ll: ERROR", err);
 		goto err_out_exit;
@@ -1479,37 +1473,35 @@ err_out_exit:
 }
 
 /*!
- * TODO: Do we need user provided \a csum and \csize here?
- * TODO: Do need \a wc here?
+ * TODO: We probably need additional locking here
  */
 int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
-		unsigned char *csum, unsigned int csize,
-		struct eblob_write_control *wc)
+		uint64_t size, uint64_t flags)
 {
+	struct eblob_write_control wc = { .offset = 0, };
 	int err;
-	uint64_t size = wc->size;
 
-	wc->offset = wc->size = 0;
-
-	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (err < 0)
 		goto err_out_exit;
 
 	/* Sanity - we can't commit more than we've written */
-	if (size > wc->total_size) {
+	if (size > wc.total_size) {
 		err = -ERANGE;
 		goto err_out_exit;
 	}
 
-	if (size)
-		wc->size = wc->total_data_size = size;
+	if (size != ~0ULL)
+		wc.size = wc.total_data_size = size;
+	if (flags != ~0ULL)
+		wc.flags = flags;
 
-	err = eblob_write_commit_nolock(b, key, csum, csize, wc);
+	err = eblob_write_commit_nolock(b, key, &wc);
 	if (err)
 		goto err_out_exit;
 
 err_out_exit:
-	eblob_dump_wc(b, key, wc, "eblob_write_commit", err);
+	eblob_dump_wc(b, key, &wc, "eblob_write_commit", err);
 	return err;
 }
 
@@ -1535,7 +1527,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_release;
 	}
 
-	err = eblob_write_commit_nolock(b, key, NULL, 0, wc);
+	err = eblob_write_commit_nolock(b, key, wc);
 	if (err)
 		goto err_out_release;
 
@@ -1547,7 +1539,7 @@ err_out_exit:
 }
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size)
+		void *data, uint64_t offset, uint64_t size, uint64_t flags)
 {
 	const struct eblob_iovec iov = {
 		.base = data,
@@ -1555,13 +1547,13 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 		.offset = offset,
 	};
 
-	return eblob_plain_writev(b, key, &iov, 1);
+	return eblob_plain_writev(b, key, &iov, 1, flags);
 }
 
 int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt)
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags)
 {
-	struct eblob_write_control wc;
+	struct eblob_write_control wc = { .flags = flags, };
 	struct eblob_iovec_bounds bounds;
 	ssize_t err;
 
@@ -1571,23 +1563,14 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
 		return -E2BIG;
 
-	memset(&wc, 0, sizeof(struct eblob_write_control));
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
-
 	wc.size = bounds.max;
-	wc.offset = 0;
 
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (err)
 		goto err_out_exit;
 
 	err = eblob_writev_raw(wc.bctl, key, wc.data_offset, iov, iovcnt);
-	if (err)
-		goto err_out_exit;
-
-	/* do not calculate partial csum */
-	wc.flags |= BLOB_DISK_CTL_NOCSUM;
-	err = eblob_write_commit_nolock(b, key, NULL, 0, &wc);
 	if (err)
 		goto err_out_exit;
 
@@ -1697,7 +1680,7 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eb
 	}
 
 	/* Only low-level commit, since we already updated index and in-memory cache */
-	err = eblob_write_commit_ll(b, NULL, 0, wc, key);
+	err = eblob_write_commit_ll(b, wc, key);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_ll: FAILED", err);
 		goto err_out_exit;
