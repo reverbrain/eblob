@@ -1154,7 +1154,8 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
  * manages overwrites/appends.
  */
 static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_write_control *wc, uint64_t prepare_disk_size)
+		struct eblob_write_control *wc, uint64_t prepare_disk_size,
+		enum eblob_copy_flavour copy)
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
@@ -1281,13 +1282,10 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	}
 
 	/*
-	 * We should copy old entry only in case:
-	 * 1. There is old entry and it has non-zero size
-	 * 2. Append/Overwrite flags are set or offset is non-zero
-	 *
-	 * XXX: Do not need to copy whole record only to overwrite it again.
+	 * We should copy old entry only in case there is old entry, it has
+	 * non-zero size and copy flag is set.
 	 */
-	if (have_old && old.size) {
+	if (have_old && old.size && copy == EBLOB_COPY_RECORD) {
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
@@ -1358,7 +1356,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key, struct e
 		goto err_out_exit;
 	}
 
-	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size);
+	err = eblob_write_prepare_disk(b, key, wc, prepare_disk_size, EBLOB_COPY_RECORD);
 	if (err)
 		goto err_out_exit;
 
@@ -1565,6 +1563,7 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt)
 {
 	struct eblob_write_control wc;
+	struct eblob_iovec_bounds bounds;
 	ssize_t err;
 
 	/* Sanity */
@@ -1574,7 +1573,9 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		return -E2BIG;
 
 	memset(&wc, 0, sizeof(struct eblob_write_control));
-	wc.size = eblob_iovec_max_offset(iov, iovcnt);
+	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
+
+	wc.size = bounds.max;
 	wc.offset = 0;
 
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
@@ -1644,6 +1645,8 @@ int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eblob_iovec *iov,
 		uint16_t iovcnt, uint64_t flags, struct eblob_write_control *wc)
 {
+	struct eblob_iovec_bounds bounds;
+	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
 	int err;
 
 	if (b == NULL || key == NULL || iov == NULL || wc == NULL)
@@ -1659,7 +1662,8 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eb
 		return -ENOTSUP;
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
-	wc->size = eblob_iovec_max_offset(iov, iovcnt);
+	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
+	wc->size = bounds.max;
 	wc->flags = flags;
 	wc->index = -1;
 
@@ -1676,7 +1680,14 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key, const struct eb
 	/* Fill() can modify offset on EBLOB_DISK_CTL_APPEND */
 	wc->offset = 0;
 
-	err = eblob_write_prepare_disk(b, key, wc, 0);
+	/* If new record uses any part of old one - we should copy it */
+	if ((flags & BLOB_DISK_CTL_APPEND)
+			|| bounds.min != 0
+			|| bounds.max < wc->total_data_size
+			|| bounds.contiguous == 0)
+		copy = EBLOB_COPY_RECORD;
+
+	err = eblob_write_prepare_disk(b, key, wc, 0, copy);
 	if (err)
 		goto err_out_exit;
 

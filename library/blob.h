@@ -202,6 +202,12 @@ enum eblob_bloom_hash_type {
 	EBLOB_BLOOM_HASH_FNV,
 };
 
+/* Sets whatever to copy record on prepare or not */
+enum eblob_copy_flavour {
+	EBLOB_DONT_COPY_RECORD,
+	EBLOB_COPY_RECORD,
+};
+
 /*!
  * FNV-1a hash function implemented to spec:
  *    http://www.isthe.com/chongo/tech/comp/fnv/
@@ -315,23 +321,51 @@ inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct ebl
 	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
 }
 
-/*!
- * Get max offset of passed iovects
+/*
+ * Represents area bounds that given iovec array will touch:
+ * min: minimal offset
+ * max: maximum offset+size
+ * contiguous: simple continuity check.
  */
-static inline uint64_t eblob_iovec_max_offset(const struct eblob_iovec *iov, uint16_t iovcnt)
+struct eblob_iovec_bounds {
+	uint64_t		min, max;
+	int			contiguous;
+};
+
+/*!
+ * Gets bounds of given iovects
+ */
+__attribute_always_inline__
+inline static void eblob_iovec_get_bounds(struct eblob_iovec_bounds *bounds,
+		const struct eblob_iovec *iov, uint16_t iovcnt)
 {
 	const struct eblob_iovec *tmp;
-	uint64_t max = 0;
 
+	assert(iov != NULL);
+	assert(bounds != NULL);
 	assert(iovcnt >= EBLOB_IOVCNT_MIN || iovcnt <= EBLOB_IOVCNT_MAX);
+
+	bounds->min = UINT64_MAX;
+	bounds->max = 0;
+	bounds->contiguous = 1;
 
 	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
 		uint64_t sum = tmp->offset + tmp->size;
-		if (max < sum)
-			max = sum;
-	}
 
-	return max;
+		/*
+		 * TODO:
+		 * This is very trivial check for continuity.
+		 * We should probably sort iovects, merge adj. and splice
+		 * overlapping ones. But for now it's good enoungh.
+		 */
+		if (tmp->offset != bounds->max)
+			bounds->contiguous = 0;
+
+		if (bounds->max < sum)
+			bounds->max = sum;
+		if (bounds->min > tmp->offset)
+			bounds->min = tmp->offset;
+	}
 }
 
 /* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
