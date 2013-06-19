@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -132,22 +133,13 @@ static inline char *eblob_dump_id(const unsigned char *id)
 
 /*
  * Compare two IDs.
- * Returns  1 when id1 > id2
- *         -1 when id1 < id2
- *          0 when id1 = id2
+ * Returns  >0 when id1 > id2
+ *          <0 when id1 < id2
+ *           0 when id1 = id2
  */
 static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id2)
 {
-	unsigned int i;
-
-	for (i=0; i<EBLOB_ID_SIZE; ++i) {
-		if (id1[i] < id2[i])
-			return -1;
-		if (id1[i] > id2[i])
-			return 1;
-	}
-
-	return 0;
+	return memcmp(id1, id2, EBLOB_ID_SIZE);
 }
 
 /* Extended iovec-like structure */

@@ -107,6 +107,13 @@ if (UNIX OR MINGW)
         -fno-strict-aliasing
         -fstack-protector-all
     )
+    # GCC's builtin memcmp is slower than libc's
+    # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
+    if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+        add_definitions(
+            -fno-builtin-memcmp
+        )
+    endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
