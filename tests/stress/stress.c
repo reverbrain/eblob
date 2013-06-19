@@ -480,7 +480,6 @@ main(int argc, char **argv)
 	/* Init eblob */
 	bcfg.blob_flags = cfg.blob_flags;
 	bcfg.blob_size = cfg.blob_size;
-	bcfg.bsize = cfg.blob_bsize;
 	bcfg.defrag_timeout = cfg.blob_defrag;
 	bcfg.file = blob_path;
 	bcfg.iterate_threads = cfg.blob_threads;

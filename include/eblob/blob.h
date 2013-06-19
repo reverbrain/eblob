@@ -242,9 +242,6 @@ struct eblob_config {
 	/* sync interval in seconds */
 	int			sync;
 
-	/* alignment block size */
-	unsigned int		bsize;
-
 	/* logger */
 	struct eblob_log	*log;
 
@@ -279,9 +276,6 @@ struct eblob_config {
 	 * Default: 50000000
 	 */
 	uint64_t		records_in_blob;
-
-	/* maximum number of keys that could be cached from disk. Default: 50000000 */
-	uint64_t		cache_size;
 
 	/*
 	 * Automatic defragmentation starts when
@@ -318,7 +312,10 @@ struct eblob_config {
 	uint64_t		blob_size_limit;
 
 	/* for future use */
-	int			pad[8];
+	uint64_t		__pad_64[8];
+	int			__pad_int[8];
+	char			__pad_char[8];
+	void			*__pad_voidp[8];
 };
 
 /*

@@ -151,12 +151,10 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 	class_<eblob_config>("eblob_config", init<>())
 		.def_readwrite("blob_flags", &eblob_config::blob_flags)
 		.def_readwrite("sync", &eblob_config::sync)
-		.def_readwrite("bsize", &eblob_config::bsize)
 		.def_readwrite("file", &eblob_config::file)
 		.def_readwrite("iterate_threads", &eblob_config::iterate_threads)
 		.def_readwrite("blob_size", &eblob_config::blob_size)
 		.def_readwrite("records_in_blob", &eblob_config::records_in_blob)
-		.def_readwrite("cache_size", &eblob_config::cache_size)
 	;
 
 	class_<eblob_python>("eblob", init<const char *, const uint32_t, const std::string>())

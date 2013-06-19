@@ -833,9 +833,6 @@ static inline uint64_t eblob_calculate_size(struct eblob_backend *b, uint64_t of
 	if (!(b->cfg.blob_flags & EBLOB_NO_FOOTER))
 		total_size += sizeof(struct eblob_disk_footer);
 
-	if (b->cfg.bsize)
-		total_size = ALIGN(total_size, b->cfg.bsize);
-
 	return total_size;
 }
 
@@ -2175,22 +2172,14 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	if (!c->index_block_size)
 		c->index_block_size = EBLOB_INDEX_DEFAULT_BLOCK_SIZE;
-
 	if (!c->index_block_bloom_length)
 		c->index_block_bloom_length = EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH;
-
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
-
 	if (!c->iterate_threads)
-		c->iterate_threads = 1;
-
+		c->iterate_threads = EBLOB_DEFAULT_ITERATE_THREADS;
 	if (!c->records_in_blob)
 		c->records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
-
-	if (!c->cache_size)
-		c->cache_size = EBLOB_BLOB_DEFAULT_CACHE_SIZE;
-
 	if (!c->defrag_timeout)
 		c->defrag_timeout = EBLOB_DEFAULT_DEFRAG_TIMEOUT;
 	if (!c->defrag_percentage || (c->defrag_percentage < 0) || (c->defrag_percentage > 100))
