@@ -35,21 +35,21 @@ struct eblob_id {
 
 static void eblob_extract_arr(const list &l, unsigned char *dst, int *dlen)
 {
-        int length = len(l);
+	int length = len(l);
 
-        if (length > *dlen)
-                length = *dlen;
+	if (length > *dlen)
+		length = *dlen;
 
-        memset(dst, 0, *dlen);
-        for (int i = 0; i < length; ++i)
-                dst[i] = extract<unsigned char>(l[i]);
+	memset(dst, 0, *dlen);
+	for (int i = 0; i < length; ++i)
+		dst[i] = extract<unsigned char>(l[i]);
 }
 
 static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 {
-        int len = sizeof(id.id);
+	int len = sizeof(id.id);
 
-        eblob_extract_arr(e.id, id.id, &len);
+	eblob_extract_arr(e.id, id.id, &len);
 }
 
 struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
