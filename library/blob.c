@@ -1285,6 +1285,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
+		/* FIXME: Stats */
 		if (wc->data_fd != old.bctl->data_fd)
 			err = eblob_splice_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
 		else
@@ -1347,6 +1348,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	 */
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (!err && (wc.total_size >= eblob_calculate_size(b, 0, size))) {
+		/* FIXME: Stats */
 		err = 0;
 		goto err_out_exit;
 	}

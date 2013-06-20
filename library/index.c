@@ -132,7 +132,7 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 		}
 	}
 
-	/* TODO: Add checks for incorrect blocks boundaries*/
+	/* TODO: Add checks for incorrect blocks boundaries */
 	if (*n) {
 		err = -EEXIST;
 		goto err_out_exit;
@@ -224,7 +224,7 @@ static uint64_t eblob_bloom_size(const struct eblob_base_ctl *bctl)
 	bloom_size /= bctl->back->cfg.index_block_size;
 	/* Add one for tiny bases */
 	bloom_size += 1;
-	/* Number of bits in bloom for one block*/
+	/* Number of bits in bloom for one block */
 	bloom_size *= bctl->back->cfg.index_block_bloom_length;
 	/* Size of byte */
 	bloom_size /= 8;
@@ -240,7 +240,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	unsigned int i;
 	int err = 0;
 
-	/* Allocate bloom filter*/
+	/* Allocate bloom filter */
 	bctl->bloom_size = eblob_bloom_size(bctl);
 	EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_NOTICE,
 			"index: bloom filter size: %" PRIu64, bctl->bloom_size);
