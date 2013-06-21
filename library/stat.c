@@ -68,7 +68,7 @@ int eblob_stat_init(struct eblob_stat *s, const char *path)
 	}
 	pthread_mutexattr_destroy(&attr);
 
-	fp = fopen(path, "a+");
+	fp = fopen(path, "w");
 	if (fp == NULL) {
 		err = -errno;
 		goto err_out_destroy;
