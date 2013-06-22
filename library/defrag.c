@@ -45,30 +45,6 @@
 #include <unistd.h>
 
 /**
- * eblob_defrag_count() - iterator that counts non-removed entries in base
- */
-static int eblob_defrag_count(struct eblob_disk_control *dc,
-		struct eblob_ram_control *ctl __attribute_unused__,
-		void *data __attribute_unused__,
-		void *priv, void *thread_priv __attribute_unused__)
-{
-	struct eblob_base_ctl *bctl = priv;
-
-	eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG,
-			"defrag: count: %s: size: %" PRIu64 ", position: %" PRIu64 ", "
-			"flags: %" PRIu64 ", good: %d\n",
-			eblob_dump_id(dc->key.id), dc->data_size, dc->position,
-			dc->flags, bctl->good);
-
-	pthread_mutex_lock(&bctl->dlock);
-	if (!(dc->flags & BLOB_DISK_CTL_REMOVE))
-		bctl->good++;
-	pthread_mutex_unlock(&bctl->dlock);
-
-	return 0;
-}
-
-/**
  * eblob_want_defrag() - runs iterator that counts number of non-removed
  * entries (aka good ones) and compares it with total.
  * If percentage >= defrag_percentage then defrag should proceed.
@@ -77,50 +53,37 @@ static int eblob_defrag_count(struct eblob_disk_control *dc,
  *	1: defrag needed
  *	0: no entiries in blob
  *	-1: no defrag needed
+ *	other: error
  */
 static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
-	struct eblob_iterate_control ctl;
-	int err, total, removed;
+	int64_t total, removed;
+	int err;
 
-	bctl->good = 0;
+	eblob_base_wait_locked(bctl);
+	total = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL);
+	removed = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
+	pthread_mutex_unlock(&bctl->lock);
 
-	memset(&ctl, 0, sizeof(struct eblob_iterate_control));
-
-	ctl.thread_num = 1;
-	ctl.log = b->cfg.log;
-
-	ctl.iterator_cb.iterator = eblob_defrag_count;
-	ctl.iterator_cb.iterator_init = NULL;
-	ctl.iterator_cb.iterator_free = NULL;
-
-	ctl.b = b;
-	ctl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_FLAGS_READONLY;
-
-	ctl.base = bctl;
-	ctl.priv = bctl;
-	err = eblob_blob_iterate(&ctl);
-	if (err)
-		goto err_out_exit;
-
-	total = bctl->index_size / sizeof(struct eblob_disk_control);
-	removed = total - bctl->good;
+	/* Sanity: Do not remove seem-to-be empty blob if offsets are non-zero */
+	if (((removed == 0) && (total == 0)) &&
+			((bctl->data_offset != 0) || (bctl->index_offset != 0)))
+		return -EINVAL;
 
 	if (removed == total)
 		err = 0;
-	else if (removed >= bctl->good * b->cfg.defrag_percentage / 100)
+	else if (removed >= (total - removed) * b->cfg.defrag_percentage / 100)
 		err = 1;
 	else
 		err = -1;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-			"%s: index: %d, removed: %d, total: %d, "
+			"%s: index: %d, removed: %" PRId64 ", total: %" PRId64 ", "
 			"percentage: %d, want-defrag: %d\n",
 			__func__, bctl->index, removed, total,
 			b->cfg.defrag_percentage, err);
 
-err_out_exit:
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "%s: finished: %d", __func__, err);
 	return err;
 }
