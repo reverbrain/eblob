@@ -20,9 +20,11 @@
 
 #include "features.h"
 #include "blob.h"
+#include "stat.h"
 
 #include <sys/mman.h>
 
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -31,95 +33,169 @@
 #include <string.h>
 #include <unistd.h>
 
-void eblob_stat_cleanup(struct eblob_stat *s)
+void eblob_stat_destroy(struct eblob_stat *s)
 {
 	pthread_mutex_destroy(&s->lock);
+	free(s);
 }
 
-int eblob_stat_init(struct eblob_stat *s, const char *path)
+int eblob_stat_init_backend(struct eblob_backend *b, const char *path)
 {
 	pthread_mutexattr_t attr;
-	FILE *fp;
 	int err;
 
 	/* Sanity */
-	if (s == NULL || path == NULL)
+	if (path == NULL)
 		return -EINVAL;
 	if (strlen(path) > PATH_MAX)
 		return -ENAMETOOLONG;
 
-	memset(s, 0, sizeof(struct eblob_stat));
-	strncpy(s->path, path, PATH_MAX);
+	b->stat = calloc(1, sizeof(struct eblob_stat) +
+			sizeof(struct eblob_stat_entry) * (EBLOB_GST_MAX + 1));
+	if (b->stat == NULL) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+	strncpy(b->stat_path, path, PATH_MAX);
 
 	if ((err = pthread_mutexattr_init(&attr)) != 0) {
 		err = -err;
-		goto err_out_exit;
+		goto err_out_free;
 	}
 #ifdef PTHREAD_MUTEX_ADAPTIVE_NP
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
 #else
 	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
 #endif
-	err = pthread_mutex_init(&s->lock, &attr);
+	err = pthread_mutex_init(&b->stat->lock, &attr);
 	if (err) {
 		pthread_mutexattr_destroy(&attr);
 		err = -err;
-		goto err_out_exit;
+		goto err_out_free;
 	}
 	pthread_mutexattr_destroy(&attr);
 
-	fp = fopen(path, "w");
-	if (fp == NULL) {
-		err = -errno;
-		goto err_out_destroy;
-	}
-	rewind(fp);
-
-	/* If we can't parse stats - we should schedule a check */
-	err = fscanf(fp, "disk: %llu\nremoved: %llu\n", &s->disk, &s->removed);
-	if (err == 2)
-		s->need_check = 0;
-	else
-		s->need_check = 1;
-
-	if (fclose(fp) == EOF) {
-		err = -errno;
-		goto err_out_destroy;
-	}
+	memcpy((void *)b->stat + sizeof(struct eblob_stat),
+			eblob_stat_default_global, sizeof(eblob_stat_default_global));
 
 	return 0;
 
-err_out_destroy:
-	pthread_mutex_destroy(&s->lock);
+err_out_free:
+	free(b->stat);
 err_out_exit:
 	return err;
 }
 
-/*
- * Updates in-memory statistics
- */
-void eblob_stat_update(struct eblob_backend *b, const long long disk,
-		const long long removed, const long long hashed)
+int eblob_stat_init_base(struct eblob_base_ctl *bctl)
 {
-	assert(b != NULL);
+	return eblob_stat_init_local(&bctl->stat);
+}
 
-	pthread_mutex_lock(&b->stat.lock);
-	b->stat.disk += disk;
-	b->stat.removed += removed;
-	b->stat.hashed += hashed;
-	pthread_mutex_unlock(&b->stat.lock);
+int eblob_stat_init_local(struct eblob_stat **s)
+{
+	pthread_mutexattr_t attr;
+	int err = 0;
+
+	*s = calloc(1, sizeof(struct eblob_stat) +
+			sizeof(struct eblob_stat_entry) * (EBLOB_LST_MAX + 1));
+	if (*s == NULL) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	if ((err = pthread_mutexattr_init(&attr)) != 0) {
+		err = -err;
+		goto err_out_free;
+	}
+#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#else
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
+#endif
+	err = pthread_mutex_init(&(*s)->lock, &attr);
+	if (err) {
+		pthread_mutexattr_destroy(&attr);
+		err = -err;
+		goto err_out_free;
+	}
+	pthread_mutexattr_destroy(&attr);
+
+	memcpy((void *)(*s) + sizeof(struct eblob_stat),
+			eblob_stat_default_local, sizeof(eblob_stat_default_local));
+	return 0;
+
+err_out_free:
+	free(*s);
+err_out_exit:
+	return err;
 }
 
 /*!
- * Atomically sets sort_status
+ * Return name of stat by it's id
  */
-void eblob_stat_set_sort_status(struct eblob_backend *b, int value)
+static inline
+const char *eblob_stat_get_name(struct eblob_stat *s, uint32_t id)
 {
-	assert(b != NULL);
+	assert(s != NULL);
 
-	pthread_mutex_lock(&b->stat.lock);
-	b->stat.sort_status = value;
-	pthread_mutex_unlock(&b->stat.lock);
+	return s->entry[id].name;
+}
+
+static void
+eblob_stat_global_print(FILE *fp, struct eblob_backend *b)
+{
+	uint32_t i;
+
+	fprintf(fp, "GLOBAL:\n");
+	for (i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
+		fprintf(fp, "%s: %" PRId64 "\n", eblob_stat_get_name(b->stat, i),
+				eblob_stat_get(b->stat, i));
+	fprintf(fp, "\n");
+}
+
+void eblob_stat_summary_update(struct eblob_backend *b)
+{
+	struct eblob_base_ctl *bctl;
+	int64_t sum[EBLOB_LST_MAX] = {};
+	uint32_t i;
+
+	assert(b != NULL);
+	list_for_each_entry(bctl, &b->bases, base_entry)
+		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
+			sum[i] += eblob_stat_get(bctl->stat, i);
+
+	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
+		eblob_stat_set(b->stat_summary, i, sum[i]);
+}
+
+static void
+eblob_stat_summary_print(FILE *fp, struct eblob_backend *b)
+{
+	uint32_t i;
+
+	fprintf(fp, "SUMMARY:\n");
+	for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
+		fprintf(fp, "%s: %" PRId64 "\n",
+				eblob_stat_get_name(b->stat_summary, i),
+				eblob_stat_get(b->stat_summary, i));
+	fprintf(fp, "\n");
+}
+
+static void
+eblob_stat_base_print(FILE *fp, struct eblob_backend *b)
+{
+	struct eblob_base_ctl *bctl;
+	uint32_t i;
+
+	assert(b != NULL);
+	list_for_each_entry(bctl, &b->bases, base_entry) {
+		fprintf(fp, "BASE: %s\n", bctl->name);
+		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
+			fprintf(fp, "%s: %" PRId64 "\n",
+					eblob_stat_get_name(bctl->stat, i),
+					eblob_stat_get(bctl->stat, i));
+		fprintf(fp, "\n");
+	}
 }
 
 /*!
@@ -129,36 +205,30 @@ void eblob_stat_set_sort_status(struct eblob_backend *b, int value)
 int eblob_stat_commit(struct eblob_backend *b)
 {
 	FILE *fp;
-	unsigned long long disk, removed, hashed;
-	int sort_status;
 	char tmp_path[PATH_MAX];
 
 	assert(b != NULL);
 
 	/* Construct temporary path */
-	if (snprintf(tmp_path, PATH_MAX, "%s.tmp", b->stat.path) > PATH_MAX)
+	if (snprintf(tmp_path, PATH_MAX, "%s.tmp", b->stat_path) > PATH_MAX)
 		return -ENAMETOOLONG;
 
-	/* Read current stats */
-	pthread_mutex_lock(&b->stat.lock);
-	disk = b->stat.disk;
-	removed = b->stat.removed;
-	hashed = b->stat.hashed;
-	sort_status = b->stat.sort_status;
-	pthread_mutex_unlock(&b->stat.lock);
-
 	/* Create tmp file and atomically swap it with an existing stats */
-	fp = fopen(tmp_path, "w+");
+	fp = fopen(tmp_path, "w");
 	if (fp == NULL)
 		return -errno;
 
-	fprintf(fp, "disk: %llu\nremoved: %llu\nhashed: %llu\nsort_status: %d\n",
-			disk, removed, hashed, sort_status);
+	eblob_stat_global_print(fp, b);
+
+	eblob_stat_summary_update(b);
+	eblob_stat_summary_print(fp, b);
+
+	eblob_stat_base_print(fp, b);
 
 	if (fclose(fp) == EOF)
 		return -errno;
 
-	if (rename(tmp_path, b->stat.path) == -1)
+	if (rename(tmp_path, b->stat_path) == -1)
 		return -errno;
 
 	return 0;

@@ -1155,8 +1155,9 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	assert(offset == dcfg->result->offset);
 
 	/* Account for new size */
-	dcfg->b->current_blob_size -= unsorted_bctl->index_size + unsorted_bctl->data_size;
-	dcfg->b->current_blob_size += sorted_bctl->index_size + sorted_bctl->data_size;
+	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_BASE_SIZE,
+			sorted_bctl->index_size + sorted_bctl->data_size);
+	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_RECORDS_TOTAL, dcfg->result->count);
 
 	/*
 	 * Replace unsorted bctl with sorted one

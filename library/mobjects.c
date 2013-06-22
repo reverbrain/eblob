@@ -128,6 +128,7 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	pthread_mutex_destroy(&ctl->dlock);
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_rwlock_destroy(&ctl->index_blocks_lock);
+	eblob_stat_destroy(ctl->stat);
 }
 
 static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_base, const char *name, int name_len)
@@ -325,7 +326,10 @@ again:
 				ctl->sort.size / sizeof(struct eblob_disk_control));
 	}
 
-	b->current_blob_size += ctl->data_size + ctl->index_size;
+	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
+			ctl->data_size + ctl->index_size);
+	eblob_stat_add(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
+			ctl->index_size / sizeof(struct eblob_disk_control));
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
 
@@ -398,8 +402,13 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
 		goto err_out_destroy_dlock;
 
+	if (eblob_stat_init_base(ctl) != 0)
+		goto err_out_destroy_blocks_lock;
+
 	return ctl;
 
+err_out_destroy_blocks_lock:
+	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 err_out_destroy_dlock:
 	pthread_mutex_destroy(&ctl->dlock);
 err_out_destroy_lock:
@@ -640,7 +649,7 @@ err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
 
 	if (err == 0)
-		eblob_stat_update(b, 0, 0, 1);
+		eblob_stat_inc(b->stat, EBLOB_GST_HASHED);
 
 	return err;
 }
@@ -658,7 +667,7 @@ int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 
 	/* FIXME: Introduce eblob_stat_update_nolock */
 	if (err == 0)
-		eblob_stat_update(b, 0, 0, -1);
+		eblob_stat_dec(b->stat, EBLOB_GST_HASHED);
 
 	return err;
 }
@@ -717,6 +726,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
+	eblob_stat_inc(ctl->bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	return eblob_cache_insert(b, &dc->key, ctl, 0);
 }
 
@@ -754,7 +764,7 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 			ctl->thread_num = thread_num;
 
 			err = 0;
-			if (bctl->sort.fd < 0 || b->stat.need_check || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
+			if (bctl->sort.fd < 0 || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
 				err = eblob_blob_iterate(ctl);
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: index: %d, data_fd: %d, index_fd: %d, "

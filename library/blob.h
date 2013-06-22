@@ -182,6 +182,8 @@ struct eblob_base_ctl {
 	 * -1 if not sorted
 	 */
 	int			sorted;
+	/* Per bctl aka "local" stats */
+	struct eblob_stat	*stat;
 	char			name[0];
 };
 
@@ -394,8 +396,6 @@ struct eblob_backend {
 	/* Level two hash table */
 	struct eblob_l2hash	l2hash;
 
-	struct eblob_stat	stat;
-
 	volatile int		need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
@@ -407,12 +407,16 @@ struct eblob_backend {
 	 * 0:	data-sort should be preformed according to defrag_timeout
 	 */
 	volatile int		want_defrag;
-	/* Current size of all bases and indexes */
-	uint64_t		current_blob_size;
 	/* Cached vfs stats */
 	struct statvfs		vfs_stat;
 	/* File descriptor used for database locking */
 	int			lock_fd;
+
+	/* Global per backend statistics */
+	struct eblob_stat	*stat;
+	/* Per bctl stat summary */
+	struct eblob_stat	*stat_summary;
+	char			stat_path[PATH_MAX];
 };
 
 int eblob_add_new_base(struct eblob_backend *b);

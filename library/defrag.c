@@ -130,7 +130,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	struct eblob_base_ctl *bctl;
 	int err = 0;
 
-	eblob_stat_set_sort_status(b, 1);
+	eblob_stat_set(b->stat, EBLOB_GST_DATASORT, 1);
 
 	/*
 	 * It should be safe to iterate without locks, since we never
@@ -156,13 +156,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		case 0:
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
 					"empty blob - removing.");
-
-			/* Accounting */
-			b->current_blob_size -= bctl->index_size;
-			b->current_blob_size -= bctl->data_size;
-
+			eblob_stat_set(bctl->stat, EBLOB_LST_BASE_SIZE, 0);
 			/*
-			 * TODO: It's better to also preform minimal
+			 * FIXME: It's better to also preform minimal
 			 * cleanup: unmap data/index and close fds
 			 */
 			eblob_base_remove(bctl);
@@ -202,7 +198,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	}
 
 err_out_exit:
-	eblob_stat_set_sort_status(b, err);
+	eblob_stat_set(b->stat, EBLOB_GST_DATASORT, err);
 	return err;
 }
 
