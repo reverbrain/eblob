@@ -110,26 +110,13 @@ err_out_exit:
 	return err;
 }
 
-struct eblob_hash *eblob_hash_init()
+int eblob_hash_init(struct eblob_hash *h)
 {
-	struct eblob_hash *h;
-	int err;
-
-	h = malloc(sizeof(struct eblob_hash));
-	if (!h) {
-		err = -ENOMEM;
-		goto err_out_exit;
-	}
 	memset(h, 0, sizeof(struct eblob_hash));
-
 	h->root = RB_ROOT;
 	pthread_rwlock_init(&h->root_lock, NULL);
 
-	return h;
-
-err_out_exit:
-	errno = err;
-	return NULL;
+	return 0;
 }
 
 void eblob_hash_destroy(struct eblob_hash *h)
@@ -147,7 +134,6 @@ void eblob_hash_destroy(struct eblob_hash *h)
 	}
 
 	pthread_rwlock_destroy(&h->root_lock);
-	free(h);
 }
 
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize)
@@ -193,37 +179,24 @@ int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key)
 /**
  * eblob_hash_lookup_alloc_nolock() - returns copy of data stored in cache
  */
-int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key,
-		void **datap, unsigned int *dsizep)
+int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *data)
 {
 	struct eblob_hash_entry *e;
-	void *data;
-
-	*datap = NULL;
-	*dsizep = 0;
 
 	e = eblob_hash_search(&h->root, key);
 	if (e == NULL)
 		return -ENOENT;
 
-	data = malloc(e->dsize);
-	if (data == NULL)
-		return -ENOMEM;
-
 	memcpy(data, e->data, e->dsize);
-	*dsizep = e->dsize;
-	*datap = data;
-
 	return 0;
 }
 
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key,
-		void **datap, unsigned int *dsizep)
+int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data)
 {
 	int err;
 
 	pthread_rwlock_rdlock(&h->root_lock);
-	err = eblob_hash_lookup_alloc_nolock(h, key, datap, dsizep);
+	err = eblob_hash_lookup_nolock(h, key, data);
 	pthread_rwlock_unlock(&h->root_lock);
 	return err;
 }

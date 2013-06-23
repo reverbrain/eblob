@@ -139,19 +139,13 @@ eblob_l2hash_t eblob_l2hash_key(const struct eblob_key *key)
 /**
  * eblob_l2hash_init() - initializes one l2hash tree.
  */
-struct eblob_l2hash *eblob_l2hash_init(void)
+int eblob_l2hash_init(struct eblob_l2hash *l2h)
 {
-	struct eblob_l2hash *l2h = NULL;
-
-	l2h = calloc(1, sizeof(struct eblob_l2hash));
-	if (l2h == NULL)
-		goto err;
-
+	memset(l2h, 0, sizeof(*l2h));
 	l2h->root = RB_ROOT;
 	l2h->collisions = RB_ROOT;
 
-err:
-	return l2h;
+	return 0;
 }
 
 /**
@@ -205,7 +199,6 @@ int eblob_l2hash_destroy(struct eblob_l2hash *l2h)
 	__eblob_l2hash_tree_destroy(&l2h->root);
 	__eblob_l2hash_collision_tree_destroy(&l2h->collisions);
 
-	free(l2h);
 	return 0;
 }
 

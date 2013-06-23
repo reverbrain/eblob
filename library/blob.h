@@ -21,6 +21,7 @@
 #include "hash.h"
 #include "l2hash.h"
 #include "list.h"
+#include "stat.h"
 
 #include <sys/statvfs.h>
 
@@ -35,6 +36,9 @@
 #endif
 #ifndef __attribute_pure__
 #define __attribute_pure__	__attribute__ ((pure))
+#endif
+#ifndef __attribute_always_inline__
+#define __attribute_always_inline__ __attribute__ ((always_inline))
 #endif
 
 #ifndef ACCESS_ONCE
@@ -57,20 +61,15 @@
 #define FD_CLOEXEC	1
 #endif
 
-#ifndef EBADFD
-#define	EBADFD		77	/* File descriptor in bad state */
-#endif
-
 #define EBLOB_1_M				(1UL<<20)
 #define EBLOB_1_G				(1ULL<<30)
 
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
-#define EBLOB_BLOB_DEFAULT_HASH_SIZE		(16 * EBLOB_1_M)
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		(50 * EBLOB_1_G)
-#define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	50000000
-#define EBLOB_BLOB_DEFAULT_CACHE_SIZE		50000000
-#define EBLOB_DEFAULT_DEFRAG_TIMEOUT		-1
-#define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		25
+#define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	(50000000)
+#define EBLOB_DEFAULT_DEFRAG_TIMEOUT		(-1)
+#define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		(25)
+#define EBLOB_DEFAULT_ITERATE_THREADS		(1)
 
 struct eblob_map_fd {
 	int			fd;
@@ -84,11 +83,6 @@ struct eblob_map_fd {
 
 int eblob_data_map(struct eblob_map_fd *map);
 void eblob_data_unmap(struct eblob_map_fd *map);
-
-struct eblob_base_type {
-	int			type, index;
-	struct list_head	bases;
-};
 
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
 /*
@@ -135,7 +129,7 @@ struct eblob_base_ctl {
 	struct eblob_backend	*back;
 	struct list_head	base_entry;
 
-	int			type, index;
+	int			index;
 
 	pthread_mutex_t		lock;
 	int			data_fd, index_fd;
@@ -145,18 +139,7 @@ struct eblob_base_ctl {
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
-	/* TODO: Unused - remove */
-	pthread_mutex_t		dlock;
-	int			df, dfi;
-
-	/*
-	 * OBSOLETE: cached old_ parameters which are used until defragmented
-	 * blobs are copied to the place of original ones
-	 */
-	int			old_data_fd, old_index_fd;
-
 	struct eblob_map_fd	sort;
-	struct eblob_map_fd	old_sort;
 
 	/*
 	 * Index blocks tree
@@ -168,9 +151,6 @@ struct eblob_base_ctl {
 	unsigned char		*bloom;
 	uint64_t		bloom_size;
 	pthread_rwlock_t	index_blocks_lock;
-
-	/* Number of valid non-removed entries */
-	int			good;
 
 	/* Number of bctl users inside a critical section */
 	int			critness;
@@ -188,6 +168,8 @@ struct eblob_base_ctl {
 	 * -1 if not sorted
 	 */
 	int			sorted;
+	/* Per bctl aka "local" stats */
+	struct eblob_stat	*stat;
 	char			name[0];
 };
 
@@ -208,13 +190,19 @@ enum eblob_bloom_hash_type {
 	EBLOB_BLOOM_HASH_FNV,
 };
 
+/* Sets whatever to copy record on prepare or not */
+enum eblob_copy_flavour {
+	EBLOB_DONT_COPY_RECORD,
+	EBLOB_COPY_RECORD,
+};
+
 /*!
  * FNV-1a hash function implemented to spec:
  *    http://www.isthe.com/chongo/tech/comp/fnv/
  * TODO: It operates on each octet of data which is kinda slow. We can use
  * murmur from l2hash.
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 {
 	uint64_t i, hash = 14695981039346656037ULL;
@@ -230,7 +218,7 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
  * We can use it because it gives us better distribution on keys already hashed
  * by sha512.
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 {
 	uint64_t i, hash = 0ULL;
@@ -239,7 +227,7 @@ inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 	return hash;
 }
 
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
 		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
 		enum eblob_bloom_hash_type type)
@@ -261,7 +249,7 @@ inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloo
 	*bloom_bit_num = hash % 8;
 }
 
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
 		enum eblob_bloom_cmd cmd)
 {
@@ -306,7 +294,7 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 /*!
  * Returns non-null if \a key is present in \a bctl bloom fileter
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	return eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_GET);
@@ -315,12 +303,58 @@ inline static int eblob_bloom_get(struct eblob_base_ctl *bctl, const struct eblo
 /*!
  * Sets all bloom filter bits of \a bctl corresponding to \a key
  */
-__attribute__ ((always_inline))
+__attribute_always_inline__
 inline static void eblob_bloom_set(struct eblob_base_ctl *bctl, const struct eblob_key *key)
 {
 	eblob_bloom_ll(bctl, key, EBLOB_BLOOM_CMD_SET);
 }
 
+/*
+ * Represents area bounds that given iovec array will touch:
+ * min: minimal offset
+ * max: maximum offset+size
+ * contiguous: simple continuity check.
+ */
+struct eblob_iovec_bounds {
+	uint64_t		min, max;
+	int			contiguous;
+};
+
+/*!
+ * Gets bounds of given iovects
+ */
+__attribute_always_inline__
+inline static void eblob_iovec_get_bounds(struct eblob_iovec_bounds *bounds,
+		const struct eblob_iovec *iov, uint16_t iovcnt)
+{
+	const struct eblob_iovec *tmp;
+
+	assert(iov != NULL);
+	assert(bounds != NULL);
+	assert(iovcnt >= EBLOB_IOVCNT_MIN || iovcnt <= EBLOB_IOVCNT_MAX);
+
+	bounds->min = UINT64_MAX;
+	bounds->max = 0;
+	bounds->contiguous = 1;
+
+	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
+		uint64_t sum = tmp->offset + tmp->size;
+
+		/*
+		 * TODO:
+		 * This is very trivial check for continuity.
+		 * We should probably sort iovects, merge adj. and splice
+		 * overlapping ones. But for now it's good enoungh.
+		 */
+		if (tmp->offset != bounds->max)
+			bounds->contiguous = 0;
+
+		if (bounds->max < sum)
+			bounds->max = sum;
+		if (bounds->min > tmp->offset)
+			bounds->min = tmp->offset;
+	}
+}
 
 /* Analogue of posix_fadvise POSIX_FADV_WILLNEED */
 #define EBLOB_FLAGS_HINT_WILLNEED (1<<0)
@@ -334,47 +368,19 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
-#define EBLOB_STAT_SIZE_MAX	4096
-
-struct eblob_stat {
-	char			path[PATH_MAX];
-	pthread_mutex_t		lock;
-
-	int			need_check;
-	/*
-	 * Current data-sort status:
-	 * <0:	data-sort aborted due an error
-	 * 1:	data-sort in progress
-	 * 0:	data-sort not running
-	 */
-	int			sort_status;
-
-	unsigned long long	disk;
-	unsigned long long	removed;
-	unsigned long long	hashed;
-};
-
-void eblob_stat_cleanup(struct eblob_stat *s);
-int eblob_stat_init(struct eblob_stat *s, const char *path);
-void eblob_stat_update(struct eblob_backend *b, long long disk, long long removed, long long hashed);
-void eblob_stat_set_sort_status(struct eblob_backend *b, int value);
-int eblob_stat_commit(struct eblob_backend *b);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
 
 	pthread_mutex_t		lock;
 
-	int			max_type;
-	struct eblob_base_type	*types;
+	struct list_head	bases;
+	int			max_index;
 
-	struct eblob_hash	*hash;
-	/* Array of pointers to level two hashes - one for each type */
-	struct eblob_l2hash	**l2hash;
-	/* Maximum initialized l2hash */
-	int			l2hash_max;
-
-	struct eblob_stat	stat;
+	/* In memory cache */
+	struct eblob_hash	hash;
+	/* Level two hash table */
+	struct eblob_l2hash	l2hash;
 
 	volatile int		need_exit;
 	pthread_t		defrag_tid;
@@ -387,29 +393,32 @@ struct eblob_backend {
 	 * 0:	data-sort should be preformed according to defrag_timeout
 	 */
 	volatile int		want_defrag;
-	/* Current size of all bases and indexes */
-	uint64_t		current_blob_size;
 	/* Cached vfs stats */
 	struct statvfs		vfs_stat;
 	/* File descriptor used for database locking */
 	int			lock_fd;
+
+	/* Global per backend statistics */
+	struct eblob_stat	*stat;
+	/* Per bctl stat summary */
+	struct eblob_stat	*stat_summary;
+	char			stat_path[PATH_MAX];
 };
 
-int eblob_add_new_base(struct eblob_backend *b, int type);
+int eblob_add_new_base(struct eblob_backend *b);
 int eblob_load_data(struct eblob_backend *b);
-void eblob_base_types_cleanup(struct eblob_backend *b);
+void eblob_bases_cleanup(struct eblob_backend *b);
 
-int eblob_lookup_type(struct eblob_backend *b, struct eblob_key *key, int type, struct eblob_ram_control *res, int *diskp);
-int eblob_remove_type(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_remove_type_nolock(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_insert_type(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
+int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
+int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
+int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
+int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
 
-int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key, int type,
-		struct eblob_ram_control **dst, int *dsize);
+int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
+		struct eblob_ram_control *rctl);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
-int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl,
-		struct eblob_base_type **typesp, int *max_typep);
+int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
@@ -454,7 +463,7 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
 
-struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int type, int index,
+struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
 
 /* Logging helpers */

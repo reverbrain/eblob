@@ -38,43 +38,46 @@ class eblob_test {
 			m_blob = boost::shared_ptr<eblob> (new eblob(&cfg));
 		}
 
-		void fill(const std::vector<int>& types)
+		void fill(const std::vector<std::string>& prefixes)
 		{
 			static const uint64_t offset = 0;
 			static const uint64_t flags = 0;
 
 			for (int i = 0; i < m_iterations; ++i) {
-				std::ostringstream key, data;
-
-				key << m_key_base << i;
+				std::ostringstream data;
 				data << "Current unixtime: " << time(NULL);
 
-				for(std::vector<int>::const_iterator t = types.begin(); t != types.end(); ++t) {
-					m_blob->write_hashed(key.str(), data.str(), offset, flags, *t);
+				for(std::vector<std::string>::const_iterator p = prefixes.begin();
+						p != prefixes.end(); ++p) {
+					std::ostringstream key;
+
+					key << *p << m_key_base << i;
+					m_blob->write_hashed(key.str(), data.str(), offset, flags);
 				}
 			}
 		}
 
-		void check(const std::vector<int>& types)
+		void check(const std::vector<std::string>& prefixes)
 		{
 			static const uint64_t offset = 0;
 			static const uint64_t size = 0;
 			for (int i = 0; i < m_iterations; ++i) {
-				std::ostringstream key;
 				std::string first_data, data;
 
-				key << m_key_base << i;
-				for (std::vector<int>::const_iterator t = types.begin(); t != types.end(); ++t) {
-					if (t == types.begin()) {
-						first_data = m_blob->read_hashed(key.str(), offset, size, *t);
+				for (std::vector<std::string>::const_iterator p = prefixes.begin();
+						p != prefixes.end(); ++p) {
+					std::ostringstream key;
+					key << *p << m_key_base << i;
+
+					if (p == prefixes.begin()) {
+						first_data = m_blob->read_hashed(key.str(), offset, size);
 					} else {
-						data = m_blob->read_hashed(key.str(), offset, size, *t);
+						data = m_blob->read_hashed(key.str(), offset, size);
 
 						if (first_data != data) {
 							std::ostringstream str;
 
-							str << "Data mismatch for key '" << key.str() << "' in columns" <<
-								types[0] << " and " << *t;
+							str << "Data mismatch for key '" << key.str() << "'";
 							throw std::runtime_error(str.str());
 						}
 					}
@@ -91,7 +94,7 @@ class eblob_test {
 
 				struct eblob_key ekey;
 				m_blob->key(key.str(), ekey);
-				m_blob->remove_all(ekey);
+				m_blob->remove(ekey);
 			}
 			m_iterations = start;
 		}
@@ -120,17 +123,18 @@ class eblob_test {
 int main()
 {
 	static const std::string key_base = "test-";
-	static const std::vector<int> types = std::vector<int>(0, 5);
+	static const char* prefix_list[] = {"1_", "2_", "3_", "4_"};
+	static const std::vector<std::string> prefixes(prefix_list, prefix_list + sizeof(prefix_list)/sizeof(prefix_list[0]));
 	static const int iterations = 1000, timeout = 10;
 
 	std::cout << "Tests started." << std::endl;
 	try {
 		// Init
 		eblob_test t(key_base, "/tmp/eblob-test-dir", 5, iterations);
-		t.fill(types);
+		t.fill(prefixes);
 
 		//Check
-		t.check(types);
+		t.check(prefixes);
 
 		// Fragment
 		t.remove(iterations / 4);
@@ -140,7 +144,7 @@ int main()
 		sleep(timeout);
 
 		// Recheck after defrag
-		t.check(types);
+		t.check(prefixes);
 	} catch (const std::exception &e) {
 		std::cerr << "Got an exception: " << e.what() << std::endl;
 		exit(EXIT_FAILURE);
