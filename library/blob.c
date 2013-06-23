@@ -1792,7 +1792,7 @@ err_out_exit:
 }
 
 /**
- * eblob_read_ll() - returns @fd, @offset and @size of data for given key.
+ * _eblob_read_ll() - returns @fd, @offset and @size of data for given key.
  * Caller should the read data manually.
  */
 static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
@@ -1920,54 +1920,47 @@ void eblob_data_unmap(struct eblob_map_fd *map)
  * @key:	hashed key to read
  * @offset:	offset inside record
  * @dst:	pointer to destination pointer
- * @size:	pointer to store size of data
+ * @size:	pointer to store size of data, also constraint to read size
  */
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
-	int err;
+	int err, fd;
 	void *data;
-	struct eblob_map_fd m;
+	uint64_t record_offset, record_size;
 
-	memset(&m, 0, sizeof(m));
-
-	err = eblob_read_ll(b, key, &m.fd, &m.offset, &m.size, csum);
+	err = eblob_read_ll(b, key, &fd, &record_offset, &record_size, csum);
 	if (err < 0)
 		goto err_out_exit;
 
-	if (offset >= m.size) {
+	if (offset >= record_size) {
 		err = -E2BIG;
 		goto err_out_exit;
 	}
 
-	m.offset += offset;
-	m.size -= offset;
+	record_offset += offset;
+	record_size -= offset;
 
-	if (*size && m.size > *size)
-		m.size = *size;
-	else
-		*size = m.size;
+	if (*size && record_size > *size)
+		record_size = *size;
 
-	/*
-	 * FIXME: We don't need mmap it if it's already used in bctl->data
-	 */
-	err = eblob_data_map(&m);
-	if (err)
-		goto err_out_exit;
-
-	data = malloc(m.size);
+	data = malloc(record_size);
 	if (!data) {
 		err = -ENOMEM;
-		goto err_out_unmap;
+		goto err_out_exit;
 	}
 
-	memcpy(data, m.data, m.size);
+	err = blob_read_ll(fd, data, record_size, record_offset);
+	if (err != 0)
+		goto err_out_free;
 
-	*size = m.size;
+	*size = record_size;
 	*dst = data;
 
-err_out_unmap:
-	eblob_data_unmap(&m);
+	return 0;
+
+err_out_free:
+	free(data);
 err_out_exit:
 	return err;
 }
