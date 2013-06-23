@@ -243,7 +243,6 @@ again:
 
 	if (err) {
 		struct stat st;
-		int max_index = -1;
 
 		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 		if (ctl->index_fd == -1) {
@@ -266,21 +265,19 @@ again:
 			err = eblob_generate_sorted_index(b, ctl);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"bctl: index: %d/%d, eblob_generate_sorted_index: FAILED\n",
-						ctl->index, max_index);
+						"bctl: index: %d, eblob_generate_sorted_index: FAILED\n", ctl->index);
 				goto err_out_close_index;
 			}
 			err = eblob_index_blocks_fill(ctl);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"bctl: index: %d/%d, eblob_index_blocks_fill: FAILED\n",
-						ctl->index, max_index);
+						"bctl: index: %d, eblob_index_blocks_fill: FAILED\n", ctl->index);
 				goto err_out_close_index;
 			}
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
-					ctl->index, max_index,
+					ctl->index, b->max_index,
 					ctl->index_size, ctl->index_size / sizeof(struct eblob_disk_control),
 					ctl->data_size, (unsigned long long)b->cfg.blob_size);
 		}
