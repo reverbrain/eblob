@@ -139,18 +139,7 @@ struct eblob_base_ctl {
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
-	/* TODO: Unused - remove */
-	pthread_mutex_t		dlock;
-	int			df, dfi;
-
-	/*
-	 * OBSOLETE: cached old_ parameters which are used until defragmented
-	 * blobs are copied to the place of original ones
-	 */
-	int			old_data_fd, old_index_fd;
-
 	struct eblob_map_fd	sort;
-	struct eblob_map_fd	old_sort;
 
 	/*
 	 * Index blocks tree
@@ -162,9 +151,6 @@ struct eblob_base_ctl {
 	unsigned char		*bloom;
 	uint64_t		bloom_size;
 	pthread_rwlock_t	index_blocks_lock;
-
-	/* Number of valid non-removed entries */
-	int			good;
 
 	/* Number of bctl users inside a critical section */
 	int			critness;

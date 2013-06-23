@@ -125,7 +125,6 @@ void eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 {
 	_eblob_base_ctl_cleanup(ctl);
 
-	pthread_mutex_destroy(&ctl->dlock);
 	pthread_mutex_destroy(&ctl->lock);
 	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 	eblob_stat_destroy(ctl->stat);
@@ -376,7 +375,6 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		goto err_out;
 
 	ctl->back = b;
-	ctl->old_data_fd = ctl->old_index_fd = -1;
 	ctl->index = index;
 	ctl->sort.fd = -1;
 
@@ -396,11 +394,8 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 	}
 	pthread_mutexattr_destroy(&attr);
 
-	if (pthread_mutex_init(&ctl->dlock, NULL))
-		goto err_out_destroy_lock;
-
 	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
-		goto err_out_destroy_dlock;
+		goto err_out_destroy_lock;
 
 	if (eblob_stat_init_base(ctl) != 0)
 		goto err_out_destroy_blocks_lock;
@@ -409,8 +404,6 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 
 err_out_destroy_blocks_lock:
 	pthread_rwlock_destroy(&ctl->index_blocks_lock);
-err_out_destroy_dlock:
-	pthread_mutex_destroy(&ctl->dlock);
 err_out_destroy_lock:
 	pthread_mutex_destroy(&ctl->lock);
 err_out_free:
@@ -488,7 +481,6 @@ static struct eblob_base_ctl *eblob_get_base_ctl(struct eblob_backend *b,
 
 err_out_free_ctl:
 	pthread_mutex_destroy(&ctl->lock);
-	pthread_mutex_destroy(&ctl->dlock);
 	pthread_rwlock_destroy(&ctl->index_blocks_lock);
 	free(ctl);
 err_out_free_format:
