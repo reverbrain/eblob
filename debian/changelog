@@ -1,3 +1,13 @@
+eblob (0.20.0) unstable; urgency=low
+
+  * Removed columns
+  * Heavily rewritten API - made it vectorized
+  * Removed useless compression
+  * Extended statistics
+  * Changed overwrite mode - 'closed' blobs can never be overwritten, 'open' blob (current, the last one) is always overwritten
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 24 Jun 2013 02:37:53 +0400
+
 eblob (0.19.11) unstable; urgency=low
 
   * data-sort: added leak note

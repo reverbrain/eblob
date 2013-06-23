@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.19.11
+Version:	0.20.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Jun 24 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.20.0
+- Removed columns
+- Heavily rewritten API - made it vectorized
+- Removed useless compression
+- Extended statistics
+- Changed overwrite mode - 'closed' blobs can never be overwritten, 'open' blob (current, the last one) is always overwritten
+
 * Thu Jun 06 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.19.11
 - data-sort: added leak note
 - blob: added periodic comments
