@@ -395,7 +395,7 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 
 		if (item->offset == 0)
 			error = blob_three_stage_write(b, &item->ekey,
-					item->value + item->offset, 0, item->size, item->flags);
+					item->value, 0, item->size, item->flags);
 		else
 			/* Write with zero offset in case of append write */
 			error = eblob_write(b, &item->ekey, item->value + item->offset,
