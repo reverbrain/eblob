@@ -26,11 +26,11 @@ struct eblob_hash {
 	pthread_rwlock_t	root_lock;
 };
 
-struct eblob_hash *eblob_hash_init();
+int eblob_hash_init(struct eblob_hash *h);
 void eblob_hash_destroy(struct eblob_hash *h);
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
-int eblob_hash_lookup_alloc_nolock(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
-int eblob_hash_lookup_alloc(struct eblob_hash *h, struct eblob_key *key, void **datap, unsigned int *dsizep);
+int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *datap);
+int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *datap);
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
 
 struct eblob_hash_entry {

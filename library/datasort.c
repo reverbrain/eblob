@@ -84,7 +84,7 @@ static int datasort_base_get_path(struct eblob_backend *b, struct eblob_base_ctl
 	if (b == NULL || bctl == NULL || path == NULL)
 		return -EINVAL;
 
-	snprintf(path, path_max, "%s-%d.%d", b->cfg.file, bctl->type, bctl->index);
+	snprintf(path, path_max, "%s-0.%d", b->cfg.file, bctl->index);
 	return 0;
 }
 
@@ -1042,7 +1042,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/*
 	 * Manually add new base.
 	 */
-	sorted_bctl = eblob_base_ctl_new(dcfg->b, unsorted_bctl->type, unsorted_bctl->index,
+	sorted_bctl = eblob_base_ctl_new(dcfg->b, unsorted_bctl->index,
 			unsorted_bctl->name, strlen(unsorted_bctl->name));
 	if (sorted_bctl == NULL) {
 		err = -ENOMEM;
@@ -1125,7 +1125,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Protect l2hash/hash from accessing stale fds */
-	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash->root_lock)) != 0) {
+	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash.root_lock)) != 0) {
 		err = -err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pthread_mutex_lock");
 		goto err_unmap;
@@ -1142,22 +1142,22 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		/*
 		 * This entry exists in sorted blob - it's position most likely
 		 * changed in sort/merge so remove it from cache
-		 * TODO: It's better to rewrite cache entries instead of deleting them
-		 * TODO: Make it batch for speedup - for example add function
+		 * FIXME: Make it batch for speedup - for example add function
 		 * like "remove all keys with given bctl"
 		 */
-		err = eblob_remove_type_nolock(dcfg->b, &dcfg->result->index[i].key, sorted_bctl->type);
+		err = eblob_cache_remove_nolock(dcfg->b, &dcfg->result->index[i].key);
 		if (err != 0)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_DEBUG, -err,
-					"eblob_remove_type_nolock: %s, offset: %" PRIu64,
+					"eblob_hash_remove_nolock: %s, offset: %" PRIu64,
 					eblob_dump_id(dcfg->result->index[i].key.id), offset);
 	}
 	assert(i == dcfg->result->count);
 	assert(offset == dcfg->result->offset);
 
 	/* Account for new size */
-	dcfg->b->current_blob_size -= unsorted_bctl->index_size + unsorted_bctl->data_size;
-	dcfg->b->current_blob_size += sorted_bctl->index_size + sorted_bctl->data_size;
+	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_BASE_SIZE,
+			sorted_bctl->index_size + sorted_bctl->data_size);
+	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_RECORDS_TOTAL, dcfg->result->count);
 
 	/*
 	 * Replace unsorted bctl with sorted one
@@ -1168,7 +1168,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	list_replace(&unsorted_bctl->base_entry, &sorted_bctl->base_entry);
 
 	/* Unlock hash */
-	pthread_rwlock_unlock(&dcfg->b->hash->root_lock);
+	pthread_rwlock_unlock(&dcfg->b->hash.root_lock);
 
 	/* Save pointer to sorted_bctl for datasort_swap_disk() */
 	dcfg->sorted_bctl = sorted_bctl;

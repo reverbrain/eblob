@@ -35,32 +35,28 @@ struct eblob_id {
 
 static void eblob_extract_arr(const list &l, unsigned char *dst, int *dlen)
 {
-        int length = len(l);
+	int length = len(l);
 
-        if (length > *dlen)
-                length = *dlen;
+	if (length > *dlen)
+		length = *dlen;
 
-        memset(dst, 0, *dlen);
-        for (int i = 0; i < length; ++i)
-                dst[i] = extract<unsigned char>(l[i]);
+	memset(dst, 0, *dlen);
+	for (int i = 0; i < length; ++i)
+		dst[i] = extract<unsigned char>(l[i]);
 }
 
 static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 {
-        int len = sizeof(id.id);
+	int len = sizeof(id.id);
 
-        eblob_extract_arr(e.id, id.id, &len);
+	eblob_extract_arr(e.id, id.id, &len);
 }
 
 struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
 {
 	eblob_py_iterator() {};
 
-	eblob_py_iterator(const eblob_iterate_control &ctl)
-	{
-		this->start_type = ctl.start_type;
-		this->max_type = ctl.max_type;
-	}
+	eblob_py_iterator(const eblob_iterate_control &ctl __attribute__((unused))) {}
 
 	virtual void process(struct eblob_id &id, std::string &data)
 	{
@@ -98,32 +94,26 @@ public:
 		eblob::eblob(log_file, log_mask, (eblob_config *)&cfg) {};
 
 	void write_by_id(const struct eblob_id &id, const std::string &data, const uint64_t offset,
-			const uint64_t flags, const int type) {
+			const uint64_t flags) {
 		struct eblob_key key;
 		eblob_extract_id(id, key);
-		eblob::write(key, data, offset, flags, type);
+		eblob::write(key, data, offset, flags);
 	}
 
-	std::string read_by_id(const struct eblob_id &id, const uint64_t req_offset, const uint64_t req_size, int type) {
+	std::string read_by_id(const struct eblob_id &id, const uint64_t req_offset, const uint64_t req_size) {
 		struct eblob_key key;
 		eblob_extract_id(id, key);
-		return eblob::read(key, req_offset, req_size, type);
+		return eblob::read(key, req_offset, req_size);
 	}
 
-	std::string read_by_name(const std::string &key, const uint64_t offset, const uint64_t size, int type) {
-		return eblob::read_hashed(key, offset, size, type);
+	std::string read_by_name(const std::string &key, const uint64_t offset, const uint64_t size) {
+		return eblob::read_hashed(key, offset, size);
 	}
 
-	void remove_by_id(const struct eblob_id &id, int type) {
+	void remove_by_id(const struct eblob_id &id) {
 		struct eblob_key key;
 		eblob_extract_id(id, key);
-		eblob::remove(key, type);
-	}
-
-	void remove_all_by_id(const struct eblob_id &id) {
-		struct eblob_key key;
-		eblob_extract_id(id, key);
-		eblob::remove_all(key);
+		eblob::remove(key);
 	}
 
 	int py_iterate(struct eblob_py_iterator &it) {
@@ -131,9 +121,6 @@ public:
 		int err;
 
 		memset(&ctl, 0, sizeof(ctl));
-
-		ctl.start_type = it.start_type;
-		ctl.max_type = it.max_type;
 
 		ctl.thread_num = 1;
 		ctl.priv = &it;
@@ -159,19 +146,15 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 
 	class_<eblob_py_iterator>("eblob_iterator", init<>())
 		.def("process", pure_virtual(&eblob_py_iterator::process))
-		.def_readwrite("start_type", &eblob_py_iterator::start_type)
-		.def_readwrite("max_type", &eblob_py_iterator::max_type)
 	;
 
 	class_<eblob_config>("eblob_config", init<>())
 		.def_readwrite("blob_flags", &eblob_config::blob_flags)
 		.def_readwrite("sync", &eblob_config::sync)
-		.def_readwrite("bsize", &eblob_config::bsize)
 		.def_readwrite("file", &eblob_config::file)
 		.def_readwrite("iterate_threads", &eblob_config::iterate_threads)
 		.def_readwrite("blob_size", &eblob_config::blob_size)
 		.def_readwrite("records_in_blob", &eblob_config::records_in_blob)
-		.def_readwrite("cache_size", &eblob_config::cache_size)
 	;
 
 	class_<eblob_python>("eblob", init<const char *, const uint32_t, const std::string>())
@@ -182,7 +165,6 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def("read_hashed", &eblob_python::read_by_name)
 		.def("remove", &eblob_python::remove_by_id)
 		.def("remove_hashed", &eblob_python::remove_hashed)
-		.def("remove_all", &eblob_python::remove_all_by_id)
 		.def("elements", &eblob_python::elements)
 		.def("iterate", &eblob_python::py_iterate)
 	;

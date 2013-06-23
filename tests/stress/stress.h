@@ -23,6 +23,8 @@
 #define __EBLOB_TEST_DATASORT_H
 
 #define EBLOB_TEST_DATASORT_VERSION	"0.0.1"
+#define EBLOB_TEST_NS_IN_S		(1000LL * 1000LL * 1000LL)
+#define EBLOB_TEST_US_IN_S		(1000LL * 1000LL)
 
 /*
  * Shadow storage for eblob
@@ -38,7 +40,6 @@ struct shadow {
 	struct eblob_key	ekey;		/* Hashed key */
 	void			*value;		/* Pointer to data */
 	uint64_t		size;		/* Size of data */
-	int			type;		/* Column for data */
 	uint64_t		offset;		/* Offset for writing data */
 	int			flags;		/* Entry's eblob flags */
 	char			inited;		/* Entry is initialized */
@@ -58,7 +59,6 @@ enum rnd_flags_types {
  * Test configuration
  */
 struct test_cfg {
-	long long	blob_bsize;		/* Block size for record alignment */
 	long long	blob_flags;		/* Passed to cfg.eblob_flags */
 	long		blob_defrag;		/* Defrag timeout in seconds */
 	long long	blob_records;		/* Number of records in base */
@@ -95,7 +95,6 @@ extern struct test_cfg cfg;
 /*
  * Defaults for test_cfg above
  */
-#define DEFAULT_BLOB_BSIZE		(0)
 #define DEFAULT_BLOB_FLAGS		(0)
 #define DEFAULT_BLOB_DEFRAG		(10)
 #define DEFAULT_BLOB_RECORDS		(10000)
@@ -114,10 +113,19 @@ extern struct test_cfg cfg;
 
 void options_get_l(long *cfg_entry, const char *optarg);
 void options_get_ll(long long *cfg_entry, const char *optarg);
-int item_sync(struct shadow *item, struct eblob_backend *b);
 int options_get(int argc, char **argv);
 void options_dump(void);
 void options_set_defaults(void);
 void options_usage(char *progname, int eval, FILE *stream);
+
+/* Retry statement until either it succeeds or max_retries is reached */
+#define RETRY(stmt) do {								\
+	int error, retries = 0;								\
+	static const int max_retries = 1;						\
+	while ((error = (stmt)) != 0)							\
+		if (++retries > max_retries)						\
+			errx(1, #stmt " retried %d times and failed with %d.",		\
+					retries, error);				\
+} while(0)
 
 #endif /* __EBLOB_TEST_DATASORT_H */

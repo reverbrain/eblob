@@ -19,13 +19,11 @@ e = eblob("/dev/stdout", 10, cfg)
 print e.elements()
 
 for i in range(0,5):
-	e.write_hashed("keyi%d" % i, "data%d" % i, 0, 0, 0)
+	e.write_hashed("keyi%d" % i, "data%d" % i, 0, 0)
 
 print e.elements()
 
 iterator = my_iter()
-iterator.start_type = 0;
-iterator.max_type = 0;
 iterator.use_index = 1;
 
 e.iterate(iterator)

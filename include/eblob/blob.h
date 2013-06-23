@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,10 +56,6 @@ extern "C" {
 #define eblob_bswap64(x) (x)
 #endif
 
-#ifndef __eblob_unused
-#define __eblob_unused	__attribute__ ((unused))
-#endif
-
 #ifdef __GNUC__
 #define EBLOB_LOG_CHECK  __attribute__ ((format(printf, 3, 4)))
 #else
@@ -70,11 +67,12 @@ extern "C" {
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-#undef offsetof
+#ifndef offsetof
 #ifdef __compiler_offsetof
 #define offsetof(TYPE,MEMBER) __compiler_offsetof(TYPE,MEMBER)
 #else
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#endif
 #endif
 
 enum eblob_log_levels {
@@ -135,31 +133,24 @@ static inline char *eblob_dump_id(const unsigned char *id)
 
 /*
  * Compare two IDs.
- * Returns  1 when id1 > id2
- *         -1 when id1 < id2
- *          0 when id1 = id2
+ * Returns  >0 when id1 > id2
+ *          <0 when id1 < id2
+ *           0 when id1 = id2
  */
 static inline int eblob_id_cmp(const unsigned char *id1, const unsigned char *id2)
 {
-	unsigned int i;
-
-	for (i=0; i<EBLOB_ID_SIZE; ++i) {
-		if (id1[i] < id2[i])
-			return -1;
-		if (id1[i] > id2[i])
-			return 1;
-	}
-
-	return 0;
+	return memcmp(id1, id2, EBLOB_ID_SIZE);
 }
+
+/* Extended iovec-like structure */
+struct eblob_iovec {
+	void				*base;
+	uint64_t			size;
+	uint64_t			offset;
+};
 
 struct eblob_key {
 	unsigned char		id[EBLOB_ID_SIZE];
-};
-
-enum eblob_base_types {
-	EBLOB_TYPE_DATA = 0,
-	EBLOB_TYPE_META,
 };
 
 /* Read with csum or without */
@@ -170,10 +161,10 @@ enum eblob_read_flavour {
 
 #define BLOB_DISK_CTL_REMOVE	(1<<0)
 #define BLOB_DISK_CTL_NOCSUM	(1<<1)
-#define BLOB_DISK_CTL_COMPRESS	(1<<2)
-#define BLOB_DISK_CTL_WRITE_RETURN	(1<<3)
+#define BLOB_DISK_CTL_COMPRESS	(1<<2)  /* DEPRECATED */
+#define BLOB_DISK_CTL_WRITE_RETURN	(1<<3) /* DEPRECATED */
 #define BLOB_DISK_CTL_APPEND	(1<<4)
-#define BLOB_DISK_CTL_OVERWRITE	(1<<5)
+#define BLOB_DISK_CTL_OVERWRITE	(1<<5) /* DEPRECATED */
 /*
  * Flag that eblob user can set on record to indicate that this record should
  * have special meaning. Useful for example for data format conversions.
@@ -212,9 +203,15 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 
 /* when set, reserve 10% of free space and return -ENOSPC when there is not enough free space to reserve */
 #define EBLOB_RESERVE_10_PERCENTS	(1<<0)
-/* overwrite with smaller size automatically commits that write, i.e. truncates record to number of bytes written */
+/*
+ * Overwrite with smaller size automatically commits that write, i.e. truncates record to number of bytes written.
+ * DEPRECATED: Now it's default behavior.
+ */
 #define EBLOB_OVERWRITE_COMMITS		(1<<1)
-/* when set, eblob_write() allows to overwrite data in place */
+/*
+ * when set, eblob_write() allows to overwrite data in place
+ * DEPRECATED: Now it's default behavior.
+ */
 #define EBLOB_TRY_OVERWRITE		(1<<2)
 /* do not add checksum footer */
 #define EBLOB_NO_FOOTER			(1<<3)
@@ -244,9 +241,6 @@ struct eblob_config {
 
 	/* sync interval in seconds */
 	int			sync;
-
-	/* alignment block size */
-	unsigned int		bsize;
 
 	/* logger */
 	struct eblob_log	*log;
@@ -283,9 +277,6 @@ struct eblob_config {
 	 */
 	uint64_t		records_in_blob;
 
-	/* maximum number of keys that could be cached from disk. Default: 50000000 */
-	uint64_t		cache_size;
-
 	/*
 	 * Automatic defragmentation starts when
 	 * number of removed entries in blob is higher
@@ -321,7 +312,10 @@ struct eblob_config {
 	uint64_t		blob_size_limit;
 
 	/* for future use */
-	int			pad[8];
+	uint64_t		__pad_64[8];
+	int			__pad_int[8];
+	char			__pad_char[8];
+	void			*__pad_voidp[8];
 };
 
 /*
@@ -380,8 +374,6 @@ struct eblob_iterate_control {
 
 	unsigned int			flags;
 
-	int				start_type, max_type;
-
 	struct eblob_iterate_callbacks	iterator_cb;
 	void				*priv;
 
@@ -399,54 +391,55 @@ struct eblob_backend;
 
 /* Remove entry by given key.
  * Entry is marked as deleted and defragmentation tool can later drop it.
- * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
-int eblob_remove(struct eblob_backend *b, struct eblob_key *key, int type);
-int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize, int type);
-int eblob_remove_all(struct eblob_backend *b, struct eblob_key *key);
+int eblob_remove(struct eblob_backend *b, struct eblob_key *key);
+int eblob_remove_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize);
 
 /* Read data by given key.
  * @fd is a file descriptor to read data from. It is not allowed to close it.
  * @offset and @size will be filled with written metadata: offset of the entry
  * and its data size.
- * @type is column ID, EBLOB_TYPE_DATA is for data by default
  *
  * Returns negative error value or zero on success.
- * Positive return value means data on given offset is compressed.
  */
 struct eblob_write_control;
 int eblob_read(struct eblob_backend *b, struct eblob_key *key,
-		int *fd, uint64_t *offset, uint64_t *size, int type);
+		int *fd, uint64_t *offset, uint64_t *size);
 int eblob_read_nocsum(struct eblob_backend *b, struct eblob_key *key,
-		int *fd, uint64_t *offset, uint64_t *size, int type);
+		int *fd, uint64_t *offset, uint64_t *size);
 int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
-		int type, enum eblob_read_flavour csum, struct eblob_write_control *wc);
+		enum eblob_read_flavour csum, struct eblob_write_control *wc);
 
 /*
  * Allocates buffer and reads data there.
- * Automatically handles compressed data.
  * @size will contain number of bytes read
  */
 int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
-		uint64_t offset, char **dst, uint64_t *size, int type);
+		uint64_t offset, char **dst, uint64_t *size);
 int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key,
-		uint64_t offset, char **dst, uint64_t *size, int type);
+		uint64_t offset, char **dst, uint64_t *size);
 
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
  * @flags can specify whether entry is removed and whether library will perform
  * data checksumming.
  * @flags are BLOB_DISK_CTL_* constants above.
- * @type is column ID, EBLOB_TYPE_DATA is for data by default
  */
 int eblob_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size, uint64_t flags, int type);
+		void *data, uint64_t offset, uint64_t size, uint64_t flags);
 int eblob_write_return(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size, uint64_t flags,
-		int type, struct eblob_write_control *wc);
+		struct eblob_write_control *wc);
+int eblob_writev(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags);
+int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
+		struct eblob_write_control *wc);
 
 int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size, int type);
+		void *data, uint64_t offset, uint64_t size, uint64_t flags);
+int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags);
 
 /*
  * The same as above, but these functions take key/ksize pair to hash using sha512 to
@@ -454,9 +447,9 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
  */
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
 		const void *data, const uint64_t offset, const uint64_t dsize,
-		const uint64_t flags, int type);
+		const uint64_t flags);
 int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
-		int *fd, uint64_t *offset, uint64_t *size, int type);
+		int *fd, uint64_t *offset, uint64_t *size);
 
 /* Async write.
  *
@@ -466,7 +459,6 @@ int eblob_read_hashed(struct eblob_backend *b, const void *key, const uint64_t k
  * @size and @flags parameters. The former is used to reserve enough space
  * in blob file, the latter will be put into entry flags and will determine
  * whether given entry was removed and do we need to perform checksumming on commit.
- * @type specifies type of the column we are about to write
  *
  * @eblob_write_prepare() will fill the rest of the parameters.
  * @data_fd/@index_fd specifies file descriptor to (re)write data to.
@@ -482,7 +474,6 @@ struct eblob_write_control {
 	uint64_t			size;
 	uint64_t			offset;
 	uint64_t			flags;
-	int				type;
 
 	int				index;
 	int				data_fd, index_fd;
@@ -500,14 +491,11 @@ struct eblob_write_control {
 	 */
 	struct eblob_base_ctl		*bctl;
 };
-int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_write_control *wc);
 
-/* Client may provide checksum himself, otherwise it will be calculated (if opposite
- * was not requested in control flags) */
+int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
+		uint64_t size, uint64_t flags);
 int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
-		unsigned char *csum, unsigned int csize,
-		struct eblob_write_control *wc);
+		uint64_t size, uint64_t flags);
 
 struct eblob_disk_footer {
 	unsigned char			csum[EBLOB_ID_SIZE];
@@ -525,7 +513,6 @@ struct eblob_range_request {
 
 	uint64_t			requested_offset, requested_size;
 	uint64_t			requested_limit_start, requested_limit_num, current_pos;
-	int				requested_type;
 
 	unsigned char			record_key[EBLOB_ID_SIZE];
 	int				record_fd;
@@ -542,15 +529,18 @@ unsigned long long eblob_total_elements(struct eblob_backend *b);
 
 int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
 
-int eblob_get_types(struct eblob_backend *b, int **typesp);
-
-int eblob_compress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
-int eblob_decompress(const char *data, const uint64_t size, char **dst, uint64_t *dsize);
-
 void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
 int eblob_defrag_status(struct eblob_backend *b);
+
+/*!
+ * Eblob vector io interface
+ */
+
+/* Limits on number of iovec's in request */
+#define EBLOB_IOVCNT_MIN		1
+#define EBLOB_IOVCNT_MAX		128
 
 #ifdef __cplusplus
 }

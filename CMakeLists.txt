@@ -23,7 +23,6 @@ option(WITH_TSAN "Enable thread sanitizer" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
-option(WITH_SNAPPY "Enable Snappy support" ON)
 
 include(TestBigEndian)
 
@@ -108,6 +107,13 @@ if (UNIX OR MINGW)
         -fno-strict-aliasing
         -fstack-protector-all
     )
+    # GCC's builtin memcmp is slower than libc's
+    # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
+    if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+        add_definitions(
+            -fno-builtin-memcmp
+        )
+    endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
 endif()
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
@@ -131,13 +137,6 @@ message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
 message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 include_directories(${Boost_INCLUDE_DIRS})
 link_directories(${Boost_LIBRARY_DIRS})
-
-# Check for snappy - unusual dependency, it doesn't use pkgconfig
-if (WITH_SNAPPY)
-    find_package(SNAPPY REQUIRED)
-    include_directories(${SNAPPY_INCLUDE_DIR})
-    add_definitions(-DHAVE_SNAPPY_SUPPORT)
-endif()
 
 # Check for python
 if(WITH_PYTHON)
@@ -168,7 +167,7 @@ if (HAVE_FDATASYNC)
 endif()
 
 # Collect all libraries together
-set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SNAPPY_LIBRARIES} ${SANITIZER_LIBRARY})
+set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SANITIZER_LIBRARY})
 set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
 set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 

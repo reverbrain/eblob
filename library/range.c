@@ -107,8 +107,8 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 		}
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_bsearch_fuzzy: start: %s, end: %s, found: %s, "
-				"pos: %zd, num: %zu, index: %d, type: %d, fd: %d\n",
-				start_id, end_id, found_id, found, num, bctl->index, bctl->type, bctl->data_fd);
+				"pos: %zd, num: %zu, index: %d, fd: %d\n",
+				start_id, end_id, found_id, found, num, bctl->index, bctl->data_fd);
 	}
 
 	return found;
@@ -157,7 +157,6 @@ err_out_exit:
 static int eblob_read_range_on_disk(struct eblob_range_request *req)
 {
 	struct eblob_backend *b = req->back;
-	struct eblob_base_type *t;
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control dc;
 	struct eblob_key start, end;
@@ -169,18 +168,13 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 		goto err_out_exit;
 	}
 
-	if (req->requested_type > b->max_type)
-		goto err_out_exit;
-
 	memset(&start, 0, sizeof(start));
 	memcpy(start.id, req->start, sizeof(req->start));
 
 	memset(&end, 0, sizeof(end));
 	memcpy(end.id, req->end, sizeof(req->end));
 
-	t = &b->types[req->requested_type];
-
-	list_for_each_entry(bctl, &t->bases, base_entry) {
+	list_for_each_entry(bctl, &b->bases, base_entry) {
 		if (bctl->sort.fd < 0)
 			continue;
 
@@ -228,7 +222,7 @@ err_out_exit:
 int eblob_read_range(struct eblob_range_request *req)
 {
 	struct eblob_backend *b = req->back;
-	struct eblob_hash *h = b->hash;
+	struct eblob_hash *h = &b->hash;
 	struct rb_node *n = h->root.rb_node;
 	struct eblob_hash_entry *e = NULL, *t = NULL;
 	int err = -ENOENT, cmp;
@@ -288,24 +282,19 @@ int eblob_read_range(struct eblob_range_request *req)
 			for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
 				ctl = &((struct eblob_ram_control *)e->data)[i];
 
-				if (ctl->bctl->type != req->requested_type)
-					continue;
-
 				/*
 				 * ctl->index is an index of the blob, which hosts given key. This key is currently in RAM (tree)
-				 * If there is index higher than ctl->index for the same type (column), then blob with
-				 * ctl->index can be already sorted, so below eblob_read_range_on_disk() will find it again.
+				 * If there is index higher than ctl->index, then blob with ctl->index can be already sorted, so
+				 * below eblob_read_range_on_disk() will find it again.
 				 *
 				 * We should use key found in RAM only if blob, which hosts this key, does not have sorted indexes.
 				 * FIXME: Simplify me! Now we have bctl in ram control
 				 */
-				if (ctl->bctl->index != b->types[ctl->bctl->type].index) {
+				if (ctl->bctl->index != b->max_index) {
 					struct eblob_base_ctl *bctl;
-					struct eblob_base_type *t;
 					int have_sorted_fd = 0;
 
-					t = &b->types[req->requested_type];
-					list_for_each_entry(bctl, &t->bases, base_entry) {
+					list_for_each_entry(bctl, &b->bases, base_entry) {
 						if (bctl->index == ctl->bctl->index) {
 							if (bctl->sort.fd >= 0) {
 								have_sorted_fd = 1;
