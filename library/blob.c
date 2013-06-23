@@ -1328,7 +1328,7 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
-	struct eblob_write_control wc = { .flags = flags, };
+	struct eblob_write_control wc = { .offset = 0 };
 	int err;
 
 	/*
@@ -1341,6 +1341,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		err = 0;
 		goto err_out_exit;
 	}
+
+	wc.flags = flags;
 
 	err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD);
 	if (err)
@@ -1541,7 +1543,7 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags)
 {
-	struct eblob_write_control wc = { .flags = flags, };
+	struct eblob_write_control wc = { .offset = 0 };
 	struct eblob_iovec_bounds bounds;
 	ssize_t err;
 
@@ -1557,6 +1559,8 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
 	if (err)
 		goto err_out_exit;
+
+	wc.flags = flags;
 
 	err = eblob_writev_raw(wc.bctl, key, wc.data_offset, iov, iovcnt);
 	if (err)
