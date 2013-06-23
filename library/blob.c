@@ -1826,30 +1826,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		}
 	}
 
-	if (!wc->on_disk) {
-		struct eblob_disk_control dc;
-		uint64_t rem = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
-
-		/*
-		 * Check case when object was actually removed on disk, but
-		 * this was not updated in RAM yet
-		 */
-		err = blob_read_ll(wc->index_fd, &dc, sizeof(dc), wc->ctl_index_offset);
-		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: pread-index: fd: %d: offset: %llu: %d.\n",
-					eblob_dump_id(key->id), wc->index_fd, (unsigned long long)wc->ctl_index_offset, err);
-			goto err_out_exit;
-		}
-
-		if (dc.flags & rem) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: eblob_read: index-removed: fd: %d: offset: %llu: %d.\n",
-					eblob_dump_id(key->id), wc->index_fd, (unsigned long long)wc->ctl_index_offset, err);
-			err = -ENOENT;
-			eblob_cache_remove(b, key);
-			goto err_out_exit;
-		}
-	}
-
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: data_fd: %d"
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
