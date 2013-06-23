@@ -383,7 +383,7 @@ static void *eblob_blob_iterator(void *data)
 	int err = 0;
 	/*
 	 * TODO: We should probably use unsorted index because order of records
-	 * in it is indentical to order of records in data blob.
+	 * in it is identical to order of records in data blob.
 	 */
 	int index_fd = eblob_get_index_fd(bc);
 	static int hdr_size = sizeof(struct eblob_disk_control);
