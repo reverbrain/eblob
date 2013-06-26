@@ -112,7 +112,7 @@ generate_random_flags(int type)
  * Generates one character from some readable subset of ASCII table
  */
 static char
-generate_char()
+generate_char(void)
 {
 	return 48 + random() % 75;
 }
