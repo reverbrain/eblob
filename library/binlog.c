@@ -811,7 +811,7 @@ int eblob_stop_binlog_nolock(struct eblob_backend *b, struct eblob_base_ctl *bct
 
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
-	if (bctl->binlog == NULL || bctl->binlog->path == 0)
+	if (bctl->binlog == NULL || bctl->binlog->path == NULL)
 		return -EINVAL;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: binlog: stop\n");
