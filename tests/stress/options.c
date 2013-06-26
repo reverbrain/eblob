@@ -93,7 +93,7 @@ options_set_defaults(void)
 	cfg.test_iterations = DEFAULT_TEST_ITERATIONS;
 	cfg.test_milestone = DEFAULT_TEST_MILESTONE;
 	cfg.test_reopen = DEFAULT_TEST_REOPEN;
-	cfg.test_rnd_seed = time(0);
+	cfg.test_rnd_seed = (long long)time(NULL);
 
 	if ((cfg.test_path = strdup(DEFAULT_TEST_PATH)) == NULL)
 		err(EX_OSERR, "malloc");
