@@ -242,14 +242,14 @@ static int eblob_writev_raw(struct eblob_base_ctl *bctl, struct eblob_key *key,
 
 	eblob_bctl_hold(bctl);
 	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
-		const uint64_t offset = blob_offset + iov->offset;
+		const uint64_t offset = blob_offset + tmp->offset;
 
 		EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_DEBUG,
 				"%s: writev: fd: %d, size: %" PRIu64 ", offset: %" PRIu64,
-				eblob_dump_id(key->id), bctl->data_fd, iov->size, offset);
+				eblob_dump_id(key->id), bctl->data_fd, tmp->size, offset);
 
 		err = eblob_write_binlog(bctl, key, bctl->data_fd,
-				iov->base, iov->size, offset);
+				tmp->base, tmp->size, offset);
 		if (err != 0)
 			break;
 	}
