@@ -222,42 +222,63 @@ err_unlock:
 }
 
 /*!
- * Writes all \a iov relative to \a blob_offset
+ * Writes all \a iov wrt record possition in base
  */
-static int eblob_writev_raw(struct eblob_base_ctl *bctl, struct eblob_key *key,
-		uint64_t blob_offset, const struct eblob_iovec *iov, uint16_t iovcnt)
+static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *wc,
+		const struct eblob_iovec *iov, uint16_t iovcnt)
 {
+	const uint64_t offset_min = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+	const uint64_t offset_max = wc->ctl_data_offset + wc->total_size;
 	const struct eblob_iovec *tmp;
 	int err = -EFAULT;
 
-	assert(bctl != NULL);
+	assert(wc != NULL);
+	assert(wc->bctl != NULL);
 	assert(key != NULL);
 	assert(iov != NULL);
 
-	/* Sanity */
-	if (blob_offset < sizeof(struct eblob_disk_control))
-		return -EINVAL;
-	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
-		return -E2BIG;
+	/*
+	 * Hack: decrease size and offset of EXTHDR & APPEND record by the size
+	 * of 0th iov.
+	 */
+	if ((wc->flags & BLOB_DISK_CTL_EXTHDR)
+			&& (wc->flags & BLOB_DISK_CTL_APPEND)) {
+		/* Sanity */
+		if (wc->total_data_size < iov->size)
+			return -ERANGE;
+		wc->data_offset -= iov->size;
+		wc->total_data_size -= iov->size;
+	}
 
-	eblob_bctl_hold(bctl);
+	eblob_bctl_hold(wc->bctl);
 	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
-		const uint64_t offset = blob_offset + tmp->offset;
+		uint64_t offset = wc->data_offset + tmp->offset;
 
-		EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_DEBUG,
-				"%s: writev: fd: %d, size: %" PRIu64 ", offset: %" PRIu64,
-				eblob_dump_id(key->id), bctl->data_fd, tmp->size, offset);
+		/* Hack: for extended records we should override offset of iov[0] */
+		if ((tmp == iov) && (wc->flags & BLOB_DISK_CTL_EXTHDR))
+			offset = offset_min;
 
-		err = eblob_write_binlog(bctl, key, bctl->data_fd,
+		EBLOB_WARNX(wc->bctl->back->cfg.log, EBLOB_LOG_DEBUG, "%s: writev: fd: %d"
+				", iov_size: %" PRIu64 ", iov_offset: %" PRIu64
+				", offset: %" PRIu64, eblob_dump_id(key->id),
+				wc->bctl->data_fd, tmp->size, tmp->offset, offset);
+
+		/* Sanity - do not write outside of the record */
+		if (offset + tmp->size > offset_max || offset < offset_min) {
+			err = -ERANGE;
+			goto err_release;
+		}
+
+		err = eblob_write_binlog(wc->bctl, key, wc->bctl->data_fd,
 				tmp->base, tmp->size, offset);
 		if (err != 0)
-			break;
+			goto err_release;
 	}
-	eblob_bctl_release(bctl);
 
+err_release:
+	eblob_bctl_release(wc->bctl);
 	return err;
 }
-
 
 /**
  * eblob_check_disk_one() - checks one entry of a blob and calls iterator
@@ -1054,20 +1075,12 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	}
 	eblob_convert_disk_control(&dc);
 
-	/*
-	 * Set EXTHDR flag if it specified in dc so it can be returned in
-	 * *_return() functions.
-	 *
-	 * NB! This effectively makes EXTHDR flag permanent.
-	 */
-	if (dc.flags & BLOB_DISK_CTL_EXTHDR)
-		wc->flags |= BLOB_DISK_CTL_EXTHDR;
-
-	wc->total_data_size = dc.data_size;
-	if (wc->total_data_size < wc->offset + wc->size)
-		wc->total_data_size = wc->offset + wc->size;
-	/* use old disk_size so that iteration would not fail */
+	wc->flags = dc.flags;
 	wc->total_size = dc.disk_size;
+	if (dc.data_size < wc->offset + wc->size)
+		wc->total_data_size = wc->offset + wc->size;
+	else
+		wc->total_data_size = dc.data_size;
 
 	if (!wc->size)
 		wc->size = dc.data_size;
@@ -1139,7 +1152,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
  */
 static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, uint64_t prepare_disk_size,
-		enum eblob_copy_flavour copy)
+		enum eblob_copy_flavour copy, uint64_t copy_offset)
 {
 	ssize_t err = 0;
 	struct eblob_base_ctl *ctl = NULL;
@@ -1211,16 +1224,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	wc->ctl_data_offset = ctl->data_offset;
 
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
-
 	wc->total_data_size = wc->offset + wc->size;
 
 	wc->bctl = ctl;
-
-	if (have_old && ((wc->flags & BLOB_DISK_CTL_OVERWRITE) || wc->offset)) {
-		if (old.size > wc->offset + wc->size) {
-			wc->total_data_size = old.size;
-		}
-	}
 
 	if (wc->total_data_size < prepare_disk_size)
 		wc->total_size = eblob_calculate_size(b, 0, prepare_disk_size);
@@ -1232,9 +1238,8 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 * times as much as requested This allows to not to copy data
 	 * frequently if we append records
 	 */
-	if (have_old && (wc->flags & (BLOB_DISK_CTL_APPEND | BLOB_DISK_CTL_OVERWRITE))) {
+	if (have_old && (wc->flags & BLOB_DISK_CTL_APPEND))
 		wc->total_size *= 2;
-	}
 
 	ctl->data_offset += wc->total_size;
 	ctl->index_offset += sizeof(struct eblob_disk_control);
@@ -1272,6 +1277,20 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		uint64_t off_in = old.data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 
+		/*
+		 * Hack: If copy_offset is set then we overwriting old format
+		 * entry with new format one, so we need to copy it with offset
+		 * big enough for extended record and mangle sizes.
+		 */
+		if (copy_offset != 0) {
+			off_out += copy_offset;
+
+			if (wc->flags & BLOB_DISK_CTL_APPEND) {
+				wc->data_offset += copy_offset;
+				wc->total_data_size += copy_offset;
+			}
+		}
+
 		eblob_stat_inc(b->stat, EBLOB_GST_READ_COPY_UPDATE);
 		if (wc->data_fd != old.bctl->data_fd)
 			err = eblob_splice_data(old.bctl->data_fd, off_in, wc->data_fd, off_out, old.size);
@@ -1281,7 +1300,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		EBLOB_WARNX(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"copy: %s: src offset: %" PRIu64 ", dst offset: %" PRIu64
 				", size: %" PRIu64 ", src fd: %d: dst fd: %d: %zd\n",
-				eblob_dump_id(key->id), off_in, off_out + copy_offset,
+				eblob_dump_id(key->id), off_in, off_out,
 				old.size, old.bctl->data_fd, wc->data_fd, err);
 		if (err < 0)
 			goto err_out_rollback;
@@ -1338,10 +1357,9 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		err = 0;
 		goto err_out_exit;
 	}
-
 	wc.flags = flags;
 
-	err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD);
+	err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0);
 	if (err)
 		goto err_out_exit;
 
@@ -1496,19 +1514,30 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc)
 {
 	ssize_t err;
-	size_t size = wc->size;
+	const size_t size = wc->size;
+	const uint64_t flags = wc->flags;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (err < 0)
 		goto err_out_exit;
 
+	/*
+	 * We can't overwrite old record with new one if they have different
+	 * format.
+	 */
+	if ((flags & BLOB_DISK_CTL_EXTHDR) != (wc->flags & BLOB_DISK_CTL_EXTHDR)) {
+		err = -E2BIG;
+		goto err_out_exit;
+	}
+
 	/* Do not allow data-sort swap in the middle of overwrite */
 	eblob_bctl_hold(wc->bctl);
 
+	wc->flags = flags;
 	wc->size = size;
 	wc->total_data_size = wc->offset + wc->size;
 
-	err = eblob_writev_raw(wc->bctl, key, wc->data_offset, iov, iovcnt);
+	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_binlog", err);
 		goto err_out_release;
@@ -1557,14 +1586,22 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	if (err)
 		goto err_out_exit;
 
-	wc.flags = flags;
+	/*
+	 * We can't use plain write if EXTHDR flag is differ on old and new record.
+	 * TODO: We can preform read-modify-write cycle here but it's too hacky.
+	 */
+	if ((flags & BLOB_DISK_CTL_EXTHDR)
+			&& !(wc.flags & BLOB_DISK_CTL_EXTHDR)) {
+		err = -ENOTSUP;
+		goto err_out_exit;
+	}
 
-	err = eblob_writev_raw(wc.bctl, key, wc.data_offset, iov, iovcnt);
+	wc.flags = flags;
+	err = eblob_writev_raw(key, &wc, iov, iovcnt);
 	if (err)
 		goto err_out_exit;
 
 err_out_exit:
-	eblob_dump_wc(b, key, &wc, "eblob_plain_writev", err);
 	eblob_log(b->cfg.log, err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 			"blob: %s: %s: eblob_writev_raw: fd: %d: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
@@ -1626,6 +1663,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 {
 	struct eblob_iovec_bounds bounds;
 	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
+	uint64_t copy_offset = 0;
 	int err;
 
 	if (b == NULL || key == NULL || iov == NULL || wc == NULL)
@@ -1639,6 +1677,8 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	/* write()-functions must not be used as a replacement for remove */
 	if (flags & BLOB_DISK_CTL_REMOVE)
 		return -ENOTSUP;
+	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
+		return -E2BIG;
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
@@ -1646,31 +1686,51 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	wc->flags = flags;
 	wc->index = -1;
 
-	/* XXX: Fix locking for read-copy-update of records */
-
+	/* FIXME: Fix locking for read-copy-update of records */
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc);
 	if (err == 0)
-		/* We have overwritten old data - go out */
+		/* We have overwritten old data - bail out */
 		goto err_out_exit;
 	else if (!(err == -E2BIG || err == -ENOENT))
 		/* Unknown error occurred during rewrite */
 		goto err_out_exit;
+	else if (err == -E2BIG) {
+		/* If record exists and too small */
 
-	/* Fill() can modify offset on EBLOB_DISK_CTL_APPEND */
-	wc->offset = 0;
+		/* If new record uses any part of old one - we should copy it */
+		if ((flags & BLOB_DISK_CTL_APPEND)
+				|| bounds.min != 0
+				|| bounds.max < wc->total_data_size
+				|| bounds.contiguous == 0)
+			copy = EBLOB_COPY_RECORD;
 
-	/* If new record uses any part of old one - we should copy it */
-	if ((flags & BLOB_DISK_CTL_APPEND)
-			|| bounds.min != 0
-			|| bounds.max < wc->total_data_size
-			|| bounds.contiguous == 0)
-		copy = EBLOB_COPY_RECORD;
+		/*
+		 * If now it's extended record and previous was not, then we need to
+		 * copy record with offset of extended record length.
+		 */
+		if ((flags & BLOB_DISK_CTL_EXTHDR)
+				&& !(wc->flags & BLOB_DISK_CTL_EXTHDR)) {
+			copy = EBLOB_COPY_RECORD;
+			copy_offset = iov[0].size;
+		}
 
-	err = eblob_write_prepare_disk(b, key, wc, 0, copy);
+		/* We can't overwrite extended record with non-extended one */
+		if (!(flags & BLOB_DISK_CTL_EXTHDR)
+				&& (wc->flags & BLOB_DISK_CTL_EXTHDR)) {
+			err = -EINVAL;
+			goto err_out_exit;
+		}
+
+		/* overwrite can modify offset and flags */
+		wc->offset = 0;
+		wc->flags = flags;
+	}
+
+	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset);
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_writev_raw(wc->bctl, key, wc->data_offset, iov, iovcnt);
+	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_writev_raw: FAILED", err);
 		goto err_out_exit;
