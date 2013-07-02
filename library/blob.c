@@ -1055,14 +1055,13 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	eblob_convert_disk_control(&dc);
 
 	/*
-	 * Set USR1 flag if it specified in dc so it can be returned in
+	 * Set EXTHDR flag if it specified in dc so it can be returned in
 	 * *_return() functions.
 	 *
-	 * FIXME: This effectively makes USR1 flag permanent. Think of better
-	 * solution.
+	 * NB! This effectively makes EXTHDR flag permanent.
 	 */
-	if (dc.flags & BLOB_DISK_CTL_USR1)
-		wc->flags |= BLOB_DISK_CTL_USR1;
+	if (dc.flags & BLOB_DISK_CTL_EXTHDR)
+		wc->flags |= BLOB_DISK_CTL_EXTHDR;
 
 	wc->total_data_size = dc.data_size;
 	if (wc->total_data_size < wc->offset + wc->size)
