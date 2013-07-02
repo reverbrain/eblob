@@ -71,13 +71,12 @@ humanize_flags(int flags, char *buf)
 static int
 generate_random_flags(int type)
 {
-	uint32_t rnd;
+	uint32_t rnd = random() % 5;
 
 	assert(type > FLAG_TYPE_MIN && type < FLAG_TYPE_MAX);
 
 	/* TODO: Factor random proportions into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
-		rnd = random() % 5;
 		/* Removed entry can not be removed or overwritten */
 		switch (rnd) {
 		case 0:
@@ -86,24 +85,20 @@ generate_random_flags(int type)
 			return 0;
 		}
 	} else if (type == FLAG_TYPE_EXISTING) {
-		rnd = random() % 4;
 		/*
 		 * Existing entry can be replaced with new one, removed or
 		 * rewritten
 		 */
 		switch (rnd) {
 		case 0:
-			return 0;
-		case 1:
 			return BLOB_DISK_CTL_REMOVE;
-		case 2:
+		case 1:
 			return BLOB_DISK_CTL_APPEND;
 		default:
-			return BLOB_DISK_CTL_OVERWRITE;
+			return 0;
 		}
-	} else {
-		assert(0);
 	}
+	assert(0);
 	/* NOT REACHED */
 	return -1;
 }
@@ -302,7 +297,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 		uint64_t append_size;
 		void *ra;
 
-		append_size = 1 + random() % cfg.test_item_size;
+		append_size = 2 + random() % cfg.test_item_size;
 		if ((ra = realloc(item->value, item->size + append_size)) == NULL)
 			return errno;
 		item->value = ra;
@@ -313,7 +308,7 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	} else {
 		void *ra;
 
-		item->size = 1 + random() % cfg.test_item_size;
+		item->size = 2 + random() % cfg.test_item_size;
 		if ((ra = realloc(item->value, item->size)) == NULL)
 			return errno;
 		item->value = ra;
@@ -344,10 +339,33 @@ item_generate_random(struct shadow *item, struct eblob_backend *b)
 	return 0;
 }
 
+/* Writev()-like interface test */
+static int
+blob_writev(struct eblob_backend *b, struct eblob_key *key,
+		void *data, uint64_t size, uint64_t flags)
+{
+	struct eblob_iovec iov[2];
+	uint64_t split;
+
+	assert(size >= 2);
+
+	split = 1 + random() % (size - 1);
+
+	iov[0].base = data;
+	iov[0].size = split;
+	iov[0].offset = 0;
+
+	iov[1].base = data + split;
+	iov[1].size = size - split;
+	iov[1].offset = split;
+
+	return eblob_writev(b, key, iov, 2, flags);
+}
+
 /* Three stage write protocol: prepare / plain_write / commit */
 static int
 blob_three_stage_write(struct eblob_backend *b, struct eblob_key *key,
-		void *data, uint64_t offset, uint64_t size, uint64_t flags)
+		void *data, uint64_t size, uint64_t flags)
 {
 	int error;
 
@@ -358,11 +376,10 @@ blob_three_stage_write(struct eblob_backend *b, struct eblob_key *key,
 		return error;
 	}
 
-	error = eblob_plain_write(b, key, data, offset, size, flags);
+	error = eblob_plain_write(b, key, data, 0, size, flags);
 	if (error) {
-		warnx("plain write failed: %s: offset: %" PRIu64
-				", size: %" PRIu64 ", err: %d",
-				eblob_dump_id(key->id), offset, size, -error);
+		warnx("plain write failed: %s, size: %" PRIu64 ", err: %d",
+				eblob_dump_id(key->id), size, -error);
 		return error;
 	}
 
@@ -390,20 +407,25 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		error = eblob_remove(b, &item->ekey);
 	} else {
+		int rnd = random() % 3;
+
 		if (item->inited == 0)
 			item->inited = 1;
 
-		if (item->offset == 0)
+		if (rnd == 0 && item->offset == 0) {
+			error = blob_writev(b, &item->ekey,
+					item->value, item->size, item->flags);
+		} else if (rnd == 1 && item->offset == 0) {
 			error = blob_three_stage_write(b, &item->ekey,
-					item->value, 0, item->size, item->flags);
-		else
-			/* Write with zero offset in case of append write */
+					item->value, item->size, item->flags);
+		} else {
 			error = eblob_write(b, &item->ekey, item->value + item->offset,
 					item->flags & BLOB_DISK_CTL_APPEND ? 0 : item->offset,
 					item->size - item->offset, item->flags);
+		}
 	}
 	if (error != 0) {
-		warnx("writing key failed: %s: flags: %s, error: %d",
+		warnx("write failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
 		return error;
 	}
