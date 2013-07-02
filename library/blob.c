@@ -142,7 +142,7 @@ static int eblob_write_binlog(struct eblob_base_ctl *bctl, struct eblob_key *key
 	if (fd < 0)
 		return -EINVAL;
 
-	/* Do not allow iterator to kick in in the middle of write */
+	/* Do not allow data-sort swap in the middle of write */
 	eblob_bctl_hold(bctl);
 
 	/* Shortcut */
@@ -1504,7 +1504,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	if (err < 0)
 		goto err_out_exit;
 
-	/* Do not allow iterator in the middle of overwrite */
+	/* Do not allow data-sort swap in the middle of overwrite */
 	eblob_bctl_hold(wc->bctl);
 
 	wc->size = size;
