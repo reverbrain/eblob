@@ -1281,9 +1281,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		EBLOB_WARNX(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"copy: %s: src offset: %" PRIu64 ", dst offset: %" PRIu64
 				", size: %" PRIu64 ", src fd: %d: dst fd: %d: %zd\n",
-				eblob_dump_id(key->id),
-				old.data_offset + sizeof(struct eblob_disk_control),
-				wc->ctl_data_offset + sizeof(struct eblob_disk_control),
+				eblob_dump_id(key->id), off_in, off_out + copy_offset,
 				old.size, old.bctl->data_fd, wc->data_fd, err);
 		if (err < 0)
 			goto err_out_rollback;
