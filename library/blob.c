@@ -1075,7 +1075,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-					"%s: %s: eblob_fill_write_control_from_ram() size check failed: disk-size: %llu, calculated: %llu\n",
+					"%s: %s: size check failed: disk-size: %llu, calculated: %llu\n",
 					__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
 					(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
 		goto err_out_exit;
