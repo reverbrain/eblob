@@ -639,9 +639,6 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
 
-	if (err == 0)
-		eblob_stat_inc(b->stat, EBLOB_GST_HASHED);
-
 	return err;
 }
 
@@ -655,10 +652,6 @@ int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 	} else {
 		err = eblob_hash_remove_nolock(&b->hash, key);
 	}
-
-	/* FIXME: Introduce eblob_stat_update_nolock */
-	if (err == 0)
-		eblob_stat_dec(b->stat, EBLOB_GST_HASHED);
 
 	return err;
 }
