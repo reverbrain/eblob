@@ -614,14 +614,12 @@ err_out_exit:
  * eblob_cache_insert() - inserts or updates ram control in hash.
  */
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_ram_control *ctl, int on_disk)
+		struct eblob_ram_control *ctl)
 {
 	int err;
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
 		return -EINVAL;
-	if (on_disk != 0)
-		return -EROFS;
 
 	pthread_rwlock_wrlock(&b->hash.root_lock);
 
@@ -719,7 +717,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
-	return eblob_cache_insert(b, &dc->key, ctl, 0);
+	return eblob_cache_insert(b, &dc->key, ctl);
 }
 
 int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl)

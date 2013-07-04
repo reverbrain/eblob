@@ -867,7 +867,7 @@ static int eblob_commit_ram(struct eblob_backend *b, struct eblob_key *key, stru
 	ctl.bctl = wc->bctl;
 	assert(ctl.bctl != NULL);
 
-	err = eblob_cache_insert(b, key, &ctl, wc->on_disk);
+	err = eblob_cache_insert(b, key, &ctl);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: %s: %s: eblob_cache_insert: fd: %d: FAILED: %d.\n",
