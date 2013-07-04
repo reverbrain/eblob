@@ -1773,7 +1773,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 
 	if ((err = eblob_mark_entry_removed_purge(b, key, &ctl)) != 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-				"%s: %s: eblob_mark_entry_removed: %d\n",
+				"%s: %s: eblob_mark_entry_removed_purge: %d\n",
 				__func__, eblob_dump_id(key->id), -err);
 		goto err_out_exit;
 	}
