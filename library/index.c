@@ -89,6 +89,10 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 	free(bctl->index_blocks);
 	free(bctl->bloom);
 	pthread_rwlock_unlock(&bctl->index_blocks_lock);
+
+	eblob_stat_set(bctl->stat, EBLOB_LST_BLOOM_SIZE, 0);
+	eblob_stat_set(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE, 0);
+
 	return 0;
 }
 
@@ -237,7 +241,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
 	uint64_t block_count, block_id = 0, offset = 0;
-	int64_t records = 0, non_removed = 0;
+	int64_t removed = 0;
 	unsigned int i;
 	int err = 0;
 
@@ -278,11 +282,10 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-			if (!(dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE))) {
+			if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE))
+				removed++;
+			else
 				eblob_bloom_set(bctl, &dc.key);
-				non_removed++;
-			}
-			records++;
 
 			offset += sizeof(struct eblob_disk_control);
 		}
@@ -294,8 +297,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 		if (err)
 			goto err_out_drop_tree;
 	}
-	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_TOTAL, records);
-	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, records - non_removed);
+	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
 
 	return err;
 

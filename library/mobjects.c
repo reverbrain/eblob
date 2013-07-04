@@ -118,6 +118,10 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	ctl->sort.fd = ctl->data_fd = ctl->index_fd = -1;
 
+	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_REMOVED, 0);
+
 	return 0;
 }
 
@@ -322,9 +326,9 @@ again:
 				ctl->sort.size / sizeof(struct eblob_disk_control));
 	}
 
-	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
+	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE,
 			ctl->data_size + ctl->index_size);
-	eblob_stat_add(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
 			ctl->index_size / sizeof(struct eblob_disk_control));
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
@@ -715,7 +719,6 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
-	eblob_stat_inc(ctl->bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	return eblob_cache_insert(b, &dc->key, ctl, 0);
 }
 

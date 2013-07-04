@@ -355,6 +355,10 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 			eblob_dump_id(dc->key.id), dc->position,
 			dc->disk_size, dc->data_size, dc->flags);
 
+	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
+			&& (dc->flags & BLOB_DISK_CTL_REMOVE))
+		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
+
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
 			((bc->sort.fd >= 0) && !(ctl->flags & EBLOB_ITERATE_FLAGS_ALL))) {
 		err = 0;
