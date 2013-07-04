@@ -118,6 +118,10 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	ctl->sort.fd = ctl->data_fd = ctl->index_fd = -1;
 
+	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL, 0);
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_REMOVED, 0);
+
 	return 0;
 }
 
@@ -322,9 +326,9 @@ again:
 				ctl->sort.size / sizeof(struct eblob_disk_control));
 	}
 
-	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
+	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE,
 			ctl->data_size + ctl->index_size);
-	eblob_stat_add(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
+	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
 			ctl->index_size / sizeof(struct eblob_disk_control));
 	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
@@ -610,14 +614,12 @@ err_out_exit:
  * eblob_cache_insert() - inserts or updates ram control in hash.
  */
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_ram_control *ctl, int on_disk)
+		struct eblob_ram_control *ctl)
 {
 	int err;
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
 		return -EINVAL;
-	if (on_disk != 0)
-		return -EROFS;
 
 	pthread_rwlock_wrlock(&b->hash.root_lock);
 
@@ -637,9 +639,6 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
 
-	if (err == 0)
-		eblob_stat_inc(b->stat, EBLOB_GST_HASHED);
-
 	return err;
 }
 
@@ -653,10 +652,6 @@ int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 	} else {
 		err = eblob_hash_remove_nolock(&b->hash, key);
 	}
-
-	/* FIXME: Introduce eblob_stat_update_nolock */
-	if (err == 0)
-		eblob_stat_dec(b->stat, EBLOB_GST_HASHED);
 
 	return err;
 }
@@ -715,8 +710,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
 			(unsigned long long)dc->flags);
 
-	eblob_stat_inc(ctl->bctl->stat, EBLOB_LST_RECORDS_TOTAL);
-	return eblob_cache_insert(b, &dc->key, ctl, 0);
+	return eblob_cache_insert(b, &dc->key, ctl);
 }
 
 int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl)
