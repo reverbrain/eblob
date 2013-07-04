@@ -1,3 +1,16 @@
+eblob (0.21.0) unstable; urgency=low
+
+  * Replaced general purpose BLOB_DISK_CTL_USR1 flag with special BLOB_DISK_CTL_EXTHDR
+  *   which changes eblob behavior in various ways so that metadata management in elliptics can be implemented efficiently
+  * Fixed writev() behaviour for iovcnt > 1
+  * Tests improvements: added writev() tests, improved append and three stage write
+  * Proper cleanup of bases which are removed due to absence of entries
+  * Many statistics fixes
+  * Comment and logging improvements
+  * Various static analyzer/pedantic fixes
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 04 Jul 2013 22:46:14 +0400
+
 eblob (0.20.0) unstable; urgency=low
 
   * Removed columns

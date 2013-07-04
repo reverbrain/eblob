@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.20.0
+Version:	0.21.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jul 04 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.0
+- Replaced general purpose BLOB_DISK_CTL_USR1 flag with special BLOB_DISK_CTL_EXTHDR
+-   which changes eblob behavior in various ways so that metadata management in elliptics can be implemented efficiently
+- Fixed writev() behaviour for iovcnt > 1
+- Tests improvements: added writev() tests, improved append and three stage write
+- Proper cleanup of bases which are removed due to absence of entries
+- Many statistics fixes
+- Comment and logging improvements
+- Various static analyzer/pedantic fixes
+
 * Mon Jun 24 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.20.0
 - Removed columns
 - Heavily rewritten API - made it vectorized
