@@ -52,8 +52,6 @@ humanize_flags(int flags, char *buf)
 		strcat(buf, "remove,");
 	if (flags & BLOB_DISK_CTL_NOCSUM)
 		strcat(buf, "nocsum,");
-	if (flags & BLOB_DISK_CTL_OVERWRITE)
-		strcat(buf, "overwrite,");
 	if (flags & BLOB_DISK_CTL_APPEND)
 		strcat(buf, "append,");
 
