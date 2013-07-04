@@ -117,14 +117,19 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 
 		switch (eblob_want_defrag(bctl)) {
 		case 0:
-			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-					"empty blob - removing.");
-			eblob_stat_set(bctl->stat, EBLOB_LST_BASE_SIZE, 0);
-			/*
-			 * FIXME: It's better to also preform minimal
-			 * cleanup: unmap data/index and close fds
-			 */
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "empty blob - removing.");
+
+			/* Remove it from list, but do not poisson next and prev */
+			__list_del(bctl->base_entry.prev, bctl->base_entry.next);
+
+			/* Remove base files */
 			eblob_base_remove(bctl);
+
+			/* Wait until bctl is unused */
+			eblob_base_wait_locked(bctl);
+			_eblob_base_ctl_cleanup(bctl);
+			pthread_mutex_unlock(&bctl->lock);
+
 			want = 0;
 			break;
 		case 1:

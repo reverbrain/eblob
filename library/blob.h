@@ -412,7 +412,8 @@ void eblob_bases_cleanup(struct eblob_backend *b);
 int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *res, int *diskp);
 int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
-int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key, struct eblob_ram_control *ctl, int on_disk);
+int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
+		struct eblob_ram_control *ctl);
 
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);

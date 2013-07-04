@@ -166,10 +166,11 @@ enum eblob_read_flavour {
 #define BLOB_DISK_CTL_APPEND	(1<<4)
 #define BLOB_DISK_CTL_OVERWRITE	(1<<5) /* DEPRECATED */
 /*
- * Flag that eblob user can set on record to indicate that this record should
- * have special meaning. Useful for example for data format conversions.
+ * This flag is set for records that are written in so-called extended format -
+ * records that have additional header before data - it's somewhat obscure and
+ * changes blob behaviour in various ways. Only user of this flag is elliptics.
  */
-#define BLOB_DISK_CTL_USR1	(1<<6)
+#define BLOB_DISK_CTL_EXTHDR	(1<<6)
 
 struct eblob_disk_control {
 	/* key data */

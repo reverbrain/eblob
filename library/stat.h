@@ -26,7 +26,6 @@
 enum eblob_stat_global_flavour {
 	EBLOB_GST_MIN,
 	EBLOB_GST_DATASORT,
-	EBLOB_GST_HASHED,
 	EBLOB_GST_READ_COPY_UPDATE,
 	EBLOB_GST_PREPARE_REUSED,
 	EBLOB_GST_MAX,
@@ -64,10 +63,6 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
 		.name = "datasort_status",
 		.id = EBLOB_GST_DATASORT,
-	},
-	{
-		.name = "hashed_entries",
-		.id = EBLOB_GST_HASHED,
 	},
 	{
 		.name = "read_copy_updates",
