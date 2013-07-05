@@ -15,7 +15,6 @@
 
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
-#include "binlog.h"
 #include "datasort.h"
 #include "eblob/blob.h"
 #include "hash.h"
@@ -156,10 +155,9 @@ struct eblob_base_ctl {
 	int			critness;
 
 	/*
-	 * If this pointer is not NULL then all operations for this base go
-	 * through a binlog.
+	 * XXX:
+	 * struct eblob_binlog_cfg	*binlog;
 	 */
-	struct eblob_binlog_cfg	*binlog;
 
 	/*
 	 * Is data in blob sorted?
@@ -430,8 +428,8 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
-int blob_write_ll(int fd, void *data, size_t size, off_t offset);
-int blob_read_ll(int fd, void *data, size_t size, off_t offset);
+int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
+int __eblob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
 	int			bloom_null;
@@ -454,8 +452,6 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 
 int eblob_preallocate(int fd, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
-
-int blob_mark_index_removed(int fd, off_t offset);
 
 int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);

@@ -18,7 +18,6 @@
 
 #include "eblob/blob.h"
 
-#include "binlog.h"
 #include "list.h"
 
 /* Approximate size of sort chunk +- one record */
@@ -27,12 +26,6 @@
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 17)
 /* Suffix for flag-file that is created after data is sorted */
 #define EBLOB_DATASORT_SORTED_MARK_SUFFIX	".data_is_sorted"
-
-/* Mapping between key and old offset needed by binlog */
-struct datasort_offset_map {
-	struct eblob_key	key;
-	uint64_t		offset;
-};
 
 /*
  * One chunk of blob.
@@ -54,14 +47,6 @@ struct datasort_chunk {
 	uint64_t			index_size;
 	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
-	/*
-	 * Offset mapping for binlog
-	 *
-	 * TODO: For memory efficiency it can be rewritten as rbtree map of
-	 * sorted_offset -> unsorted_offset
-	 */
-	struct datasort_offset_map	*offset_map;
-	uint64_t			offset_map_size;
 };
 
 /* Thread local structure for each iterator thread */
@@ -79,16 +64,6 @@ struct datasort_cfg {
 	unsigned int			thread_num;
 	/* Lock used by blob iterator */
 	pthread_mutex_t			lock;
-	/*
-	 * Set if binlog is needed for sorting operation.
-	 *
-	 * MUST be set to one if data in base can be modified while sorting.
-	 * Should not be set when, for example, datasort is started as part of
-	 * blob opening procedure.
-	 *
-	 * TODO: Convert to flag
-	 */
-	int				use_binlog;
 	/*
 	 * Iterator error.
 	 * Iterator threads do not propagate callback error so we invent our
@@ -114,7 +89,6 @@ struct datasort_cfg {
 };
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
-int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
 int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
 
 int datasort_base_is_sorted(struct eblob_base_ctl *bctl);

@@ -21,7 +21,6 @@
 #include "features.h"
 
 #include "datasort.h"
-#include "binlog.h"
 #include "blob.h"
 
 #include <sys/mman.h>
@@ -297,7 +296,6 @@ static void _datasort_destroy_chunk(struct datasort_chunk *chunk)
 	if (chunk == NULL)
 		return;
 
-	free(chunk->offset_map);
 	free(chunk->index);
 	free(chunk->path);
 	free(chunk);
@@ -398,20 +396,6 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
 			", size: %" PRIu64 ", flags: %" PRIu64,
 			eblob_dump_id(dc->key.id), c->fd, c->offset, dc->disk_size, dc->flags);
-
-	/* Extended offset_map if needed */
-	c->offset_map = datasort_reallocf((void **)&c->offset_map,
-			sizeof(struct datasort_offset_map), &c->offset_map_size, c->count);
-	if (c->offset_map == NULL) {
-		err = -ENOMEM;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "realloc: offset_map: %" PRIu64,
-				c->offset_map_size * sizeof(struct datasort_offset_map));
-		goto err;
-	}
-
-	/* Save unsorted position to be used by binlog_apply */
-	c->offset_map[c->count].key = dc->key;
-	c->offset_map[c->count].offset = dc->position;
 
 	/* Rewrite position */
 	dc->position = c->offset;
@@ -627,15 +611,8 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	sorted_chunk->index = unsorted_chunk->index;
 	unsorted_chunk->index = NULL;
 
-	/* Move offset map to sorted blob */
-	sorted_chunk->offset_map = unsorted_chunk->offset_map;
-	unsorted_chunk->offset_map = NULL;
-
 	/* Sort index */
 	qsort(sorted_chunk->index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
-	/* Sort offset_map */
-	qsort(sorted_chunk->offset_map, sorted_chunk->count,
-			sizeof(struct datasort_offset_map), eblob_key_sort);
 
 	/* Preallocate space for sorted chunk */
 	err = eblob_preallocate(sorted_chunk->fd, sorted_chunk->offset);
@@ -808,14 +785,6 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 		goto err;
 	}
 
-	/* Allocate space for offset_map */
-	merged_chunk->offset_map = calloc(total_items, sizeof(struct datasort_offset_map));
-	if (merged_chunk->offset_map == NULL) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,
-				"calloc: %" PRIu64, total_items * sizeof(struct datasort_offset_map));
-		goto err;
-	}
-
 	while ((chunk = datasort_merge_get_smallest(dcfg)) != NULL) {
 		struct eblob_disk_control *dc;
 		uint64_t total_count, current_count;
@@ -831,10 +800,6 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 					"datasort_copy_record: FAILED");
 			goto err;
 		}
-
-		/* Fill offset map */
-		assert(chunk->offset_map != NULL);
-		merged_chunk->offset_map[total_count] = chunk->offset_map[current_count];
 
 		/* Rewrite on-disk position */
 		dc->position = merged_chunk->offset;
@@ -866,151 +831,6 @@ static void datasort_destroy(struct datasort_cfg *dcfg)
 	pthread_mutex_destroy(&dcfg->lock);
 	free(dcfg->dir);
 };
-
-/**
- * datasort_index_search() - bsearch sorted index for disk control for
- * corresponding @key
- * @base:	pointer to the start of sorted index
- * @nel:	number of elements in index
- *
- * Returns pointer to found entry or NULL, see bsearch(3)
- */
-static struct eblob_disk_control *datasort_index_search(struct eblob_key *key,
-		struct eblob_disk_control *base, uint64_t nel)
-{
-	struct eblob_disk_control dc;
-
-	memset(&dc, 0, sizeof(dc));
-	dc.key = *key;
-	return bsearch(&dc, base, nel, sizeof(dc), eblob_disk_control_sort);
-}
-
-/**
- * datasort_binlog_update_ll() - applies binlog record to new offset and
- * modifyies in-memory index if needed.
- * @unsorted_ctl_offset:	ctl offset before sort
- * @binlog_offset:		offset stored in binlog
- * @data:			data that was written
- * @dc:				new index
- */
-static int datasort_binlog_apply_ll(int fd, uint64_t unsorted_ctl_offset, void *data,
-		uint64_t data_size, struct eblob_disk_control *dc, uint64_t binlog_offset)
-{
-	int64_t relative_offset;
-	uint64_t sorted_offset;
-
-	assert(fd >= 0);
-	assert(data != NULL);
-	assert(dc != NULL);
-	assert(data_size > 0);
-
-	/* Is this record belongs to that reincarnation of key? */
-	if ((binlog_offset >= unsorted_ctl_offset + dc->disk_size) ||
-			(binlog_offset < unsorted_ctl_offset))
-		return -ERANGE;
-
-	/* Compute offsets */
-	relative_offset = binlog_offset - unsorted_ctl_offset;
-	sorted_offset = relative_offset + dc->position;
-
-	/* Sanity checks, again */
-	assert(sorted_offset + data_size <= dc->position + dc->disk_size);
-	assert(sorted_offset >= dc->position);
-	assert(relative_offset >= 0);
-
-	/* If it's an index write - apply it to index too */
-	if ((size_t)relative_offset < sizeof(struct eblob_disk_control)) {
-		struct eblob_disk_control saved_dc = *dc;
-
-		/* Check that write is within header boundaries */
-		assert(relative_offset + data_size <= sizeof(struct eblob_disk_control));
-
-		memcpy((void *)dc + relative_offset, data, data_size);
-
-		/* Check that disk_size is unchanged */
-		assert(dc->disk_size == saved_dc.disk_size);
-		/* Restore position */
-		dc->position = saved_dc.position;
-	}
-
-	return blob_write_ll(fd, data, data_size, sorted_offset);
-}
-
-/**
- * datasort_binlog_apply() - called by @binlog_apply one time for each
- * binlog entry
- */
-int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl)
-{
-	struct datasort_cfg *dcfg = priv;
-	struct eblob_disk_control *found;
-	struct datasort_offset_map *map;
-	uint64_t binlog_offset;
-	int err;
-
-	if (bctl == NULL)
-		return -EINVAL;
-
-	if (dcfg == NULL || dcfg->result == NULL || dcfg->result->index == NULL)
-		return -EINVAL;
-
-	found = datasort_index_search(bctl->key, dcfg->result->index, dcfg->result->count);
-	if (found == NULL) {
-		/* This is acceptable because blob we sorted was inconsistent */
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "key not found: %s",
-				eblob_dump_id(bctl->key->id));
-		return 0;
-	}
-
-	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "index: %s: binlog type: %" PRIu16
-			", offset: %" PRIu64 ", size: %" PRIu64 ", flags: %" PRIu64,
-			eblob_dump_id(bctl->key->id), bctl->type,
-			found->position, found->disk_size, found->flags);
-
-	switch (bctl->type) {
-	case EBLOB_BINLOG_TYPE_RAW_DATA:
-		/* Shortcut */
-		binlog_offset = *(uint64_t *)bctl->meta;
-
-		/* Find record in offset map */
-		map = bsearch(bctl->key, dcfg->result->offset_map, dcfg->result->count,
-				sizeof(struct datasort_offset_map), eblob_key_sort);
-		if (map == NULL) {
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
-					"bsearch: %s", eblob_dump_id(bctl->key->id));
-			return -ENOENT;
-		}
-
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
-				"applying: %s: unsorted_offset: %" PRIu64
-				", binlog_offset: %" PRIu64 ", sorted_offset: %" PRIu64,
-				eblob_dump_id(bctl->key->id), map->offset,
-				binlog_offset, found->position);
-
-		/* Try to apply binlog record */
-		err = datasort_binlog_apply_ll(dcfg->result->fd, map->offset,
-				bctl->data, bctl->data_size, found, binlog_offset);
-		if (err) {
-			if (err == -ERANGE) {
-				EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
-						"skipping another reincarnation of a key: %s",
-						eblob_dump_id(bctl->key->id));
-				return 0;
-			}
-			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR,
-					"datasort_binlog_apply_ll: FAILED: %s",
-					eblob_dump_id(bctl->key->id));
-			return err;
-		}
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,
-				"success: %s",
-				eblob_dump_id(bctl->key->id));
-		return 0;
-	default:
-		return -ENOTSUP;
-	}
-	/* NOT REACHED */
-}
 
 /*
  * Swaps original base with new shiny sorted one.
@@ -1362,16 +1182,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	if (err)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
 
-	/* Enable binlog */
-	if (dcfg->use_binlog) {
-		err = eblob_start_binlog(dcfg->b, dcfg->bctl);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_start_binlog: FAILED");
-			goto err_mutex;
-		}
-	} else {
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "binlog is NOT requested for datasort");
-	}
+	/* XXX: Enable binlog */
+	goto err_mutex;
 
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
@@ -1422,17 +1234,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Wait for pending writes and lock bctl */
 	eblob_base_wait_locked(dcfg->bctl);
 
-	/*
-	 * Rewind all records that have been modified since datasort was
-	 * started.
-	 */
-	if (dcfg->use_binlog) {
-		err = binlog_apply(dcfg->bctl->binlog, (void *)dcfg, datasort_binlog_apply);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "binlog_apply: %s", dcfg->dir);
-			goto err_unlock_bctl;
-		}
-	}
+	/* XXX: Apply binlog */
+	goto err_unlock_bctl;
 
 	/* Swap original bctl with sorted one */
 	err = datasort_swap_memory(dcfg);
@@ -1450,14 +1253,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		abort();
 	}
 
-	/* Now we can disable binlog */
-	if (dcfg->use_binlog) {
-		err = eblob_stop_binlog_nolock(dcfg->b, dcfg->bctl);
-		if (err) {
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
-			goto err_unlock_bctl;
-		}
-	}
+	/* XXX: Disable binlog */
+	goto err_unlock_bctl;
 
 	/*
 	 * Preform cleanups
@@ -1483,10 +1280,7 @@ err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
-	if (dcfg->use_binlog) {
-		if ((err = eblob_stop_binlog(dcfg->b, dcfg->bctl)) != 0)
-			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_stop_binlog");
-	}
+	/* XXX: */
 err_mutex:
 	datasort_destroy(dcfg);
 err:

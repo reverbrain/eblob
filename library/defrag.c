@@ -165,7 +165,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				.b = b,
 				.bctl = bctl,
 				.log = b->cfg.log,
-				.use_binlog = 1,
 			};
 
 			err = eblob_generate_sorted_data(&dcfg);
