@@ -16,6 +16,6 @@ setup(name='eblob',
       description='Eblob raw iteration interface - python binary parser',
       author='Evgeniy Polyakov',
       author_email='zbr@ioremap.net',
-      url='http://www.ioremap.net/projects/eblob',
+      url='http://reverbrain.com/eblob/',
       py_modules=['eblob']
      )
