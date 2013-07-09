@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.0
+Version:	0.21.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Jul 09 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.1
+- Use 153 boost in spec
+
 * Thu Jul 04 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.0
 - Replaced general purpose BLOB_DISK_CTL_USR1 flag with special BLOB_DISK_CTL_EXTHDR
 -   which changes eblob behavior in various ways so that metadata management in elliptics can be implemented efficiently
