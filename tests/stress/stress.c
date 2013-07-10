@@ -94,6 +94,8 @@ generate_random_flags(int type)
 			return BLOB_DISK_CTL_REMOVE;
 		case 1:
 			return BLOB_DISK_CTL_APPEND;
+		case 2:
+			return BLOB_DISK_CTL_NOCSUM;
 		default:
 			return 0;
 		}
