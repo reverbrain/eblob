@@ -75,10 +75,12 @@ generate_random_flags(int type)
 
 	/* TODO: Factor random proportions into tunables */
 	if (type == FLAG_TYPE_REMOVED) {
-		/* Removed entry can not be removed or overwritten */
+		/* Removed entry can not be removed */
 		switch (rnd) {
 		case 0:
 			return BLOB_DISK_CTL_NOCSUM;
+		case 1:
+			return BLOB_DISK_CTL_APPEND;
 		default:
 			return 0;
 		}
@@ -92,6 +94,8 @@ generate_random_flags(int type)
 			return BLOB_DISK_CTL_REMOVE;
 		case 1:
 			return BLOB_DISK_CTL_APPEND;
+		case 2:
+			return BLOB_DISK_CTL_NOCSUM;
 		default:
 			return 0;
 		}
