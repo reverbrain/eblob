@@ -1214,6 +1214,14 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		}
 		if (wc->flags & BLOB_DISK_CTL_APPEND)
 			wc->offset += old.size;
+	} else {
+		if (wc->flags & BLOB_DISK_CTL_APPEND) {
+			/*
+			 * Append does not make any sense if there is no record
+			 * with this key
+			 */
+			wc->flags &= ~BLOB_DISK_CTL_APPEND;
+		}
 	}
 
 	assert(datasort_base_is_sorted(ctl) != 1);
@@ -1242,7 +1250,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	 * times as much as requested This allows to not to copy data
 	 * frequently if we append records
 	 */
-	if (have_old && (wc->flags & BLOB_DISK_CTL_APPEND))
+	if (wc->flags & BLOB_DISK_CTL_APPEND)
 		wc->total_size *= 2;
 
 	ctl->data_offset += wc->total_size;
