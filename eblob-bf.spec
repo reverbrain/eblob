@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.1
+Version:	0.21.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Jul 10 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.2
+- Use 141 boost
+- Tests update
+- blob: prealloc space on append
+- blob: fix append of non-exisient entries with EXTHDR
+- doc: replaced ioremap references with reverbrain
+- stats: added forgotten include
+- defrag: added even more sanity
+
 * Tue Jul 09 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.1
 - Use 153 boost in spec
 

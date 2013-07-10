@@ -1,3 +1,15 @@
+eblob (0.21.2) unstable; urgency=low
+
+  * Use 141 boost
+  * Tests update
+  * blob: prealloc space on append
+  * blob: fix append of non-exisient entries with EXTHDR
+  * doc: replaced ioremap references with reverbrain
+  * stats: added forgotten include
+  * defrag: added even more sanity
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 10 Jul 2013 20:15:21 +0400
+
 eblob (0.21.1) unstable; urgency=low
 
   * Use 153 boost in spec
