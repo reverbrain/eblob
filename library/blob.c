@@ -151,7 +151,6 @@ static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *w
 		wc->total_data_size -= iov->size;
 	}
 
-	eblob_bctl_hold(wc->bctl);
 	for (tmp = iov; tmp < iov + iovcnt; ++tmp) {
 		uint64_t offset = wc->data_offset + tmp->offset;
 
@@ -167,16 +166,15 @@ static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *w
 		/* Sanity - do not write outside of the record */
 		if (offset + tmp->size > offset_max || offset < offset_min) {
 			err = -ERANGE;
-			goto err_release;
+			goto err_exit;
 		}
 
 		err = __eblob_write_ll(wc->bctl->data_fd, tmp->base, tmp->size, offset);
 		if (err != 0)
-			goto err_release;
+			goto err_exit;
 	}
 
-err_release:
-	eblob_bctl_release(wc->bctl);
+err_exit:
 	return err;
 }
 
@@ -1441,13 +1439,14 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		if (wc->offset == 0)
 			flags &= ~BLOB_DISK_CTL_APPEND;
 
-	/*
-	 * XXX: If blob is closed then we can't overwrite entries in in it
-	 * return -EROFS
-	 */
-
 	/* Do not allow data-sort swap in the middle of overwrite */
-	eblob_bctl_hold(wc->bctl);
+	pthread_mutex_lock(&wc->bctl->lock);
+
+	/* Allow overwrite only in the last base */
+	if (!list_is_last(&wc->bctl->base_entry, &b->bases)) {
+		err = -EROFS;
+		goto err_out_release;
+	}
 
 	wc->flags = flags;
 	wc->size = size;
@@ -1464,7 +1463,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_release;
 
 err_out_release:
-	eblob_bctl_release(wc->bctl);
+	pthread_mutex_unlock(&wc->bctl->lock);
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 	return err;
@@ -1604,14 +1603,13 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 
 	/* FIXME: Fix locking for read-copy-update of records */
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc);
-	if (err == 0)
+	if (err == 0) {
 		/* We have overwritten old data - bail out */
 		goto err_out_exit;
-	else if (!(err == -E2BIG || err == -ENOENT))
-		/* XXX: -EROFS */
+	} else if (!(err == -E2BIG || err == -ENOENT || err == -EROFS)) {
 		/* Unknown error occurred during rewrite */
 		goto err_out_exit;
-	else if (err == -E2BIG) {
+	} else if (err == -E2BIG || err == -EROFS) {
 		/* If record exists and too small */
 
 		/* If new record uses any part of old one - we should copy it */
