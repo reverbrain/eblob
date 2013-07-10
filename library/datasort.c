@@ -15,7 +15,7 @@
 
 /*
  * This routine sorts blob data according to following blueprint:
- * - http://doc.ioremap.net/blueprints:eblob:data-sort
+ * - http://doc.reverbrain.com/blueprints:eblob:data-sort
  */
 
 #include "features.h"
