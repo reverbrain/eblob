@@ -1221,6 +1221,12 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			 * with this key
 			 */
 			wc->flags &= ~BLOB_DISK_CTL_APPEND;
+			/*
+			 * If record is written with APPEND flag this is
+			 * strong indication that we need to preallocate more
+			 * space.
+			 */
+			prepare_disk_size += wc->size * 4;
 		}
 	}
 
