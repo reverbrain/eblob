@@ -1,7 +1,7 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: eblob
 Upstream-Contact: Evgeniy Polyakov <zbr@ioremap.net>
-Source: https://github.com/ioremap/eblob
+Source: https://github.com/reverbrain/eblob
 
 Files: *
 Copyright: (C) 2010-2012 Evgeniy Polyakov <zbr@ioremap.net>
