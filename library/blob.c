@@ -500,11 +500,11 @@ err_out_exit:
 }
 
 /**
- * blob_mark_index_removed() - marks entry removed in index/data file
+ * eblob_mark_index_removed() - marks entry removed in index/data file
  * @fd:		opened for write file descriptor of index
  * @offset:	position of entry's disk control in index
  */
-static int blob_mark_index_removed(int fd, off_t offset)
+int eblob_mark_index_removed(int fd, uint64_t offset)
 {
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
@@ -544,25 +544,45 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 {
 	int err;
 
-	/* XXX: Add entry to list of removed entries */
+	/* Add entry to list of removed entries */
+	if (eblob_binlog_enabled(&old->bctl->binlog)) {
+		struct eblob_binlog_entry *entry;
+
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "%s: appending key to binlog",
+				eblob_dump_id(key->id));
+
+		entry = eblob_binlog_entry_new(key);
+		if (entry == NULL) {
+			err = -ENOMEM;
+			goto err;
+		}
+
+		err = eblob_binlog_append(&old->bctl->binlog, entry);
+		if (err != 0) {
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+					"%s: eblob_binlog_append: FAILED",
+					eblob_dump_id(key->id));
+			goto err;
+		}
+	}
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "%s: index position: %" PRIu64 ", index_fd: %d, "
 			"data position: %" PRIu64 ", data_fd: %d",
 			eblob_dump_id(key->id), old->index_offset, eblob_get_index_fd(old->bctl),
 			old->data_offset, old->bctl->data_fd);
 
-	err = blob_mark_index_removed(eblob_get_index_fd(old->bctl), old->index_offset);
+	err = eblob_mark_index_removed(eblob_get_index_fd(old->bctl), old->index_offset);
 	if (err != 0) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-				"%s: blob_mark_index_removed: FAILED: index, fd: %d, err: %d",
+				"%s: eblob_mark_index_removed: FAILED: index, fd: %d, err: %d",
 				eblob_dump_id(key->id), old->bctl->index_fd, err);
 		goto err;
 	}
 
-	err = blob_mark_index_removed(old->bctl->data_fd, old->data_offset);
+	err = eblob_mark_index_removed(old->bctl->data_fd, old->data_offset);
 	if (err != 0) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-				"%s: blob_mark_index_removed: FAILED: data, fd: %d, err: %d",
+				"%s: eblob_mark_index_removed: FAILED: data, fd: %d, err: %d",
 				eblob_dump_id(key->id), old->bctl->data_fd, err);
 		goto err;
 	}
@@ -595,7 +615,7 @@ static int eblob_mark_entry_removed_purge(struct eblob_backend *b,
 	assert(old->bctl != NULL);
 
 	/* Protect against datasort */
-	eblob_bctl_hold(old->bctl);
+	pthread_mutex_lock(&old->bctl->lock);
 
 	/* Remove from disk blob and index */
 	err = eblob_mark_entry_removed(b, key, old);
@@ -614,7 +634,7 @@ static int eblob_mark_entry_removed_purge(struct eblob_backend *b,
 	}
 
 err:
-	eblob_bctl_release(old->bctl);
+	pthread_mutex_unlock(&old->bctl->lock);
 	return err;
 }
 

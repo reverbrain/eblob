@@ -154,10 +154,8 @@ struct eblob_base_ctl {
 	/* Number of bctl users inside a critical section */
 	int			critness;
 
-	/*
-	 * XXX:
-	 * struct eblob_binlog_cfg	*binlog;
-	 */
+	/* Binary log rudiment: if enabled stores key removals in list */
+	struct eblob_binlog_cfg	binlog;
 
 	/*
 	 * Is data in blob sorted?
@@ -453,6 +451,7 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 int eblob_preallocate(int fd, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
 
+int eblob_mark_index_removed(int fd, uint64_t offset);
 int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);
 void eblob_base_wait_locked(struct eblob_base_ctl *bctl);

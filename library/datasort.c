@@ -832,6 +832,73 @@ static void datasort_destroy(struct datasort_cfg *dcfg)
 	free(dcfg->dir);
 };
 
+/**
+ * datasort_index_search() - bsearch sorted index for disk control of
+ * corresponding @key
+ * @base:	pointer to the start of sorted index
+ * @nel:	number of elements in index
+ *
+ * Returns index of key inside of \a base
+ */
+static uint64_t datasort_index_search(const struct eblob_key *key,
+               const struct eblob_disk_control *base, uint64_t nel)
+{
+	const struct eblob_disk_control dc = { .key = *key };
+	const struct eblob_disk_control * const found =
+		bsearch(&dc, base, nel, sizeof(dc), eblob_disk_control_sort);
+	uint64_t index = -1;
+
+	if (found != NULL)
+		index = found - base;
+	return index;
+}
+
+/*!
+ * Removes from resulting blob entries that were removed during data-sort
+ */
+static int datasort_binlog_apply(struct datasort_cfg *dcfg)
+{
+	const struct eblob_binlog_cfg * const bcfg = &dcfg->bctl->binlog;
+	const struct eblob_binlog_entry *it = NULL;
+	uint64_t total = 0;
+	int err = 0;
+
+	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "start");
+
+	/* Iterate over all binlog entries */
+	while ((it = eblob_binlog_iterate(bcfg, it)) != NULL) {
+		const uint64_t index = datasort_index_search(&it->key,
+				dcfg->result->index, dcfg->result->count);
+		const struct eblob_disk_control dc = dcfg->result->index[index];
+
+		/* Entry was not found - it's OK */
+		if (index == -1ULL) {
+			EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "%s: skipped",
+					eblob_dump_id(it->key.id));
+			continue;
+		}
+
+		/* Mark entry removed in both index and data file */
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "%s: removing: dc: "
+				"flags: 0x%" PRIx64 ", data_size: %" PRIu64,
+				eblob_dump_id(dc.key.id), dc.flags, dc.data_size);
+		dcfg->result->index[index].flags |= BLOB_DISK_CTL_REMOVE;
+
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "%s: removing: fd: %d, offset: %" PRIu64,
+				eblob_dump_id(it->key.id), dcfg->result->fd, dc.position);
+		err = eblob_mark_index_removed(dcfg->result->fd, dc.position);
+		if (err)
+			goto err_out_exit;
+
+		total++;
+	}
+
+err_out_exit:
+	EBLOB_WARNX(dcfg->log, err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
+			"finished: total: %" PRIu64 ", err: %d", total, err);
+	return err;
+}
+
 /*
  * Swaps original base with new shiny sorted one.
  *
@@ -1180,10 +1247,18 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Soon we'll be using it */
 	err = eblob_pagecache_hint(dcfg->bctl->data_fd, EBLOB_FLAGS_HINT_WILLNEED);
 	if (err)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_pagecache_hint: %s", dcfg->bctl->name);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_pagecache_hint: %s",
+				dcfg->bctl->name);
 
-	/* XXX: Enable binlog */
-	goto err_mutex;
+	/* Capture all removed entries starting from that moment */
+	eblob_base_wait_locked(dcfg->bctl);
+	err = eblob_binlog_start(&dcfg->bctl->binlog);
+	pthread_mutex_unlock(&dcfg->bctl->lock);
+	if (err != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_binlog_start: %s",
+				dcfg->bctl->name);
+		goto err_mutex;
+	}
 
 	/* Create tmp directory */
 	dcfg->dir = datasort_mkdtemp(dcfg);
@@ -1234,8 +1309,13 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Wait for pending writes and lock bctl */
 	eblob_base_wait_locked(dcfg->bctl);
 
-	/* XXX: Apply binlog */
-	goto err_unlock_bctl;
+	/* Apply binlog */
+	err = datasort_binlog_apply(dcfg);
+	if (err != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_binlog_apply: %s",
+				dcfg->bctl->name);
+		goto err_unlock_bctl;
+	}
 
 	/* Swap original bctl with sorted one */
 	err = datasort_swap_memory(dcfg);
@@ -1253,8 +1333,13 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		abort();
 	}
 
-	/* XXX: Disable binlog */
-	goto err_unlock_bctl;
+	/* Stop binlog */
+	err = eblob_binlog_stop(&dcfg->bctl->binlog);
+	if (err != 0) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_binlog_stop: %s",
+				dcfg->bctl->name);
+		goto err_unlock_bctl;
+	}
 
 	/*
 	 * Preform cleanups
@@ -1280,7 +1365,8 @@ err_rmdir:
 	if (rmdir(dcfg->dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "rmdir: %s", dcfg->dir);
 err_stop:
-	/* XXX: */
+	if (eblob_binlog_stop(&dcfg->bctl->binlog) != 0)
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "eblob_binlog_stop: FAILED");
 err_mutex:
 	datasort_destroy(dcfg);
 err:
