@@ -1236,13 +1236,17 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err < 0)
 		goto err_out_rollback;
 
-	if (have_old)
-		if ((err = eblob_mark_entry_removed(b, key, &old)) != 0) {
+	if (have_old) {
+		pthread_mutex_lock(&old.bctl->lock);
+		err = eblob_mark_entry_removed(b, key, &old);
+		pthread_mutex_unlock(&old.bctl->lock);
+		if (err != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: %s: eblob_mark_entry_removed: %zd\n",
 					__func__, eblob_dump_id(key->id), -err);
 			goto err_out_unlock_exit;
 		}
+	}
 	pthread_mutex_unlock(&b->lock);
 
 	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
