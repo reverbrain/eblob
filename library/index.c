@@ -523,14 +523,30 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control *dc, tmp = { .key = *key, };
 	struct eblob_disk_search_stat st = { .bloom_null = 0, };
-	int err = -ENOENT;
+	static const int max_tries = 10;
+	int err = -ENOENT, tries = 0;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 			"blob: %s: index: disk.\n", eblob_dump_id(key->id));
 
+again:
 	list_for_each_entry_reverse(bctl, &b->bases, base_entry) {
 		/* Protect against datasort */
 		eblob_bctl_hold(bctl);
+
+		/*
+		 * This should be rather rare case when we've grabbed hold of
+		 * already invalidated (by data-sort) bctl.
+		 * TODO: Actually it's sufficient only to move one bctl back but as
+		 * was mentioned - it's really rare case.
+		 * TODO: Probably we should check for this inside eblob_bctl_hold()
+		 */
+		if (bctl->index_fd < 0) {
+			eblob_bctl_release(bctl);
+			if (tries++ > max_tries)
+				return -EDEADLK;
+			goto again;
+		}
 
 		/* If bctl does not have sorted index - skip it */
 		if (bctl->sort.fd < 0) {
