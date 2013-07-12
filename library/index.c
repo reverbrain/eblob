@@ -529,18 +529,10 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 			"blob: %s: index: disk.\n", eblob_dump_id(key->id));
 
 	list_for_each_entry_reverse(bctl, &b->bases, base_entry) {
-		if (bctl->sort.fd < 0)
-			continue;
-
 		/* Protect against datasort */
 		eblob_bctl_hold(bctl);
 
-		/* Check that bctl is invalidated by datasort */
-		if (bctl->index_fd < 0) {
-			err = -EAGAIN;
-			goto err_out_exit;
-		}
-
+		/* If bctl does not have sorted index - skip it */
 		if (bctl->sort.fd < 0) {
 			eblob_bctl_release(bctl);
 			continue;
@@ -548,10 +540,10 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 
 		dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 		if (dc == NULL) {
-			eblob_bctl_release(bctl);
 			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 					"blob: %s: index: disk: index: %d, NO DATA\n",
 					eblob_dump_id(key->id),	bctl->index);
+			eblob_bctl_release(bctl);
 			continue;
 		}
 
@@ -573,7 +565,6 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		break;
 	}
 
-err_out_exit:
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 			"blob: %s: stat: range_has_key: %d, bloom_null: %d, "
 			"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, err: %d\n",
