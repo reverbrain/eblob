@@ -1469,8 +1469,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 			flags &= ~BLOB_DISK_CTL_APPEND;
 
 	/* Do not allow data-sort swap in the middle of overwrite */
-	pthread_mutex_lock(&wc->bctl->lock);
-
+	pthread_mutex_lock(&b->lock);
 	/* Allow overwrite only in the last base */
 	if (!list_is_last(&wc->bctl->base_entry, &b->bases)) {
 		err = -EROFS;
@@ -1492,7 +1491,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_release;
 
 err_out_release:
-	pthread_mutex_unlock(&wc->bctl->lock);
+	pthread_mutex_unlock(&b->lock);
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 	return err;
