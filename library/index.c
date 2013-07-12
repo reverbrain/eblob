@@ -550,6 +550,9 @@ again:
 
 		/* If bctl does not have sorted index - skip it */
 		if (bctl->sort.fd < 0) {
+			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
+					"blob: %s: index: disk: index: %d: no sorted index\n",
+					eblob_dump_id(key->id), bctl->index);
 			eblob_bctl_release(bctl);
 			continue;
 		}
@@ -557,7 +560,7 @@ again:
 		dc = eblob_find_on_disk(b, bctl, &tmp, eblob_find_non_removed_callback, &st);
 		if (dc == NULL) {
 			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-					"blob: %s: index: disk: index: %d, NO DATA\n",
+					"blob: %s: index: disk: index: %d: NO DATA\n",
 					eblob_dump_id(key->id), bctl->index);
 			eblob_bctl_release(bctl);
 			continue;
