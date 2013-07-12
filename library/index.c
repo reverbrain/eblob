@@ -558,7 +558,7 @@ again:
 		if (dc == NULL) {
 			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 					"blob: %s: index: disk: index: %d, NO DATA\n",
-					eblob_dump_id(key->id),	bctl->index);
+					eblob_dump_id(key->id), bctl->index);
 			eblob_bctl_release(bctl);
 			continue;
 		}
@@ -584,7 +584,7 @@ again:
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 			"blob: %s: stat: range_has_key: %d, bloom_null: %d, "
 			"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, err: %d\n",
-			eblob_dump_id(key->id),	st.range_has_key, st.bloom_null,
+			eblob_dump_id(key->id), st.range_has_key, st.bloom_null,
 			st.bsearch_reached, st.bsearch_found, st.additional_reads, err);
 
 	return err;
