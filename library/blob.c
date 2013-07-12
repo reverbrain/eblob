@@ -1244,6 +1244,11 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: %s: eblob_mark_entry_removed: %zd\n",
 					__func__, eblob_dump_id(key->id), -err);
+			/*
+			 * NB! If previous entry removal failed than it's left
+			 * in unknown state.  In that case we should not roll
+			 * back write because it's already commited.
+			 */
 			goto err_out_unlock_exit;
 		}
 	}
