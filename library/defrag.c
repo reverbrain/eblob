@@ -88,7 +88,7 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"%s: FAILED: trying to remove non empty blob: "
 				"removed: %" PRIu64 ", total: %" PRIu64
-				"index_offset: %lld, removed_size: %lld\n",
+				"index_offset: %" PRIu64 ", removed_size: %" PRIu64 "\n",
 				__func__, removed, total,
 				bctl->index_offset, removed_size);
 		err = 1;
