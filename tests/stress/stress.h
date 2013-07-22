@@ -82,15 +82,29 @@ struct test_cfg {
 						   iterations */
 	long long	test_rnd_seed;		/* Random seed for reproducible
 						   test-cases */
+	long		test_threads;		/* Number of test threads */
+
 	/* Internal structures follow */
 	sig_atomic_t		need_exit;	/* SIGINT caught */
 	long			log_fd;		/* Opened log file descriptor */
 	struct eblob_backend	*b;		/* Eblob backend */
 	struct shadow		*shadow;	/* Shadow storage pointer */
+	pthread_rwlock_t	lock;		/* Lock to protect shared test
+						   structures */
+	struct timespec		sleep_time;	/* Timespec equivalent of
+						   `test_delay` */
+	long long		iterations;	/* Number of iterations across
+						   all threads */
 };
 
 /* Global variable */
 extern struct test_cfg cfg;
+
+/* Per thread structure */
+struct test_thread_cfg {
+	struct test_cfg		*gcfg;
+	int			tid;
+};
 
 /*
  * Defaults for test_cfg above
@@ -110,6 +124,7 @@ extern struct test_cfg cfg;
 #define DEFAULT_TEST_MILESTONE		(100)
 #define DEFAULT_TEST_PATH		"./"
 #define DEFAULT_TEST_REOPEN		(0)
+#define DEFAULT_TEST_THREADS		(16)
 
 void options_get_l(long *cfg_entry, const char *optarg);
 void options_get_ll(long long *cfg_entry, const char *optarg);

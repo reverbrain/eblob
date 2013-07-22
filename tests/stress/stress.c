@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -471,6 +472,60 @@ cleanups(void)
 	free(cfg.shadow);
 }
 
+static void *
+test_thread(void *priv)
+{
+	struct test_thread_cfg *tcfg = priv;
+
+	pthread_rwlock_wrlock(&tcfg->gcfg->lock);
+	warnx("thread started: %d", tcfg->tid);
+	pthread_rwlock_unlock(&tcfg->gcfg->lock);
+
+	/*
+	 * Test loop
+	 *
+	 * Get random item from shadow list
+	 * Check it
+	 * Regenerate random one on it's place
+	 * Sync it back to blob
+	 * Re-check it
+	 */
+	while (tcfg->gcfg->need_exit == 0) {
+		/*
+		 * Craft item index so that no two threads could possibly pick
+		 * same index.
+		 */
+		const uint32_t rnd = (random() % tcfg->gcfg->test_items) /
+			(tcfg->gcfg->test_threads + 1);
+		struct shadow *const item = &tcfg->gcfg->shadow[
+			rnd * tcfg->gcfg->test_threads + tcfg->tid];
+
+		/* Perform one loop of check / modify / re-check */
+		pthread_rwlock_rdlock(&tcfg->gcfg->lock);
+		RETRY(item_check(item, tcfg->gcfg->b));
+		RETRY(item_generate_random(item, tcfg->gcfg->b));
+		RETRY(item_sync(item, tcfg->gcfg->b));
+		RETRY(item_check(item, tcfg->gcfg->b));
+		pthread_rwlock_unlock(&tcfg->gcfg->lock);
+
+		/* Bump counter */
+		pthread_rwlock_wrlock(&tcfg->gcfg->lock);
+		tcfg->gcfg->iterations++;
+		pthread_rwlock_unlock(&tcfg->gcfg->lock);
+
+		/* Sleep */
+		if (tcfg->gcfg->sleep_time.tv_sec > 0 ||
+				tcfg->gcfg->sleep_time.tv_nsec > 0)
+			nanosleep(&tcfg->gcfg->sleep_time, NULL);
+	}
+
+	pthread_rwlock_wrlock(&tcfg->gcfg->lock);
+	warnx("thread finished: %d", tcfg->tid);
+	pthread_rwlock_unlock(&tcfg->gcfg->lock);
+
+	return NULL;
+}
+
 /*
  * This is data-sort routine test that can be used also as binlog test or even
  * general eblob or performance test.
@@ -481,9 +536,10 @@ main(int argc, char **argv)
 	static struct eblob_config bcfg;
 	static struct eblob_log logger;
 	static char log_path[PATH_MAX], blob_path[PATH_MAX];
-	static struct timespec sleep_time = {0, 0};
-	struct shadow *item;
-	int i;
+	pthread_t *threads = NULL;
+	struct test_thread_cfg *tcfg = NULL;
+	long long next_reopen = 0, next_milestone = 0, next_defrag = 0;
+	int i, error = EFAULT;
 
 	warnx("started");
 
@@ -527,13 +583,16 @@ main(int argc, char **argv)
 
 	/* Checks */
 	if (cfg.test_items <= 0)
-		err(EX_USAGE, "test_items must be positive");
+		errx(EX_USAGE, "test_items must be positive");
 	if (cfg.test_item_size <= 0)
-		err(EX_USAGE, "test_item_size must be positive");
+		errx(EX_USAGE, "test_item_size must be positive");
+	if (cfg.test_threads >= cfg.test_items - 2 * cfg.test_threads)
+		errx(EX_USAGE, "test_threads is set too high for given test_items");
 
+	/* Setup timespec delay */
 	cfg.test_delay *= EBLOB_TEST_US_IN_S;
-	sleep_time.tv_sec = cfg.test_delay / EBLOB_TEST_NS_IN_S;
-	sleep_time.tv_nsec = cfg.test_delay % EBLOB_TEST_NS_IN_S;
+	cfg.sleep_time.tv_sec = cfg.test_delay / EBLOB_TEST_NS_IN_S;
+	cfg.sleep_time.tv_nsec = cfg.test_delay % EBLOB_TEST_NS_IN_S;
 
 	/* Init shadow storage with some set of key-values */
 	for (i = 0; i < cfg.test_items; i++) {
@@ -542,53 +601,89 @@ main(int argc, char **argv)
 			goto out_cleanups;
 	}
 
-	/*
-	 * Test loop
-	 *
-	 * Get random item from shadow list
-	 * Check it
-	 * Regenerate random one on it's place
-	 * Sync it back to blob
-	 *
-	 * TODO: Can be moved to separate thread(s)
-	 */
+	/* Init lock */
+	error = pthread_rwlock_init(&cfg.lock, NULL);
+	if (error != 0)
+		err(EX_OSERR, "pthread_rwlock_init");
+
+	/* Init thread datastructures */
+	threads = calloc(cfg.test_threads, sizeof(pthread_t));
+	if (threads == NULL)
+		err(EX_OSERR, "calloc: threads");
+	tcfg = calloc(cfg.test_threads, sizeof(struct test_thread_cfg));
+	if (tcfg == NULL)
+		err(EX_OSERR, "calloc: tcfg");
+
+	/* Init random number generator (useless in multithreaded test) */
 	srandom(cfg.test_rnd_seed);
-	for (i = 0; i < cfg.test_iterations; i++) {
-		uint32_t rnd;
 
-		/* Pick random item */
-		rnd = random() % cfg.test_items;
-		item = &cfg.shadow[rnd];
+	/* Create threads */
+	warnx("starting threads: %ld", cfg.test_threads);
+	for (i = 0; i < cfg.test_threads; i++) {
+		/* Prepare per-thread config */
+		tcfg[i].tid = i;
+		tcfg[i].gcfg = &cfg;
+		/* Start test thread */
+		error = pthread_create(&threads[i], NULL, test_thread, &tcfg[i]);
+		if (error != 0)
+			errx(EX_OSERR, "thread creation failed: %d", error);
+	}
 
-		RETRY(item_check(item, cfg.b));
-		RETRY(item_generate_random(item, cfg.b));
-		RETRY(item_sync(item, cfg.b));
-		RETRY(item_check(item, cfg.b));
+	while (cfg.need_exit == 0) {
+
+		pthread_rwlock_wrlock(&tcfg->gcfg->lock);
+		if (cfg.iterations >= cfg.test_iterations) {
+			pthread_rwlock_unlock(&tcfg->gcfg->lock);
+			break;
+		}
 
 		/* Print progress each 'test_milestone' iterations */
-		if (cfg.test_milestone > 0 && (i % cfg.test_milestone) == 0)
-			warnx("iteration: %d", i);
+		if (cfg.test_milestone > 0 && cfg.iterations >= next_milestone) {
+			warnx("iteration: %lld", cfg.iterations);
+			next_milestone = cfg.iterations + cfg.test_milestone;
+		}
+
 		/* Force defrag each 'test_force_defrag' iterations */
-		if (cfg.test_force_defrag > 0 && (i % cfg.test_force_defrag) == 0) {
-			warnx("forcing defrag: %d", i);
+		if (cfg.test_force_defrag > 0 && cfg.iterations >= next_defrag) {
+			warnx("forcing defrag: %lld", cfg.iterations);
+			next_defrag = cfg.iterations + cfg.test_force_defrag;
 			eblob_start_defrag(cfg.b);
 		}
+
 		/* Reopen blob each test_reopen iterations */
-		if (cfg.test_reopen > 0 && (i % cfg.test_reopen) == 0) {
-			warnx("reopening blob: %d", i);
+		if (cfg.test_reopen > 0 && cfg.iterations >= next_reopen) {
+			warnx("reopening blob: %lld", cfg.iterations);
+			next_reopen = cfg.iterations + cfg.test_reopen;
 			eblob_cleanup(cfg.b);
 			if ((cfg.b = eblob_init(&bcfg)) == NULL)
 				errx(EX_OSERR, "loop: eblob_init");
 		}
-		/* Exit on signal */
-		if (cfg.need_exit)
-			goto out_cleanups;
-		/* Sleep */
-		nanosleep(&sleep_time, NULL);
+		pthread_rwlock_unlock(&tcfg->gcfg->lock);
+
+		sleep(1);
 	}
+
+	/* Tell threads to stop if not already done so */
+	if (cfg.need_exit == 0)
+		cfg.need_exit = 1;
+
+	/* Wait for test threads to stop */
+	warnx("joining threads: %ld", cfg.test_threads);
+	for (i = 0; i < cfg.test_threads; i++) {
+		error = pthread_join(threads[i], NULL);
+		if (error != 0)
+			errx(EX_OSERR, "thread join failed: %d", error);
+	}
+
+	pthread_rwlock_destroy(&cfg.lock);
 
 out_cleanups:
 	cleanups();
+
+	/* Free malloc'ed memory */
+	free(tcfg);
+	free(threads);
+
 	/* Ctrl+C is not considered an error */
 	errx(EX_OK, "finished");
 }

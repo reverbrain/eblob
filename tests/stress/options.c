@@ -44,7 +44,7 @@ options_usage(char *progname, int eval, FILE *stream)
 	fprintf(stream, "[-i test_items] [-I iterations] [-b block size] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
-	fprintf(stream, "[-y sync_time] ");
+	fprintf(stream, "[-T test_threads] [-y sync_time] ");
 	fprintf(stream, "\n");
 
 	exit(eval);
@@ -94,6 +94,7 @@ options_set_defaults(void)
 	cfg.test_milestone = DEFAULT_TEST_MILESTONE;
 	cfg.test_reopen = DEFAULT_TEST_REOPEN;
 	cfg.test_rnd_seed = (long long)time(NULL);
+	cfg.test_threads = DEFAULT_TEST_THREADS;
 
 	if ((cfg.test_path = strdup(DEFAULT_TEST_PATH)) == NULL)
 		err(EX_OSERR, "malloc");
@@ -112,6 +113,7 @@ options_get(int argc, char **argv)
 		{ "blob-size",		required_argument,	NULL,		's' },
 		{ "blob-sync",		required_argument,	NULL,		'y' },
 		{ "blob-threads",	required_argument,	NULL,		't' },
+		{ "test-threads",	required_argument,	NULL,		'T' },
 		{ "help",		no_argument,		NULL,		'h' },
 		{ "log-level",		required_argument,	NULL,		'l' },
 		{ "test-delay",		required_argument,	NULL,		'D' },
@@ -128,7 +130,7 @@ options_get(int argc, char **argv)
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:vy:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:T:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -179,6 +181,9 @@ options_get(int argc, char **argv)
 		case 't':
 			options_get_l(&cfg.blob_threads, optarg);
 			break;
+		case 'T':
+			options_get_l(&cfg.test_threads, optarg);
+			break;
 		case 'v':
 			errx(EX_OK, "Version: %s\n", EBLOB_TEST_DATASORT_VERSION);
 		case 'y':
@@ -213,5 +218,6 @@ options_dump(void)
 	printf("Print message each 'milestone' iterations: %ld\n", cfg.test_milestone);
 	printf("Close and open blob: %lld\n", cfg.test_reopen);
 	printf("Random seed: %lld\n", cfg.test_rnd_seed);
+	printf("Test threads num: %ld\n", cfg.test_threads);
 	printf("Test path: %s\n", cfg.test_path);
 }
