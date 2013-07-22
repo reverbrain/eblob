@@ -1,3 +1,10 @@
+eblob (0.21.3) unstable; urgency=low
+
+  * blob: threat 0-sized entry as non-existient on append with EXTHDR
+  * Fixed llu/off_t format warnings
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 22 Jul 2013 16:43:57 +0400
+
 eblob (0.21.2) unstable; urgency=low
 
   * Use 141 boost

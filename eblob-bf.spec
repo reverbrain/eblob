@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.2
+Version:	0.21.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Jul 22 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.3
+- blob: threat 0-sized entry as non-existient on append with EXTHDR
+- Fixed llu/off_t format warnings
+
 * Wed Jul 10 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.2
 - Use 141 boost
 - Tests update
