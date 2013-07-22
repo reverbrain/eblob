@@ -1532,8 +1532,8 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc)
 {
 	ssize_t err;
+	uint64_t flags = wc->flags;
 	const size_t size = wc->size;
-	const uint64_t flags = wc->flags;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
 	if (err < 0)
@@ -1547,6 +1547,13 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		err = -E2BIG;
 		goto err_out_exit;
 	}
+
+	/*
+	 * Append of empty record is same as write of new one
+	 */
+	if ((flags & BLOB_DISK_CTL_EXTHDR) && (flags & BLOB_DISK_CTL_APPEND))
+		if (wc->offset == 0)
+			flags &= ~BLOB_DISK_CTL_APPEND;
 
 	/* Do not allow data-sort swap in the middle of overwrite */
 	eblob_bctl_hold(wc->bctl);
