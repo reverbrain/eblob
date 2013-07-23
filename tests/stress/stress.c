@@ -402,7 +402,7 @@ blob_three_stage_write(struct eblob_backend *b, struct eblob_key *key,
 static int
 item_sync(struct shadow *item, struct eblob_backend *b)
 {
-	int error;
+	int error = -EFAULT;
 
 	assert(item != NULL);
 	assert(b != NULL);
@@ -429,6 +429,7 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 					item->size - item->offset, item->flags);
 		}
 	}
+
 	if (error != 0) {
 		warnx("write failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
@@ -497,8 +498,10 @@ test_thread(void *priv)
 		 */
 		const uint32_t rnd = (random() % tcfg->gcfg->test_items) /
 			(tcfg->gcfg->test_threads + 1);
-		struct shadow *const item = &tcfg->gcfg->shadow[
-			rnd * tcfg->gcfg->test_threads + tcfg->tid];
+		const uint64_t item_num = rnd * tcfg->gcfg->test_threads + tcfg->tid;
+		struct shadow *const item = &tcfg->gcfg->shadow[item_num];
+
+		assert(item_num < tcfg->gcfg->test_items);
 
 		/* Perform one loop of check / modify / re-check */
 		pthread_rwlock_rdlock(&tcfg->gcfg->lock);
