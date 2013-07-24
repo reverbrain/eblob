@@ -552,6 +552,14 @@ main(int argc, char **argv)
 		options_usage(argv[0], 1, stderr);
 	options_dump();
 
+	/* Checks */
+	if (cfg.test_items <= 0)
+		errx(EX_USAGE, "test_items must be positive");
+	if (cfg.test_item_size <= 0)
+		errx(EX_USAGE, "test_item_size must be positive");
+	if (cfg.test_threads >= cfg.test_items - 2 * cfg.test_threads)
+		errx(EX_USAGE, "test_threads is set too high for given test_items");
+
 	/* Construct paths */
 	snprintf(log_path, PATH_MAX, "%s/%s", cfg.test_path, "test.log");
 	snprintf(blob_path, PATH_MAX, "%s/%s", cfg.test_path, "test-blob");
@@ -589,14 +597,6 @@ main(int argc, char **argv)
 	/* Cleanup on keyboard interrupt */
 	if (signal(SIGINT, sigint_cb) == SIG_ERR)
 		err(EX_OSERR, "signal");
-
-	/* Checks */
-	if (cfg.test_items <= 0)
-		errx(EX_USAGE, "test_items must be positive");
-	if (cfg.test_item_size <= 0)
-		errx(EX_USAGE, "test_item_size must be positive");
-	if (cfg.test_threads >= cfg.test_items - 2 * cfg.test_threads)
-		errx(EX_USAGE, "test_threads is set too high for given test_items");
 
 	/* Setup timespec delay */
 	cfg.test_delay *= EBLOB_TEST_US_IN_S;
