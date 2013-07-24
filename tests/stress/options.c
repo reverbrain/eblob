@@ -203,6 +203,8 @@ void
 options_dump(void)
 {
 
+	printf("Stress version: v" EBLOB_TEST_VERSION "\n");
+	printf("\n");
 	printf("Flags: %lld\n", cfg.blob_flags);
 	printf("Defrag timeout in seconds: %ld\n", cfg.blob_defrag);
 	printf("Maximum number of records per base: %lld\n", cfg.blob_records);
@@ -220,4 +222,5 @@ options_dump(void)
 	printf("Random seed: %lld\n", cfg.test_rnd_seed);
 	printf("Test threads num: %ld\n", cfg.test_threads);
 	printf("Test path: %s\n", cfg.test_path);
+	printf("\n");
 }
