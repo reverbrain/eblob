@@ -552,12 +552,18 @@ main(int argc, char **argv)
 		options_usage(argv[0], 1, stderr);
 	options_dump();
 
+	/* Mangle test parameters */
+	cfg.test_items = ALIGN(cfg.test_items, cfg.test_threads) + 1;
+	cfg.test_delay *= EBLOB_TEST_US_IN_S;
+
 	/* Checks */
 	if (cfg.test_items <= 0)
 		errx(EX_USAGE, "test_items must be positive");
+	if (cfg.test_threads <= 0)
+		errx(EX_USAGE, "test_threads must be positive");
 	if (cfg.test_item_size <= 0)
 		errx(EX_USAGE, "test_item_size must be positive");
-	if (cfg.test_threads >= cfg.test_items - 2 * cfg.test_threads)
+	if (cfg.test_threads >= cfg.test_items - cfg.test_threads)
 		errx(EX_USAGE, "test_threads is set too high for given test_items");
 
 	/* Construct paths */
@@ -599,7 +605,6 @@ main(int argc, char **argv)
 		err(EX_OSERR, "signal");
 
 	/* Setup timespec delay */
-	cfg.test_delay *= EBLOB_TEST_US_IN_S;
 	cfg.sleep_time.tv_sec = cfg.test_delay / EBLOB_TEST_NS_IN_S;
 	cfg.sleep_time.tv_nsec = cfg.test_delay % EBLOB_TEST_NS_IN_S;
 
