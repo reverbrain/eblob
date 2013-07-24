@@ -575,6 +575,12 @@ main(int argc, char **argv)
 	if (cfg.b == NULL)
 		errx(EX_OSERR, "eblob_init");
 
+	/* Remove all data that may belong to previous reincarnation of test */
+	warnx("previous test cleanup...");
+	eblob_remove_blobs(cfg.b);
+	eblob_cleanup(cfg.b);
+	cfg.b = eblob_init(&bcfg);
+
 	/* Init test */
 	cfg.shadow = calloc(cfg.test_items, sizeof(struct shadow));
 	if (cfg.shadow == NULL)
