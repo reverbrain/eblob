@@ -115,16 +115,11 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 		cmp = eblob_id_cmp(t->end_key.id, block->end_key.id);
 
 		if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-			int num = 6;
-			char start_str[num * 2 + 1];
-			char end_str[num * 2 + 1];
-			char id_str[num * 2 + 1];
-
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "insert: range: start: %s, end: %s, "
 					"tree-end: %s, cmp: %d, offset: %llu\n",
-					eblob_dump_id_len_raw(block->start_key.id, num, start_str),
-					eblob_dump_id_len_raw(block->end_key.id, num, end_str),
-					eblob_dump_id_len_raw(t->end_key.id, num, id_str), cmp, (unsigned long long)t->offset);
+					eblob_dump_id(block->start_key.id),
+					eblob_dump_id(block->end_key.id),
+					eblob_dump_id(t->end_key.id), cmp, (unsigned long long)t->offset);
 		}
 		if (cmp <= 0)
 			n = &parent->rb_left;
@@ -170,15 +165,10 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 
 		cmp = eblob_id_cmp(t->end_key.id, dc->key.id);
 		if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-			int num = 6;
-			char start_str[num * 2 + 1];
-			char end_str[num * 2 + 1];
-			char id_str[num * 2 + 1];
-
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "lookup1: range: start: %s, end: %s, key: %s, cmp: %d\n",
-					eblob_dump_id_len_raw(t->start_key.id, num, start_str),
-					eblob_dump_id_len_raw(t->end_key.id, num, end_str),
-					eblob_dump_id_len_raw(dc->key.id, num, id_str), cmp);
+					eblob_dump_id(t->start_key.id),
+					eblob_dump_id(t->end_key.id),
+					eblob_dump_id(dc->key.id), cmp);
 		}
 
 		if (cmp < 0)
@@ -186,16 +176,11 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 		else if (cmp > 0) {
 			cmp = eblob_id_cmp(t->start_key.id, dc->key.id);
 			if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-				int num = 6;
-				char start_str[num * 2 + 1];
-				char end_str[num * 2 + 1];
-				char id_str[num * 2 + 1];
-
 				eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "lookup2: range: start: %s, end: %s, "
 						"key: %s, cmp: %d, offset: %llu\n",
-						eblob_dump_id_len_raw(t->start_key.id, num, start_str),
-						eblob_dump_id_len_raw(t->end_key.id, num, end_str),
-						eblob_dump_id_len_raw(dc->key.id, num, id_str), cmp, (unsigned long long)t->offset);
+						eblob_dump_id(t->start_key.id),
+						eblob_dump_id(t->end_key.id),
+						eblob_dump_id(dc->key.id), cmp, (unsigned long long)t->offset);
 			}
 			if (cmp > 0)
 				n = n->rb_right;
@@ -350,15 +335,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 
 	if (b->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-		char start_str[EBLOB_ID_SIZE * 2 + 1];
-		char end_str[EBLOB_ID_SIZE * 2 + 1];
-		char id_str[EBLOB_ID_SIZE * 2 + 1];
-
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: bsearch range: start: %s, end: %s, num: %zd\n",
-				eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id_str),
-				eblob_dump_id_len_raw(search_start->key.id, EBLOB_ID_SIZE, start_str),
-				eblob_dump_id_len_raw(search_end->key.id, EBLOB_ID_SIZE, end_str),
-				num);
+				eblob_dump_id(dc->key.id),
+				eblob_dump_id(search_start->key.id),
+				eblob_dump_id(search_end->key.id), num);
 	}
 
 	if (!sorted_orig)

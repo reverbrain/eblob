@@ -91,13 +91,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 	}
 
 	if (b->cfg.log->log_level > EBLOB_LOG_NOTICE) {
-		int len = 6;
-		char start_id[len*2 + 1];
-		char end_id[len*2 + 1];
 		char found_id[EBLOB_ID_SIZE * 2 + 1];
-
-		eblob_dump_id_len_raw(start->id, len, start_id);
-		eblob_dump_id_len_raw(end->id, len, end_id);
 
 		if (found != -1) {
 			eblob_dump_id_len_raw(((struct eblob_disk_control *)(bctl->sort.data + found * sizeof(dc)))->key.id,
@@ -108,7 +102,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_bsearch_fuzzy: start: %s, end: %s, found: %s, "
 				"pos: %zd, num: %zu, index: %d, fd: %d\n",
-				start_id, end_id, found_id, found, num, bctl->index, bctl->data_fd);
+				eblob_dump_id(start->id), eblob_dump_id(end->id), found_id, found, num, bctl->index, bctl->data_fd);
 	}
 
 	return found;
@@ -261,15 +255,10 @@ int eblob_read_range(struct eblob_range_request *req)
 		e = rb_entry(n, struct eblob_hash_entry, node);
 
 		if (b->cfg.log->log_level > EBLOB_LOG_NOTICE) {
-			int len = 6;
-			char start_id[2*len + 1];
-			char end_id[2*len + 1];
-			char id_str[2*len + 1];
-
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "id: %s, start: %s: end: %s, in-range: %d, limit: %llu [%llu %llu]\n",
-					eblob_dump_id_len_raw(e->key.id, len, id_str),
-					eblob_dump_id_len_raw(req->start, len, start_id),
-					eblob_dump_id_len_raw(req->end, len, end_id),
+					eblob_dump_id(e->key.id),
+					eblob_dump_id(req->start),
+					eblob_dump_id(req->end),
 					eblob_id_in_range(e->key.id, req->start, req->end),
 					(unsigned long long)req->current_pos, (unsigned long long)req->requested_limit_start,
 					(unsigned long long)req->requested_limit_num);
