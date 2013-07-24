@@ -185,7 +185,7 @@ options_get(int argc, char **argv)
 			options_get_l(&cfg.test_threads, optarg);
 			break;
 		case 'v':
-			errx(EX_OK, "Version: %s\n", EBLOB_TEST_DATASORT_VERSION);
+			errx(EX_OK, "Version: %s\n", EBLOB_TEST_VERSION);
 		case 'y':
 			options_get_l(&cfg.blob_sync, optarg);
 			break;
