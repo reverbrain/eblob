@@ -702,7 +702,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 	struct eblob_backend *b = priv;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: iter: %s: index: %d, "
-			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
+			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: 0x%llx.\n",
 			eblob_dump_id_len(dc->key.id, EBLOB_ID_SIZE),
 			ctl->bctl->index,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,

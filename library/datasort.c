@@ -394,7 +394,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
-			", size: %" PRIu64 ", flags: %" PRIu64,
+			", size: %" PRIu64 ", flags: 0x%" PRIx64,
 			eblob_dump_id(dc->key.id), c->fd, c->offset, dc->disk_size, dc->flags);
 
 	/* Rewrite position */
