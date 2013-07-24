@@ -91,6 +91,9 @@ else()
     add_definitions(-DBYTEORDER=1234)
 endif()
 
+# We use gnu extensions and C99 standard
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+
 if (UNIX OR MINGW)
     #
     # Strict Aliasing notes:
