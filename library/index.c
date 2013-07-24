@@ -114,13 +114,11 @@ int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_bl
 
 		cmp = eblob_id_cmp(t->end_key.id, block->end_key.id);
 
-		if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "insert: range: start: %s, end: %s, "
-					"tree-end: %s, cmp: %d, offset: %llu\n",
-					eblob_dump_id(block->start_key.id),
-					eblob_dump_id(block->end_key.id),
-					eblob_dump_id(t->end_key.id), cmp, (unsigned long long)t->offset);
-		}
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "insert: range: start: %s, end: %s, "
+				"tree-end: %s, cmp: %d, offset: %llu\n",
+				eblob_dump_id(block->start_key.id),
+				eblob_dump_id(block->end_key.id),
+				eblob_dump_id(t->end_key.id), cmp, (unsigned long long)t->offset);
 		if (cmp <= 0)
 			n = &parent->rb_left;
 		else {
@@ -164,24 +162,20 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 		t = rb_entry(n, struct eblob_index_block, node);
 
 		cmp = eblob_id_cmp(t->end_key.id, dc->key.id);
-		if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "lookup1: range: start: %s, end: %s, key: %s, cmp: %d\n",
-					eblob_dump_id(t->start_key.id),
-					eblob_dump_id(t->end_key.id),
-					eblob_dump_id(dc->key.id), cmp);
-		}
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "lookup1: range: start: %s, end: %s, key: %s, cmp: %d\n",
+				eblob_dump_id(t->start_key.id),
+				eblob_dump_id(t->end_key.id),
+				eblob_dump_id(dc->key.id), cmp);
 
 		if (cmp < 0)
 			n = n->rb_left;
 		else if (cmp > 0) {
 			cmp = eblob_id_cmp(t->start_key.id, dc->key.id);
-			if (bctl->back->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-				eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "lookup2: range: start: %s, end: %s, "
-						"key: %s, cmp: %d, offset: %llu\n",
-						eblob_dump_id(t->start_key.id),
-						eblob_dump_id(t->end_key.id),
-						eblob_dump_id(dc->key.id), cmp, (unsigned long long)t->offset);
-			}
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "lookup2: range: start: %s, end: %s, "
+					"key: %s, cmp: %d, offset: %llu\n",
+					eblob_dump_id(t->start_key.id),
+					eblob_dump_id(t->end_key.id),
+					eblob_dump_id(dc->key.id), cmp, (unsigned long long)t->offset);
 			if (cmp > 0)
 				n = n->rb_right;
 			else
@@ -334,12 +328,10 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 			eblob_dump_id(dc->key.id),
 			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 
-	if (b->cfg.log->log_level > EBLOB_LOG_DEBUG) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: bsearch range: start: %s, end: %s, num: %zd\n",
-				eblob_dump_id(dc->key.id),
-				eblob_dump_id(search_start->key.id),
-				eblob_dump_id(search_end->key.id), num);
-	}
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: bsearch range: start: %s, end: %s, num: %zd\n",
+			eblob_dump_id(dc->key.id),
+			eblob_dump_id(search_start->key.id),
+			eblob_dump_id(search_end->key.id), num);
 
 	if (!sorted_orig)
 		goto out;
