@@ -123,7 +123,7 @@ void eblob_bctl_release(struct eblob_base_ctl *bctl)
 }
 
 /*!
- * Writes all \a iov wrt record possition in base
+ * Writes all \a iov wrt record position in base
  */
 static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *wc,
 		const struct eblob_iovec *iov, uint16_t iovcnt)
@@ -1247,7 +1247,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			/*
 			 * NB! If previous entry removal failed than it's left
 			 * in unknown state.  In that case we should not roll
-			 * back write because it's already commited.
+			 * back write because it's already committed.
 			 */
 			goto err_out_unlock_exit;
 		}
