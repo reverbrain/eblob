@@ -166,7 +166,7 @@ struct eblob_base_ctl {
 	int			sorted;
 	/* Per bctl aka "local" stats */
 	struct eblob_stat	*stat;
-	char			name[0];
+	char			name[];
 };
 
 /*
