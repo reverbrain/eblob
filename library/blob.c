@@ -1003,8 +1003,9 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_exit;
 	}
 
-err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
+
+err_out_exit:
 	return err;
 }
 
@@ -1449,7 +1450,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	const size_t size = wc->size;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
-	if (err < 0)
+	if (err)
 		goto err_out_exit;
 
 	/*
@@ -1487,13 +1488,16 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	err = eblob_write_commit_nolock(b, key, wc);
-	if (err)
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_commit_nolock", err);
 		goto err_out_release;
+	}
+
+	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 
 err_out_release:
 	pthread_mutex_unlock(&b->lock);
 err_out_exit:
-	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 	return err;
 }
 
