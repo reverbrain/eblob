@@ -351,7 +351,7 @@ err_out_close_data:
 	close(ctl->data_fd);
 	if (created != NULL) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
-		if ((err = unlink(created)) == -1)
+		if (unlink(created) == -1)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink: %s", created);
 	}
 err_out_free:
