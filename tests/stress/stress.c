@@ -418,11 +418,9 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 		if (rnd == 0 && item->offset == 0) {
 			error = blob_writev(b, &item->ekey,
 					item->value, item->size, item->flags);
-#if 0
 		} else if (rnd == 1 && item->offset == 0) {
 			error = blob_three_stage_write(b, &item->ekey,
 					item->value, item->size, item->flags);
-#endif
 		} else {
 			error = eblob_write(b, &item->ekey, item->value + item->offset,
 					item->flags & BLOB_DISK_CTL_APPEND ? 0 : item->offset,
