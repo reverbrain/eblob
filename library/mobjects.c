@@ -330,7 +330,7 @@ again:
 			ctl->data_size + ctl->index_size);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
 			ctl->index_size / sizeof(struct eblob_disk_control));
-	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
+	eblob_pagecache_hint(eblob_get_index_fd(ctl), EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
 
 	free(created);
