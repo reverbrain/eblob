@@ -869,7 +869,7 @@ static int datasort_binlog_apply(struct datasort_cfg *dcfg)
 	while ((it = eblob_binlog_iterate(bcfg, it)) != NULL) {
 		const uint64_t index = datasort_index_search(&it->key,
 				dcfg->result->index, dcfg->result->count);
-		const struct eblob_disk_control dc = dcfg->result->index[index];
+		struct eblob_disk_control dc;
 
 		/* Entry was not found - it's OK */
 		if (index == -1ULL) {
@@ -877,6 +877,9 @@ static int datasort_binlog_apply(struct datasort_cfg *dcfg)
 					eblob_dump_id(it->key.id));
 			continue;
 		}
+
+		/* Shortcut */
+		dc = dcfg->result->index[index];
 
 		/* Mark entry removed in both index and data file */
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "%s: removing: dc: "
