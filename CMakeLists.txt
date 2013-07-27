@@ -116,13 +116,7 @@ if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
 
-# Check for threads
-if (UNIX AND BSD)
-    set(CMAKE_THREAD_LIBS -pthread)
-    set(CMAKE_USE_PTHREADS ON)
-    set(CMAKE_EXE_LINKER_FLAGS -pthread)
-endif()
-
+# PThreads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
