@@ -94,11 +94,10 @@ endif()
 # We use gnu extensions and C99 standard
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-declarations -Wredundant-decls")
 add_definitions(
     -Wall
     -Wextra
-    -Wmissing-declarations
-    -Wredundant-decls
     -Wstrict-aliasing=2
     -fstack-protector-all
     -fstrict-aliasing
