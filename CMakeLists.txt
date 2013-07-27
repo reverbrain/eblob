@@ -55,7 +55,7 @@ if (WITH_ASAN)
         -fno-omit-frame-pointer
         -fsanitize=address
     )
-    set(SANITIZER_LIBRARY "-lasan -ldl")
+    set(SANITIZER_LIBRARY "-lasan")
 endif (WITH_ASAN)
 message(STATUS "asan is: ${WITH_ASAN}")
 
@@ -66,7 +66,7 @@ if (WITH_MSAN)
         -fsanitize-memory-track-origins
         -fsanitize=memory
     )
-    set(SANITIZER_LIBRARY "-lmsan -ldl")
+    set(SANITIZER_LIBRARY "-lmsan")
 endif (WITH_MSAN)
 message(STATUS "msan is: ${WITH_MSAN}")
 
@@ -76,7 +76,7 @@ if (WITH_TSAN)
         -fpic
         -fsanitize=thread
     )
-    set(SANITIZER_LIBRARY "-ltsan -ldl")
+    set(SANITIZER_LIBRARY "-ltsan")
 endif (WITH_TSAN)
 message(STATUS "tsan is: ${WITH_TSAN}")
 
