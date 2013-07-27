@@ -94,24 +94,24 @@ endif()
 # We use gnu extensions and C99 standard
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
-if (UNIX OR MINGW)
-    add_definitions(
-        -Wall
-        -Wextra
-        -Wmissing-declarations
-        -Wredundant-decls
-        -Wstrict-aliasing=2
-        -fstack-protector-all
-        -fstrict-aliasing
-    )
-    # GCC's builtin memcmp is slower than libc's
-    # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
-    if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-        add_definitions(
-            -fno-builtin-memcmp
-        )
-    endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-endif()
+add_definitions(
+    -Wall
+    -Wextra
+    -Wmissing-declarations
+    -Wredundant-decls
+    -Wstrict-aliasing=2
+    -fstack-protector-all
+    -fstrict-aliasing
+)
+
+# GCC's builtin memcmp is slower than libc's
+# See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
+if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+add_definitions(
+	-fno-builtin-memcmp
+)
+endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
