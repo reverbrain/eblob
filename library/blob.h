@@ -201,8 +201,8 @@ enum eblob_copy_flavour {
 __attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 {
-	uint64_t i, hash = 14695981039346656037ULL;
-	for (i = 0; i < EBLOB_ID_SIZE; ++i) {
+	uint64_t __attribute__((__may_alias__)) hash = 14695981039346656037ULL;
+	for (uint64_t i = 0; i < EBLOB_ID_SIZE; ++i) {
 		hash ^= key->id[i];
 		hash *= 1099511628211ULL;
 	}
@@ -217,9 +217,9 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 __attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 {
-	uint64_t i, hash = 0ULL;
-	for (i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
-		hash += ((uint64_t *)key->id)[i];
+	uint64_t __attribute__((__may_alias__)) hash = 0ULL;
+	for (uint64_t i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
+		hash += key->id[i];
 	return hash;
 }
 

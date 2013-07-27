@@ -95,20 +95,14 @@ endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
 if (UNIX OR MINGW)
-    #
-    # Strict Aliasing notes:
-    #   Currently there are couple of memory aliases represented by char** and
-    #     void** casts in blob.c and mobjects.c
-    #   GCC prints warnings if compiling with -fstrict-aliasing
-    #   One can increase verbosity by setting -Wstrict-aliasing=2
-    #
     add_definitions(
         -Wall
         -Wextra
         -Wmissing-declarations
         -Wredundant-decls
-        -fno-strict-aliasing
+        -Wstrict-aliasing=2
         -fstack-protector-all
+        -fstrict-aliasing
     )
     # GCC's builtin memcmp is slower than libc's
     # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052

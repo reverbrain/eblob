@@ -265,11 +265,10 @@ int eblob_read_range(struct eblob_range_request *req)
 		}
 
 		if (eblob_id_in_range(e->key.id, req->start, req->end)) {
-			struct eblob_ram_control *ctl;
-			unsigned int i;
-
-			for (i = 0 ; i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
-				ctl = &((struct eblob_ram_control *)e->data)[i];
+			for (unsigned int i = 0;
+					i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
+				struct eblob_ram_control __attribute__((__may_alias__))
+					*const ctl = (void *)e->data + i;
 
 				/*
 				 * ctl->index is an index of the blob, which hosts given key. This key is currently in RAM (tree)
