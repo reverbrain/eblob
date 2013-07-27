@@ -22,10 +22,10 @@
 
 #include "blob.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <assert.h>
@@ -34,8 +34,8 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <inttypes.h>
-#include <pthread.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
