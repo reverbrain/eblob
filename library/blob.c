@@ -1182,8 +1182,10 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	 * non-zero size and copy flag is set.
 	 */
 	if (old != NULL && old->size && (copy == EBLOB_COPY_RECORD)) {
+		struct eblob_disk_control old_dc;
 		uint64_t off_in = old->data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+		uint64_t size;
 
 		/*
 		 * Hack: If copy_offset is set then we overwriting old format
@@ -1199,17 +1201,32 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 			}
 		}
 
-		eblob_stat_inc(b->stat, EBLOB_GST_READ_COPY_UPDATE);
+		/*
+		 * We must get disk_size of old record because record could be
+		 * modified with eblob_plain_write() and not yet be commited.
+		 */
+		err = __eblob_read_ll(old->bctl->data_fd, &old_dc,
+				sizeof(struct eblob_disk_control), old->data_offset);
+		if (err) {
+			eblob_dump_wc(b, key, wc, "copy: ERROR-pread-data", err);
+			goto err_out_rollback;
+		}
+		eblob_convert_disk_control(&old_dc);
+		size = old_dc.disk_size - sizeof(struct eblob_disk_control);
+
 		if (wc->data_fd != old->bctl->data_fd)
-			err = eblob_splice_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, old->size);
+			err = eblob_splice_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, size);
 		else
-			err = eblob_copy_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, old->size);
+			err = eblob_copy_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, size);
+
+		if (err == 0)
+			eblob_stat_inc(b->stat, EBLOB_GST_READ_COPY_UPDATE);
 
 		EBLOB_WARNX(b->cfg.log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 				"copy: %s: src offset: %" PRIu64 ", dst offset: %" PRIu64
 				", size: %" PRIu64 ", src fd: %d: dst fd: %d: %zd",
 				eblob_dump_id(key->id), off_in, off_out,
-				old->size, old->bctl->data_fd, wc->data_fd, err);
+				size, old->bctl->data_fd, wc->data_fd, err);
 		if (err < 0)
 			goto err_out_rollback;
 	}
