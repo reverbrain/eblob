@@ -1312,6 +1312,10 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_write_control wc = { .offset = 0 };
 	int err;
 
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
+			"key: %s, size: %" PRIu64 ", flags 0x%" PRIx64,
+			eblob_dump_id(key->id), size, flags);
+
 	/* Sanity */
 	if (b == NULL || key == NULL) {
 		err = -EINVAL;
@@ -1464,6 +1468,10 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
+			"key: %s, size: %" PRIu64 ", flags 0x%" PRIx64,
+			eblob_dump_id(key->id), size, flags);
+
 	/* Do not allow closing of bctl while commit in progress */
 	pthread_mutex_lock(&b->lock);
 
@@ -1606,6 +1614,10 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		err = -E2BIG;
 		goto err_out_exit;
 	}
+
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
+			"key: %s, iovcnt: %" PRIu16 ", flags 0x%" PRIx64,
+			eblob_dump_id(key->id), iovcnt, flags);
 
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
 	wc.size = bounds.max;
