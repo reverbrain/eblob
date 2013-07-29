@@ -18,8 +18,12 @@
 
 #include "eblob/blob.h"
 
-#include "binlog.h"
 #include "list.h"
+
+#include <assert.h>
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 /* Approximate size of sort chunk +- one record */
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE	(1 * 1<<30)
@@ -27,12 +31,6 @@
 #define EBLOB_DATASORT_DEFAULTS_CHUNK_LIMIT	(1 << 17)
 /* Suffix for flag-file that is created after data is sorted */
 #define EBLOB_DATASORT_SORTED_MARK_SUFFIX	".data_is_sorted"
-
-/* Mapping between key and old offset needed by binlog */
-struct datasort_offset_map {
-	struct eblob_key	key;
-	uint64_t		offset;
-};
 
 /*
  * One chunk of blob.
@@ -54,14 +52,6 @@ struct datasort_chunk {
 	uint64_t			index_size;
 	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
-	/*
-	 * Offset mapping for binlog
-	 *
-	 * TODO: For memory efficiency it can be rewritten as rbtree map of
-	 * sorted_offset -> unsorted_offset
-	 */
-	struct datasort_offset_map	*offset_map;
-	uint64_t			offset_map_size;
 };
 
 /* Thread local structure for each iterator thread */
@@ -79,16 +69,6 @@ struct datasort_cfg {
 	unsigned int			thread_num;
 	/* Lock used by blob iterator */
 	pthread_mutex_t			lock;
-	/*
-	 * Set if binlog is needed for sorting operation.
-	 *
-	 * MUST be set to one if data in base can be modified while sorting.
-	 * Should not be set when, for example, datasort is started as part of
-	 * blob opening procedure.
-	 *
-	 * TODO: Convert to flag
-	 */
-	int				use_binlog;
 	/*
 	 * Iterator error.
 	 * Iterator threads do not propagate callback error so we invent our
@@ -114,10 +94,126 @@ struct datasort_cfg {
 };
 
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
-int datasort_binlog_apply(void *priv, struct eblob_binlog_ctl *bctl);
 int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
 
 int datasort_base_is_sorted(struct eblob_base_ctl *bctl);
 int datasort_schedule_sort(struct eblob_base_ctl *bctl);
+
+/*
+ * Tiny binlog replacement.
+ *
+ * It used only to store list of removed entries for the duration of data-sort
+ */
+
+/* Binlog control structure */
+struct eblob_binlog_cfg {
+	int			enabled;		/* Is binlog currently enabled? */
+	struct list_head	removed_keys;		/* List of removed keys */
+};
+
+/* One binlog entry */
+struct eblob_binlog_entry {
+	struct list_head	list;
+	struct eblob_key	key;
+};
+
+
+/* Binlog entry mgmt subroutines */
+
+__attribute__ ((warn_unused_result))
+__attribute__ ((nonnull))
+static inline struct eblob_binlog_entry *
+eblob_binlog_entry_new(const struct eblob_key *key)
+{
+	struct eblob_binlog_entry *entry;
+
+	assert(key != NULL);
+
+	entry = malloc(sizeof(*entry));
+	if (entry == NULL)
+		return NULL;
+	entry->key = *key;
+
+	return entry;
+}
+
+__attribute__ ((nonnull))
+static void eblob_binlog_entry_free(struct eblob_binlog_entry *entry)
+{
+	assert(entry != NULL);
+
+	list_del(&entry->list);
+	free(entry);
+}
+
+/* Binlog iterator interface */
+
+__attribute__ ((nonnull (1)))
+static inline struct eblob_binlog_entry *
+eblob_binlog_iterate(const struct eblob_binlog_cfg *bcfg,
+		const struct eblob_binlog_entry *it)
+{
+	if (it == NULL) {
+		if (list_empty(&bcfg->removed_keys))
+			return NULL;
+		return list_first_entry(&bcfg->removed_keys, struct eblob_binlog_entry, list);
+	}
+
+	if (list_is_last(&it->list, &bcfg->removed_keys))
+		return NULL;
+
+	return list_entry(it->list.next, struct eblob_binlog_entry, list);
+}
+
+/* Binlog manipulation routines */
+
+__attribute__ ((nonnull))
+static inline int eblob_binlog_enabled(struct eblob_binlog_cfg *bcfg)
+{
+	assert(bcfg != NULL);
+	return bcfg->enabled;
+}
+
+__attribute__ ((nonnull))
+__attribute__ ((warn_unused_result))
+static inline int eblob_binlog_start(struct eblob_binlog_cfg *bcfg)
+{
+	assert(bcfg != NULL);
+	if (eblob_binlog_enabled(bcfg) != 0)
+		return -EBUSY;
+	INIT_LIST_HEAD(&bcfg->removed_keys);
+
+	bcfg->enabled = 1;
+	return 0;
+}
+
+__attribute__ ((nonnull))
+__attribute__ ((warn_unused_result))
+static inline int eblob_binlog_stop(struct eblob_binlog_cfg *bcfg)
+{
+	struct eblob_binlog_entry *entry, *tmp;
+
+	assert(bcfg != NULL);
+	if (eblob_binlog_enabled(bcfg) == 0)
+		return -ENOEXEC;
+
+	list_for_each_entry_safe(entry, tmp, &bcfg->removed_keys, list)
+		eblob_binlog_entry_free(entry);
+
+	bcfg->enabled = 0;
+	return 0;
+}
+
+__attribute__ ((nonnull))
+__attribute__ ((warn_unused_result))
+static inline int eblob_binlog_append(struct eblob_binlog_cfg *bcfg,
+		struct eblob_binlog_entry *entry)
+{
+	assert(bcfg != NULL);
+	assert(entry != NULL);
+
+	list_add_tail(&entry->list, &bcfg->removed_keys);
+	return 0;
+}
 
 #endif /* __EBLOB_DATASORT_H */

@@ -135,6 +135,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		case 0:
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "empty blob - removing.");
 
+			pthread_mutex_lock(&b->lock);
 			/* Remove it from list, but do not poisson next and prev */
 			__list_del(bctl->base_entry.prev, bctl->base_entry.next);
 
@@ -145,6 +146,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			eblob_base_wait_locked(bctl);
 			_eblob_base_ctl_cleanup(bctl);
 			pthread_mutex_unlock(&bctl->lock);
+			pthread_mutex_unlock(&b->lock);
 
 			want = 0;
 			break;
@@ -165,7 +167,6 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				.b = b,
 				.bctl = bctl,
 				.log = b->cfg.log,
-				.use_binlog = 1,
 			};
 
 			err = eblob_generate_sorted_data(&dcfg);
