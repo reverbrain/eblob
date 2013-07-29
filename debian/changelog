@@ -1,3 +1,53 @@
+eblob (0.21.4) unstable; urgency=low
+
+  * blob: removed binlog
+  * blob: make all bases but one immutable
+  * binlog: added tiny binlog replacement
+  * blob: lock bctl on entry removal
+  * blob: added note about rollback on failure
+  * blob: use b->lock for b->bases access
+  * index: do not consider just sorted base an error
+  * index: whitespace cleanup
+  * index: improved logging
+  * index: fix race between data-sort and index lookup
+  * tests: stress: make tests multithreaded
+  * tests: stress: more defensive programming
+  * tests: stress: cleanup previous test on start
+  * log: remove race in eblob_dump_id_len()
+  * cmake: use gnu99 standard
+  * log: simplified logging
+  * blob: switch from GNU99 [0] array to C99 []
+  * tests: stress: fail fast on invalid arguments
+  * tests: stress: align items_num on threads_num boundary
+  * tests: stress: bump test version
+  * tests: stress: print test version on start
+  * blob: use 0xhex format for flags
+  * codespell: comment fixes
+  * log: introduce new log level SPAM
+  * log: removed double 'endl' in log msg
+  * log: less verbose logging
+  * mobjects: fixed return code after base creation fail
+  * mobjects: hint unsorted fd too
+  * defrag: fixed race between defrag and base addition
+  * data-sort: fixed assignment before check
+  * blob: explicitly fix aliasing problems
+  * cmake: do not link with dl in case of *SAN
+  * cmake: removed unneeded BSD bits
+  * mobjects: sort includes
+  * cmake: removed useless if
+  * cmake: apply some warnings to C-specific code
+  * blob: fix multistage write for immutable blobs
+  * blob: improved logging in multi-stage write
+  * blob: fix copying of old record on prepare
+  * tests: stress: return EX_USAGE on positional arguments
+  * ci: added overwrite-heavy test with many threads
+  * blob: manually extend blob if copy was requested
+  * blob: copy seems-to-be-empty records
+  * data-sort: hold backend lock on binlog start
+  * blob: blob that are not sorting right now can be mutable
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 29 Jul 2013 17:12:21 +0400
+
 eblob (0.21.3) unstable; urgency=low
 
   * blob: threat 0-sized entry as non-existient on append with EXTHDR
