@@ -22,10 +22,10 @@
 
 #include "blob.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
 #include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 
 #include <assert.h>
@@ -34,8 +34,8 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <inttypes.h>
-#include <pthread.h>
 #include <limits.h>
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -330,7 +330,7 @@ again:
 			ctl->data_size + ctl->index_size);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
 			ctl->index_size / sizeof(struct eblob_disk_control));
-	eblob_pagecache_hint(ctl->sort.fd, EBLOB_FLAGS_HINT_WILLNEED);
+	eblob_pagecache_hint(eblob_get_index_fd(ctl), EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
 
 	free(created);
@@ -351,7 +351,7 @@ err_out_close_data:
 	close(ctl->data_fd);
 	if (created != NULL) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
-		if ((err = unlink(created)) == -1)
+		if (unlink(created) == -1)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink: %s", created);
 	}
 err_out_free:
@@ -700,11 +700,10 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 		void *thread_priv __attribute_unused__)
 {
 	struct eblob_backend *b = priv;
-	char id[EBLOB_ID_SIZE*2+1];
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: iter: %s: index: %d, "
-			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: %llx.\n",
-			eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, id),
+			"data position: %llu (0x%llx), data size: %llu, disk size: %llu, flags: 0x%llx.\n",
+			eblob_dump_id_len(dc->key.id, EBLOB_ID_SIZE),
 			ctl->bctl->index,
 			(unsigned long long)dc->position, (unsigned long long)dc->position,
 			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,

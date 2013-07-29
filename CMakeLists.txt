@@ -55,7 +55,7 @@ if (WITH_ASAN)
         -fno-omit-frame-pointer
         -fsanitize=address
     )
-    set(SANITIZER_LIBRARY "-lasan -ldl")
+    set(SANITIZER_LIBRARY "-lasan")
 endif (WITH_ASAN)
 message(STATUS "asan is: ${WITH_ASAN}")
 
@@ -66,7 +66,7 @@ if (WITH_MSAN)
         -fsanitize-memory-track-origins
         -fsanitize=memory
     )
-    set(SANITIZER_LIBRARY "-lmsan -ldl")
+    set(SANITIZER_LIBRARY "-lmsan")
 endif (WITH_MSAN)
 message(STATUS "msan is: ${WITH_MSAN}")
 
@@ -76,7 +76,7 @@ if (WITH_TSAN)
         -fpic
         -fsanitize=thread
     )
-    set(SANITIZER_LIBRARY "-ltsan -ldl")
+    set(SANITIZER_LIBRARY "-ltsan")
 endif (WITH_TSAN)
 message(STATUS "tsan is: ${WITH_TSAN}")
 
@@ -91,41 +91,31 @@ else()
     add_definitions(-DBYTEORDER=1234)
 endif()
 
-if (UNIX OR MINGW)
-    #
-    # Strict Aliasing notes:
-    #   Currently there are couple of memory aliases represented by char** and
-    #     void** casts in blob.c and mobjects.c
-    #   GCC prints warnings if compiling with -fstrict-aliasing
-    #   One can increase verbosity by setting -Wstrict-aliasing=2
-    #
-    add_definitions(
-        -Wall
-        -Wextra
-        -Wmissing-declarations
-        -Wredundant-decls
-        -fno-strict-aliasing
-        -fstack-protector-all
-    )
-    # GCC's builtin memcmp is slower than libc's
-    # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
-    if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-        add_definitions(
-            -fno-builtin-memcmp
-        )
-    endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
-endif()
+# We use gnu extensions and C99 standard
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-declarations -Wredundant-decls")
+add_definitions(
+    -Wall
+    -Wextra
+    -Wstrict-aliasing=2
+    -fstack-protector-all
+    -fstrict-aliasing
+)
+
+# GCC's builtin memcmp is slower than libc's
+# See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
+if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+add_definitions(
+	-fno-builtin-memcmp
+)
+endif ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+
 if (${CMAKE_SYSTEM_NAME} MATCHES BSD)
     add_definitions(-D__BSD_VISIBLE=1)
 endif()
 
-# Check for threads
-if (UNIX AND BSD)
-    set(CMAKE_THREAD_LIBS -pthread)
-    set(CMAKE_USE_PTHREADS ON)
-    set(CMAKE_EXE_LINKER_FLAGS -pthread)
-endif()
-
+# PThreads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 

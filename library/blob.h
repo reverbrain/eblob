@@ -15,7 +15,6 @@
 
 #ifndef __EBLOB_BLOB_H
 #define __EBLOB_BLOB_H
-#include "binlog.h"
 #include "datasort.h"
 #include "eblob/blob.h"
 #include "hash.h"
@@ -155,11 +154,8 @@ struct eblob_base_ctl {
 	/* Number of bctl users inside a critical section */
 	int			critness;
 
-	/*
-	 * If this pointer is not NULL then all operations for this base go
-	 * through a binlog.
-	 */
-	struct eblob_binlog_cfg	*binlog;
+	/* Binary log rudiment: if enabled stores key removals in list */
+	struct eblob_binlog_cfg	binlog;
 
 	/*
 	 * Is data in blob sorted?
@@ -170,7 +166,7 @@ struct eblob_base_ctl {
 	int			sorted;
 	/* Per bctl aka "local" stats */
 	struct eblob_stat	*stat;
-	char			name[0];
+	char			name[];
 };
 
 /*
@@ -205,8 +201,8 @@ enum eblob_copy_flavour {
 __attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 {
-	uint64_t i, hash = 14695981039346656037ULL;
-	for (i = 0; i < EBLOB_ID_SIZE; ++i) {
+	uint64_t __attribute__((__may_alias__)) hash = 14695981039346656037ULL;
+	for (uint64_t i = 0; i < EBLOB_ID_SIZE; ++i) {
 		hash ^= key->id[i];
 		hash *= 1099511628211ULL;
 	}
@@ -221,9 +217,9 @@ inline static uint64_t __eblob_bloom_hash_fnv1a(const struct eblob_key *key)
 __attribute_always_inline__
 inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 {
-	uint64_t i, hash = 0ULL;
-	for (i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
-		hash += ((uint64_t *)key->id)[i];
+	uint64_t __attribute__((__may_alias__)) hash = 0ULL;
+	for (uint64_t i = 0; i < EBLOB_ID_SIZE / sizeof(uint64_t); ++i)
+		hash += key->id[i];
 	return hash;
 }
 
@@ -430,8 +426,8 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
-int blob_write_ll(int fd, void *data, size_t size, off_t offset);
-int blob_read_ll(int fd, void *data, size_t size, off_t offset);
+int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
+int __eblob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
 	int			bloom_null;
@@ -455,8 +451,7 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 int eblob_preallocate(int fd, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
 
-int blob_mark_index_removed(int fd, off_t offset);
-
+int eblob_mark_index_removed(int fd, uint64_t offset);
 int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);
 void eblob_base_wait_locked(struct eblob_base_ctl *bctl);

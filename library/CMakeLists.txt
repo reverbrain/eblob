@@ -1,6 +1,5 @@
 include_directories(../include)
 set(EBLOB_SRCS
-    binlog.c
     blob.c
     crypto/sha512.c
     datasort.c

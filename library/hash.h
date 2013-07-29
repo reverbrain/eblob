@@ -37,7 +37,7 @@ struct eblob_hash_entry {
 	struct eblob_key	key;
 	struct rb_node		node;
 	unsigned int		dsize;
-	unsigned char		data[0];
+	unsigned char		data[];
 };
 
 #endif /* __EBLOB_HASH_H */
