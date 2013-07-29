@@ -1184,8 +1184,11 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	/*
 	 * We should copy old entry only in case there is old entry, it has
 	 * non-zero size and copy flag is set.
+	 *
+	 * NB! We also should copy seems-to-be-empty (old->size == 0) records
+	 * because they can be modified with write_plain but not yet commited.
 	 */
-	if (old != NULL && old->size && (copy == EBLOB_COPY_RECORD)) {
+	if (old != NULL && copy == EBLOB_COPY_RECORD) {
 		struct eblob_disk_control old_dc;
 		uint64_t off_in = old->data_offset + sizeof(struct eblob_disk_control);
 		uint64_t off_out = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
