@@ -1165,8 +1165,12 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	 * If no footer is set then commit phase would be skipped and
 	 * so iterator could consider record broken because offset+size
 	 * may be outside of blob. So extend blob manually.
+	 *
+	 * Also we need to extend blob if copy if it was requested, because it
+	 * may be plain_write call that does not call commit and thus following
+	 * copy may try to access area outside of base.
 	 */
-	if (b->cfg.blob_flags & EBLOB_NO_FOOTER) {
+	if ((b->cfg.blob_flags & EBLOB_NO_FOOTER) || (copy == EBLOB_COPY_RECORD)) {
 		err = ftruncate(wc->data_fd, wc->ctl_data_offset + wc->total_size);
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: ftruncate: fd: %d, "
 				"size: %" PRIu64 ", err: %zu\n", eblob_dump_id(key->id),
