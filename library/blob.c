@@ -1510,10 +1510,10 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	/*
-	 * We can only overwrite keys inplace in last base
-	 * FIXME: Actually we can check only for running binlog here
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
 	 */
-	if (!list_is_last(&wc.bctl->base_entry, &b->bases)) {
+	if (eblob_binlog_enabled(&wc.bctl->binlog)) {
 		struct eblob_ram_control rctl;
 		uint64_t orig_flags = wc.flags;
 
@@ -1578,10 +1578,10 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	pthread_mutex_lock(&b->lock);
 
 	/*
-	 * We can only overwrite keys inplace in last base
-	 * FIXME: Actually we can check only for running binlog here
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
 	 */
-	if (!list_is_last(&wc->bctl->base_entry, &b->bases)) {
+	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
 		err = -EROFS;
 		goto err_out_release;
 	}
@@ -1663,10 +1663,10 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	/*
-	 * We can only overwrite keys inplace in last base
-	 * FIXME: Actually we can check only for running binlog here
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
 	 */
-	if (!list_is_last(&wc.bctl->base_entry, &b->bases)) {
+	if (eblob_binlog_enabled(&wc.bctl->binlog)) {
 		struct eblob_ram_control rctl;
 
 		err = eblob_cache_lookup(b, key, &rctl, NULL);
