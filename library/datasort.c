@@ -1254,9 +1254,11 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 				dcfg->bctl->name);
 
 	/* Capture all removed entries starting from that moment */
+	pthread_mutex_lock(&dcfg->b->lock);
 	eblob_base_wait_locked(dcfg->bctl);
 	err = eblob_binlog_start(&dcfg->bctl->binlog);
 	pthread_mutex_unlock(&dcfg->bctl->lock);
+	pthread_mutex_unlock(&dcfg->b->lock);
 	if (err != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_binlog_start: %s",
 				dcfg->bctl->name);
