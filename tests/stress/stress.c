@@ -547,7 +547,7 @@ main(int argc, char **argv)
 	/* Getopt */
 	options_set_defaults();
 	if (argc - options_get(argc, argv) != 0)
-		options_usage(argv[0], 1, stderr);
+		options_usage(argv[0], EX_USAGE, stderr);
 	options_dump();
 
 	/* Mangle test parameters */
