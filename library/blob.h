@@ -145,10 +145,15 @@ struct eblob_base_ctl {
 	 * FIXME: We can remove it by using bsearch directly on index_blocks.
 	 */
 	struct rb_root		index_blocks_root;
-	/* Array of index blocks */
-	struct eblob_index_block	*index_blocks;
+	/*
+	 * Bloom
+	 */
 	unsigned char		*bloom;
 	uint64_t		bloom_size;
+	/* Number of hash functions */
+	uint8_t			bloom_func_num;
+	/* Array of index blocks */
+	struct eblob_index_block	*index_blocks;
 	pthread_rwlock_t	index_blocks_lock;
 
 	/* Number of bctl users inside a critical section */
@@ -225,7 +230,7 @@ inline static uint64_t __eblob_bloom_hash_knr(const struct eblob_key *key)
 
 __attribute_always_inline__
 inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloom_len,
-		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num,
+		uint64_t *bloom_byte_num, uint64_t *bloom_bit_num, uint64_t *hash_num,
 		enum eblob_bloom_hash_type type)
 {
 	uint64_t hash;
@@ -243,13 +248,14 @@ inline static void __eblob_bloom_calc(const struct eblob_key *key, uint64_t bloo
 
 	*bloom_byte_num = hash / 8;
 	*bloom_bit_num = hash % 8;
+	*hash_num = hash;
 }
 
 __attribute_always_inline__
 inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob_key *key,
 		enum eblob_bloom_cmd cmd)
 {
-	uint64_t bit, byte;
+	uint64_t i, bit, byte, h1, h2;
 
 	/* Sanity */
 	if (key == NULL || bctl == NULL)
@@ -258,29 +264,44 @@ inline static int eblob_bloom_ll(struct eblob_base_ctl *bctl, const struct eblob
 		return -EINVAL;
 
 	/*
-	 * FIXME: We currently have 128 bits per key by default. Theory states
-	 * that we should have 128 * ln2 ~= 88(!) hash functions for optimal
-	 * performance. We have only two. But we can generate[1] any number of
-	 * hash functions from this two.
-	 * XXX: Yet again we have too many bits per key.
+	 * We are generating up to bloom_func_num hash functions from knr and
+	 * fnv using gudelines from:
+	 * "Less Hashing, Same Performance: Building a Better Bloom Filter"
+	 * by Adam Kirsch and Michael Mitzenmacher, 2006
 	 *
-	 * [1] Less Hashing, Same Performance: Building a Better Bloom Filter by
-	 * Adam Kirsch and Michael Mitzenmacher, 2006
+	 * Also optimal number of hash functions is bits_per_key * ln(2) but we
+	 * bound it to [1, 20].
+	 *
+	 * FIXME: Yet again we have too many bits per key.
 	 */
+
 	switch (cmd) {
 	case EBLOB_BLOOM_CMD_GET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, &h1, EBLOB_BLOOM_HASH_KNR);
 		if (!(bctl->bloom[byte] & (1<<bit)))
 			return 0;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, &h2, EBLOB_BLOOM_HASH_FNV);
 		if (!(bctl->bloom[byte] & (1<<bit)))
 			return 0;
+
+		/* A Simple Construction Using Two Hash Functions */
+		for (i = 2; i < bctl->bloom_func_num; ++i) {
+			const uint64_t bitpos = (h1 + i*h2) % bctl->bloom_size;
+			if (!(bctl->bloom[bitpos / 8] & (1<<(bitpos % 8))))
+				return 0;
+		}
 		return 1;
 	case EBLOB_BLOOM_CMD_SET:
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_FNV);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, &h1, EBLOB_BLOOM_HASH_KNR);
 		bctl->bloom[byte] |= 1<<bit;
-		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, EBLOB_BLOOM_HASH_KNR);
+		__eblob_bloom_calc(key, bctl->bloom_size, &byte, &bit, &h2, EBLOB_BLOOM_HASH_FNV);
 		bctl->bloom[byte] |= 1<<bit;
+
+		/* A Simple Construction Using Two Hash Functions */
+		for (i = 2; i < bctl->bloom_func_num; ++i) {
+			const uint64_t bitpos = (h1 + i*h2) % bctl->bloom_size;
+			bctl->bloom[bitpos / 8] |= 1<<(bitpos % 8);
+		}
 		return 0;
 	default:
 		return -EINVAL;
