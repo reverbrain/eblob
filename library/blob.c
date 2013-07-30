@@ -2251,6 +2251,10 @@ static int eblob_lock_blob(struct eblob_backend *b)
 		return -errno;
 
 	if (lockf(b->lock_fd, F_TLOCK, 0) == -1) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: lock file is busy: %d\n", -errno);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: to find culprit use lsof/fuser: %s\n", lock_file);
 		(void)close(b->lock_fd);
 		return -errno;
 	}
