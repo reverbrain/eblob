@@ -215,6 +215,29 @@ static uint64_t eblob_bloom_size(const struct eblob_base_ctl *bctl)
 	return bloom_size;
 }
 
+/*!
+ * Calculates number of needed hash functions.
+ * An optimal number of hash functions
+ *	k = (m/n) \ln 2
+ * has been assumed.
+ *
+ * It uses [1, 32] sanity boundary.
+ */
+static uint8_t eblob_bloom_func_num(const struct eblob_base_ctl *bctl)
+{
+	uint64_t bits_per_key;
+	uint8_t func_num = 0;
+
+	bits_per_key = 8 * bctl->bloom_size /
+		(bctl->sort.size / sizeof(struct eblob_disk_control));
+	func_num = bits_per_key * 0.69;
+	if (func_num == 0)
+		return 1;
+	if (func_num > 20)
+		return 20;
+	return func_num;
+}
+
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
@@ -228,6 +251,9 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	bctl->bloom_size = eblob_bloom_size(bctl);
 	EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_NOTICE,
 			"index: bloom filter size: %" PRIu64, bctl->bloom_size);
+
+	/* Calculate needed number of hash functions */
+	bctl->bloom_func_num = eblob_bloom_func_num(bctl);
 
 	bctl->bloom = calloc(1, bctl->bloom_size);
 	if (bctl->bloom == NULL) {
