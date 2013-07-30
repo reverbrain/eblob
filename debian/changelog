@@ -1,3 +1,11 @@
+eblob (0.21.5) unstable; urgency=low
+
+  * blob: improve log mesage on lock fail
+  * bloom: added loop count to stats
+  * bloom: improve bloom filter hit rate
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 30 Jul 2013 12:48:52 +0400
+
 eblob (0.21.4) unstable; urgency=low
 
   * blob: removed binlog

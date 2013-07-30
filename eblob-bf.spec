@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.4
+Version:	0.21.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Jul 30 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.5
+- blob: improve log mesage on lock fail
+- bloom: added loop count to stats
+- bloom: improve bloom filter hit rate
+
 * Mon Jul 29 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.4
 - blob: removed binlog
 - blob: make all bases but one immutable
