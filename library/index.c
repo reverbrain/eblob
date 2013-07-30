@@ -495,6 +495,7 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control *dc, tmp = { .key = *key, };
 	struct eblob_disk_search_stat st = { .bloom_null = 0, };
+	uint64_t loops;
 	static const int max_tries = 10;
 	int err = -ENOENT, tries = 0;
 
@@ -502,7 +503,10 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 			"blob: %s: index: disk.\n", eblob_dump_id(key->id));
 
 again:
+	loops = 0;
 	list_for_each_entry_reverse(bctl, &b->bases, base_entry) {
+		/* Count number of loops before break */
+		++loops;
 		/* Protect against datasort */
 		eblob_bctl_hold(bctl);
 
@@ -557,9 +561,9 @@ again:
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-			"blob: %s: stat: range_has_key: %d, bloom_null: %d, "
+			"blob: %s: stat: loops: %" PRIu64 ", range_has_key: %d, bloom_null: %d, "
 			"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, err: %d\n",
-			eblob_dump_id(key->id), st.range_has_key, st.bloom_null,
+			eblob_dump_id(key->id), loops, st.range_has_key, st.bloom_null,
 			st.bsearch_reached, st.bsearch_found, st.additional_reads, err);
 
 	return err;
