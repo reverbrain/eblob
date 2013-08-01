@@ -1,3 +1,11 @@
+eblob (0.21.6) unstable; urgency=low
+
+  * On defrag split all blobs into sub-groups so they stay within limits imposed by eblob cfg blob_size and records_in_blob and merge each group into one blob
+  * Removed unused code from logging
+  * Minor bugfixes for data-sort
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 02 Aug 2013 00:30:52 +0400
+
 eblob (0.21.5) unstable; urgency=low
 
   * blob: improve log mesage on lock fail

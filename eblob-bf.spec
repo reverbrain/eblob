@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.5
+Version:	0.21.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Aug 02 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.6
+- On defrag split all blobs into sub-groups so they stay within limits imposed by eblob cfg blob_size and records_in_blob and merge each group into one blob
+- Removed unused code from logging
+- Minor bugfixes for data-sort
+
 * Tue Jul 30 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.5
 - blob: improve log mesage on lock fail
 - bloom: added loop count to stats
