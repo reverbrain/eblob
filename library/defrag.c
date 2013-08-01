@@ -156,7 +156,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	while (b->need_exit == 0) {
 		/*
 		 * For every but last base check for merge possibility
-		 * Last base always triggers sort of accumulated bases.
+		 * NB! Last base always triggers sort of accumulated bases.
 		 */
 		if (current < bctl_cnt) {
 			/* Shortcuts */
@@ -165,9 +165,13 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 				- eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
 			const int64_t size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 
-			/* Skip if still within limits and not last */
-			if ((total_records + records <= b->cfg.records_in_blob)
-					&& (total_size + size <= b->cfg.blob_size)) {
+			/*
+			 * Accumulate base if sum is still within limits.
+			 * NB! We always merge empty bases.
+			 */
+			if (((total_records + records <= b->cfg.records_in_blob)
+						&& (total_size + size <= b->cfg.blob_size))
+					|| records == 0) {
 				total_records += records;
 				total_size += size;
 				++current;
