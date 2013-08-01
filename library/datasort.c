@@ -941,8 +941,8 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Construct tmp index path */
-	if (datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX) != 0) {
-		err = -ENOMEM;
+	err = datasort_base_get_path(dcfg->b, sorted_bctl, data_path, PATH_MAX);
+	if (err != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");
 		goto err_free_base;
 	}
@@ -1098,8 +1098,8 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "%s: start", __func__);
 
 	/* Construct index paths */
-	if (datasort_base_get_path(dcfg->b, unsorted_bctl, data_path, PATH_MAX) != 0) {
-		err = -ENOMEM;
+	err = datasort_base_get_path(dcfg->b, unsorted_bctl, data_path, PATH_MAX);
+	if (err != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "datasort_base_get_path: FAILED");
 		goto err;
 	}
