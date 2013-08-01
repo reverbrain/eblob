@@ -117,7 +117,6 @@ static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int 
 	return dst;
 }
 
-#ifdef __GNUC__
 /**
  * Define \fn eblob_dump_id_len as GCC's macro Statement/Declaration Expression
  *
@@ -137,24 +136,6 @@ static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int 
 
 /** Shortcut for eblob_dump_id_len with pre-defined len == 6 */
 #define eblob_dump_id(id)	eblob_dump_id_len(id, 6)
-
-#else /* ! __GNUC__ */
-#warning "GNU extensions not available - using racy eblob_dump_id_len()"
-/**
- * NB! We have a race here if eblob_dump_id_len() is used outside of a lock
- * because it uses static variable which is not itself inlined.
- */
-static inline char *eblob_dump_id_len(const unsigned char *id, unsigned int len)
-{
-	static char __eblob_dump_str[2 * EBLOB_ID_SIZE + 1];
-	return eblob_dump_id_len_raw(id, len, __eblob_dump_str);
-}
-
-static inline char *eblob_dump_id(const unsigned char *id)
-{
-	return eblob_dump_id_len(id, 6);
-}
-#endif /* __GNUC__ */
 
 /*
  * Compare two IDs.

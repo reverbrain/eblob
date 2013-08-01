@@ -174,6 +174,14 @@ struct eblob_base_ctl {
 	char			name[];
 };
 
+/* Defragmentation types */
+enum eblob_defrag_type {
+	/* Defrag thresholds weren't met */
+	EBLOB_DEFRAG_NOT_NEEDED = 0,
+	/* Defrag needed */
+	EBLOB_DEFRAG_NEEDED,
+};
+
 /*
  * Bloom filter APIs
  * TODO: Move to separate file
