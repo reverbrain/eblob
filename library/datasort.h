@@ -50,6 +50,8 @@ struct datasort_chunk {
 	struct eblob_disk_control	*index;
 	/* Currently allocated space for index */
 	uint64_t			index_size;
+	/* Set to 1 if chunk came from sorted bctl */
+	uint8_t				already_sorted;
 	/* Chunk maybe in sorted or unsorted list */
 	struct list_head		list;
 };
@@ -57,6 +59,7 @@ struct datasort_chunk {
 /* Thread local structure for each iterator thread */
 struct datasort_chunk_local {
 	struct datasort_chunk	*current;
+	struct eblob_base_ctl	*bctl;
 };
 
 /* Config for datasort routine */
@@ -87,8 +90,10 @@ struct datasort_cfg {
 	struct eblob_backend		*b;
 	/* Logging */
 	struct eblob_log		*log;
-	/* Pointer to base control */
-	struct eblob_base_ctl		*bctl;
+	/* Pointer to one or more base controls */
+	struct eblob_base_ctl		**bctl;
+	/* Number of pointers in **bctl */
+	int				bctl_cnt;
 	/* Pointer to sorted bctl */
 	struct eblob_base_ctl		*sorted_bctl;
 };

@@ -165,7 +165,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		if (want) {
 			struct datasort_cfg dcfg = {
 				.b = b,
-				.bctl = bctl,
+				.bctl = &bctl,
+				.bctl_cnt = 1,
 				.log = b->cfg.log,
 			};
 
