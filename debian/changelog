@@ -1,3 +1,9 @@
+eblob (0.21.7) unstable; urgency=low
+
+  * blob: do not commit to ram until eblob_writev_raw is finished
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 06 Aug 2013 12:09:57 +0400
+
 eblob (0.21.6) unstable; urgency=low
 
   * On defrag split all blobs into sub-groups so they stay within limits imposed by eblob cfg blob_size and records_in_blob and merge each group into one blob
