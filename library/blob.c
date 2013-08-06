@@ -1238,13 +1238,6 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 			goto err_out_rollback;
 	}
 
-	/*
-	 * Commit record to RAM early, so that eblob_plain_write() could access it
-	 */
-	err = eblob_commit_ram(b, key, wc);
-	if (err < 0)
-		goto err_out_rollback;
-
 	if (old != NULL) {
 		pthread_mutex_lock(&old->bctl->lock);
 		err = eblob_mark_entry_removed(b, key, old);
@@ -1358,6 +1351,9 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		wc.flags = flags;
 
 		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0);
+		if (err)
+			goto err_out_exit;
+		err = eblob_commit_ram(b, key, &wc);
 		if (err)
 			goto err_out_exit;
 	}
@@ -1628,6 +1624,7 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_write_control wc = { .offset = 0 };
 	struct eblob_iovec_bounds bounds;
 	ssize_t err;
+	int prepared = 0;
 
 	/* Sanity */
 	if (b == NULL || key == NULL || iov == NULL) {
@@ -1680,12 +1677,20 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 				EBLOB_COPY_RECORD, 0, &rctl);
 		if (err != 0)
 			goto err_out_unlock;
+		prepared = 1;
 	}
 
 	wc.flags = flags;
 	err = eblob_writev_raw(key, &wc, iov, iovcnt);
 	if (err)
 		goto err_out_unlock;
+
+	/* Re-commit record to ram if it was copied */
+	if (prepared) {
+		err = eblob_commit_ram(b, key, &wc);
+		if (err != 0)
+			goto err_out_unlock;
+	}
 
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
@@ -1823,16 +1828,11 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
-	/* Only low-level commit, since we already updated index and in-memory cache */
-	err = eblob_write_commit_footer(b, wc);
+	err = eblob_write_commit_nolock(b, key, wc);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_footer: FAILED", err);
+		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_nolock: FAILED", err);
 		goto err_out_exit;
 	}
-
-	err = eblob_commit_disk(b, key, wc, 0);
-	if (err)
-		goto err_out_exit;
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
