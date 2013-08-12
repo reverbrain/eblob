@@ -787,7 +787,9 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 
 	/* Compute and allocate space for indexes */
 	total_items = datasort_merge_index_size(&dcfg->sorted_chunks);
-	assert(total_items > 0);
+	if (total_items == 0)
+		goto err;
+
 	merged_chunk->index = calloc(total_items, sizeof(struct eblob_disk_control));
 	if (merged_chunk->index == NULL) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno,

@@ -96,6 +96,13 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	list_for_each_entry(bctl, &b->bases, base_entry)
 		++bctl_num;
 
+	/* Allocation of zero bytes is undefined check for that */
+	if (bctl_num == 0) {
+		err = -ENOENT;
+		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "count");
+		goto err_out_exit;
+	}
+
 	/* Allocate space enough to hold all bctl pointers */
 	bctls = calloc(bctl_num, sizeof(struct eblob_base_ctl *));
 	if (bctls == NULL) {
