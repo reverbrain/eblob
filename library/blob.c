@@ -1627,14 +1627,10 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	int prepared = 0;
 
 	/* Sanity */
-	if (b == NULL || key == NULL || iov == NULL) {
-		err = -EINVAL;
-		goto err_out_exit;
-	}
-	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX) {
-		err = -E2BIG;
-		goto err_out_exit;
-	}
+	if (b == NULL || key == NULL || iov == NULL)
+		return -EINVAL;
+	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
+		return -E2BIG;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
 			"key: %s, iovcnt: %" PRIu16 ", flags 0x%" PRIx64,
@@ -1694,7 +1690,6 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
-err_out_exit:
 	eblob_log(b->cfg.log, err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 			"blob: %s: %s: eblob_writev_raw: fd: %d: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
