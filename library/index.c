@@ -88,6 +88,8 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
 	free(bctl->index_blocks);
 	free(bctl->bloom);
+	bctl->index_blocks = NULL;
+	bctl->bloom = NULL;
 	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
 	eblob_stat_set(bctl->stat, EBLOB_LST_BLOOM_SIZE, 0);
