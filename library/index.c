@@ -329,8 +329,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			goto err_out_drop_tree;
 	}
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
-
-	return err;
+	return 0;
 
 err_out_drop_tree:
 	eblob_index_blocks_destroy(bctl);
