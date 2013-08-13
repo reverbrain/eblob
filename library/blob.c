@@ -2441,7 +2441,8 @@ err_out_exit:
 
 unsigned long long eblob_total_elements(struct eblob_backend *b)
 {
-	return eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_TOTAL);
+	return eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_TOTAL)
+		- eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
 }
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
