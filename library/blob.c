@@ -179,6 +179,44 @@ err_exit:
 }
 
 /**
+ * eblob_check_record() - performs various checks on given record to check it's
+ * validity.
+ */
+int eblob_check_record(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *dc)
+{
+	const uint64_t hdr_size = sizeof(struct eblob_disk_control);
+
+	assert(dc != NULL);
+	assert(bctl != NULL);
+	assert(bctl->back != NULL);
+
+	/*
+	 * Check record itself
+	 */
+	if (dc->disk_size < dc->data_size + hdr_size) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+				"blob: malformed entry: disk_size is less than data_size + hdr_size: "
+				"pos: %" PRIu64 ", data_size: %" PRIu64 ", disk_size: %" PRIu64 "\n",
+				dc->position, dc->data_size, dc->disk_size);
+		return -ESPIPE;
+	}
+
+	/*
+	 * Check bounds inside bctl
+	 */
+	if (dc->position + dc->disk_size > bctl->data_size) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+				"blob: malformed entry: position + data_size is outside of blob: "
+				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", bctl_size: %llu\n",
+				dc->position, dc->disk_size, bctl->data_size);
+		return -ESPIPE;
+	}
+
+	return 0;
+}
+
+/**
  * eblob_check_disk_one() - checks one entry of a blob and calls iterator
  * callback on it
  */
@@ -198,28 +236,19 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	eblob_convert_disk_control(dc);
 
-	if (dc->position + dc->disk_size > (uint64_t)ctl->data_size) {
-		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
-				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
-				dc->position, dc->disk_size, ctl->data_size);
-		err = -ESPIPE;
-		goto err_out_exit;
-	}
-
-	/*
-	 * Found a hole, drop this record
-	 */
+	/* Found a hole, drop this record */
 	if (dc->disk_size == 0) {
-		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: holes started at index-offset: %llu\n", loc->index_offset);
+		eblob_log(ctl->log, EBLOB_LOG_INFO,
+				"blob: hole at index-offset: %llu\n", loc->index_offset);
 		err = 1;
 		goto err_out_exit;
 	}
 
-	if (dc->disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
-		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
-				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
-				sizeof(struct eblob_disk_control), dc->position, dc->disk_size, ctl->data_size);
-		err = -ESPIPE;
+	/* Check record for validity */
+	err = eblob_check_record(bc, dc);
+	if (err != 0) {
+		eblob_log(ctl->log, EBLOB_LOG_ERROR,
+				"blob: eblob_check_record: FAILED: offset: %llu\n", loc->index_offset);
 		goto err_out_exit;
 	}
 

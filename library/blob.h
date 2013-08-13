@@ -443,6 +443,9 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);
 
+int eblob_check_record(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *dc);
+
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl);
 
