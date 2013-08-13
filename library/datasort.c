@@ -436,13 +436,6 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	return 0;
 
 err:
-	/*
-	 * eblob_blob_iterate() does not propagate an error from it's
-	 * callbacks, so save it manually.
-	 * This is racy but OK. Anyway we can't decide which threads' error is
-	 * the most important one.
-	 */
-	dcfg->iterator_err = err;
 	/* Return err to eblob_blob_iterate to stop iteration */
 	return err;
 }
@@ -503,9 +496,7 @@ static int datasort_split(struct datasort_cfg *dcfg)
 
 		/* Run iteration */
 		err = eblob_blob_iterate(&ictl);
-		if (err != 0 || dcfg->iterator_err != 0) {
-			/* Select either internal iterator error or callback error */
-			err = err ? err : dcfg->iterator_err;
+		if (err != 0) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "eblob_blob_iterate");
 			goto err;
 		}
