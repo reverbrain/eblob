@@ -284,6 +284,19 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				goto err_out_drop_tree;
 			}
 
+			/* Check record for validity */
+			err = eblob_check_record(bctl, &dc);
+			if (err != 0) {
+				EBLOB_WARNC(bctl->back->cfg.log, EBLOB_LOG_ERROR, -err,
+						"record check failed: offset: %" PRIu64, offset);
+				EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+						"index is corrupted: can not continue");
+				EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+						"running `eblob_merge` on '%s' should help",
+						bctl->name);
+				goto err_out_drop_tree;
+			}
+
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
