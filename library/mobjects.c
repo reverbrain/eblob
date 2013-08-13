@@ -178,11 +178,11 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 	}
 
 	err = eblob_index_blocks_fill(bctl);
-	if (!err)
+	if (err)
 		goto err_out_free;
 
 	free(full);
-	return err;
+	return 0;
 
 err_out_close:
 	close(bctl->sort.fd);
