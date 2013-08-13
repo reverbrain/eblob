@@ -39,6 +39,7 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_BASE_SIZE,
 	EBLOB_LST_BLOOM_SIZE,
 	EBLOB_LST_INDEX_BLOCKS_SIZE,
+	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	EBLOB_LST_MAX,
 };
 
@@ -102,6 +103,10 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
 		.name = "index_blocks_size",
 		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
+	},
+	{
+		.name = "index_corrupted_entries",
+		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	},
 	{
 		.name = "MAX",

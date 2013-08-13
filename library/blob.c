@@ -179,6 +179,44 @@ err_exit:
 }
 
 /**
+ * eblob_check_record() - performs various checks on given record to check it's
+ * validity.
+ */
+int eblob_check_record(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *dc)
+{
+	const uint64_t hdr_size = sizeof(struct eblob_disk_control);
+
+	assert(dc != NULL);
+	assert(bctl != NULL);
+	assert(bctl->back != NULL);
+
+	/*
+	 * Check record itself
+	 */
+	if (dc->disk_size < dc->data_size + hdr_size) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+				"blob: malformed entry: disk_size is less than data_size + hdr_size: "
+				"pos: %" PRIu64 ", data_size: %" PRIu64 ", disk_size: %" PRIu64 "\n",
+				dc->position, dc->data_size, dc->disk_size);
+		return -ESPIPE;
+	}
+
+	/*
+	 * Check bounds inside bctl
+	 */
+	if (dc->position + dc->disk_size > bctl->data_size) {
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+				"blob: malformed entry: position + data_size is outside of blob: "
+				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", bctl_size: %llu\n",
+				dc->position, dc->disk_size, bctl->data_size);
+		return -ESPIPE;
+	}
+
+	return 0;
+}
+
+/**
  * eblob_check_disk_one() - checks one entry of a blob and calls iterator
  * callback on it
  */
@@ -198,28 +236,13 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	eblob_convert_disk_control(dc);
 
-	if (dc->position + dc->disk_size > (uint64_t)ctl->data_size) {
-		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: position + data size are out of bounds: "
-				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
-				dc->position, dc->disk_size, ctl->data_size);
-		err = -ESPIPE;
-		goto err_out_exit;
-	}
-
-	/*
-	 * Found a hole, drop this record
-	 */
-	if (dc->disk_size == 0) {
-		eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: holes started at index-offset: %llu\n", loc->index_offset);
+	/* Check record for validity */
+	err = eblob_check_record(bc, dc);
+	if (err != 0) {
+		eblob_log(ctl->log, EBLOB_LOG_ERROR,
+				"blob: eblob_check_record: skipping: offset: %llu\n",
+				loc->index_offset);
 		err = 1;
-		goto err_out_exit;
-	}
-
-	if (dc->disk_size < (uint64_t)sizeof(struct eblob_disk_control)) {
-		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: malformed entry: disk size is less than eblob_disk_control (%zu): "
-				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", eblob_data_size: %llu\n",
-				sizeof(struct eblob_disk_control), dc->position, dc->disk_size, ctl->data_size);
-		err = -ESPIPE;
 		goto err_out_exit;
 	}
 
@@ -395,6 +418,7 @@ err_out_check:
 		bc->data_offset = bc->data_size;
 		bc->index_offset = ctl->index_offset;
 
+		/* If we have only internal error */
 		if (err && !ctl->err) {
 			/*
 			 * Get last valid index pointer if it's possible, read corresponding
@@ -426,12 +450,18 @@ err_out_check:
 							"blob: truncation failed: fd: %d, err: %d\n", index_fd, -errno);
 					ctl->err = -errno;
 				}
-			} else {
-				ctl->err = err;
 			}
 		}
 		pthread_mutex_unlock(&bc->lock);
 	}
+
+	/*
+	 * Propagate internal error to caller thread if not already set.
+	 * This is racy, but OK since we can't decide which thread's
+	 * error is more important anyway.
+	 */
+	if (ctl->err == 0 && err != 0)
+		ctl->err = err;
 
 	return NULL;
 }
@@ -1627,14 +1657,10 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	int prepared = 0;
 
 	/* Sanity */
-	if (b == NULL || key == NULL || iov == NULL) {
-		err = -EINVAL;
-		goto err_out_exit;
-	}
-	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX) {
-		err = -E2BIG;
-		goto err_out_exit;
-	}
+	if (b == NULL || key == NULL || iov == NULL)
+		return -EINVAL;
+	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
+		return -E2BIG;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
 			"key: %s, iovcnt: %" PRIu16 ", flags 0x%" PRIx64,
@@ -1694,7 +1720,6 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_unlock:
 	pthread_mutex_unlock(&b->lock);
-err_out_exit:
 	eblob_log(b->cfg.log, err ? EBLOB_LOG_ERROR : EBLOB_LOG_NOTICE,
 			"blob: %s: %s: eblob_writev_raw: fd: %d: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ": %zd.\n",
@@ -2416,7 +2441,8 @@ err_out_exit:
 
 unsigned long long eblob_total_elements(struct eblob_backend *b)
 {
-	return eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_TOTAL);
+	return eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_TOTAL)
+		- eblob_stat_get(b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
 }
 
 int eblob_write_hashed(struct eblob_backend *b, const void *key, const uint64_t ksize,
