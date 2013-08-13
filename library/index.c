@@ -291,6 +291,9 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			/* Check record for validity */
 			err = eblob_check_record(bctl, &dc);
 			if (err != 0) {
+				/* Bump stats */
+				eblob_stat_inc(bctl->stat, EBLOB_LST_INDEX_CORRUPTED_ENTRIES);
+
 				/*
 				 * We can't recover from broken first or last
 				 * entry of index block.
