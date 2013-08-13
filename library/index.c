@@ -242,7 +242,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
-	uint64_t block_count, block_id = 0, offset = 0;
+	uint64_t block_count, block_id = 0, err_count = 0, offset = 0;
 	int64_t removed = 0;
 	unsigned int i;
 	int err = 0;
@@ -287,14 +287,23 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			/* Check record for validity */
 			err = eblob_check_record(bctl, &dc);
 			if (err != 0) {
-				EBLOB_WARNC(bctl->back->cfg.log, EBLOB_LOG_ERROR, -err,
-						"record check failed: offset: %" PRIu64, offset);
-				EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-						"index is corrupted: can not continue");
-				EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-						"running `eblob_merge` on '%s' should help",
-						bctl->name);
-				goto err_out_drop_tree;
+				/*
+				 * We can't recover from broken first or last
+				 * entry of index block.
+				 */
+				if (err_count++ > EBLOB_BLOB_INDEX_CORRUPT_MAX
+						|| i == 0 || i == bctl->back->cfg.index_block_size - 1) {
+					EBLOB_WARNC(bctl->back->cfg.log, EBLOB_LOG_ERROR, -err,
+							"too many index corruptions: %" PRIu64
+							", can not continue", err_count);
+					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+							"running `eblob_merge` on '%s' should help:", bctl->name);
+					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+							"http://doc.reverbrain.com/eblob:tools:eblob_merge");
+					goto err_out_drop_tree;
+				}
+				offset += sizeof(struct eblob_disk_control);
+				continue;
 			}
 
 			if (i == 0)
