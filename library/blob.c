@@ -395,6 +395,7 @@ err_out_check:
 		bc->data_offset = bc->data_size;
 		bc->index_offset = ctl->index_offset;
 
+		/* If we have only internal error */
 		if (err && !ctl->err) {
 			/*
 			 * Get last valid index pointer if it's possible, read corresponding
@@ -426,12 +427,18 @@ err_out_check:
 							"blob: truncation failed: fd: %d, err: %d\n", index_fd, -errno);
 					ctl->err = -errno;
 				}
-			} else {
-				ctl->err = err;
 			}
 		}
 		pthread_mutex_unlock(&bc->lock);
 	}
+
+	/*
+	 * Propagate internal error to caller thread if not already set.
+	 * This is racy, but OK since we can't decide which thread's
+	 * error is more important anyway.
+	 */
+	if (ctl->err == 0 && err != 0)
+		ctl->err = err;
 
 	return NULL;
 }
