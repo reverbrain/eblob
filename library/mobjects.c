@@ -240,14 +240,16 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 		goto err_out_close_data;
 
 again:
-
-	err = eblob_base_open_sorted(ctl, dir_base, name, name_len);
-
-	sprintf(full, "%s/%s.index", dir_base, name);
-
+	sprintf(full, "%s/%s.index.sorted", dir_base, name);
+	err = access(full, R_OK);
 	if (err) {
 		struct stat st;
 
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				"bctl: index: %d: %s: access failed: %d\n",
+				ctl->index, full, errno);
+
+		sprintf(full, "%s/%s.index", dir_base, name);
 		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 		if (ctl->index_fd == -1) {
 			err = -errno;
@@ -288,6 +290,18 @@ again:
 	} else {
 		struct stat st;
 
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				"bctl: index: %d: %s: access succeeded\n", ctl->index, full);
+
+		err = eblob_base_open_sorted(ctl, dir_base, name, name_len);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					"bctl: eblob_base_open_sorted: FAILED: index: %d: %s: %d\n",
+					ctl->index, strerror(-err), err);
+			goto err_out_close_sort_fd;
+		}
+
+		sprintf(full, "%s/%s.index", dir_base, name);
 		err = stat(full, &st);
 		if (err) {
 			err = -errno;
