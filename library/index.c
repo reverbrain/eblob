@@ -301,12 +301,12 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				if (err_count++ > EBLOB_BLOB_INDEX_CORRUPT_MAX
 						|| i == 0 || i == bctl->back->cfg.index_block_size - 1) {
 					EBLOB_WARNC(bctl->back->cfg.log, EBLOB_LOG_ERROR, -err,
-							"too many index corruptions: %" PRIu64
+							"EB0001: too many index corruptions: %" PRIu64
 							", can not continue", err_count);
 					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
 							"running `eblob_merge` on '%s' should help:", bctl->name);
 					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-							"http://doc.reverbrain.com/eblob:tools:eblob_merge");
+							"http://doc.reverbrain.com/kb:eblob:eb0001-index-corruption");
 					goto err_out_drop_tree;
 				}
 				offset += sizeof(struct eblob_disk_control);
