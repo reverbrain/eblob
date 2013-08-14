@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.7
+Version:	0.21.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,22 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Aug 14 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.8
+- blob: fixed sanity check
+- blob: fixed possible zero-size allocs
+- blob: propagate internal iterator errors to caller
+- data-sort: remove redundant code
+- blob: move reord check routines to separate function
+- index: check index validity on start
+- blob: be less strict about index corruptions
+- blob: fix eblob_total_elements()
+- index: set pointers to NULL in eblob_index_blocks_destroy()
+- index: fix possible stat race
+- stress: check second's eblob_init() result
+- mobjects: fix eblob_index_blocks_fill()'s rc check
+- index: explicitly return 0 on success
+- mobjects: make sorted index mandatory if it exists.
+
 * Tue Aug 06 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.7
 - blob: do not commit to ram until eblob_writev_raw is finished
 
