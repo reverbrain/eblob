@@ -63,6 +63,7 @@
 #define EBLOB_1_M				(1UL<<20)
 #define EBLOB_1_G				(1ULL<<30)
 
+#define EBLOB_BLOB_INDEX_CORRUPT_MAX		(1024ULL)
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		(50 * EBLOB_1_G)
 #define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	(50000000)
@@ -442,6 +443,9 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);
+
+int eblob_check_record(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *dc);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl);

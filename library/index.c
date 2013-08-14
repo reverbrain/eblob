@@ -86,12 +86,16 @@ static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted,
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 {
 	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
+	/* Free data */
 	free(bctl->index_blocks);
 	free(bctl->bloom);
-	pthread_rwlock_unlock(&bctl->index_blocks_lock);
-
+	/* Allow subsequent destroys */
+	bctl->index_blocks = NULL;
+	bctl->bloom = NULL;
+	/* Nullify stats */
 	eblob_stat_set(bctl->stat, EBLOB_LST_BLOOM_SIZE, 0);
 	eblob_stat_set(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE, 0);
+	pthread_rwlock_unlock(&bctl->index_blocks_lock);
 
 	return 0;
 }
@@ -242,7 +246,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
 	struct eblob_disk_control dc;
-	uint64_t block_count, block_id = 0, offset = 0;
+	uint64_t block_count, block_id = 0, err_count = 0, offset = 0;
 	int64_t removed = 0;
 	unsigned int i;
 	int err = 0;
@@ -284,6 +288,31 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				goto err_out_drop_tree;
 			}
 
+			/* Check record for validity */
+			err = eblob_check_record(bctl, &dc);
+			if (err != 0) {
+				/* Bump stats */
+				eblob_stat_inc(bctl->stat, EBLOB_LST_INDEX_CORRUPTED_ENTRIES);
+
+				/*
+				 * We can't recover from broken first or last
+				 * entry of index block.
+				 */
+				if (err_count++ > EBLOB_BLOB_INDEX_CORRUPT_MAX
+						|| i == 0 || i == bctl->back->cfg.index_block_size - 1) {
+					EBLOB_WARNC(bctl->back->cfg.log, EBLOB_LOG_ERROR, -err,
+							"EB0001: too many index corruptions: %" PRIu64
+							", can not continue", err_count);
+					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+							"running `eblob_merge` on '%s' should help:", bctl->name);
+					EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+							"http://doc.reverbrain.com/kb:eblob:eb0001-index-corruption");
+					goto err_out_drop_tree;
+				}
+				offset += sizeof(struct eblob_disk_control);
+				continue;
+			}
+
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
@@ -303,8 +332,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			goto err_out_drop_tree;
 	}
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
-
-	return err;
+	return 0;
 
 err_out_drop_tree:
 	eblob_index_blocks_destroy(bctl);
