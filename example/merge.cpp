@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 
 			if (print_all) {
-				std::cout << c.blob->path_ << ": INDEX: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				std::cout << "INDEX: " << c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
 			}
 
 			if (c.dc.flags & BLOB_DISK_CTL_REMOVE) {
@@ -206,14 +206,15 @@ int main(int argc, char *argv[])
 			c.blob->data.read((char *)&ddc, sizeof(struct eblob_disk_control));
 			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control)) {
 				std::cout << "ERROR: data header read failed, skipping entry: "
-					<< c.blob->path_ << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+					<< c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				c.blob->data.clear();
 				broken++;
 				continue;
 			}
 
 			eblob_convert_disk_control(&ddc);
 			if (print_all) {
-				std::cout << c.blob->path_ << ": DATA: " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+				std::cout << "DATA: " << c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
 			}
 
 			if (ddc.flags & BLOB_DISK_CTL_REMOVE) {
@@ -226,7 +227,7 @@ int main(int argc, char *argv[])
 			ddc.position = position;
 
 			if (print_all) {
-				std::cout << "out: " << eblob_dump_control(&ddc, position, 1, 0) << std::endl;
+				std::cout << "OUT: " << eblob_dump_control(&ddc, position, 1, 0) << std::endl;
 			}
 
 			if (size > sizeof(struct eblob_disk_control)) {
@@ -238,7 +239,9 @@ int main(int argc, char *argv[])
 					index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
 				} catch (...) {
 					std::cout << "ERROR: data copy failed, skipping entry: "
-						<< c.blob->path_ << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+						<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+					c.blob->data.clear();
+					data_out.clear();
 					data_out.seekp(position, std::ios::beg);
 					broken++;
 					continue;
