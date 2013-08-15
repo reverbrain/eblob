@@ -1,3 +1,10 @@
+eblob (0.21.9) unstable; urgency=low
+
+  * examples: make eblob_merge more robust
+  *   This will allow eblob_merge to recover badly damaged bases
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 15 Aug 2013 04:29:49 +0400
+
 eblob (0.21.8) unstable; urgency=low
 
   * blob: fixed sanity check
