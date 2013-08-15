@@ -204,8 +204,12 @@ int main(int argc, char *argv[])
 
 			c.blob->data.seekg(c.dc.position, std::ios::beg);
 			c.blob->data.read((char *)&ddc, sizeof(struct eblob_disk_control));
-			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control))
-				throw std::runtime_error("Data read failed");
+			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control)) {
+				std::cout << "ERROR: data header read failed, skipping entry: "
+					<< c.blob->path_ << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				broken++;
+				continue;
+			}
 
 			eblob_convert_disk_control(&ddc);
 			if (print_all) {
@@ -228,10 +232,17 @@ int main(int argc, char *argv[])
 			if (size > sizeof(struct eblob_disk_control)) {
 				eblob_convert_disk_control(&ddc);
 
-				data_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
-				copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
-
-				index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+				try {
+					data_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+					copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
+					index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+				} catch (...) {
+					std::cout << "ERROR: data copy failed, skipping entry: "
+						<< c.blob->path_ << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+					data_out.seekp(position, std::ios::beg);
+					broken++;
+					continue;
+				}
 
 				position += size;
 				written++;
