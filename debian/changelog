@@ -1,3 +1,11 @@
+eblob (0.21.10) unstable; urgency=low
+
+  * Now eblob_merge recovers from errors in the middle of base;
+  * Improved log output. Now it can be grep'd efficiently;
+  * Fixed error messages formatting.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 15 Aug 2013 05:02:14 +0400
+
 eblob (0.21.9) unstable; urgency=low
 
   * examples: make eblob_merge more robust

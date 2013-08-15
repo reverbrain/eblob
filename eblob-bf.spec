@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.9
+Version:	0.21.10
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Aug 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.10
+- Now eblob_merge recovers from errors in the middle of base;
+- Improved log output. Now it can be grep'd efficiently;
+- Fixed error messages formatting.
+
 * Thu Aug 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.9
 - examples: make eblob_merge more robust
 -   This will allow eblob_merge to recover badly damaged bases
