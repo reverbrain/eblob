@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
 			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control)) {
 				std::cout << "ERROR: data header read failed, skipping entry: "
 					<< c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				c.blob->data.clear();
 				broken++;
 				continue;
 			}
@@ -239,6 +240,8 @@ int main(int argc, char *argv[])
 				} catch (...) {
 					std::cout << "ERROR: data copy failed, skipping entry: "
 						<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+					c.blob->data.clear();
+					data_out.clear();
 					data_out.seekp(position, std::ios::beg);
 					broken++;
 					continue;
