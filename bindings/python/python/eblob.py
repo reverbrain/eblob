@@ -84,11 +84,7 @@ class blob:
 				raise
 			except:
 				continue
-
-			if want_removed:
-				yield self.id
-
-			if not self.removed():
+			if want_removed or not self.removed():
 				yield self.id
 
 	def sid(self, count=6):
