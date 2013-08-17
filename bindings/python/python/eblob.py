@@ -1,9 +1,9 @@
-import struct, os
+import struct
+import os
 
 class blob:
 	format = '<64sQQQQ'
 	index_size = struct.calcsize(format)
-
 	FLAGS_REMOVED = 1
 
 	def __init__(self, path, data_mode='r+b', index_mode='r+b'):
@@ -24,7 +24,8 @@ class blob:
 		if len(self.idata) != self.index_size:
 			raise NameError('Finished index')
 
-		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, self.idata)
+		self.id, self.flags, self.data_size, self.disk_size, self.position = \
+				struct.unpack(self.format, self.idata)
 		self.next_position = self.position
 		self.read_data_index()
 
@@ -34,8 +35,8 @@ class blob:
 		if len(ddata) != self.index_size:
 			raise NameError('Finished data')
 
-		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, ddata)
-		#print "read from:", self.next_position, ", read pos:", self.position, ", disk-size:", self.disk_size
+		self.id, self.flags, self.data_size, self.disk_size, self.position = \
+				struct.unpack(self.format, ddata)
 
 		if self.idata != ddata:
 			raise IOError("idata mismatch")
@@ -50,7 +51,6 @@ class blob:
 		self.flags |= self.FLAGS_REMOVED
 
 	def read_data(self):
-		#print "position:", self.position
 		self.dataf.seek(self.position + self.index_size)
 		self.data = self.dataf.read(self.disk_size)
 
@@ -58,7 +58,8 @@ class blob:
 			raise NameError('Finished data')
 
 	def update(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		self.index.seek(-self.index_size, os.SEEK_CUR)
 		self.index.write(idata)
 
@@ -66,11 +67,13 @@ class blob:
 		self.dataf.write(idata)
 	
 	def write_index(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		self.index.write(idata)
 
 	def get_data(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		return idata, self.data
 
 	def iterate(self, want_removed=False, over_data=False):
