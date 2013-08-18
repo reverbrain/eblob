@@ -1,9 +1,17 @@
-import struct, os
+import os
+import struct
+import sys
+
+"""
+Python wrapper for manipulating raw blob files.
+
+TODO: Consider removing this APIs - they are duplicating internal eblob
+algorithms.
+"""
 
 class blob:
 	format = '<64sQQQQ'
 	index_size = struct.calcsize(format)
-
 	FLAGS_REMOVED = 1
 
 	def __init__(self, path, data_mode='r+b', index_mode='r+b'):
@@ -13,9 +21,9 @@ class blob:
 		self.position = 0L
 		self.next_position = 0L
 		self.id = ''
-		self.data_size = 0
-		self.disk_size = 0
-		self.flags = 0
+		self.data_size = 0L
+		self.disk_size = 0L
+		self.flags = 0L
 		self.data = ''
 		self.idata = ''
 
@@ -24,7 +32,8 @@ class blob:
 		if len(self.idata) != self.index_size:
 			raise NameError('Finished index')
 
-		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, self.idata)
+		self.id, self.flags, self.data_size, self.disk_size, self.position = \
+				struct.unpack(self.format, self.idata)
 		self.next_position = self.position
 		self.read_data_index()
 
@@ -34,13 +43,13 @@ class blob:
 		if len(ddata) != self.index_size:
 			raise NameError('Finished data')
 
-		self.id, self.flags, self.data_size, self.disk_size, self.position = struct.unpack(self.format, ddata)
-		#print "read from:", self.next_position, ", read pos:", self.position, ", disk-size:", self.disk_size
+		self.id, self.flags, self.data_size, self.disk_size, self.position = \
+				struct.unpack(self.format, ddata)
 
-		if self.idata != ddata:
-			raise IOError("idata mismatch")
 		if self.disk_size > 1024 * 1024 * 1024 * 10:
-			raise IOError("disk size is too big")
+			raise IOError("disk size is too big: {0}".format(self.disk_size))
+		if self.disk_size == 0:
+			raise IOError("disk size is zero")
 		self.next_position = self.position + self.disk_size
 	
 	def removed(self):
@@ -50,7 +59,6 @@ class blob:
 		self.flags |= self.FLAGS_REMOVED
 
 	def read_data(self):
-		#print "position:", self.position
 		self.dataf.seek(self.position + self.index_size)
 		self.data = self.dataf.read(self.disk_size)
 
@@ -58,7 +66,8 @@ class blob:
 			raise NameError('Finished data')
 
 	def update(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		self.index.seek(-self.index_size, os.SEEK_CUR)
 		self.index.write(idata)
 
@@ -66,11 +75,13 @@ class blob:
 		self.dataf.write(idata)
 	
 	def write_index(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		self.index.write(idata)
 
 	def get_data(self):
-		idata = struct.pack(self.format, self.id, self.flags, self.data_size, self.disk_size, self.position)
+		idata = struct.pack(self.format, self.id, self.flags, \
+				self.data_size, self.disk_size, self.position)
 		return idata, self.data
 
 	def iterate(self, want_removed=False, over_data=False):
@@ -82,19 +93,11 @@ class blob:
 					self.read_index()
 			except NameError:
 				raise
-			except:
-				continue
-
-			if want_removed:
-				yield self.id
-
-			if not self.removed():
+			except Exception as e:
+				print >>sys.stderr, "Error: {0}".format(e)
+				break
+			if want_removed or not self.removed():
 				yield self.id
 
 	def sid(self, count=6):
-		ba = bytearray(self.id[0:count])
-		ret = ''
-		for i in range(count):
-			ret += '%02x' % ba[i]
-
-		return ret
+		return ''.join('%02x' % ord(b) for b in self.id[:count])
