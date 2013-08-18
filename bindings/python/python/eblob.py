@@ -38,8 +38,6 @@ class blob:
 		self.id, self.flags, self.data_size, self.disk_size, self.position = \
 				struct.unpack(self.format, ddata)
 
-		if self.idata != ddata:
-			raise IOError("idata mismatch")
 		if self.disk_size > 1024 * 1024 * 1024 * 10:
 			raise IOError("disk size is too big")
 		if self.disk_size == 0:
