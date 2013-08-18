@@ -1,5 +1,6 @@
-import struct
 import os
+import struct
+import sys
 
 class blob:
 	format = '<64sQQQQ'
@@ -85,7 +86,8 @@ class blob:
 					self.read_index()
 			except NameError:
 				raise
-			except:
+			except Exception as e:
+				print >>sys.stderr, "Error: {0}".format(e)
 				continue
 			if want_removed or not self.removed():
 				yield self.id
