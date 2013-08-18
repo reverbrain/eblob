@@ -8,6 +8,7 @@ if __name__ == '__main__':
 	print >>sys.stderr, "Started"
 	for base in sys.argv[1:]:
 		try:
+			print "Processing: %s" % base
 			b = eblob.blob(base, index_mode='w+b')
 			for eid in b.iterate(want_removed=False, over_data=True):
 				print "%s: flags: %x, position: %d, data_size: %d, disk_size: %d" % \
