@@ -21,9 +21,9 @@ class blob:
 		self.position = 0L
 		self.next_position = 0L
 		self.id = ''
-		self.data_size = 0
-		self.disk_size = 0
-		self.flags = 0
+		self.data_size = 0L
+		self.disk_size = 0L
+		self.flags = 0L
 		self.data = ''
 		self.idata = ''
 
