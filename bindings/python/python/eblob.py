@@ -42,6 +42,8 @@ class blob:
 			raise IOError("idata mismatch")
 		if self.disk_size > 1024 * 1024 * 1024 * 10:
 			raise IOError("disk size is too big")
+		if self.disk_size == 0:
+			raise IOError("disk size is zero")
 		self.next_position = self.position + self.disk_size
 	
 	def removed(self):
