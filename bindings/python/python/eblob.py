@@ -2,6 +2,13 @@ import os
 import struct
 import sys
 
+"""
+Python wrapper for manipulating raw blob files.
+
+TODO: Consider removing this APIs - they are duplicating internal eblob
+algorithms.
+"""
+
 class blob:
 	format = '<64sQQQQ'
 	index_size = struct.calcsize(format)
