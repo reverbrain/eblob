@@ -95,7 +95,7 @@ class blob:
 				raise
 			except Exception as e:
 				print >>sys.stderr, "Error: {0}".format(e)
-				continue
+				break
 			if want_removed or not self.removed():
 				yield self.id
 
