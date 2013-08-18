@@ -93,9 +93,4 @@ class blob:
 				yield self.id
 
 	def sid(self, count=6):
-		ba = bytearray(self.id[0:count])
-		ret = ''
-		for i in range(count):
-			ret += '%02x' % ba[i]
-
-		return ret
+		return ''.join('%02x' % ord(b) for b in self.id[:count])
