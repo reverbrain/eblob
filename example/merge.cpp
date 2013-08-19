@@ -146,7 +146,7 @@ int main(int argc, char *argv[])
 		std::ofstream index_out(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
 		std::ofstream data_out(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
 
-		while (blobs.size() != 0) {
+		while (true) {
 			std::vector<struct em_ctl> ctl;
 
 			for (std::vector<em_blob_ptr>::iterator b = blobs.begin(); b < blobs.end(); ++b) {
