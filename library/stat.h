@@ -37,10 +37,10 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_MIN,
 	EBLOB_LST_RECORDS_TOTAL,
 	EBLOB_LST_RECORDS_REMOVED,
+	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	EBLOB_LST_BASE_SIZE,
 	EBLOB_LST_BLOOM_SIZE,
 	EBLOB_LST_INDEX_BLOCKS_SIZE,
-	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	EBLOB_LST_MAX,
 };
 
@@ -98,6 +98,10 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		.id = EBLOB_LST_RECORDS_REMOVED,
 	},
 	{
+		.name = "records_corrupted",
+		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+	},
+	{
 		.name = "base_size",
 		.id = EBLOB_LST_BASE_SIZE,
 	},
@@ -108,10 +112,6 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
 		.name = "memory_index_blocks",
 		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
-	},
-	{
-		.name = "index_corrupted_entries",
-		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	},
 	{
 		.name = "MAX",
