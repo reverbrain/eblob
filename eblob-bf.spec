@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.10
+Version:	0.21.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Aug 19 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.11
+- recover_index_from_blob.py: Fixed it in various places now it manages to recover index from data file. Not fast though;
+- recover_index_from_blob.py: Allow bases to be passed through command line;
+- recover_index_from_blob.py: Improvements to logging.
+- blob.py: Removed check for data header vs index header equality;
+- blob.py: Fixed infinite loop on iteration over broken bases;
+- blob.py: Fixed iteration over removed entries;
+- blob.py: Removed commented code;
+- blob.py: Reformatted code and added comments;
+
 * Thu Aug 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.10
 - Now eblob_merge recovers from errors in the middle of base;
 - Improved log output. Now it can be grep'd efficiently;
