@@ -636,7 +636,7 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		/* If l2hash is enabled and this is in-memory record - insert only there */
 		err = eblob_l2hash_upsert(&b->l2hash, key, ctl);
 	} else {
-		err = eblob_hash_replace_nolock(&b->hash, key, ctl, sizeof(struct eblob_ram_control));
+		err = eblob_hash_replace_nolock(&b->hash, key, ctl);
 	}
 
 err_out_exit:
