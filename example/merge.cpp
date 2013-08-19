@@ -48,6 +48,7 @@ static void em_usage(char *p)
 		"  -i path             - input blob path (can be specified multiple times)\n"
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
+		"  -m                  - max entry size\n"
 		"  -h                  - this help\n"
 		"" << std::endl;
 	exit(-1);
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
 	int ch;
 	int total_input = 0;
 	int print_all = 0;
+	long long flag_max_size = 10LL * 1024LL * 1024LL * 1024LL; // 10G
 	struct eblob_disk_control ddc;
 	long long total = 0, removed = 0, written = 0, broken = 0;
 	long long position = 0;
@@ -111,7 +113,7 @@ int main(int argc, char *argv[])
 	std::vector<em_blob_ptr> blobs;
 	std::string output;
 
-	while ((ch = getopt(argc, argv, "i:o:ph")) != -1) {
+	while ((ch = getopt(argc, argv, "i:o:phm:")) != -1) {
 		switch (ch) {
 			case 'i':
 				try {
@@ -128,6 +130,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'p':
 				print_all = 1;
+				break;
+			case 'm':
+				flag_max_size = atoll(optarg);
 				break;
 			case 'h':
 			default:
@@ -196,6 +201,13 @@ int main(int argc, char *argv[])
 
 			if (print_all) {
 				std::cout << "INDEX: " << c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+			}
+
+			if (c.dc.disk_size > (uint64_t)flag_max_size) {
+				std::cout << "ERROR: disk size is grater than max size: "
+					<< c.dc.disk_size << " vs " << flag_max_size << std::endl;
+				broken++;
+				continue;
 			}
 
 			if (c.dc.flags & BLOB_DISK_CTL_REMOVE) {
