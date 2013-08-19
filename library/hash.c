@@ -105,13 +105,20 @@ err_out_exit:
 
 int eblob_hash_init(struct eblob_hash *h, unsigned int dsize)
 {
+	int err;
+
 	memset(h, 0, sizeof(struct eblob_hash));
 	h->root = RB_ROOT;
 	h->dsize = dsize;
-	/* FIXME: rc check*/
-	pthread_rwlock_init(&h->root_lock, NULL);
 
-	return 0;
+	err = pthread_rwlock_init(&h->root_lock, NULL);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+err_out_exit:
+	return err;
 }
 
 void eblob_hash_destroy(struct eblob_hash *h)
