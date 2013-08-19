@@ -28,6 +28,7 @@ enum eblob_stat_global_flavour {
 	EBLOB_GST_DATASORT,
 	EBLOB_GST_READ_COPY_UPDATE,
 	EBLOB_GST_PREPARE_REUSED,
+	EBLOB_GST_CACHED,
 	EBLOB_GST_MAX,
 };
 
@@ -72,6 +73,10 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
 		.name = "prepare_reused",
 		.id = EBLOB_GST_PREPARE_REUSED,
+	},
+	{
+		.name = "memory_index_tree",
+		.id = EBLOB_GST_CACHED,
 	},
 	{
 		.name = "MAX",
@@ -126,6 +131,11 @@ void eblob_stat_add(struct eblob_stat *s, uint32_t id, int64_t value)
 	pthread_mutex_lock(&s->lock);
 	s->entry[id].value += value;
 	pthread_mutex_unlock(&s->lock);
+}
+static inline
+void eblob_stat_sub(struct eblob_stat *s, uint32_t id, int64_t value)
+{
+	eblob_stat_add(s, id, -1 * value);
 }
 static inline
 void eblob_stat_inc(struct eblob_stat *s, uint32_t id)
