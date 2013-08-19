@@ -32,7 +32,7 @@ void eblob_hash_destroy(struct eblob_hash *h);
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *datap);
 int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *datap);
-int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data);
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, int *replaced);
 
 struct eblob_hash_entry {
 	struct eblob_key	key;

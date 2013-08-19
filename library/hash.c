@@ -49,7 +49,7 @@ static inline void eblob_hash_entry_put(struct eblob_hash *h __attribute_unused_
 	free(e);
 }
 
-static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, int replace)
+static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, void *data, int replace, int *replaced)
 {
 	struct rb_node **n, *parent;
 	uint64_t esize = sizeof(struct eblob_hash_entry) + hash->dsize;
@@ -71,13 +71,14 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, 
 			n = &parent->rb_right;
 		else {
 			/* Replace */
-
 			if (!replace) {
 				err = -EEXIST;
 				goto err_out_exit;
 			}
 
 			memcpy(t->data, data, hash->dsize);
+
+			*replaced = 1;
 			err = 0;
 			goto err_out_exit;
 		}
@@ -97,6 +98,7 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, 
 	rb_link_node(&e->node, parent, n);
 	rb_insert_color(&e->node, &hash->root);
 
+	*replaced = 0;
 	err = 0;
 
 err_out_exit:
@@ -138,9 +140,9 @@ void eblob_hash_destroy(struct eblob_hash *h)
 	pthread_rwlock_destroy(&h->root_lock);
 }
 
-int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data)
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, int *replaced)
 {
-	return eblob_hash_entry_add(h, key, data, 1);
+	return eblob_hash_entry_add(h, key, data, 1, replaced);
 }
 
 static struct eblob_hash_entry *eblob_hash_search(struct rb_root *root, struct eblob_key *key)

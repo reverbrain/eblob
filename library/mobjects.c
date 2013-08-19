@@ -619,6 +619,7 @@ err_out_exit:
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *ctl)
 {
+	int replaced;
 	int err;
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
@@ -634,9 +635,9 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		/* If l2hash is enabled and this is in-memory record - insert only there */
-		err = eblob_l2hash_upsert(&b->l2hash, key, ctl);
+		err = eblob_l2hash_upsert(&b->l2hash, key, ctl, &replaced);
 	} else {
-		err = eblob_hash_replace_nolock(&b->hash, key, ctl);
+		err = eblob_hash_replace_nolock(&b->hash, key, ctl, &replaced);
 	}
 
 err_out_exit:
