@@ -58,10 +58,19 @@ struct em_blob {
 	int					completed;
 	std::ifstream				index, data;
 	std::string				path_;
+	std::streampos				data_size;
 
 	em_blob(const char *path) : completed(0), path_(path) {
 		try {
+			// Open data file
 			data.open(path, std::ios_base::in | std::ios_base::binary);
+
+			// Get data file size
+			data.seekg(0, std::ios::end);
+			data_size = data.tellg();
+			data.seekg(0, std::ios::beg);
+
+			// Open index
 			std::string index_path(path);
 			index_path += ".index";
 			index.open(index_path.c_str(), std::ios_base::in | std::ios_base::binary);
@@ -191,18 +200,29 @@ int main(int argc, char *argv[])
 				break;
 			}
 
-
-			std::sort(ctl.begin(), ctl.end(), em_compare());
-
 			total++;
 
+			std::sort(ctl.begin(), ctl.end(), em_compare());
 			struct em_ctl c = ctl[0];
-			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 
+			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 			if (print_all) {
 				std::cout << "INDEX: " << c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
 			}
 
+			// Sanity checks
+			if (c.dc.disk_size < c.dc.data_size + sizeof(struct eblob_disk_control)) {
+				std::cout << "ERROR: disk_size is too small" << std::endl;
+				broken++;
+				continue;
+			}
+			if (c.dc.disk_size + c.dc.position > (uint64_t)c.blob->data_size) {
+				std::cout << "ERROR: disk_size + posssition outside of blob: "
+					<< c.dc.disk_size + c.dc.position << " vs "
+					<< c.blob->data_size << std::endl;
+				broken++;
+				continue;
+			}
 			if (c.dc.disk_size > (uint64_t)flag_max_size) {
 				std::cout << "ERROR: disk size is grater than max size: "
 					<< c.dc.disk_size << " vs " << flag_max_size << std::endl;
