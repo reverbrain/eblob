@@ -97,11 +97,11 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		.id = EBLOB_LST_BASE_SIZE,
 	},
 	{
-		.name = "bloom_size",
+		.name = "memory_bloom_filter",
 		.id = EBLOB_LST_BLOOM_SIZE,
 	},
 	{
-		.name = "index_blocks_size",
+		.name = "memory_index_blocks",
 		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
 	},
 	{
