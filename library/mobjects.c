@@ -382,7 +382,6 @@ err_out_exit:
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len)
 {
-	pthread_mutexattr_t attr;
 	struct eblob_base_ctl *ctl;
 
 	ctl = calloc(1, sizeof(struct eblob_base_ctl) + name_len + 1);
@@ -396,18 +395,8 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
 
-	if (pthread_mutexattr_init(&attr) != 0)
+	if (eblob_mutex_init(&ctl->lock) != 0)
 		goto err_out_free;
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	if (pthread_mutex_init(&ctl->lock, &attr)) {
-		pthread_mutexattr_destroy(&attr);
-		goto err_out_free;
-	}
-	pthread_mutexattr_destroy(&attr);
 
 	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
 		goto err_out_destroy_lock;

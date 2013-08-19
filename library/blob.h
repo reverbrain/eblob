@@ -492,6 +492,8 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
 
+int eblob_mutex_init(pthread_mutex_t *mutex);
+
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
 

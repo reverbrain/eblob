@@ -56,6 +56,37 @@ struct eblob_iterate_local {
 };
 
 /**
+ * eblob_mutex_init() - Inits adaptive mutex if possible
+ */
+int eblob_mutex_init(pthread_mutex_t *mutex)
+{
+	pthread_mutexattr_t attr;
+	int err;
+
+	err = pthread_mutexattr_init(&attr);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+#else
+	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
+#endif
+
+	err = pthread_mutex_init(mutex, &attr);
+	if (err) {
+		err = -err;
+		goto err_out_destroy;
+	}
+
+err_out_destroy:
+	pthread_mutexattr_destroy(&attr);
+err_out_exit:
+	return err;
+}
+/**
  * eblob_get_index_fd() - Helper function that returns either sort.fd or
  * index_fd from bctl depending on what's available
  *
@@ -2290,7 +2321,6 @@ static int eblob_lock_blob(struct eblob_backend *b)
 struct eblob_backend *eblob_init(struct eblob_config *c)
 {
 	struct eblob_backend *b;
-	pthread_mutexattr_t attr;
 	char stat_file[PATH_MAX];
 	int err;
 
@@ -2354,19 +2384,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_lockf;
 	}
 
-	if ((err = pthread_mutexattr_init(&attr)) != 0)
+	err = eblob_mutex_init(&b->lock);
+	if (err != 0)
 		goto err_out_free_file;
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	err = pthread_mutex_init(&b->lock, &attr);
-	if (err) {
-		pthread_mutexattr_destroy(&attr);
-		goto err_out_free_file;
-	}
-	pthread_mutexattr_destroy(&attr);
 
 	INIT_LIST_HEAD(&b->bases);
 	b->max_index = -1;
