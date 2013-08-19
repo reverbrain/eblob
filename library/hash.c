@@ -56,7 +56,7 @@ static int eblob_hash_entry_add(struct eblob_hash *hash, struct eblob_key *key, 
 	struct eblob_hash_entry *e, *t;
 	int err, cmp;
 
-again:
+	/* Find */
 	n = &hash->root.rb_node;
 	parent = NULL;
 	while (*n) {
@@ -70,25 +70,26 @@ again:
 		else if (cmp > 0)
 			n = &parent->rb_right;
 		else {
+			/* Replace */
+
 			if (!replace) {
 				err = -EEXIST;
 				goto err_out_exit;
 			}
 
-			if (t->dsize >= dsize) {
-				memcpy(t->data, data, dsize);
-				t->dsize = dsize;
-				err = 0;
+			if (t->dsize != dsize) {
+				err = -ENOMEM;
 				goto err_out_exit;
 			}
 
-			rb_erase(&t->node, &hash->root);
-			eblob_hash_entry_put(hash, t);
-
-			goto again;
+			memcpy(t->data, data, dsize);
+			t->dsize = dsize;
+			err = 0;
+			goto err_out_exit;
 		}
 	}
 
+	/* Add */
 	e = malloc(esize);
 	if (!e) {
 		err = -ENOMEM;
