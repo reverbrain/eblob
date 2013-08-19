@@ -26,8 +26,10 @@ static void copy_data(std::ifstream &src, std::ofstream &dst, size_t size)
 			if (tmp > size)
 				tmp = size;
 
-			src.read(buf, tmp);
-			dst.write(buf, tmp);
+			if (!src.read(buf, tmp))
+				throw std::runtime_error("copy: read failed\n");
+			if (!dst.write(buf, tmp))
+				throw std::runtime_error("copy: write failed\n");
 
 			size -= tmp;
 		}
@@ -159,7 +161,6 @@ int main(int argc, char *argv[])
 
 				do {
 					blob->index.read((char *)&c.dc, sizeof(struct eblob_disk_control));
-
 					if (blob->index.gcount() != sizeof(struct eblob_disk_control)) {
 						blob->completed = 1;
 
@@ -234,9 +235,11 @@ int main(int argc, char *argv[])
 				eblob_convert_disk_control(&ddc);
 
 				try {
-					data_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+					if (!data_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
+						throw std::runtime_error("data: header write failed\n");
 					copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
-					index_out.write((char *)&ddc, sizeof(struct eblob_disk_control));
+					if (!index_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
+						throw std::runtime_error("index: header write failed\n");
 				} catch (...) {
 					std::cout << "ERROR: data copy failed, skipping entry: "
 						<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
