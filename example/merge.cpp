@@ -250,6 +250,16 @@ int main(int argc, char *argv[])
 				std::cout << "DATA: " << c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
 			}
 
+			//
+			// Sanity
+			// TODO: This is the best heuristic but it's rather too
+			// strict - may be it's resonable to add option for it.
+			//
+			if (memcmp(&ddc, &c.dc, sizeof(eblob_disk_control)) != 0) {
+				std::cout << "ERROR: data and index header mismatch" << std::endl;
+				broken++;
+			}
+
 			if (ddc.flags & BLOB_DISK_CTL_REMOVE) {
 				removed++;
 				continue;
