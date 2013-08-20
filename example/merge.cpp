@@ -131,7 +131,8 @@ int main(int argc, char *argv[])
 					blobs.push_back(b);
 					total_input++;
 				} catch (const std::exception &e) {
-					std::cerr << "could not open data or index file for blob " << optarg << ": " << e.what() << std::endl;
+					std::cerr << "could not open data or index file for blob " << optarg <<
+						": " << e.what() << std::endl;
 				}
 				break;
 			case 'o':
@@ -207,25 +208,35 @@ int main(int argc, char *argv[])
 
 			c.blob->index.seekg(sizeof(struct eblob_disk_control), std::ios_base::cur);
 			if (print_all) {
-				std::cout << "INDEX: " << c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				std::cout << "INDEX: " << c.blob->path_ << ": " <<
+					eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
 			}
 
 			// Sanity checks
 			if (c.dc.disk_size < c.dc.data_size + sizeof(struct eblob_disk_control)) {
-				std::cout << "ERROR: disk_size is too small" << std::endl;
+				std::cout << "ERROR: disk_size is too small" <<
+					": blob: " << c.blob->path_ <<
+					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					std::endl;
 				broken++;
 				continue;
 			}
 			if (c.dc.disk_size + c.dc.position > (uint64_t)c.blob->data_size) {
-				std::cout << "ERROR: disk_size + posssition outside of blob: "
-					<< c.dc.disk_size + c.dc.position << " vs "
-					<< c.blob->data_size << std::endl;
+				std::cout << "ERROR: disk_size + posssition outside of blob: " <<
+					c.dc.disk_size + c.dc.position << " vs " <<
+					c.blob->data_size <<
+					": blob: " << c.blob->path_ <<
+					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					std::endl;
 				broken++;
 				continue;
 			}
 			if (c.dc.disk_size > (uint64_t)flag_max_size) {
-				std::cout << "ERROR: disk size is grater than max size: "
-					<< c.dc.disk_size << " vs " << flag_max_size << std::endl;
+				std::cout << "ERROR: disk size is grater than max size: " <<
+					c.dc.disk_size << " vs " << flag_max_size <<
+					": blob: " << c.blob->path_ <<
+					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					std::endl;
 				broken++;
 				continue;
 			}
@@ -247,7 +258,9 @@ int main(int argc, char *argv[])
 
 			eblob_convert_disk_control(&ddc);
 			if (print_all) {
-				std::cout << "DATA: " << c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+				std::cout << "blob: " << c.blob->path_ <<
+					": " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
+					std::endl;
 			}
 
 			//
@@ -256,7 +269,11 @@ int main(int argc, char *argv[])
 			// strict - may be it's resonable to add option for it.
 			//
 			if (memcmp(&ddc, &c.dc, sizeof(eblob_disk_control)) != 0) {
-				std::cout << "ERROR: data and index header mismatch" << std::endl;
+				std::cout << "ERROR: data and index header mismatch: " <<
+					"blob: " << c.blob->path_ <<
+					"data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
+					"index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					std::endl;
 				broken++;
 			}
 
