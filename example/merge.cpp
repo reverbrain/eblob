@@ -271,8 +271,8 @@ int main(int argc, char *argv[])
 			if (memcmp(&ddc, &c.dc, sizeof(eblob_disk_control)) != 0) {
 				std::cout << "ERROR: data and index header mismatch: " <<
 					"blob: " << c.blob->path_ <<
-					"data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
-					"index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					", data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
+					", index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
 					std::endl;
 				broken++;
 				continue;
