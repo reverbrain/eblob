@@ -1,3 +1,13 @@
+eblob (0.21.12) unstable; urgency=low
+
+  * examples: merge: remove useless while condition
+  * examples: merge: check results of read/write
+  * examples: merge: introduce -m parameter for max record size
+  * examples: merge: added even more sanity checks
+  * examples: merge: check both header for equality
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 20 Aug 2013 04:14:37 +0400
+
 eblob (0.21.11) unstable; urgency=low
 
   * recover_index_from_blob.py: Fixed it in various places now it manages to recover index from data file. Not fast though;
