@@ -28,6 +28,7 @@ enum eblob_stat_global_flavour {
 	EBLOB_GST_DATASORT,
 	EBLOB_GST_READ_COPY_UPDATE,
 	EBLOB_GST_PREPARE_REUSED,
+	EBLOB_GST_CACHED,
 	EBLOB_GST_MAX,
 };
 
@@ -36,10 +37,10 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_MIN,
 	EBLOB_LST_RECORDS_TOTAL,
 	EBLOB_LST_RECORDS_REMOVED,
+	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	EBLOB_LST_BASE_SIZE,
 	EBLOB_LST_BLOOM_SIZE,
 	EBLOB_LST_INDEX_BLOCKS_SIZE,
-	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	EBLOB_LST_MAX,
 };
 
@@ -74,6 +75,10 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 		.id = EBLOB_GST_PREPARE_REUSED,
 	},
 	{
+		.name = "memory_index_tree",
+		.id = EBLOB_GST_CACHED,
+	},
+	{
 		.name = "MAX",
 		.id = EBLOB_GST_MAX,
 	},
@@ -93,20 +98,20 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		.id = EBLOB_LST_RECORDS_REMOVED,
 	},
 	{
+		.name = "records_corrupted",
+		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+	},
+	{
 		.name = "base_size",
 		.id = EBLOB_LST_BASE_SIZE,
 	},
 	{
-		.name = "bloom_size",
+		.name = "memory_bloom_filter",
 		.id = EBLOB_LST_BLOOM_SIZE,
 	},
 	{
-		.name = "index_blocks_size",
+		.name = "memory_index_blocks",
 		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
-	},
-	{
-		.name = "index_corrupted_entries",
-		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 	},
 	{
 		.name = "MAX",
@@ -126,6 +131,11 @@ void eblob_stat_add(struct eblob_stat *s, uint32_t id, int64_t value)
 	pthread_mutex_lock(&s->lock);
 	s->entry[id].value += value;
 	pthread_mutex_unlock(&s->lock);
+}
+static inline
+void eblob_stat_sub(struct eblob_stat *s, uint32_t id, int64_t value)
+{
+	eblob_stat_add(s, id, -1 * value);
 }
 static inline
 void eblob_stat_inc(struct eblob_stat *s, uint32_t id)

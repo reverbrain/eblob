@@ -266,7 +266,7 @@ int eblob_read_range(struct eblob_range_request *req)
 
 		if (eblob_id_in_range(e->key.id, req->start, req->end)) {
 			for (unsigned int i = 0;
-					i < e->dsize / sizeof(struct eblob_ram_control); ++i) {
+					i < h->dsize / sizeof(struct eblob_ram_control); ++i) {
 				struct eblob_ram_control __attribute__((__may_alias__))
 					*const ctl = (void *)e->data + i;
 

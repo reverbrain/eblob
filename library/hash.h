@@ -24,19 +24,19 @@
 struct eblob_hash {
 	struct rb_root		root;
 	pthread_rwlock_t	root_lock;
+	unsigned int		dsize;
 };
 
-int eblob_hash_init(struct eblob_hash *h);
+int eblob_hash_init(struct eblob_hash *h, unsigned int dsize);
 void eblob_hash_destroy(struct eblob_hash *h);
 int eblob_hash_remove_nolock(struct eblob_hash *h, struct eblob_key *key);
 int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *datap);
 int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *datap);
-int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, unsigned int dsize);
+int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, int *replaced);
 
 struct eblob_hash_entry {
 	struct eblob_key	key;
 	struct rb_node		node;
-	unsigned int		dsize;
 	unsigned char		data[];
 };
 

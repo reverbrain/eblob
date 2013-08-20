@@ -546,6 +546,7 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h,
 /**
  * _eblob_l2hash_insert() - inserts @rctl entry into l2hash.
  * @flavor:	changes behaviour depending on existence of @key in cache.
+ * @replaced:	set to 1 if entry was replaced, to 0 otherwise.
  *
  * This is very complicated routine - should be modified with care.
  *
@@ -556,7 +557,8 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h,
 static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 		const struct eblob_key *key,
 		const struct eblob_ram_control *rctl,
-		const unsigned int flavor)
+		const unsigned int flavor,
+		int *replaced)
 {
 	struct eblob_l2hash_collision *collision;
 	struct eblob_l2hash_entry *e;
@@ -570,6 +572,9 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 		return -EINVAL;
 	if (flavor >= EBLOB_L2HASH_FLAVOR_LAST)
 		return -EINVAL;
+
+	if (replaced != NULL)
+		*replaced = 0;
 
 	/* Search tree for matching entry */
 	e = __eblob_l2hash_lookup(l2h, key);
@@ -590,6 +595,11 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 			/* Not a collision - updating in-place */
 			if (flavor == EBLOB_L2HASH_FLAVOR_INSERT)
 				return -EEXIST;
+
+			/* If entry was replaced - notify caller */
+			if (replaced != NULL)
+				*replaced = 1;
+
 			e->rctl = *rctl;
 			return 0;
 		}
@@ -622,6 +632,11 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
 		return -EEXIST;
 	collision = rb_entry(n, struct eblob_l2hash_collision, node);
 	collision->rctl = *rctl;
+
+	/* If entry was replaced - notify caller */
+	if (replaced != NULL)
+		*replaced = 1;
+
 	return 0;
 }
 
@@ -631,7 +646,7 @@ static int _eblob_l2hash_insert(struct eblob_l2hash *l2h,
  */
 int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_INSERT);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_INSERT, NULL);
 }
 
 /**
@@ -640,13 +655,14 @@ int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, c
  */
 int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPDATE);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPDATE, NULL);
 }
 
 /**
  * eblob_l2hash_upsert() - updates or inserts entry in cache (hence the name).
  */
-int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl)
+int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key,
+		const struct eblob_ram_control *rctl, int *replaced)
 {
-	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPSERT);
+	return _eblob_l2hash_insert(l2h, key, rctl, EBLOB_L2HASH_FLAVOR_UPSERT, replaced);
 }

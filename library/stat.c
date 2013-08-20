@@ -42,7 +42,6 @@ void eblob_stat_destroy(struct eblob_stat *s)
 
 int eblob_stat_init_backend(struct eblob_backend *b, const char *path)
 {
-	pthread_mutexattr_t attr;
 	int err;
 
 	/* Sanity */
@@ -59,22 +58,9 @@ int eblob_stat_init_backend(struct eblob_backend *b, const char *path)
 	}
 	strncpy(b->stat_path, path, PATH_MAX);
 
-	if ((err = pthread_mutexattr_init(&attr)) != 0) {
-		err = -err;
+	err = eblob_mutex_init(&b->stat->lock);
+	if (err != 0)
 		goto err_out_free;
-	}
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	err = pthread_mutex_init(&b->stat->lock, &attr);
-	if (err) {
-		pthread_mutexattr_destroy(&attr);
-		err = -err;
-		goto err_out_free;
-	}
-	pthread_mutexattr_destroy(&attr);
 
 	memcpy((void *)b->stat + sizeof(struct eblob_stat),
 			eblob_stat_default_global, sizeof(eblob_stat_default_global));
@@ -94,7 +80,6 @@ int eblob_stat_init_base(struct eblob_base_ctl *bctl)
 
 int eblob_stat_init_local(struct eblob_stat **s)
 {
-	pthread_mutexattr_t attr;
 	int err = 0;
 
 	*s = calloc(1, sizeof(struct eblob_stat) +
@@ -104,22 +89,9 @@ int eblob_stat_init_local(struct eblob_stat **s)
 		goto err_out_exit;
 	}
 
-	if ((err = pthread_mutexattr_init(&attr)) != 0) {
-		err = -err;
+	err = eblob_mutex_init(&(*s)->lock);
+	if (err != 0)
 		goto err_out_free;
-	}
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	err = pthread_mutex_init(&(*s)->lock, &attr);
-	if (err) {
-		pthread_mutexattr_destroy(&attr);
-		err = -err;
-		goto err_out_free;
-	}
-	pthread_mutexattr_destroy(&attr);
 
 	memcpy((void *)(*s) + sizeof(struct eblob_stat),
 			eblob_stat_default_local, sizeof(eblob_stat_default_local));
