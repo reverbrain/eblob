@@ -275,6 +275,7 @@ int main(int argc, char *argv[])
 					"index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
 					std::endl;
 				broken++;
+				continue;
 			}
 
 			if (ddc.flags & BLOB_DISK_CTL_REMOVE) {
