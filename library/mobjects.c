@@ -382,7 +382,6 @@ err_out_exit:
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len)
 {
-	pthread_mutexattr_t attr;
 	struct eblob_base_ctl *ctl;
 
 	ctl = calloc(1, sizeof(struct eblob_base_ctl) + name_len + 1);
@@ -396,18 +395,8 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
 
-	if (pthread_mutexattr_init(&attr) != 0)
+	if (eblob_mutex_init(&ctl->lock) != 0)
 		goto err_out_free;
-#ifdef PTHREAD_MUTEX_ADAPTIVE_NP
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
-#else
-	pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
-#endif
-	if (pthread_mutex_init(&ctl->lock, &attr)) {
-		pthread_mutexattr_destroy(&attr);
-		goto err_out_free;
-	}
-	pthread_mutexattr_destroy(&attr);
 
 	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
 		goto err_out_destroy_lock;
@@ -630,6 +619,8 @@ err_out_exit:
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *ctl)
 {
+	size_t entry_size;
+	int replaced;
 	int err;
 
 	if (b == NULL || key == NULL || ctl == NULL || ctl->bctl == NULL)
@@ -644,11 +635,16 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
-		/* If l2hash is enabled and this is in-memory record - insert only there */
-		err = eblob_l2hash_upsert(&b->l2hash, key, ctl);
+		err = eblob_l2hash_upsert(&b->l2hash, key, ctl, &replaced);
+		entry_size = EBLOB_L2HASH_ENTRY_SIZE;
 	} else {
-		err = eblob_hash_replace_nolock(&b->hash, key, ctl, sizeof(struct eblob_ram_control));
+		err = eblob_hash_replace_nolock(&b->hash, key, ctl, &replaced);
+		entry_size = EBLOB_HASH_ENTRY_SIZE;
 	}
+
+	/* Bump counters only if entry was added and not replaced */
+	if (err == 0 && replaced == 0)
+		eblob_stat_add(b->stat, EBLOB_GST_CACHED, entry_size);
 
 err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
@@ -658,14 +654,19 @@ err_out_exit:
 
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 {
+	size_t entry_size;
 	int err;
 
-	/* If l2hash is enabled - remove from it only */
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		err = eblob_l2hash_remove(&b->l2hash, key);
+		entry_size = EBLOB_L2HASH_ENTRY_SIZE;
 	} else {
 		err = eblob_hash_remove_nolock(&b->hash, key);
+		entry_size = EBLOB_HASH_ENTRY_SIZE;
 	}
+
+	if (err == 0)
+		eblob_stat_sub(b->stat, EBLOB_GST_CACHED, entry_size);
 
 	return err;
 }

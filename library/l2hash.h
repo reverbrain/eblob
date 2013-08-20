@@ -90,6 +90,7 @@ int eblob_l2hash_insert(struct eblob_l2hash *l2h, const struct eblob_key *key, c
 int eblob_l2hash_lookup(struct eblob_l2hash *l2h, const struct eblob_key *key, struct eblob_ram_control *rctl);
 int eblob_l2hash_remove(struct eblob_l2hash *l2h, const struct eblob_key *key);
 int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
-int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
+int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key,
+		const struct eblob_ram_control *rctl, int *replaced);
 
 #endif /* __EBLOB_L2HASH_H */

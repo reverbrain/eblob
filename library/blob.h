@@ -71,6 +71,12 @@
 #define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		(25)
 #define EBLOB_DEFAULT_ITERATE_THREADS		(1)
 
+/* Size of one entry in cache */
+static const size_t EBLOB_HASH_ENTRY_SIZE = sizeof(struct eblob_ram_control)
+	+ sizeof(struct eblob_hash_entry);
+/* Approx. size of l2hash entry (considering there wasn't a collision) */
+static const size_t EBLOB_L2HASH_ENTRY_SIZE = sizeof(struct eblob_l2hash_entry);
+
 struct eblob_map_fd {
 	int			fd;
 	uint64_t		offset, size;
@@ -491,6 +497,8 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 
 void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
+
+int eblob_mutex_init(pthread_mutex_t *mutex);
 
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
