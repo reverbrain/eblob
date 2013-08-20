@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.12
+Version:	0.21.13
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,17 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Aug 20 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.13
+- stats: simplified stats naming
+- stats: accounting for in-memory index size
+- hash: keep track of replaced entries
+- hash: check rwlock_init return code
+- hash: reduce memory consumption by 10%
+- hash: simplify hash entry add
+- stats: improved stats naming
+- blob: moved mutex init to separate function
+- examples: merge: skip broken entries
+
 * Tue Aug 20 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.12
 - examples: merge: remove useless while condition
 - examples: merge: check results of read/write
