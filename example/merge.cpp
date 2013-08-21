@@ -43,14 +43,15 @@ static void copy_data(std::ifstream &src, std::ofstream &dst, size_t size)
 
 static void em_usage(char *p)
 {
-	std::cerr << "Usage: " << p << " <options>" << std::endl <<
-		"  This utility will defragment and merge (multiple) blobs into larger one\n"
+	std::cerr << "Usage: " << p << " [OPTION]... -i SRC [-i SRC]... -o DST\n\n"
+		"  This utility will defragment and merge one or more blobs into one\n\n"
+		"Options\n"
 		"  -i path             - input blob path (can be specified multiple times)\n"
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
 		"  -m                  - max entry size\n"
 		"  -h                  - this help\n"
-		"" << std::endl;
+		"\n";
 	exit(-1);
 }
 
@@ -64,6 +65,8 @@ struct em_blob {
 		try {
 			// Open data file
 			data.open(path, std::ios_base::in | std::ios_base::binary);
+			if (!data)
+				throw std::runtime_error("data open failed");
 
 			// Get data file size
 			data.seekg(0, std::ios::end);
@@ -74,6 +77,8 @@ struct em_blob {
 			std::string index_path(path);
 			index_path += ".index";
 			index.open(index_path.c_str(), std::ios_base::in | std::ios_base::binary);
+			if (!index)
+				throw std::runtime_error("index open failed");
 		} catch (...) {
 			data.close();
 			index.close();
@@ -131,8 +136,8 @@ int main(int argc, char *argv[])
 					blobs.push_back(b);
 					total_input++;
 				} catch (const std::exception &e) {
-					std::cerr << "could not open data or index file for blob " << optarg <<
-						": " << e.what() << std::endl;
+					std::cerr << "Could not open data or index file for blob: "
+						<< optarg << ": " << e.what() << std::endl;
 				}
 				break;
 			case 'o':
@@ -152,7 +157,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!blobs.size() || !output.size()) {
-		std::cerr << "You must specify input and output parameters" << std::endl;
+		std::cerr << "You must specify input and output parameters\n\n";
 		em_usage(argv[0]);
 	}
 
@@ -263,16 +268,14 @@ int main(int argc, char *argv[])
 					std::endl;
 			}
 
-			//
 			// Sanity
-			// TODO: This is the best heuristic but it's rather too
-			// strict - may be it's resonable to add option for it.
-			//
-			if (memcmp(&ddc, &c.dc, sizeof(eblob_disk_control)) != 0) {
+			if (memcmp(&ddc.key, &c.dc.key, sizeof(eblob_key)) != 0
+					|| ddc.position != c.dc.position
+					|| ddc.disk_size != c.dc.disk_size) {
 				std::cout << "ERROR: data and index header mismatch: " <<
 					"blob: " << c.blob->path_ <<
-					"data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
-					"index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					", data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
+					", index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
 					std::endl;
 				broken++;
 				continue;
