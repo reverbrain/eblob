@@ -43,14 +43,15 @@ static void copy_data(std::ifstream &src, std::ofstream &dst, size_t size)
 
 static void em_usage(char *p)
 {
-	std::cerr << "Usage: " << p << " <options>" << std::endl <<
-		"  This utility will defragment and merge (multiple) blobs into larger one\n"
+	std::cerr << "Usage: " << p << " [OPTION]... -i SRC [-i SRC]... -o DST\n\n"
+		"  This utility will defragment and merge one or more blobs into one\n\n"
+		"Options\n"
 		"  -i path             - input blob path (can be specified multiple times)\n"
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
 		"  -m                  - max entry size\n"
 		"  -h                  - this help\n"
-		"" << std::endl;
+		"\n";
 	exit(-1);
 }
 
