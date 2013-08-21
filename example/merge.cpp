@@ -136,8 +136,8 @@ int main(int argc, char *argv[])
 					blobs.push_back(b);
 					total_input++;
 				} catch (const std::exception &e) {
-					std::cerr << "could not open data or index file for blob " << optarg <<
-						": " << e.what() << std::endl;
+					std::cerr << "Could not open data or index file for blob: "
+						<< optarg << ": " << e.what() << std::endl;
 				}
 				break;
 			case 'o':
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!blobs.size() || !output.size()) {
-		std::cerr << "You must specify input and output parameters" << std::endl;
+		std::cerr << "You must specify input and output parameters\n\n";
 		em_usage(argv[0]);
 	}
 
