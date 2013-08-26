@@ -49,6 +49,7 @@ static void em_usage(char *p)
 		"  -i path             - input blob path (can be specified multiple times)\n"
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
+		"  -q                  - do not print errors, only totals\n"
 		"  -m                  - max entry size\n"
 		"  -h                  - this help\n"
 		"\n";
@@ -123,11 +124,12 @@ int main(int argc, char *argv[])
 	struct eblob_disk_control ddc;
 	long long total = 0, removed = 0, written = 0, broken = 0;
 	long long position = 0;
+	bool flag_quiet = false;
 
 	std::vector<em_blob_ptr> blobs;
 	std::string output;
 
-	while ((ch = getopt(argc, argv, "i:o:phm:")) != -1) {
+	while ((ch = getopt(argc, argv, "i:o:phm:q")) != -1) {
 		switch (ch) {
 			case 'i':
 				try {
@@ -148,6 +150,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'm':
 				flag_max_size = atoll(optarg);
+				break;
+			case 'q':
+				flag_quiet = true;
 				break;
 			case 'h':
 			default:
@@ -219,29 +224,32 @@ int main(int argc, char *argv[])
 
 			// Sanity checks
 			if (c.dc.disk_size < c.dc.data_size + sizeof(struct eblob_disk_control)) {
-				std::cout << "ERROR: disk_size is too small" <<
-					": blob: " << c.blob->path_ <<
-					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
-					std::endl;
+				if (!flag_quiet)
+					std::cout << "ERROR: disk_size is too small" <<
+						": blob: " << c.blob->path_ <<
+						": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+						std::endl;
 				broken++;
 				continue;
 			}
 			if (c.dc.disk_size + c.dc.position > (uint64_t)c.blob->data_size) {
-				std::cout << "ERROR: disk_size + posssition outside of blob: " <<
-					c.dc.disk_size + c.dc.position << " vs " <<
-					c.blob->data_size <<
-					": blob: " << c.blob->path_ <<
-					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
-					std::endl;
+				if (!flag_quiet)
+					std::cout << "ERROR: disk_size + posssition outside of blob: " <<
+						c.dc.disk_size + c.dc.position << " vs " <<
+						c.blob->data_size <<
+						": blob: " << c.blob->path_ <<
+						": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+						std::endl;
 				broken++;
 				continue;
 			}
 			if (c.dc.disk_size > (uint64_t)flag_max_size) {
-				std::cout << "ERROR: disk size is grater than max size: " <<
-					c.dc.disk_size << " vs " << flag_max_size <<
-					": blob: " << c.blob->path_ <<
-					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
-					std::endl;
+				if (!flag_quiet)
+					std::cout << "ERROR: disk size is grater than max size: " <<
+						c.dc.disk_size << " vs " << flag_max_size <<
+						": blob: " << c.blob->path_ <<
+						": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+						std::endl;
 				broken++;
 				continue;
 			}
@@ -254,8 +262,9 @@ int main(int argc, char *argv[])
 			c.blob->data.seekg(c.dc.position, std::ios::beg);
 			c.blob->data.read((char *)&ddc, sizeof(struct eblob_disk_control));
 			if (c.blob->data.gcount() != sizeof(struct eblob_disk_control)) {
-				std::cout << "ERROR: data header read failed, skipping entry: "
-					<< c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
+				if (!flag_quiet)
+					std::cout << "ERROR: data header read failed, skipping entry: "
+						<< c.blob->path_ << ": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) << std::endl;
 				c.blob->data.clear();
 				broken++;
 				continue;
@@ -272,11 +281,12 @@ int main(int argc, char *argv[])
 			if (memcmp(&ddc.key, &c.dc.key, sizeof(eblob_key)) != 0
 					|| ddc.position != c.dc.position
 					|| ddc.disk_size != c.dc.disk_size) {
-				std::cout << "ERROR: data and index header mismatch: " <<
-					"blob: " << c.blob->path_ <<
-					", data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
-					", index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
-					std::endl;
+				if (!flag_quiet)
+					std::cout << "ERROR: data and index header mismatch: " <<
+						"blob: " << c.blob->path_ <<
+						", data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
+						", index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+						std::endl;
 				broken++;
 				continue;
 			}
@@ -304,8 +314,9 @@ int main(int argc, char *argv[])
 					if (!index_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
 						throw std::runtime_error("index: header write failed\n");
 				} catch (...) {
-					std::cout << "ERROR: data copy failed, skipping entry: "
-						<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+					if (!flag_quiet)
+						std::cout << "ERROR: data copy failed, skipping entry: "
+							<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
 					c.blob->data.clear();
 					data_out.clear();
 					data_out.seekp(position, std::ios::beg);

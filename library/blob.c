@@ -1273,19 +1273,10 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		 * We must get disk_size of old record because record could be
 		 * modified with eblob_plain_write() and not yet be commited.
 		 */
-		err = __eblob_read_ll(old->bctl->data_fd, &old_dc,
-				sizeof(struct eblob_disk_control), old->data_offset);
+		err = __eblob_read_ll(eblob_get_index_fd(old->bctl), &old_dc,
+				sizeof(struct eblob_disk_control), old->index_offset);
 		if (err) {
 			eblob_dump_wc(b, key, wc, "copy: ERROR-pread-data", err);
-			goto err_out_rollback;
-		}
-
-		/* Sanity: Check that on-disk and in-memory keys are the same */
-		if (memcmp(&old_dc.key, key, sizeof(struct eblob_key)) != 0) {
-			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
-					"keys mismatch: in-memory: %s, on-disk: %s",
-					eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
-					eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE));
 			goto err_out_rollback;
 		}
 
