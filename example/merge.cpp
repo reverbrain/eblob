@@ -50,6 +50,7 @@ static void em_usage(char *p)
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
 		"  -m                  - max entry size\n"
+		"  -d                  - dry-run, do not copy data, only show and perfrom all needed index/data checks\n"
 		"  -h                  - this help\n"
 		"\n";
 	exit(-1);
@@ -123,6 +124,7 @@ int main(int argc, char *argv[])
 	struct eblob_disk_control ddc;
 	long long total = 0, removed = 0, written = 0, broken = 0;
 	long long position = 0;
+	int dry_run = 0;
 
 	std::vector<em_blob_ptr> blobs;
 	std::string output;
@@ -148,6 +150,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'm':
 				flag_max_size = atoll(optarg);
+				break;
+			case 'd':
+				dry_run = 1;
 				break;
 			case 'h':
 			default:
@@ -297,20 +302,22 @@ int main(int argc, char *argv[])
 			if (size > sizeof(struct eblob_disk_control)) {
 				eblob_convert_disk_control(&ddc);
 
-				try {
-					if (!data_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
-						throw std::runtime_error("data: header write failed\n");
-					copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
-					if (!index_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
-						throw std::runtime_error("index: header write failed\n");
-				} catch (...) {
-					std::cout << "ERROR: data copy failed, skipping entry: "
-						<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
-					c.blob->data.clear();
-					data_out.clear();
-					data_out.seekp(position, std::ios::beg);
-					broken++;
-					continue;
+				if (!dry_run) {
+					try {
+						if (!data_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
+							throw std::runtime_error("data: header write failed\n");
+						copy_data(c.blob->data, data_out, size - sizeof(struct eblob_disk_control));
+						if (!index_out.write((char *)&ddc, sizeof(struct eblob_disk_control)))
+							throw std::runtime_error("index: header write failed\n");
+					} catch (...) {
+						std::cout << "ERROR: data copy failed, skipping entry: "
+							<< c.blob->path_ << ": " << eblob_dump_control(&ddc, ddc.position, 1, 0) << std::endl;
+						c.blob->data.clear();
+						data_out.clear();
+						data_out.seekp(position, std::ios::beg);
+						broken++;
+						continue;
+					}
 				}
 
 				position += size;
