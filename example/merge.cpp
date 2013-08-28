@@ -169,9 +169,13 @@ int main(int argc, char *argv[])
 	try {
 		std::string data_path = output;
 		std::string index_path = output + ".index";
+		std::ofstream index_out;
+		std::ofstream data_out;
 
-		std::ofstream index_out(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
-		std::ofstream data_out(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+		if (!dry_run) {
+			index_out.open(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+			data_out.open(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+		}
 
 		while (true) {
 			std::vector<struct em_ctl> ctl;
