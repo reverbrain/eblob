@@ -2321,6 +2321,10 @@ static int eblob_lock_blob(struct eblob_backend *b)
 				"blob: lock file is busy: %d\n", -errno);
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: to find culprit use lsof/fuser: %s\n", lock_file);
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: EB0000: database is locked:\n");
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"blob: http://doc.reverbrain.com/kb:eblob:eb0000-database-is-locked\n");
 		(void)close(b->lock_fd);
 		return -errno;
 	}

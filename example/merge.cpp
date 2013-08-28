@@ -50,7 +50,7 @@ static void em_usage(char *p)
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
 		"  -m                  - max entry size\n"
-		"  -d                  - dry-run, do not copy data, only show and perfrom all needed index/data checks\n"
+		"  -d                  - dry-run, do not copy data, only perform all index/data checks\n"
 		"  -h                  - this help\n"
 		"\n";
 	exit(-1);
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 	std::vector<em_blob_ptr> blobs;
 	std::string output;
 
-	while ((ch = getopt(argc, argv, "i:o:phm:")) != -1) {
+	while ((ch = getopt(argc, argv, "di:o:phm:")) != -1) {
 		switch (ch) {
 			case 'i':
 				try {
@@ -169,9 +169,13 @@ int main(int argc, char *argv[])
 	try {
 		std::string data_path = output;
 		std::string index_path = output + ".index";
+		std::ofstream index_out;
+		std::ofstream data_out;
 
-		std::ofstream index_out(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
-		std::ofstream data_out(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+		if (!dry_run) {
+			index_out.open(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+			data_out.open(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
+		}
 
 		while (true) {
 			std::vector<struct em_ctl> ctl;
