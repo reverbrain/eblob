@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.14
+Version:	0.21.15
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Aug 28 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.15
+- blob: improved log message on lockf() failure
+- examples: merge: fixed spelling, improved wording
+- examples: merge: do not truncate output files on dry run
+- examples: merge: add -d to getopt
+- Added 'dry-run' mode in eblob_merge
+
 * Fri Aug 23 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.14
 - blob: added sanity to record copy
 - examples: merge: make errors more obvoius

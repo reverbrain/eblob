@@ -1,3 +1,13 @@
+eblob (0.21.15) unstable; urgency=low
+
+  * blob: improved log message on lockf() failure
+  * examples: merge: fixed spelling, improved wording
+  * examples: merge: do not truncate output files on dry run
+  * examples: merge: add -d to getopt
+  * Added 'dry-run' mode in eblob_merge
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 28 Aug 2013 20:12:55 +0400
+
 eblob (0.21.14) unstable; urgency=low
 
   * blob: added sanity to record copy
