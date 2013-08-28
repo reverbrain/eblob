@@ -161,18 +161,21 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!blobs.size() || !output.size()) {
+	if (output.size() && dry_run)
+		std::cerr << "WARNING: -d (dry-run) specified, -o (output) is ignored\n";
+
+	if (!blobs.size() || (!output.size() && !dry_run)) {
 		std::cerr << "You must specify input and output parameters\n\n";
 		em_usage(argv[0]);
 	}
 
 	try {
-		std::string data_path = output;
-		std::string index_path = output + ".index";
 		std::ofstream index_out;
 		std::ofstream data_out;
 
 		if (!dry_run) {
+			std::string data_path = output;
+			std::string index_path = output + ".index";
 			index_out.open(index_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
 			data_out.open(data_path.c_str(), std::ios_base::out | std::ios_base::binary | std::ios::trunc);
 		}
