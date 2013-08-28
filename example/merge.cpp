@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 	std::vector<em_blob_ptr> blobs;
 	std::string output;
 
-	while ((ch = getopt(argc, argv, "i:o:phm:")) != -1) {
+	while ((ch = getopt(argc, argv, "di:o:phm:")) != -1) {
 		switch (ch) {
 			case 'i':
 				try {
