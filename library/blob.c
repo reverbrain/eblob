@@ -1247,7 +1247,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	 * non-zero size and copy flag is set.
 	 *
 	 * NB! We also should copy seems-to-be-empty (old->size == 0) records
-	 * because they can be modified with write_plain but not yet commited.
+	 * because they can be modified with write_plain but not yet committed.
 	 */
 	if (old != NULL && copy == EBLOB_COPY_RECORD) {
 		struct eblob_disk_control old_dc;
@@ -1271,7 +1271,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 		/*
 		 * We must get disk_size of old record because record could be
-		 * modified with eblob_plain_write() and not yet be commited.
+		 * modified with eblob_plain_write() and not yet be committed.
 		 */
 		err = __eblob_read_ll(old->bctl->data_fd, &old_dc,
 				sizeof(struct eblob_disk_control), old->data_offset);
