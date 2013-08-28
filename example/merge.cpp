@@ -50,7 +50,7 @@ static void em_usage(char *p)
 		"  -o path             - output blob path\n"
 		"  -p                  - print all copied IDs\n"
 		"  -m                  - max entry size\n"
-		"  -d                  - dry-run, do not copy data, only show and perfrom all needed index/data checks\n"
+		"  -d                  - dry-run, do not copy data, only perform all index/data checks\n"
 		"  -h                  - this help\n"
 		"\n";
 	exit(-1);
