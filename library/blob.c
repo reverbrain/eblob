@@ -281,9 +281,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	err = eblob_check_record(bc, dc);
 	if (err != 0) {
 		eblob_log(ctl->log, EBLOB_LOG_ERROR,
-				"blob: eblob_check_record: skipping: offset: %llu\n",
+				"blob: eblob_check_record: offset: %llu\n",
 				loc->index_offset);
-		err = 1;
 		goto err_out_exit;
 	}
 
