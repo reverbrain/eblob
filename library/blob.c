@@ -230,7 +230,17 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 				"blob: malformed entry: disk_size is less than data_size + hdr_size: "
 				"pos: %" PRIu64 ", data_size: %" PRIu64 ", disk_size: %" PRIu64 "\n",
 				dc->position, dc->data_size, dc->disk_size);
-		return -ESPIPE;
+		/* Hack for blob versions that leaved zero-filled "holes" in index. */
+		if (dc->disk_size == 0 && dc->data_size == 0) {
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+					"blob: zero-sized entry: key: %s, pos: %" PRIu64 "\n",
+					eblob_dump_id(dc->key.id), dc->position);
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+					"blob: running `eblob_merge` on '%s' should help\n",
+					bctl->name);
+		} else {
+			return -ESPIPE;
+		}
 	}
 
 	/*
@@ -271,9 +281,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	err = eblob_check_record(bc, dc);
 	if (err != 0) {
 		eblob_log(ctl->log, EBLOB_LOG_ERROR,
-				"blob: eblob_check_record: skipping: offset: %llu\n",
+				"blob: eblob_check_record: offset: %llu\n",
 				loc->index_offset);
-		err = 1;
 		goto err_out_exit;
 	}
 
