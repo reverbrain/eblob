@@ -236,11 +236,19 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
 #define EBLOB_L2HASH				(1<<6)
 /*
  * Enable automatic data-sort.
- * Data-sort will be kick-in on base "close" or on open of unsorted base.
- *
- * Without of this flag it's still possible to run datasort via dnet_ioclient -d
+ * Data-sort will kick-in on base's "close" and on start for all unsorted
+ * bases.
  */
 #define EBLOB_AUTO_DATASORT			(1<<7)
+/*
+ * Enables periodic data-sort each defrag_timeout seconds.
+ */
+#define EBLOB_TIMED_DATASORT			(1<<8)
+/*
+ * Enables daily periodic data-sort in random time interval specified by
+ * defrag_time and defrag_splay.
+ */
+#define EBLOB_SCHEDULED_DATASORT		(1<<9)
 
 struct eblob_config {
 	/* blob flags above */
@@ -287,23 +295,14 @@ struct eblob_config {
 	/*
 	 * Automatic defragmentation starts when
 	 * number of removed entries in blob is higher
-	 * than this percentage (i.e. removed >= (good + removed) * defrag_percentage / 100)
+	 * than this percentage (i.e. removed >= total * defrag_percentage / 100)
 	 *
 	 * By default it is 25%
 	 */
 	int			defrag_percentage;
 
 	/*
-	 * Number of seconds between defragmentation checks and sorted index generation
-	 * It is a good idea to put here hours or even days,
-	 * since defragmentation checks every blob (read whole index)
-	 * to determine whether it is a good candidate for defragmentation,
-	 * but it only processes _one_ blob in given timeout, since
-	 * eblob only reserves space for at most one additional blob
-	 * After defragmented blob created, it will replace original
-	 * in the next run, i.e. after next timeout
-	 *
-	 * By default it is equal to -1 seconds, i.e. it is unlikely it will ever start
+	 * If EBLOB_TIMED_DATASORT is set - run defrag each defrag_timeout seconds.
 	 */
 	int			defrag_timeout;
 
@@ -318,9 +317,29 @@ struct eblob_config {
 	 */
 	uint64_t		blob_size_limit;
 
+	/*
+	 * If EBLOB_SCHEDULED_DATASORT is set - run defragmentation daily at
+	 * defrag_time.
+	 * Hour in 24-hour format to start automatic defragmentation.
+	 *
+	 * NB! All times specified in local timezone, not UTC.
+	 */
+	int			defrag_time;
+
+	/*
+	 * Randomization for defragmentation that is useful on large clusters
+	 * to mitigate thundering herd so that final defragmentation value will
+	 * be picked randomly somewhere in range:
+	 *    [defrag_time - defrag_splay, defrag_splay + defrag_splay]
+	 * Value specified in hours.
+	 *
+	 * NB! All times specified in local timezone, not UTC.
+	 */
+	int			defrag_splay;
+
 	/* for future use */
 	uint64_t		__pad_64[8];
-	int			__pad_int[8];
+	int			__pad_int[6];
 	char			__pad_char[8];
 	void			*__pad_voidp[8];
 };

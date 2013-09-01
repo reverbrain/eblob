@@ -35,6 +35,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -88,18 +89,81 @@ static int datasort_base_get_path(struct eblob_backend *b, struct eblob_base_ctl
 }
 
 /**
- * datasort_schedule_sort() - mark base do be sorted on next defrag run and
- * kick defragmentation.
+ * datasort_force_sort() - kick in defragmentation.
  */
-int datasort_schedule_sort(struct eblob_base_ctl *bctl)
+int datasort_force_sort(struct eblob_backend *b)
 {
-	if (bctl == NULL || bctl->back == NULL)
+	if (b == NULL)
 		return -EINVAL;
 
 	/* Kick in data-sort if auto-sort is enabled */
-	if (bctl->back->cfg.blob_flags & EBLOB_AUTO_DATASORT)
-		return eblob_start_defrag(bctl->back);
+	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
+		return eblob_start_defrag(b);
 	return 0;
+}
+
+/**
+ * Returns number of seconds till next defrag run
+ */
+uint64_t datasort_next_defrag(const struct eblob_backend *b)
+{
+	uint64_t next_defrag, timed_defrag = -1ULL, sched_defrag = -1ULL;
+
+	if (b->cfg.blob_flags & EBLOB_TIMED_DATASORT) {
+		timed_defrag = b->cfg.defrag_timeout;
+
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+				"defrag: timed_defrag is: +%" PRIu64 " seconds",
+				timed_defrag);
+	}
+
+	if (b->cfg.blob_flags & EBLOB_SCHEDULED_DATASORT) {
+		time_t current_time, tomorrow, sched_time;
+		struct tm sched_tm;
+
+		/* Get current time (UTC) */
+		current_time = time(NULL);
+		/* Add 24hrs */
+		tomorrow = current_time + 86400;
+		/* Convert to gmtime (LOCAL) */
+		localtime_r(&tomorrow, &sched_tm);
+		/* Set hour to defrag_time, reset minutes and seconds */
+		sched_tm.tm_hour = b->cfg.defrag_time;
+		sched_tm.tm_min = 0;
+		sched_tm.tm_sec = 0;
+		/* Convert back to time (UTC) */
+		sched_time = mktime(&sched_tm);
+		/* Randomize sched_time */
+		if (b->cfg.defrag_splay > 0) {
+			/* +splay_time, -rand%(2*splay_time) */
+			sched_time += 3600 * b->cfg.defrag_splay;
+			sched_time -= random() % (2 * 3600 * b->cfg.defrag_splay);
+		}
+
+		/*
+		 * Schedule defrag to 'now' if time is already passed
+		 * NB! Should not happen
+		 */
+		sched_defrag = (uint64_t)EBLOB_MAX(current_time, sched_time);
+		/* Make it relative to current time */
+		sched_defrag -= current_time;
+
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE,
+				"defrag: sched_defrag is: +%" PRIu64 " seconds",
+				sched_defrag);
+	}
+
+	/*
+	 * Select minimal time 'till defrag but do not schedule it more than
+	 * once per EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT seconds.
+	 */
+	next_defrag = EBLOB_MIN(timed_defrag, sched_defrag);
+	next_defrag = EBLOB_MAX(next_defrag, EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT);
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+			"defrag: next datasort is sheduled to +%" PRIu64 " seconds.",
+			next_defrag);
+
+	return next_defrag;
 }
 
 /**
