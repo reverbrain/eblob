@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 
@@ -1161,7 +1162,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 			goto err_out_exit;
 
 		if (ctl->sort.fd < 0)
-			datasort_schedule_sort(ctl);
+			datasort_force_sort(b);
 
 		ctl = list_last_entry(&b->bases, struct eblob_base_ctl, base_entry);
 	}
@@ -2349,6 +2350,9 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
 
+	/* Init random number generator */
+	srandom(time(NULL));
+
 	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
 		errno = -ENOMEM;
@@ -2386,6 +2390,11 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		c->defrag_timeout = EBLOB_DEFAULT_DEFRAG_TIMEOUT;
 	if (!c->defrag_percentage || (c->defrag_percentage < 0) || (c->defrag_percentage > 100))
 		c->defrag_percentage = EBLOB_DEFAULT_DEFRAG_PERCENTAGE;
+	if ((c->defrag_time < 0 || c->defrag_time > 24)
+			|| (c->defrag_splay < 0 || c->defrag_time > 24)) {
+		c->defrag_time = EBLOB_DEFAULT_DEFRAG_TIME;
+		c->defrag_splay = EBLOB_DEFAULT_DEFRAG_SPLAY;
+	}
 
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));
 
