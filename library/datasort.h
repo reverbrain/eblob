@@ -92,11 +92,22 @@ struct datasort_cfg {
 	struct eblob_base_ctl		*sorted_bctl;
 };
 
+/*
+ * Main data-sort routine
+ * NB! This is legacy name to match with eblob_generate_sorted_index
+ */
 int eblob_generate_sorted_data(struct datasort_cfg *dcfg);
+
+/* Removes left-overs from previous (failed) data-sort */
 int datasort_cleanup_stale(struct eblob_log *log, char *base, char *dir);
 
+/* Is base sorted or not? */
 int datasort_base_is_sorted(struct eblob_base_ctl *bctl);
-int datasort_schedule_sort(struct eblob_base_ctl *bctl);
+
+/* Forces data-sort to process as soon as possible */
+int datasort_force_sort(struct eblob_backend *b);
+/* Returns number of seconds till next defrag */
+uint64_t datasort_next_defrag(const struct eblob_backend *b);
 
 /*
  * Tiny binlog replacement.

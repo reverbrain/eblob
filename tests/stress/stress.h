@@ -111,6 +111,8 @@ struct test_thread_cfg {
  */
 #define DEFAULT_BLOB_FLAGS		(0)
 #define DEFAULT_BLOB_DEFRAG		(10)
+#define DEFAULT_BLOB_DEFRAG_TIME	(4)
+#define DEFAULT_BLOB_DEFRAG_SPLAY	(5)
 #define DEFAULT_BLOB_RECORDS		(10000)
 #define DEFAULT_BLOB_SIZE		(100 * 1<<20)
 #define DEFAULT_BLOB_SYNC		(-1)

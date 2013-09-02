@@ -67,8 +67,11 @@
 #define EBLOB_BLOB_INDEX_SUFFIX			".index"
 #define EBLOB_BLOB_DEFAULT_BLOB_SIZE		(50 * EBLOB_1_G)
 #define EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB	(50000000)
-#define EBLOB_DEFAULT_DEFRAG_TIMEOUT		(-1)
+#define EBLOB_DEFAULT_DEFRAG_TIMEOUT		(86400)
 #define EBLOB_DEFAULT_DEFRAG_PERCENTAGE		(25)
+#define EBLOB_DEFAULT_DEFRAG_TIME		(3)
+#define EBLOB_DEFAULT_DEFRAG_SPLAY		(3)
+#define EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT	(60)
 #define EBLOB_DEFAULT_ITERATE_THREADS		(1)
 
 /* Size of one entry in cache */
@@ -502,6 +505,10 @@ int eblob_mutex_init(pthread_mutex_t *mutex);
 
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
+
+/* Min/Max macros */
+#define EBLOB_MIN(a,b) ((a) < (b) ? (a) : (b))
+#define EBLOB_MAX(a,b) ((a) > (b) ? (a) : (b))
 
 /* Logging helpers */
 #define EBLOB_WARNX(log, severity, fmt, ...)	eblob_log(log, severity, \

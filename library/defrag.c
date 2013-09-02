@@ -221,17 +221,12 @@ err_out_exit:
 void *eblob_defrag(void *data)
 {
 	struct eblob_backend *b = data;
-	unsigned int sleep_time;
+	uint64_t sleep_time;
 
 	if (b == NULL)
 		return NULL;
 
-	/* If auto-sort is disabled - disable timer data-sort */
-	if (!(b->cfg.blob_flags & EBLOB_AUTO_DATASORT))
-		b->cfg.defrag_timeout = -1;
-
-	sleep_time = b->cfg.defrag_timeout;
-
+	sleep_time = datasort_next_defrag(b);
 	while (!b->need_exit) {
 		if ((sleep_time-- != 0) && (b->want_defrag == 0)) {
 			sleep(1);
@@ -240,7 +235,7 @@ void *eblob_defrag(void *data)
 
 		eblob_defrag_raw(b);
 		b->want_defrag = 0;
-		sleep_time = b->cfg.defrag_timeout;
+		sleep_time = datasort_next_defrag(b);
 	}
 
 	return NULL;
