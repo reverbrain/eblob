@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.16
+Version:	0.21.17
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Sep 02 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.17
+- data-sort: add time-scheduled data-sort
+
 * Fri Aug 30 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.16
 - blob: we shouldn't ignore index corruption on iteration
 - blob: skip size check on possibly zero-filled records
