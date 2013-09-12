@@ -22,8 +22,8 @@ using namespace ioremap::eblob;
 
 class eblob_regex_callback : public eblob_iterator_callback {
 	public:
-		eblob_regex_callback(const std::string &regex, const struct eblob_key &key, const int check_key_len) :
-			total_(0), start_(time(NULL)), re_(regex), check_key_(key), check_key_len_(check_key_len) {
+		eblob_regex_callback(const std::string &regex) :
+			total_(0), start_(time(NULL)), re_(regex) {
 		}
 
 		virtual ~eblob_regex_callback() {
@@ -42,7 +42,7 @@ class eblob_regex_callback : public eblob_iterator_callback {
 
 			int match = regex_match(key, re_);
 
-			if (match || (check_key_len_ && !memcmp(dco->key.id, check_key_.id, check_key_len_))) {
+			if (match) {
 				std::cout << eblob_dump_control(dco, 0, match, index) << std::endl;
 			}
 
@@ -60,8 +60,6 @@ class eblob_regex_callback : public eblob_iterator_callback {
 		uint64_t total_;
 		time_t start_, cur_;
 		const boost::regex re_;
-		struct eblob_key check_key_;
-		int check_key_len_;
 
 		int performance(int num) {
 			return num / (cur_ - start_ + 1);
@@ -71,27 +69,21 @@ class eblob_regex_callback : public eblob_iterator_callback {
 
 int main(int argc, char *argv[])
 {
-	struct eblob_key key;
-	int check_key_len = 0;
-
-	if (argc < 5) {
-		std::cerr << "Usage: " << argv[0] << " eblob thread_num regex <id>" << std::endl;
+	if (argc != 3) {
+		std::cerr << "Usage: " << argv[0] << " eblob regex" << std::endl;
+		std::cerr << "  'eblob' is blob base, i.e. part of the full path except last '.index-num' part\n"
+			"  if you have /srv/data-0.0, /srv/data-0.1 blobs,\n"
+			"  then 'eblob' part should be '/srv/data-0'\n" << std::endl;
 		exit(-1);
-	} else if (argc > 6) {
-		memset(&key, 0, sizeof(struct eblob_key));
-		dnet_parse_numeric_id(argv[5], key.id);
-		check_key_len = strlen(argv[5]) / 2;
 	}
 
-	int tnum = ::atoi(argv[2]);
-
 	std::string input_blob_name = argv[1];
-	std::string regex = argv[3];
+	std::string regex = argv[2];
 
 	try {
-		eblob_regex_callback cb(regex, key, check_key_len);
+		eblob_regex_callback cb(regex);
 		eblob_iterator eblob(input_blob_name);
-		eblob.iterate(cb, tnum);
+		eblob.iterate(cb, 1);
 	} catch (const std::exception &e) {
 		std::cerr << "caught: " << e.what() << std::endl;
 	}
