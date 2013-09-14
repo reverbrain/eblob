@@ -52,21 +52,29 @@
 static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
-	int64_t total, removed;
+	int64_t total, removed, size;
 	int err = EBLOB_DEFRAG_NOT_NEEDED;
 
 	eblob_base_wait_locked(bctl);
 	total = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	removed = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
+	size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 	pthread_mutex_unlock(&bctl->lock);
 
 	/* Sanity */
 	if (total < removed)
 		return -EINVAL;
+	if (size < 0)
+		return -EINVAL;
 
-	/* If defrag thresholds are met or base is less than 1/10 of it's limit */
+	/*
+	 * If defrag threshold is met or base is less than 1/10 of it's limit
+	 * in both record number AND base size.
+	 * Last condition is needed to properly merge "small" bases into one.
+	 */
 	if (removed >= (total - removed) * b->cfg.defrag_percentage / 100
-			|| (uint64_t)(total - removed) < b->cfg.records_in_blob / 10)
+			|| (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10)
+				&& ((uint64_t)size < b->cfg.blob_size / 10)))
 		err = EBLOB_DEFRAG_NEEDED;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
