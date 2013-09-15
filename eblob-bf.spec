@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.17
+Version:	0.21.18
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Sep 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.18
+- defrag_percentage is a part of total number of record, not 'accessible' ones
+- defrag: mark bctls for defrag based on number of records and size
+- Simplify eblob_regex_iter
+
 * Mon Sep 02 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.17
 - data-sort: add time-scheduled data-sort
 

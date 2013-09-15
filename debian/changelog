@@ -1,3 +1,11 @@
+eblob (0.21.18) unstable; urgency=low
+
+  * defrag_percentage is a part of total number of record, not 'accessible' ones
+  * defrag: mark bctls for defrag based on number of records and size
+  * Simplify eblob_regex_iter
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 15 Sep 2013 22:57:53 +0400
+
 eblob (0.21.17) unstable; urgency=low
 
   * data-sort: add time-scheduled data-sort
