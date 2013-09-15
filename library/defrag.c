@@ -68,11 +68,11 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		return -EINVAL;
 
 	/*
-	 * If defrag threshold is met or base is less than 1/10 of it's limit
+	 * If defrag threshold is met or base (number of accessible keys) is less than 1/10 of it's limit
 	 * in both record number AND base size.
 	 * Last condition is needed to properly merge "small" bases into one.
 	 */
-	if (removed >= (total - removed) * b->cfg.defrag_percentage / 100
+	if (removed >= total * b->cfg.defrag_percentage / 100
 			|| (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10)
 				&& ((uint64_t)size < b->cfg.blob_size / 10)))
 		err = EBLOB_DEFRAG_NEEDED;
