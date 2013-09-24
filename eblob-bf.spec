@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.18
+Version:	0.21.19
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Sep 24 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.19
+- Use eblob_preallocate() instead of ftruncate(), since the latter may fail to preallocate needed space on disk, and thus mmap() may fail/crash
+
 * Sun Sep 15 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.18
 - defrag_percentage is a part of total number of record, not 'accessible' ones
 - defrag: mark bctls for defrag based on number of records and size
