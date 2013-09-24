@@ -492,10 +492,10 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	dst.fd = fd;
 	dst.size = src.size;
 
-	err = ftruncate(dst.fd, dst.size);
+	err = eblob_preallocate(dst.fd, dst.size);
 	if (err) {
 		err = -errno;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: ftruncate: index: %d, offset: %llu: %s: %s %d\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: index: eblob_preallocate: index: %d, offset: %llu: %s: %s %d\n",
 				bctl->index, (unsigned long long)dst.size, file, strerror(-err), err);
 		goto err_out_unmap_src;
 	}
