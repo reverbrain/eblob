@@ -1,0 +1,44 @@
+./" 2008+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+./" All rights reserved.
+
+.TH MAN 1 2013-07-10 "Linux" "Elliptics admin's guide"
+.SH NAME
+eblob_regex_iter \- search through the blob by regex.
+.SH SYNOPSIS
+.B eblob_regex_iter 
+.I blob_path_prefix regex
+.SH DESCRIPTION
+Run this command to find keys which contain data corresponding to the given  regular expresion.
+.SH OPTIONS
+.TP
+.B blob_path_prefix.
+Path to the blob files. Blob files have names corresponding to the next pattern 
+.B $prefix-0.$index, 
+for example
+.B data-0.1, data-0.2 ...
+The 
+.B blob_path_prefix 
+should contain path to 
+.B $prefix-0. 
+For example,
+.B /var/tmp/blob/data-0.
+.TP
+.B regex
+Regular expression.
+.SH EXAMPLES
+eblob_regex_iter /var/tmp/blob/data-0 ".*"
+
+This command will open all of the files with the specified prefix (data-0.0 data-0.1, data-0.2, ...) and show us all the records in all the files.
+.SH AUTHOR
+Evgeniy Polyakov (zbr@ioremap.net)
+.SH SEE ALSO
+.P
+.BR dnet_find (1),
+.BR dnet_ioclient (1),
+.BR dnet_ioserv (1),
+.BR dnet_recovery (1),
+.BR eblob_index_info (1),
+.BR eblob_merge (1),
+.BR eblob_regex_iter (1),
+.P
+Complete documentation on project you can find at http://doc.reverbrain.com.

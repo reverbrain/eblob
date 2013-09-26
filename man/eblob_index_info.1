@@ -1,0 +1,55 @@
+./" 2008+ Copyright (c) Evgeniy Polyakov <zbr@ioremap.net>
+./" All rights reserved.
+
+.TH MAN 1 2013-07-10 "Linux" "Elliptics admin's guide"
+.SH NAME
+eblob_index_info \- simple statistics on blob index.
+.SH SYNOPSIS
+.B eblob_index_info 
+.I eblob_index_file <id>
+.P
+.SH DESCRIPTION
+Run this command to get total amount of records in blob file and amount of marked for deletion records. More complete statisic you can find in
+.I .stat
+file of the database. Read http://doc.reverbrain.com/eblob:statistics for more details.
+.SH OPTIONS
+.TP
+.B eblob_index_file
+Path to index file. For example,
+.B /var/tmp/blob/data-0.4.index.
+.TP
+.B <id>
+Optional parameter. If it is used, information about records which keys start from <id> string is added to statistics.
+.SH EXAMPLES
+Command:
+
+    eblob_index_info /var/tmp/blob/data-0.4.index
+
+Result:
+    
+    Total records: 10
+    
+    Removed records: 2
+
+Command:
+
+eblob_index_info /var/tmp/blob/data-0.4.index 0fcd
+
+Result:
+    6b822cd...: read_position: 864, index: 0, data_size: 800, disk_size: 968, position: 4237, flags: 40: MATCH
+    
+    Total records: 10
+    
+    Removed records: 2
+.SH AUTHOR
+Evgeniy Polyakov (zbr@ioremap.net)
+.SH SEE ALSO
+.P
+.BR dnet_find (1),
+.BR dnet_ioclient (1),
+.BR dnet_ioserv (1),
+.BR dnet_recovery (1),
+.BR eblob_merge (1),
+.BR eblob_regex_iter (1),
+.P
+Complete documentation on project you can find at http://doc.reverbrain.com.
