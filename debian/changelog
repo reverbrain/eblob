@@ -1,3 +1,12 @@
+eblob (0.21.20) unstable; urgency=low
+
+  * man: reformatted examples
+  * man: dos2unix
+  * blob: fix return value in case of eblob_preallocate failure
+  * Added eblob tool man pages
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 27 Sep 2013 22:29:24 +0400
+
 eblob (0.21.19) unstable; urgency=low
 
   * Use eblob_preallocate() instead of ftruncate(), since the latter may fail to preallocate needed space on disk, and thus mmap() may fail/crash

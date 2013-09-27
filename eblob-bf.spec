@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.19
+Version:	0.21.20
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Sep 27 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.20
+- man: reformatted examples
+- man: dos2unix
+- blob: fix return value in case of eblob_preallocate failure
+- Added eblob tool man pages
+
 * Tue Sep 24 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.19
 - Use eblob_preallocate() instead of ftruncate(), since the latter may fail to preallocate needed space on disk, and thus mmap() may fail/crash
 
