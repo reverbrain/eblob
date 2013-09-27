@@ -5,7 +5,7 @@
 .SH NAME
 eblob_index_info \- simple statistics on blob index.
 .SH SYNOPSIS
-.B eblob_index_info 
+.B eblob_index_info
 .I eblob_index_file <id>
 .P
 .SH DESCRIPTION
@@ -21,26 +21,17 @@ Path to index file. For example,
 .B <id>
 Optional parameter. If it is used, information about records which keys start from <id> string is added to statistics.
 .SH EXAMPLES
-Command:
 
-    eblob_index_info /var/tmp/blob/data-0.4.index
-
-Result:
-    
+    $ eblob_index_info /var/tmp/blob/data-0.4.index
     Total records: 10
-    
     Removed records: 2
 
-Command:
 
-eblob_index_info /var/tmp/blob/data-0.4.index 0fcd
-
-Result:
+    $ eblob_index_info /var/tmp/blob/data-0.4.index 0fcd
     6b822cd...: read_position: 864, index: 0, data_size: 800, disk_size: 968, position: 4237, flags: 40: MATCH
-    
     Total records: 10
-    
     Removed records: 2
+
 .SH AUTHOR
 Evgeniy Polyakov (zbr@ioremap.net)
 .SH SEE ALSO

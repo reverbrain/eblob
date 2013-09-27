@@ -5,30 +5,30 @@
 .SH NAME
 eblob_regex_iter \- search through the blob by regex.
 .SH SYNOPSIS
-.B eblob_regex_iter 
+.B eblob_regex_iter
 .I blob_path_prefix regex
 .SH DESCRIPTION
 Run this command to find keys which contain data corresponding to the given  regular expresion.
 .SH OPTIONS
 .TP
 .B blob_path_prefix.
-Path to the blob files. Blob files have names corresponding to the next pattern 
-.B $prefix-0.$index, 
+Path to the blob files. Blob files have names corresponding to the next pattern
+.B $prefix-0.$index,
 for example
 .B data-0.1, data-0.2 ...
-The 
-.B blob_path_prefix 
-should contain path to 
-.B $prefix-0. 
+The
+.B blob_path_prefix
+should contain path to
+.B $prefix-0.
 For example,
 .B /var/tmp/blob/data-0.
 .TP
 .B regex
 Regular expression.
 .SH EXAMPLES
-eblob_regex_iter /var/tmp/blob/data-0 ".*"
-
 This command will open all of the files with the specified prefix (data-0.0 data-0.1, data-0.2, ...) and show us all the records in all the files.
+    $ eblob_regex_iter /var/tmp/blob/data-0 ".*"
+
 .SH AUTHOR
 Evgeniy Polyakov (zbr@ioremap.net)
 .SH SEE ALSO

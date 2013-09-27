@@ -5,8 +5,8 @@
 .SH NAME
 eblob_merge \- defragmenting and merging of blobs.
 .SH SYNOPSIS
-.B eblob_merge \-i 
-.I path 
+.B eblob_merge \-i
+.I path
 .B [-i
 .I path
 .B ]
@@ -17,14 +17,14 @@ eblob_merge \- defragmenting and merging of blobs.
 .SH DESCRIPTION
 This off-line tool intended to manipulate eblob database. It can be used to either merge number of blobs into one or to recover blobs using data from unsorted index.
 
-Generally, it is a good idea to run 
-.I eblob_merge 
+Generally, it is a good idea to run
+.I eblob_merge
 prior upgrades of servers because elliptics refuses to work with corrupted blobs.
 
 Sometimes you need to read http://doc.reverbrain.com/eblob:tools:eblob_merge instead of this man, there can be more actual information.
 .SH OPTIONS
 .TP
-.B \-i path 
+.B \-i path
 Input blob path (can be specified multiple times).
 .TP
 .B \-o path
@@ -36,22 +36,22 @@ Print all copied IDs.
 .B \-m
 Maximum entry size.
 .TP
-.B \-d 
+.B \-d
 Dry-run, do not copy data, only show and perform all needed index/data checks.
 .TP
 .B \-h
 Show help message and exit.
 .SH EXAMPLES
 .P
-The following example defragments blobs 
-.B data-0.3 
+The following example defragments blobs
+.B data-0.3
 and
-.B data-0.4 
-into the 
-.B mblob 
+.B data-0.4
+into the
+.B mblob
 file.
 .P
-eblob_merge -i data-0.3 -i data-0.4 -o mblob -p
+    $ eblob_merge -i data-0.3 -i data-0.4 -o mblob -p
 .SH AUTHOR
 Evgeniy Polyakov (zbr@ioremap.net)
 .SH SEE ALSO
