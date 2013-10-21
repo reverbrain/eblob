@@ -777,8 +777,10 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 					 * This is racey if removed at runtime, so only valid at initial load
 					 */
 					pthread_mutex_lock(&b->lock);
-					eblob_base_remove(bctl);
+					list_del_init(&bctl->base_entry);
 					pthread_mutex_unlock(&b->lock);
+
+					eblob_base_remove(bctl);
 
 					eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: removing: index: %d, data_fd: %d, index_fd: %d, "
 							"data_size: %llu, data_offset: %llu, have_sort: %d\n",
@@ -965,8 +967,6 @@ void eblob_base_remove(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	char path[PATH_MAX], base_path[PATH_MAX];
-
-	list_del_init(&bctl->base_entry);
 
 	snprintf(base_path, PATH_MAX, "%s-0.%d", b->cfg.file, bctl->index);
 	unlink(base_path);
