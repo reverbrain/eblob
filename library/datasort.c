@@ -680,7 +680,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	qsort(sorted_chunk->index, sorted_chunk->count, hdr_size, eblob_disk_control_sort);
 
 	/* Preallocate space for sorted chunk */
-	err = eblob_preallocate(sorted_chunk->fd, sorted_chunk->offset);
+	err = eblob_preallocate(sorted_chunk->fd, 0, sorted_chunk->offset);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 				"eblob_preallocate: fd: %d, size: %" PRIu64,
@@ -1040,7 +1040,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	}
 
 	/* Preallocate space for index */
-	err = eblob_preallocate(index.fd, index.size);
+	err = eblob_preallocate(index.fd, 0, index.size);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 				"eblob_preallocate: fd: %d, size: %" PRIu64, index.fd, index.size);
