@@ -910,12 +910,12 @@ void eblob_remove_blobs(struct eblob_backend *b)
 /*
  * Efficiently preallocate up to @size bytes for @fd
  */
-int eblob_preallocate(int fd, off_t size)
+int eblob_preallocate(int fd, off_t offset, off_t size)
 {
-	if (size < 0 || fd < 0)
+	if (offset < 0 || size < 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
-	if (posix_fallocate(fd, 0, size) == 0)
+	if (posix_fallocate(fd, offset, size) == 0)
 		return 0;
 	/* Fallback to ftruncate if FS does not support fallocate */
 #endif
@@ -924,7 +924,7 @@ int eblob_preallocate(int fd, off_t size)
 	 *
 	 * TODO: Check that file size > @size
 	 */
-	if (ftruncate(fd, size) == -1)
+	if (ftruncate(fd, offset + size) == -1)
 		return -errno;
 	return 0;
 }
