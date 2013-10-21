@@ -1,3 +1,10 @@
+eblob (0.21.21) unstable; urgency=low
+
+  * Physically delete blobs where all records were already removed.
+  * Added ability to pass offset to eblob_preallocate
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 21 Oct 2013 22:10:08 +0400
+
 eblob (0.21.20) unstable; urgency=low
 
   * man: reformatted examples
