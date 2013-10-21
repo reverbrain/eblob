@@ -49,7 +49,7 @@
  * entries (aka good ones) and compares it with total.
  * If percentage >= defrag_percentage then defrag should proceed.
  */
-static int eblob_want_defrag(struct eblob_base_ctl *bctl)
+int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	int64_t total, removed, size;
@@ -77,13 +77,15 @@ static int eblob_want_defrag(struct eblob_base_ctl *bctl)
 				&& ((uint64_t)size < b->cfg.blob_size / 10)))
 		err = EBLOB_DEFRAG_NEEDED;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+	if ((total > 0) && (total == removed))
+		err = EBLOB_REMOVE_NEEDED;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 			"%s: index: %d, removed: %" PRId64 ", total: %" PRId64 ", "
 			"percentage: %d, want-defrag: %d\n",
 			__func__, bctl->index, removed, total,
 			b->cfg.defrag_percentage, err);
 
-	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "%s: finished: %d", __func__, err);
 	return err;
 }
 
@@ -136,9 +138,12 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR,
 					"eblob_want_defrag: FAILED");
 
-		if (want == EBLOB_DEFRAG_NOT_NEEDED &&
-				datasort_base_is_sorted(bctl) == 1)
+		if (want == EBLOB_REMOVE_NEEDED)
 			continue;
+
+		if (want == EBLOB_DEFRAG_NOT_NEEDED && datasort_base_is_sorted(bctl) == 1)
+			continue;
+
 		/*
 		 * Number of bases could be changed so check that we still
 		 * within bctls allocated space.

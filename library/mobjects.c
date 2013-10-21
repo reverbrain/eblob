@@ -521,7 +521,7 @@ void eblob_bases_cleanup(struct eblob_backend *b)
 	struct eblob_base_ctl *ctl, *tmp;
 
 	list_for_each_entry_safe(ctl, tmp, &b->bases, base_entry) {
-		list_del(&ctl->base_entry);
+		list_del_init(&ctl->base_entry);
 
 		eblob_base_ctl_cleanup(ctl);
 		free(ctl);
@@ -727,10 +727,11 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 	return eblob_cache_insert(b, &dc->key, ctl);
 }
 
-int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl)
+static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 {
 	int err, thread_num = ctl->thread_num, idx = 0;
-	struct eblob_base_ctl *bctl;
+	struct eblob_base_ctl *bctl, *bctl_tmp;
+	int want;
 
 	if (b == NULL || ctl == NULL)
 		return -EINVAL;
@@ -754,15 +755,43 @@ int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control
 		}
 	}
 
-	list_for_each_entry(bctl, &b->bases, base_entry) {
+	list_for_each_entry_safe(bctl, bctl_tmp, &b->bases, base_entry) {
 		if (!ctl->blob_num ||
 				((idx >= ctl->blob_start) && (idx < ctl->blob_num - ctl->blob_start))) {
 			ctl->base = bctl;
 			ctl->thread_num = thread_num;
 
 			err = 0;
-			if (bctl->sort.fd < 0 || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL))
+			if (bctl->sort.fd < 0 || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
 				err = eblob_blob_iterate(ctl);
+			}
+
+			if (ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD) {
+				want = eblob_want_defrag(bctl);
+				if (want < 0)
+					EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR,
+							"eblob_want_defrag: FAILED");
+
+				if (want == EBLOB_REMOVE_NEEDED) {
+					/*
+					 * This is racey if removed at runtime, so only valid at initial load
+					 */
+					pthread_mutex_lock(&b->lock);
+					eblob_base_remove(bctl);
+					pthread_mutex_unlock(&b->lock);
+
+					eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: removing: index: %d, data_fd: %d, index_fd: %d, "
+							"data_size: %llu, data_offset: %llu, have_sort: %d\n",
+							bctl->index, bctl->data_fd, bctl->index_fd,
+							bctl->data_size, (unsigned long long)bctl->data_offset,
+							bctl->sort.fd >= 0);
+
+
+					eblob_base_ctl_cleanup(bctl);
+					free(bctl);
+					continue;
+				}
+			}
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: index: %d, data_fd: %d, index_fd: %d, "
 					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
@@ -936,6 +965,8 @@ void eblob_base_remove(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
 	char path[PATH_MAX], base_path[PATH_MAX];
+
+	list_del_init(&bctl->base_entry);
 
 	snprintf(base_path, PATH_MAX, "%s-0.%d", b->cfg.file, bctl->index);
 	unlink(base_path);

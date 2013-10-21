@@ -190,6 +190,7 @@ enum eblob_defrag_type {
 	EBLOB_DEFRAG_NOT_NEEDED = 0,
 	/* Defrag needed */
 	EBLOB_DEFRAG_NEEDED,
+	EBLOB_REMOVE_NEEDED,
 };
 
 /*
@@ -403,6 +404,7 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl);
 
 int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
+int eblob_want_defrag(struct eblob_base_ctl *bctl);
 
 struct eblob_backend {
 	struct eblob_config	cfg;
@@ -457,7 +459,6 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 		const struct eblob_disk_control *dc);
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
-int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl);
 
 void *eblob_defrag(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
