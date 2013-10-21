@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.21
+Version:	0.21.22
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Oct 21 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.22
+- eblob_base_remove() must not remove base ctl from base list, since it will be updated during defragmentation and thus will be lost
+
 * Mon Oct 21 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.21
 - Physically delete blobs where all records were already removed.
 - Added ability to pass offset to eblob_preallocate

@@ -1,3 +1,9 @@
+eblob (0.21.22) unstable; urgency=low
+
+  * eblob_base_remove() must not remove base ctl from base list, since it will be updated during defragmentation and thus will be lost
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 21 Oct 2013 23:25:08 +0400
+
 eblob (0.21.21) unstable; urgency=low
 
   * Physically delete blobs where all records were already removed.
