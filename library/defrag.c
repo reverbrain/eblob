@@ -82,9 +82,9 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 			"%s: index: %d, removed: %" PRId64 ", total: %" PRId64 ", "
-			"percentage: %d, want-defrag: %d\n",
+			"percentage: %d, size: %" PRId64 ", want-defrag: %d\n",
 			__func__, bctl->index, removed, total,
-			b->cfg.defrag_percentage, err);
+			b->cfg.defrag_percentage, size, err);
 
 	return err;
 }
@@ -217,8 +217,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		if (++current > bctl_cnt)
 			break;
 		/* Reset counters */
-		total_records = 0;
-		total_size = 0;
+		total_records = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_TOTAL)
+			- eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_REMOVED);
+		total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
 	}
 
 err_out_exit:
