@@ -10,6 +10,7 @@
 *.so
 *.so.*
 *.tar.gz
+.sw*
 *~
 CMakeCache.txt
 CMakeFiles/
@@ -26,4 +27,4 @@ example/eblob_regex_iter
 tests/eblob_cpp_test
 tests/eblob_stress
 tests/tmp/
-
+build/*
