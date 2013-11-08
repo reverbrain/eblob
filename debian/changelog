@@ -1,3 +1,11 @@
+eblob (0.21.23) unstable; urgency=low
+
+  * license: use eblob is now under LGPLv3
+  * gitignore: update
+  * defrag: eblob should delete/unlink blob files containg only removed entries as soon as it detects them
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 07 Nov 2013 23:16:51 +0400
+
 eblob (0.21.22) unstable; urgency=low
 
   * eblob_base_remove() must not remove base ctl from base list, since it will be updated during defragmentation and thus will be lost

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.22
+Version:	0.21.23
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Nov 07 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.23
+- license: use eblob is now under LGPLv3
+- gitignore: update
+- defrag: eblob should delete/unlink blob files containg only removed entries as soon as it detects them
+
 * Mon Oct 21 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.22
 - eblob_base_remove() must not remove base ctl from base list, since it will be updated during defragmentation and thus will be lost
 
