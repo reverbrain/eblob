@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.23
+Version:	0.21.24
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Nov 08 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.24
+- merge: allow to merge really old blobs whose indexes always contain 96 as disk_size
+
 * Thu Nov 07 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.23
 - license: use eblob is now under LGPLv3
 - gitignore: update

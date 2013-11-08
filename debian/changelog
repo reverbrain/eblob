@@ -1,3 +1,9 @@
+eblob (0.21.24) unstable; urgency=low
+
+  * merge: allow to merge really old blobs whose indexes always contain 96 as disk_size
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 08 Nov 2013 22:38:56 +0400
+
 eblob (0.21.23) unstable; urgency=low
 
   * license: use eblob is now under LGPLv3
