@@ -230,7 +230,19 @@ int main(int argc, char *argv[])
 			}
 
 			// Sanity checks
-			if (c.dc.disk_size < c.dc.data_size + sizeof(struct eblob_disk_control)) {
+			if (c.dc.disk_size == sizeof(struct eblob_disk_control)) {
+				static int old_blobs_detected = 0;
+				// very old blobs - their indexes always had 96 bytes in 'disk_size' field
+
+				if (!old_blobs_detected) {
+					std::cout << "ERROR: old blob detected: disk_size is too small" <<
+						": blob: " << c.blob->path_ <<
+						": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+						std::endl;
+
+					old_blobs_detected = 1;
+				}
+			} else if (c.dc.disk_size < c.dc.data_size + sizeof(struct eblob_disk_control)) {
 				std::cout << "ERROR: disk_size is too small" <<
 					": blob: " << c.blob->path_ <<
 					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
@@ -283,11 +295,22 @@ int main(int argc, char *argv[])
 			// Sanity
 			if (memcmp(&ddc.key, &c.dc.key, sizeof(eblob_key)) != 0
 					|| ddc.position != c.dc.position
-					|| ddc.disk_size != c.dc.disk_size) {
+					|| ((ddc.disk_size != c.dc.disk_size) && (c.dc.disk_size != sizeof(struct eblob_disk_control)))) {
 				std::cout << "ERROR: data and index header mismatch: " <<
 					"blob: " << c.blob->path_ <<
 					", data: " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
 					", index: " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
+					std::endl;
+				broken++;
+				continue;
+			}
+
+			if (ddc.disk_size + ddc.position > (uint64_t)c.blob->data_size) {
+				std::cout << "ERROR: blob disk_size + posssition outside of blob: " <<
+					ddc.disk_size + ddc.position << " vs " <<
+					c.blob->data_size <<
+					": blob: " << c.blob->path_ <<
+					": " << eblob_dump_control(&ddc, ddc.position, 1, 0) <<
 					std::endl;
 				broken++;
 				continue;
