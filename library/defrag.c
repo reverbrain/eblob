@@ -223,9 +223,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 
 			/*
-			 * Accumulate base if sum is still within limits.
-			 * Otherwise sort selected bases and
-			 * use current base in the next accumulation
+			 * Accumulate base if total size is still within blob-size limits.
+			 * Otherwise sort selected bases and use this base in the next accumulation
 			 * NB! We always merge empty bases.
 			 */
 			if (((total_records + records <= b->cfg.records_in_blob)
@@ -238,7 +237,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			}
 		}
 
-		/* Sort all bases between previous and current */
+		/* Sort all bases between @previous and @current */
 		struct datasort_cfg dcfg = {
 			.b = b,
 			.bctl = bctls + previous,
@@ -252,17 +251,17 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 					"defrag: datasort: FAILED");
 
 		/*
-		 * Bump positions
-		 * use current base in the next accumulation
+		 * Bump positions use current base in the next accumulation
 		 */
 		previous = current;
 		if (++current > bctl_cnt)
 			break;
 		/*
 		 * Reset counters:
-		 * current is the base which can't be added to accumulation because of limits.
-		 * current base will be used in the next accumulation therefore
-		 * we need to keep it's records and size in total counters.
+		 * @current is the base which was not added to accumulation
+		 * ('continue' in the loop above) because of the limits.
+		 * This base will be used in the next accumulation therefore
+		 * we need to keep it's records and size in the appropriate counters.
 		 */
 		total_records = records;
 		total_size = size;
