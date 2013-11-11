@@ -208,6 +208,8 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	uint64_t total_records = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_TOTAL)
 		- eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_REMOVED);
 	uint64_t total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
+	uint64_t records = 0; // number of records in current blob
+	uint64_t size = 0; // size of current blob
 	while (b->need_exit == 0) {
 		/*
 		 * For every but last base check for merge possibility
@@ -216,12 +218,14 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		if (current < bctl_cnt) {
 			/* Shortcuts */
 			struct eblob_base_ctl * const bctl = bctls[current];
-			const int64_t records = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL)
+			records = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL)
 				- eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
-			const int64_t size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
+			size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 
 			/*
 			 * Accumulate base if sum is still within limits.
+			 * Otherwise sort selected bases and
+			 * use current base in the next accumulation
 			 * NB! We always merge empty bases.
 			 */
 			if (((total_records + records <= b->cfg.records_in_blob)
@@ -247,14 +251,21 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR,
 					"defrag: datasort: FAILED");
 
-		/* Bump positions */
+		/*
+		 * Bump positions
+		 * use current base in the next accumulation
+		 */
 		previous = current;
 		if (++current > bctl_cnt)
 			break;
-		/* Reset counters */
-		total_records = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_TOTAL)
-			- eblob_stat_get(bctls[previous]->stat, EBLOB_LST_RECORDS_REMOVED);
-		total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
+		/*
+		 * Reset counters:
+		 * current is the base which can't be added to accumulation because of limits.
+		 * current base will be used in the next accumulation therefore
+		 * we need to keep it's records and size in total counters.
+		 */
+		total_records = records;
+		total_size = size;
 	}
 
 err_out_exit:
