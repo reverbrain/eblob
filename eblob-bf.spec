@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.24
+Version:	0.21.25
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Nov 11 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.25
+- defrag: Fixed accumulation of bases which comes out the limits
+
 * Fri Nov 08 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.24
 - merge: allow to merge really old blobs whose indexes always contain 96 as disk_size
 

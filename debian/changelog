@@ -1,3 +1,9 @@
+eblob (0.21.25) unstable; urgency=low
+
+  * defrag: Fixed accumulation of bases which comes out the limits
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 11 Nov 2013 23:31:14 +0400
+
 eblob (0.21.24) unstable; urgency=low
 
   * merge: allow to merge really old blobs whose indexes always contain 96 as disk_size
