@@ -92,7 +92,6 @@ rm -rf %{buildroot}
 %doc AUTHORS README.rst
 %{_bindir}/*
 %{_libdir}/lib*.so.*
-%{python_sitelib}/eblob*
 
 
 %files devel
