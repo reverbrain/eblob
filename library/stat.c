@@ -211,3 +211,8 @@ int eblob_stat_commit(struct eblob_backend *b)
 
 	return 0;
 }
+
+int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id)
+{
+	return eblob_stat_get(b->stat_summary, id);
+}

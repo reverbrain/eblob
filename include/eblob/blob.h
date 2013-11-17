@@ -556,14 +556,37 @@ struct eblob_range_request {
 
 int eblob_read_range(struct eblob_range_request *req);
 
-unsigned long long eblob_total_elements(struct eblob_backend *b);
-
 int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const void *src, uint64_t size);
 
 void eblob_remove_blobs(struct eblob_backend *b);
 
 int eblob_start_defrag(struct eblob_backend *b);
 int eblob_defrag_status(struct eblob_backend *b);
+
+/* Per backend stats */
+enum eblob_stat_global_flavour {
+	EBLOB_GST_MIN,
+	EBLOB_GST_DATASORT,
+	EBLOB_GST_READ_COPY_UPDATE,
+	EBLOB_GST_PREPARE_REUSED,
+	EBLOB_GST_CACHED,
+	EBLOB_GST_MAX,
+};
+
+/* Per bctl stats */
+enum eblob_stat_local_flavour {
+	EBLOB_LST_MIN,
+	EBLOB_LST_RECORDS_TOTAL,
+	EBLOB_LST_RECORDS_REMOVED,
+	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+	EBLOB_LST_BASE_SIZE,
+	EBLOB_LST_BLOOM_SIZE,
+	EBLOB_LST_INDEX_BLOCKS_SIZE,
+	EBLOB_LST_MAX,
+};
+
+unsigned long long eblob_total_elements(struct eblob_backend *b);
+int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id);
 
 /*!
  * Eblob vector io interface

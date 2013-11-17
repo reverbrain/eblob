@@ -27,28 +27,6 @@
 
 #define EBLOB_STAT_SIZE_MAX	4096
 
-/* Per backend stats */
-enum eblob_stat_global_flavour {
-	EBLOB_GST_MIN,
-	EBLOB_GST_DATASORT,
-	EBLOB_GST_READ_COPY_UPDATE,
-	EBLOB_GST_PREPARE_REUSED,
-	EBLOB_GST_CACHED,
-	EBLOB_GST_MAX,
-};
-
-/* Per bctl stats */
-enum eblob_stat_local_flavour {
-	EBLOB_LST_MIN,
-	EBLOB_LST_RECORDS_TOTAL,
-	EBLOB_LST_RECORDS_REMOVED,
-	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
-	EBLOB_LST_BASE_SIZE,
-	EBLOB_LST_BLOOM_SIZE,
-	EBLOB_LST_INDEX_BLOCKS_SIZE,
-	EBLOB_LST_MAX,
-};
-
 /* TODO: Add pre-request stats and replace eblob_disk_search_stat with it */
 
 struct eblob_stat_entry {
