@@ -1,3 +1,9 @@
+eblob (0.21.26) unstable; urgency=low
+
+  * stat: export stat ids, added eblob_stat_get_summary() to read statistics by id
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 17 Nov 2013 22:50:27 +0400
+
 eblob (0.21.25) unstable; urgency=low
 
   * defrag: Fixed accumulation of bases which comes out the limits
