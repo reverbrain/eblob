@@ -1,3 +1,10 @@
+eblob (0.21.27) unstable; urgency=low
+
+  * eblob: get rid of basically unused recover_index_from_blob.py
+  * python: get rid of old and unsupported python helper
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 17 Nov 2013 23:04:19 +0400
+
 eblob (0.21.26) unstable; urgency=low
 
   * stat: export stat ids, added eblob_stat_get_summary() to read statistics by id

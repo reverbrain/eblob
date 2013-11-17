@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.26
+Version:	0.21.27
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -101,6 +101,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Nov 17 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.27
+- eblob: get rid of basically unused recover_index_from_blob.py
+- python: get rid of old and unsupported python helper
+
 * Sun Nov 17 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.26
 - stat: export stat ids, added eblob_stat_get_summary() to read statistics by id
 
