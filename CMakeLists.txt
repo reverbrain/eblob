@@ -26,7 +26,7 @@ option(WITH_TESTS "Build tests" ON)
 
 include(TestBigEndian)
 
-include_directories(${CMAKE_BINARY_DIR}/include/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 # Turn off aserts
 if (NOT WITH_ASSERTS)
