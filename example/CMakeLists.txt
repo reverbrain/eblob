@@ -1,5 +1,3 @@
-include_directories(../include)
-
 add_executable(eblob_open eblob_open.cpp)
 target_link_libraries(eblob_open eblob_cpp)
 
@@ -17,5 +15,3 @@ target_link_libraries(eblob_regex_iter ${EBLOB_REGEX_ITER_LIBRARIES})
 install(TARGETS eblob_regex_iter eblob_merge eblob_open eblob_index_info
     RUNTIME DESTINATION bin
     )
-
-# vim: set ts=4:sw=4:expandtab:
