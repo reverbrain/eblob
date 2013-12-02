@@ -1,3 +1,10 @@
+eblob (0.21.28) unstable; urgency=low
+
+  * periodic: update stat file once per 30 seconds, do not trash disks every secon
+  * spec: removed sitelib glob
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 02 Dec 2013 04:49:10 +0400
+
 eblob (0.21.27) unstable; urgency=low
 
   * eblob: get rid of basically unused recover_index_from_blob.py
