@@ -2266,11 +2266,17 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
 static void *eblob_periodic(void *data)
 {
 	struct eblob_backend *b = data;
+	int period = 30;
 
 	while (!b->need_exit) {
 		int err;
 
 		sleep(1);
+
+		if (++period < 30)
+			continue;
+
+		period = 0;
 
 		err = eblob_stat_commit(b);
 		if (err != 0)
