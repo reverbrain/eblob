@@ -34,6 +34,7 @@
 #include <sys/socket.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include <assert.h>
 #include <errno.h>
@@ -2026,10 +2027,15 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
 	int err;
+	struct timeval start, end;
+	long diff;
 
 	assert(b != NULL);
 	assert(key != NULL);
 	assert(wc != NULL);
+
+	gettimeofday(&start, NULL);
+#define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
@@ -2053,13 +2059,16 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		}
 	}
 
+	gettimeofday(&end, NULL);
+	diff = DIFF(start, end);
+
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: data_fd: %d"
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
 			", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
-			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, err: %d\n",
+			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, time: %ld usecs, err: %d\n",
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
-			csum, err);
+			csum, diff, err);
 
 err_out_exit:
 	return err;
