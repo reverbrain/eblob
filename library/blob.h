@@ -444,7 +444,10 @@ struct eblob_backend {
 	struct eblob_stat	*stat;
 	/* Per bctl stat summary */
 	struct eblob_stat	*stat_summary;
+	/* Global io stat */
+	struct eblob_stat	*io_stat;
 	char			stat_path[PATH_MAX];
+	char			io_stat_path[PATH_MAX];
 };
 
 int eblob_add_new_base(struct eblob_backend *b);

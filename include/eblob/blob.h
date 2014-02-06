@@ -585,6 +585,18 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_MAX,
 };
 
+/* Per backend io stats */
+enum eblob_stat_io {
+	EBLOB_IOST_MIN,
+	EBLOB_IOST_LOOKUP_READS_NUMBER,
+	EBLOB_IOST_DATA_READS_NUMBER,
+	EBLOB_IOST_WRITES_NUMBER,
+	EBLOB_IOST_READS_SIZE,
+	EBLOB_IOST_WRITES_SIZE,
+	EBLOB_IOST_INDEX_READS,
+	EBLOB_IOST_MAX,
+};
+
 unsigned long long eblob_total_elements(struct eblob_backend *b);
 int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id);
 

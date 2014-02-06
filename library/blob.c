@@ -756,6 +756,7 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-write-index", err);
 		goto err_out_exit;
 	}
+
 	err = __eblob_write_ll(wc->data_fd, &dc, sizeof(dc), wc->ctl_data_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_commit_disk: ERROR-write-data", err);
@@ -1676,6 +1677,9 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_release;
 	}
 
+	eblob_stat_inc(b->io_stat, EBLOB_IOST_WRITES_NUMBER);
+	eblob_stat_add(b->io_stat, EBLOB_IOST_WRITES_SIZE, wc->size);
+
 	err = eblob_write_commit_nolock(b, key, wc);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_commit_nolock", err);
@@ -2031,6 +2035,8 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	assert(key != NULL);
 	assert(wc != NULL);
 
+	eblob_stat_inc(b->io_stat, EBLOB_IOST_LOOKUP_READS_NUMBER);
+
 	memset(wc, 0, sizeof(struct eblob_write_control));
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
 	if (err < 0) {
@@ -2181,6 +2187,9 @@ static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 	if (err != 0)
 		goto err_out_free;
 
+	eblob_stat_inc(b->io_stat, EBLOB_IOST_DATA_READS_NUMBER);
+	eblob_stat_add(b->io_stat, EBLOB_IOST_READS_SIZE, record_size);
+
 	*size = record_size;
 	*dst = data;
 
@@ -2277,6 +2286,11 @@ static void *eblob_periodic(void *data)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 					"eblob_stat_commit: FAILED");
 
+		err = eblob_stat_io_commit(b);
+		if (err != 0)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+					"eblob_stat_io_commit: FAILED");
+
 		if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
 			err = eblob_cache_statvfs(b);
 			if (err != 0)
@@ -2371,12 +2385,21 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_free;
 	}
 
+	snprintf(stat_file, sizeof(stat_file), "%s.iostat", c->file);
+	err = eblob_stat_init_io(b, stat_file);
+	if (err) {
+		eblob_log(c->log, EBLOB_LOG_ERROR,
+				"blob: eblob_stat_init_io failed: %s: %s %d.\n",
+				stat_file, strerror(-err), err);
+		goto err_out_stat_free;
+	}
+
 	err = eblob_stat_init_local(&b->stat_summary);
 	if (err) {
 		eblob_log(c->log, EBLOB_LOG_ERROR,
 				"blob: eblob_stat_init_local failed: %s %d.\n",
 				strerror(-err), err);
-		goto err_out_stat_free;
+		goto err_out_stat_io_free;
 	}
 
 	if (!c->index_block_size)
@@ -2486,6 +2509,8 @@ err_out_free_file:
 	free(b->cfg.file);
 err_out_stat_free_local:
 	eblob_stat_destroy(b->stat_summary);
+err_out_stat_io_free:
+	eblob_stat_destroy(b->io_stat);
 err_out_stat_free:
 	eblob_stat_destroy(b->stat);
 err_out_free:
