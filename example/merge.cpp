@@ -261,7 +261,7 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			if (c.dc.disk_size > (uint64_t)flag_max_size) {
-				std::cout << "ERROR: disk size is grater than max size: " <<
+				std::cout << "ERROR: disk size is greater than max size: " <<
 					c.dc.disk_size << " vs " << flag_max_size <<
 					": blob: " << c.blob->path_ <<
 					": " << eblob_dump_control(&c.dc, c.dc.position, 1, 0) <<
