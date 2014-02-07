@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 				continue;
 			}
 			if (c.dc.disk_size + c.dc.position > (uint64_t)c.blob->data_size) {
-				std::cout << "ERROR: disk_size + possition outside of blob: " <<
+				std::cout << "ERROR: disk_size + position outside of blob: " <<
 					c.dc.disk_size + c.dc.position << " vs " <<
 					c.blob->data_size <<
 					": blob: " << c.blob->path_ <<
@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
 			}
 
 			if (ddc.disk_size + ddc.position > (uint64_t)c.blob->data_size) {
-				std::cout << "ERROR: blob disk_size + possition outside of blob: " <<
+				std::cout << "ERROR: blob disk_size + position outside of blob: " <<
 					ddc.disk_size + ddc.position << " vs " <<
 					c.blob->data_size <<
 					": blob: " << c.blob->path_ <<
