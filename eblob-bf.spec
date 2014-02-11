@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.28
+Version:	0.21.29
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -100,6 +100,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Feb 11 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.29
+- merge: spelling correction
+- Added measurement of the time spent reading and checking object checksum
+- Typo fixed
+
 * Mon Dec 02 2013 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.28
 - periodic: update stat file once per 30 seconds, do not trash disks every secon
 - spec: removed sitelib glob

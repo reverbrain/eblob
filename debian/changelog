@@ -1,3 +1,11 @@
+eblob (0.21.29) unstable; urgency=low
+
+  * merge: spelling correction
+  * Added measurement of the time spent reading and checking object checksum
+  * Typo fixed
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 11 Feb 2014 05:04:05 +0400
+
 eblob (0.21.28) unstable; urgency=low
 
   * periodic: update stat file once per 30 seconds, do not trash disks every secon
