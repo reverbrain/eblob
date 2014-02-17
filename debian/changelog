@@ -1,3 +1,9 @@
+eblob (0.21.30) unstable; urgency=low
+
+  * stat: Time statistics monitoring added.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Mon, 17 Feb 2014 23:45:59 +0400
+
 eblob (0.21.29) unstable; urgency=low
 
   * merge: spelling correction

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.29
+Version:	0.21.30
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -100,6 +100,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Feb 17 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.30
+- stat: Time statistics monitoring added.
+
 * Tue Feb 11 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.29
 - merge: spelling correction
 - Added measurement of the time spent reading and checking object checksum
