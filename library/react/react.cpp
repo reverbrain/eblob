@@ -45,8 +45,6 @@ const int ACTION_WRITE_PREPARE_DISK = actions.define_new_action("WRITE_PREPARE_D
 const int ACTION_WRITE_COMMIT_NOLOCK = actions.define_new_action("WRITE_COMMIT_NOLOCK");
 const int ACTION_WRITEV_RETURN = actions.define_new_action("WRITEV_RETURN");
 
-concurrent_time_stats_tree_t time_stats_tree(actions);
-
 __thread time_stats_updater_t *thread_time_stats_updater;
 
 int init_time_stats_tree(void **time_stats_tree) {
@@ -132,7 +130,7 @@ int get_time_stats(void *time_stats_tree, char **time_stats, size_t *size) {
 		doc.Accept(writer);
 		std::string result = buffer.GetString();
 
-		if (static_size < result.length()) {
+		if (static_size < result.length() + 1) {
 			static_time_stats = (char*) realloc(static_time_stats, result.length() + 1);
 		}
 		static_size = result.length();
