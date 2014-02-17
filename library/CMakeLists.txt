@@ -19,7 +19,9 @@ set_target_properties(eblob PROPERTIES
     SOVERSION ${EBLOB_VERSION_ABI}
     )
 
-target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES})
+add_subdirectory(react)
+
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} react)
 
 install(TARGETS eblob
     LIBRARY DESTINATION lib${LIB_SUFFIX}

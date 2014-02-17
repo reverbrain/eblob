@@ -108,6 +108,39 @@ err_out_exit:
 	return err;
 }
 
+int eblob_stat_init_io(struct eblob_backend *b, const char *path)
+{
+	int err;
+
+	/* Sanity */
+	if (path == NULL)
+		return -EINVAL;
+	if (strlen(path) > PATH_MAX)
+		return -ENAMETOOLONG;
+
+	b->io_stat = calloc(1, sizeof(struct eblob_stat) +
+			sizeof(struct eblob_stat_entry) * (EBLOB_IOST_MAX + 1));
+	if (b->io_stat == NULL) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+	strncpy(b->io_stat_path, path, PATH_MAX);
+
+	err = eblob_mutex_init(&b->io_stat->lock);
+	if (err != 0)
+		goto err_out_free;
+
+	memcpy((void *)b->io_stat + sizeof(struct eblob_stat),
+			eblob_stat_default_io, sizeof(eblob_stat_default_io));
+
+	return 0;
+
+err_out_free:
+	free(b->io_stat);
+err_out_exit:
+	return err;
+}
+
 /*!
  * Return name of stat by it's id
  */
@@ -128,6 +161,18 @@ eblob_stat_global_print(FILE *fp, struct eblob_backend *b)
 	for (i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
 		fprintf(fp, "%s: %" PRId64 "\n", eblob_stat_get_name(b->stat, i),
 				eblob_stat_get(b->stat, i));
+	fprintf(fp, "\n");
+}
+
+static void
+eblob_stat_io_print(FILE *fp, struct eblob_backend *b)
+{
+	uint32_t i;
+
+	fprintf(fp, "IO:\n");
+	for (i = EBLOB_IOST_MIN + 1; i < EBLOB_IOST_MAX; i++)
+		fprintf(fp, "%s: %" PRId64 "\n", eblob_stat_get_name(b->io_stat, i),
+				eblob_stat_get(b->io_stat, i));
 	fprintf(fp, "\n");
 }
 
@@ -212,7 +257,69 @@ int eblob_stat_commit(struct eblob_backend *b)
 	return 0;
 }
 
+int eblob_stat_io_commit(struct eblob_backend *b)
+{
+	FILE *fp;
+	char tmp_path[PATH_MAX];
+
+	assert(b != NULL);
+
+	/* Construct temporary path */
+	if (snprintf(tmp_path, PATH_MAX, "%s.tmp", b->io_stat_path) > PATH_MAX)
+		return -ENAMETOOLONG;
+
+	/* Create tmp file and atomically swap it with an existing stats */
+	fp = fopen(tmp_path, "w");
+	if (fp == NULL)
+		return -errno;
+
+	eblob_stat_io_print(fp, b);
+
+	if (fclose(fp) == EOF)
+		return -errno;
+
+	if (rename(tmp_path, b->io_stat_path) == -1)
+		return -errno;
+
+	return 0;
+}
+
 int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id)
 {
 	return eblob_stat_get(b->stat_summary, id);
 }
+
+int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size)
+{
+	uint32_t i;
+	int err;
+
+	*stat = malloc(EBLOB_IOST_MAX * 50);
+	if (*stat == NULL) {
+		err = -ENOMEM;
+		return err;
+	}
+
+	char* ptr = *stat;
+	ptr += sprintf(ptr, "{\n");
+	for (i = EBLOB_IOST_MIN + 1; i < EBLOB_IOST_MAX; i++)
+		ptr += sprintf(ptr, "\t\"%s\": %" PRId64 ",\n", eblob_stat_get_name(b->io_stat, i),
+				eblob_stat_get(b->io_stat, i));
+	ptr += sprintf(ptr, "}");
+	*size = *stat - ptr;
+	*stat = realloc(*stat, *size);
+	if (*stat == NULL) {
+		err = -ENOMEM;
+		return err;
+	}
+
+	return 0;
+}
+
+int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
+{
+	int err = 0;
+	err = get_time_stats(b->time_stats_tree, json_stat, size);
+	return err;
+}
+
