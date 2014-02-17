@@ -448,6 +448,9 @@ struct eblob_backend {
 	struct eblob_stat	*io_stat;
 	char			stat_path[PATH_MAX];
 	char			io_stat_path[PATH_MAX];
+
+	/* Tree for time monitoring, global time stat */
+	void			*time_stats_tree;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);

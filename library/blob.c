@@ -741,6 +741,8 @@ static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write
 static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int remove)
 {
+	start_action(b->time_stats_tree, ACTION_COMMIT_DISK);
+
 	struct eblob_disk_control dc;
 	int err;
 
@@ -769,6 +771,7 @@ static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 	eblob_dump_wc(b, key, wc, "eblob_commit_disk", err);
 
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_COMMIT_DISK);
 	return err;
 }
 
@@ -1035,6 +1038,8 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int for_write)
 {
+	start_action(b->time_stats_tree, ACTION_FILL_WRITE_CONTROL_FROM_RAM);
+
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
 	uint64_t orig_offset = wc->offset;
@@ -1093,6 +1098,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_FILL_WRITE_CONTROL_FROM_RAM);
 	return err;
 }
 
@@ -1151,6 +1157,8 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		enum eblob_copy_flavour copy, uint64_t copy_offset,
 		struct eblob_ram_control *old)
 {
+	start_action(b->time_stats_tree, ACTION_WRITE_PREPARE_DISK_LL);
+
 	struct eblob_base_ctl *ctl = NULL;
 	ssize_t err = 0;
 
@@ -1346,12 +1354,14 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
 
+	stop_action(b->time_stats_tree, ACTION_WRITE_PREPARE_DISK_LL);
 	return 0;
 
 err_out_rollback:
 	ctl->data_offset -= wc->total_size;
 	ctl->index_offset -= sizeof(struct eblob_disk_control);
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_WRITE_PREPARE_DISK_LL);
 	return err;
 }
 
@@ -1365,6 +1375,8 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		struct eblob_write_control *wc, uint64_t prepare_disk_size,
 		enum eblob_copy_flavour copy, uint64_t copy_offset)
 {
+	start_action(b->time_stats_tree, ACTION_WRITE_PREPARE_DISK);
+
 	ssize_t err = 0;
 	struct eblob_ram_control old;
 	int have_old, disk;
@@ -1402,6 +1414,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	pthread_mutex_unlock(&b->lock);
 
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_WRITE_PREPARE_DISK);
 	return err;
 }
 
@@ -1411,6 +1424,8 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
+	start_action(b->time_stats_tree, ACTION_WRITE_PREPARE);
+
 	struct eblob_write_control wc = { .offset = 0 };
 	int err;
 
@@ -1444,6 +1459,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_WRITE_PREPARE);
 	eblob_dump_wc(b, key, &wc, "eblob_write_prepare: finished", err);
 	return err;
 }
@@ -1454,7 +1470,9 @@ err_out_exit:
 int eblob_hash(struct eblob_backend *b __attribute_unused__, void *dst,
 		unsigned int dsize __attribute_unused__, const void *src, uint64_t size)
 {
+	start_action(b->time_stats_tree, ACTION_HASH);
 	sha512_buffer(src, size, dst);
+	stop_action(b->time_stats_tree, ACTION_HASH);
 	return 0;
 }
 
@@ -1536,6 +1554,8 @@ err_out_exit:
 static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
+	start_action(b->time_stats_tree, ACTION_WRITE_COMMIT_NOLOCK);
+
 	int err;
 
 	err = eblob_write_commit_footer(b, wc);
@@ -1554,6 +1574,7 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_write_commit_nolock", err);
+	stop_action(b->time_stats_tree, ACTION_WRITE_COMMIT_NOLOCK);
 	return err;
 }
 
@@ -1793,13 +1814,17 @@ int eblob_write(struct eblob_backend *b, struct eblob_key *key,
 		void *data, uint64_t offset, uint64_t size,
 		uint64_t flags)
 {
+	start_action(b->time_stats_tree, ACTION_WRITE);
+
 	const struct eblob_iovec iov = {
 		.base = data,
 		.size = size,
 		.offset = offset,
 	};
 
-	return eblob_writev(b, key, &iov, 1, flags);
+	int err = eblob_writev(b, key, &iov, 1, flags);
+	stop_action(b->time_stats_tree, ACTION_WRITE);
+	return err;
 }
 
 /*!
@@ -1831,21 +1856,9 @@ int eblob_writev(struct eblob_backend *b, struct eblob_key *key,
 }
 
 /*!
- * Writes \a iovcnt number of iovecs to the key and returns information in \a wc
+ * Checks correctness of writev's flags and returns corresponding error code if anything is wrong
  */
-int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
-		struct eblob_write_control *wc)
-{
-	struct eblob_iovec_bounds bounds;
-	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
-	uint64_t copy_offset = 0;
-	int err;
-
-	if (b == NULL || key == NULL || iov == NULL || wc == NULL)
-		return -EINVAL;
-
-	/* TODO: Add function for flag checking */
+static int check_writev_return_flags(uint64_t flags, uint16_t iovcnt) {
 	if (flags & BLOB_DISK_CTL_COMPRESS)
 		return -ENOTSUP;
 	if (flags & BLOB_DISK_CTL_WRITE_RETURN)
@@ -1855,6 +1868,31 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		return -ENOTSUP;
 	if (iovcnt < EBLOB_IOVCNT_MIN || iovcnt > EBLOB_IOVCNT_MAX)
 		return -E2BIG;
+	return 0;
+}
+
+/*!
+ * Writes \a iovcnt number of iovecs to the key and returns information in \a wc
+ */
+int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
+		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
+		struct eblob_write_control *wc)
+{
+	start_action(b->time_stats_tree, ACTION_WRITEV_RETURN);
+
+	struct eblob_iovec_bounds bounds;
+	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
+	uint64_t copy_offset = 0;
+	int err;
+
+	if (b == NULL || key == NULL || iov == NULL || wc == NULL)
+		return -EINVAL;
+
+	err = check_writev_return_flags(flags, iovcnt);
+	if (err) {
+		stop_action(b->time_stats_tree, ACTION_WRITEV_RETURN);
+		return err;
+	}
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
@@ -1919,6 +1957,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
+	stop_action(b->time_stats_tree, ACTION_WRITEV_RETURN);
 	return err;
 }
 
@@ -1927,6 +1966,7 @@ err_out_exit:
  */
 int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 {
+	start_action(b->time_stats_tree, ACTION_REMOVE);
 	struct eblob_ram_control ctl;
 	int err, disk;
 
@@ -1950,6 +1990,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 		eblob_dump_id(key->id), ctl.data_offset, ctl.size);
 
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_REMOVE);
 	return err;
 }
 
@@ -2077,6 +2118,8 @@ err_out_exit:
 static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd,
 		uint64_t *offset, uint64_t *size, enum eblob_read_flavour csum)
 {
+	start_action(b->time_stats_tree, ACTION_READ);
+
 	struct eblob_write_control wc = { .size = 0 };
 	int err;
 
@@ -2091,6 +2134,7 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	*size = wc.size;
 	*offset = wc.data_offset;
 err:
+	stop_action(b->time_stats_tree, ACTION_READ);
 	return err;
 }
 
@@ -2158,6 +2202,7 @@ void eblob_data_unmap(struct eblob_map_fd *map)
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
+	start_action(b->time_stats_tree, ACTION_READ_DATA);
 	int err, fd;
 	void *data;
 	uint64_t record_offset, record_size;
@@ -2193,11 +2238,13 @@ static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 	*size = record_size;
 	*dst = data;
 
+	stop_action(b->time_stats_tree, ACTION_READ_DATA);
 	return 0;
 
 err_out_free:
 	free(data);
 err_out_exit:
+	stop_action(b->time_stats_tree, ACTION_READ_DATA);
 	return err;
 }
 
@@ -2316,7 +2363,9 @@ void eblob_cleanup(struct eblob_backend *b)
 
 	free(b->cfg.file);
 
+	cleanup_time_stats_tree(b->time_stats_tree);
 	eblob_stat_destroy(b->stat);
+	eblob_stat_destroy(b->io_stat);
 	eblob_stat_destroy(b->stat_summary);
 
 	(void)lockf(b->lock_fd, F_ULOCK, 0);
@@ -2400,6 +2449,14 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 				"blob: eblob_stat_init_local failed: %s %d.\n",
 				strerror(-err), err);
 		goto err_out_stat_io_free;
+	}
+
+	err = init_time_stats_tree(&b->time_stats_tree);
+	if (err) {
+		eblob_log(c->log, EBLOB_LOG_ERROR,
+				"blob: init_time_stats_tree failed: %s %d.\n",
+				strerror(-err), err);
+		goto err_out_time_stat_free;
 	}
 
 	if (!c->index_block_size)
@@ -2509,6 +2566,8 @@ err_out_free_file:
 	free(b->cfg.file);
 err_out_stat_free_local:
 	eblob_stat_destroy(b->stat_summary);
+err_out_time_stat_free:
+	cleanup_time_stats_tree(b->time_stats_tree);
 err_out_stat_io_free:
 	eblob_stat_destroy(b->io_stat);
 err_out_stat_free:

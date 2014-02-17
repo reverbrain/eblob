@@ -689,6 +689,8 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key)
 int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *res, int *diskp)
 {
+	start_action(b->time_stats_tree, ACTION_CACHE_LOOKUP);
+
 	int err = 1, disk = 0;
 
 	pthread_rwlock_rdlock(&b->hash.root_lock);
@@ -712,6 +714,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	if (diskp != NULL)
 		*diskp = disk;
+	stop_action(b->time_stats_tree, ACTION_CACHE_LOOKUP);
 	return err;
 }
 

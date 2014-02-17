@@ -289,7 +289,7 @@ int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id)
 	return eblob_stat_get(b->stat_summary, id);
 }
 
-int eblob_stat_io_get(struct eblob_backend *b, char** stat, uint32_t* size)
+int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size)
 {
 	uint32_t i;
 	int err;
@@ -315,3 +315,11 @@ int eblob_stat_io_get(struct eblob_backend *b, char** stat, uint32_t* size)
 
 	return 0;
 }
+
+int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
+{
+	int err = 0;
+	err = get_time_stats(b->time_stats_tree, json_stat, size);
+	return err;
+}
+

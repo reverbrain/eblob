@@ -21,6 +21,8 @@
 #ifndef __EBLOB_STAT_H
 #define __EBLOB_STAT_H
 
+#include "react/react.h"
+
 #include <assert.h>
 #include <limits.h>
 #include <pthread.h>
@@ -200,6 +202,6 @@ int eblob_stat_init_io(struct eblob_backend *b, const char *path);
 void eblob_stat_summary_update(struct eblob_backend *b);
 int eblob_stat_commit(struct eblob_backend *b);
 int eblob_stat_io_commit(struct eblob_backend *b);
-int eblob_stat_io_get(struct eblob_backend *b, char** stat, uint32_t* size);
+int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size);
 
 #endif /* __EBLOB_STAT_H */

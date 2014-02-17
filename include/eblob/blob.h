@@ -599,6 +599,7 @@ enum eblob_stat_io {
 
 unsigned long long eblob_total_elements(struct eblob_backend *b);
 int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id);
+int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size);
 
 /*!
  * Eblob vector io interface
