@@ -633,7 +633,7 @@ again:
 			eblob_dump_id(key->id), loops, st.range_has_key, st.bloom_null,
 			st.bsearch_reached, st.bsearch_found, st.additional_reads, err);
 
-	eblob_stat_add(b->io_stat, EBLOB_IOST_INDEX_READS, loops);
+	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, loops);
 
 	stop_action(b->time_stats_tree, ACTION_DISK_INDEX_LOOKUP);
 	return err;

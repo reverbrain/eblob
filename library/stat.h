@@ -65,6 +65,30 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 		.id = EBLOB_GST_CACHED,
 	},
 	{
+		.name = "lookup_reads_number",
+		.id = EBLOB_GST_LOOKUP_READS_NUMBER,
+	},
+	{
+		.name = "data_reads_number",
+		.id = EBLOB_GST_DATA_READS_NUMBER,
+	},
+	{
+		.name = "writes_number",
+		.id = EBLOB_GST_WRITES_NUMBER,
+	},
+	{
+		.name = "reads_size",
+		.id = EBLOB_GST_READS_SIZE,
+	},
+	{
+		.name = "writes_size",
+		.id = EBLOB_GST_WRITES_SIZE,
+	},
+	{
+		.name = "index_files_reads_number",
+		.id = EBLOB_GST_INDEX_READS,
+	},
+	{
 		.name = "MAX",
 		.id = EBLOB_GST_MAX,
 	},
@@ -102,41 +126,6 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
 		.name = "MAX",
 		.id = EBLOB_LST_MAX,
-	},
-};
-
-static const struct eblob_stat_entry eblob_stat_default_io[] = {
-	{
-		.name = "MIN",
-		.id = EBLOB_IOST_MIN,
-	},
-	{
-		.name = "lookup_reads_number",
-		.id = EBLOB_IOST_LOOKUP_READS_NUMBER,
-	},
-	{
-		.name = "data_reads_number",
-		.id = EBLOB_IOST_DATA_READS_NUMBER,
-	},
-	{
-		.name = "writes_number",
-		.id = EBLOB_IOST_WRITES_NUMBER,
-	},
-	{
-		.name = "reads_size",
-		.id = EBLOB_IOST_READS_SIZE,
-	},
-	{
-		.name = "writes_size",
-		.id = EBLOB_IOST_WRITES_SIZE,
-	},
-	{
-		.name = "index_files_reads_number",
-		.id = EBLOB_IOST_INDEX_READS,
-	},
-	{
-		.name = "MAX",
-		.id = EBLOB_IOST_MAX,
 	},
 };
 
@@ -206,7 +195,6 @@ int eblob_stat_init_local(struct eblob_stat **s);
 int eblob_stat_init_io(struct eblob_backend *b, const char *path);
 void eblob_stat_summary_update(struct eblob_backend *b);
 int eblob_stat_commit(struct eblob_backend *b);
-int eblob_stat_io_commit(struct eblob_backend *b);
 int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size);
 
 #endif /* __EBLOB_STAT_H */
