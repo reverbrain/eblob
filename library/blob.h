@@ -444,10 +444,7 @@ struct eblob_backend {
 	struct eblob_stat	*stat;
 	/* Per bctl stat summary */
 	struct eblob_stat	*stat_summary;
-	/* Global io stat */
-	struct eblob_stat	*io_stat;
 	char			stat_path[PATH_MAX];
-	char			io_stat_path[PATH_MAX];
 
 	/* Tree for time monitoring, global time stat */
 	void			*time_stats_tree;

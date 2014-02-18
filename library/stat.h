@@ -27,18 +27,19 @@
 #include <limits.h>
 #include <pthread.h>
 
+#include "atomic.h"
+
 #define EBLOB_STAT_SIZE_MAX	4096
 
 /* TODO: Add pre-request stats and replace eblob_disk_search_stat with it */
 
 struct eblob_stat_entry {
-	int64_t		value;
+	atomic_t	value;
 	uint32_t	id;
 	const char	*name;
 };
 
 struct eblob_stat {
-	pthread_mutex_t		lock;
 	struct eblob_stat_entry	entry[0];
 };
 
@@ -62,6 +63,30 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
 		.name = "memory_index_tree",
 		.id = EBLOB_GST_CACHED,
+	},
+	{
+		.name = "lookup_reads_number",
+		.id = EBLOB_GST_LOOKUP_READS_NUMBER,
+	},
+	{
+		.name = "data_reads_number",
+		.id = EBLOB_GST_DATA_READS_NUMBER,
+	},
+	{
+		.name = "writes_number",
+		.id = EBLOB_GST_WRITES_NUMBER,
+	},
+	{
+		.name = "reads_size",
+		.id = EBLOB_GST_READS_SIZE,
+	},
+	{
+		.name = "writes_size",
+		.id = EBLOB_GST_WRITES_SIZE,
+	},
+	{
+		.name = "index_files_reads_number",
+		.id = EBLOB_GST_INDEX_READS,
 	},
 	{
 		.name = "MAX",
@@ -104,41 +129,14 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	},
 };
 
-static const struct eblob_stat_entry eblob_stat_default_io[] = {
-	{
-		.name = "MIN",
-		.id = EBLOB_IOST_MIN,
-	},
-	{
-		.name = "lookup_reads_number",
-		.id = EBLOB_IOST_LOOKUP_READS_NUMBER,
-	},
-	{
-		.name = "data_reads_number",
-		.id = EBLOB_IOST_DATA_READS_NUMBER,
-	},
-	{
-		.name = "writes_number",
-		.id = EBLOB_IOST_WRITES_NUMBER,
-	},
-	{
-		.name = "reads_size",
-		.id = EBLOB_IOST_READS_SIZE,
-	},
-	{
-		.name = "writes_size",
-		.id = EBLOB_IOST_WRITES_SIZE,
-	},
-	{
-		.name = "index_files_reads_number",
-		.id = EBLOB_IOST_INDEX_READS,
-	},
-	{
-		.name = "MAX",
-		.id = EBLOB_IOST_MAX,
-	},
-};
+static inline
+int eblob_stat_init(struct eblob_stat *s, uint32_t id, int64_t value)
+{
+	assert(s != NULL);
+	assert(id == s->entry[id].id);
 
+	return atomic_init(&s->entry[id].value, value);
+}
 
 /*!
  * Adds \a value to stat with id == \a id
@@ -149,9 +147,7 @@ void eblob_stat_add(struct eblob_stat *s, uint32_t id, int64_t value)
 {
 	assert(s != NULL);
 
-	pthread_mutex_lock(&s->lock);
-	s->entry[id].value += value;
-	pthread_mutex_unlock(&s->lock);
+	atomic_add(&s->entry[id].value, value);
 }
 static inline
 void eblob_stat_sub(struct eblob_stat *s, uint32_t id, int64_t value)
@@ -176,11 +172,9 @@ static inline
 void eblob_stat_set(struct eblob_stat *s, uint32_t id, int64_t value)
 {
 	assert(s != NULL);
-
-	pthread_mutex_lock(&s->lock);
 	assert(id == s->entry[id].id);
-	s->entry[id].value = value;
-	pthread_mutex_unlock(&s->lock);
+
+	atomic_set(&s->entry[id].value, value);
 }
 
 /*!
@@ -191,7 +185,7 @@ int64_t eblob_stat_get(struct eblob_stat *s, uint32_t id)
 {
 	assert(s != NULL);
 
-	return s->entry[id].value;
+	return atomic_read(&s->entry[id].value);
 }
 
 void eblob_stat_destroy(struct eblob_stat *s);
@@ -201,7 +195,6 @@ int eblob_stat_init_local(struct eblob_stat **s);
 int eblob_stat_init_io(struct eblob_backend *b, const char *path);
 void eblob_stat_summary_update(struct eblob_backend *b);
 int eblob_stat_commit(struct eblob_backend *b);
-int eblob_stat_io_commit(struct eblob_backend *b);
 int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size);
 
 #endif /* __EBLOB_STAT_H */
