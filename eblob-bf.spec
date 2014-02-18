@@ -9,6 +9,11 @@ URL:		http://reverbrain.com/eblob
 Source0:	%{name}-%{version}.tar.bz2
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
+
+%if %{defined rhel} && 0%{?rhel} < 6
+BuildRequires:	gcc44 gcc44-c++
+%endif
+
 %if %{defined rhel} && 0%{?rhel} < 6
 %define boost_ver 141
 %else
@@ -65,6 +70,8 @@ needed for developing software which uses the eblob library.
 export LDFLAGS="-Wl,-z,defs"
 export DESTDIR="%{buildroot}"
 %if %{defined rhel} && 0%{?rhel} < 6
+export CC=gcc44
+export CXX=g++44
 CXXFLAGS="-pthread -I/usr/include/boost%{boost_ver}" LDFLAGS="-L/usr/lib64/boost%{boost_ver}" %{cmake} -DBoost_LIB_DIR=/usr/lib64/boost%{boost_ver} -DBoost_INCLUDE_DIR=/usr/include/boost%{boost_ver} -DBoost_LIBRARYDIR=/usr/lib64/boost%{boost_ver} -DBOOST_LIBRARYDIR=/usr/lib64/boost%{boost_ver} .
 %else
 %{cmake} .
