@@ -24,11 +24,7 @@
 extern "C" {
 #endif
 
-#ifdef HAVE_LIBATOMIC_SUPPORT
-#include <atomic/atomic.h>
-
-#define atomic_init(a, v) atomic_set(a, v)
-#elif defined HAVE_SYNC_ATOMIC_SUPPORT
+#ifdef HAVE_SYNC_ATOMIC_SUPPORT
 typedef struct {
 	volatile long		val;
 } atomic_t;
@@ -38,7 +34,11 @@ static inline void atomic_set(atomic_t *a, long val)
 	a->val = val;
 }
 
-#define atomic_init(a, v) atomic_set(a, v)
+static inline int atomic_init(atomic_t *a, int val)
+{
+	atomic_set(a, val);
+	return 0;
+}
 
 static inline int atomic_read(atomic_t *a)
 {
