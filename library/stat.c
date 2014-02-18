@@ -41,7 +41,6 @@
 
 void eblob_stat_destroy(struct eblob_stat *s)
 {
-	pthread_mutex_destroy(&s->lock);
 	free(s);
 }
 
@@ -63,12 +62,14 @@ int eblob_stat_init_backend(struct eblob_backend *b, const char *path)
 	}
 	strncpy(b->stat_path, path, PATH_MAX);
 
-	err = eblob_mutex_init(&b->stat->lock);
-	if (err != 0)
-		goto err_out_free;
-
 	memcpy((void *)b->stat + sizeof(struct eblob_stat),
 			eblob_stat_default_global, sizeof(eblob_stat_default_global));
+
+	for (int i = EBLOB_GST_MIN; i < EBLOB_GST_MAX; ++i) {
+		err = eblob_stat_init(b->stat, i, 0);
+		if (err != 0)
+			goto err_out_free;
+	}
 
 	return 0;
 
@@ -94,12 +95,14 @@ int eblob_stat_init_local(struct eblob_stat **s)
 		goto err_out_exit;
 	}
 
-	err = eblob_mutex_init(&(*s)->lock);
-	if (err != 0)
-		goto err_out_free;
-
 	memcpy((void *)(*s) + sizeof(struct eblob_stat),
 			eblob_stat_default_local, sizeof(eblob_stat_default_local));
+
+	for (int i = EBLOB_LST_MIN; i < EBLOB_LST_MAX; ++i) {
+		err = eblob_stat_init(*s, i, 0);
+		if (err != 0)
+			goto err_out_free;
+	}
 	return 0;
 
 err_out_free:
@@ -126,12 +129,14 @@ int eblob_stat_init_io(struct eblob_backend *b, const char *path)
 	}
 	strncpy(b->io_stat_path, path, PATH_MAX);
 
-	err = eblob_mutex_init(&b->io_stat->lock);
-	if (err != 0)
-		goto err_out_free;
-
 	memcpy((void *)b->io_stat + sizeof(struct eblob_stat),
 			eblob_stat_default_io, sizeof(eblob_stat_default_io));
+
+	for (int i = EBLOB_IOST_MIN; i < EBLOB_IOST_MAX; ++i) {
+		err = eblob_stat_init(b->io_stat, i, 0);
+		if (err != 0)
+			goto err_out_free;
+	}
 
 	return 0;
 
