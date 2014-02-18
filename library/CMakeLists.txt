@@ -17,6 +17,7 @@ add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}
     SOVERSION ${EBLOB_VERSION_ABI}
+    LINKER_LANGUAGE CXX
     )
 
 add_subdirectory(react)
