@@ -151,6 +151,11 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		.value = {0}
 	},
 	{
+		.name = "is_sorted",
+		.id = EBLOB_LST_IS_SORTED,
+		.value = {0}
+	},
+	{
 		.name = "MAX",
 		.id = EBLOB_LST_MAX,
 		.value = {0}
