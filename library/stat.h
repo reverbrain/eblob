@@ -21,11 +21,14 @@
 #ifndef __EBLOB_STAT_H
 #define __EBLOB_STAT_H
 
-#include "react/react.h"
+#include "react/eblob_actions.h"
+#include "../foreign/react/bindings/c/react_c.h"
 
 #include <assert.h>
 #include <limits.h>
 #include <pthread.h>
+
+#include "eblob/blob.h"
 
 #include "atomic.h"
 
@@ -34,9 +37,9 @@
 /* TODO: Add pre-request stats and replace eblob_disk_search_stat with it */
 
 struct eblob_stat_entry {
-	atomic_t	value;
-	uint32_t	id;
 	const char	*name;
+	uint32_t	id;
+	atomic_t	value;
 };
 
 struct eblob_stat {
@@ -45,87 +48,117 @@ struct eblob_stat {
 
 static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
-		.name = "MIN",
-		.id = EBLOB_GST_MIN,
+		"MIN",
+		EBLOB_GST_MIN,
+		{0}
 	},
 	{
-		.name = "datasort_status",
-		.id = EBLOB_GST_DATASORT,
+		"datasort_status",
+		EBLOB_GST_DATASORT,
+		{0}
 	},
 	{
-		.name = "read_copy_updates",
-		.id = EBLOB_GST_READ_COPY_UPDATE,
+		"read_copy_updates",
+		EBLOB_GST_READ_COPY_UPDATE,
+		{0}
 	},
 	{
-		.name = "prepare_reused",
-		.id = EBLOB_GST_PREPARE_REUSED,
+		"prepare_reused",
+		EBLOB_GST_PREPARE_REUSED,
+		{0}
 	},
 	{
-		.name = "memory_index_tree",
-		.id = EBLOB_GST_CACHED,
+		"memory_index_tree",
+		EBLOB_GST_CACHED,
+		{0}
 	},
 	{
-		.name = "lookup_reads_number",
-		.id = EBLOB_GST_LOOKUP_READS_NUMBER,
+		"lookup_reads_number",
+		EBLOB_GST_LOOKUP_READS_NUMBER,
+		{0}
 	},
 	{
-		.name = "data_reads_number",
-		.id = EBLOB_GST_DATA_READS_NUMBER,
+		"data_reads_number",
+		EBLOB_GST_DATA_READS_NUMBER,
+		{0}
 	},
 	{
-		.name = "writes_number",
-		.id = EBLOB_GST_WRITES_NUMBER,
+		"writes_number",
+		EBLOB_GST_WRITES_NUMBER,
+		{0}
 	},
 	{
-		.name = "reads_size",
-		.id = EBLOB_GST_READS_SIZE,
+		"reads_size",
+		EBLOB_GST_READS_SIZE,
+		{0}
 	},
 	{
-		.name = "writes_size",
-		.id = EBLOB_GST_WRITES_SIZE,
+		"writes_size",
+		EBLOB_GST_WRITES_SIZE,
+		{0}
 	},
 	{
-		.name = "index_files_reads_number",
-		.id = EBLOB_GST_INDEX_READS,
+		"index_files_reads_number",
+		EBLOB_GST_INDEX_READS,
+		{0}
 	},
 	{
-		.name = "MAX",
-		.id = EBLOB_GST_MAX,
+		"MAX",
+		EBLOB_GST_MAX,
+		{0}
 	},
 };
 
 static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
-		.name = "MIN",
-		.id = EBLOB_LST_MIN,
+		"MIN",
+		EBLOB_LST_MIN,
+		{0}
 	},
 	{
-		.name = "records_total",
-		.id = EBLOB_LST_RECORDS_TOTAL,
+		"records_total",
+		EBLOB_LST_RECORDS_TOTAL,
+		{0}
 	},
 	{
-		.name = "records_removed",
-		.id = EBLOB_LST_RECORDS_REMOVED,
+		"records_removed",
+		EBLOB_LST_RECORDS_REMOVED,
+		{0}
 	},
 	{
-		.name = "records_corrupted",
-		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+		"records_corrupted",
+		EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+		{0}
 	},
 	{
-		.name = "base_size",
-		.id = EBLOB_LST_BASE_SIZE,
+		"base_size",
+		EBLOB_LST_BASE_SIZE,
+		{0}
 	},
 	{
-		.name = "memory_bloom_filter",
-		.id = EBLOB_LST_BLOOM_SIZE,
+		"memory_bloom_filter",
+		EBLOB_LST_BLOOM_SIZE,
+		{0}
 	},
 	{
-		.name = "memory_index_blocks",
-		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
+		"memory_index_blocks",
+		EBLOB_LST_INDEX_BLOCKS_SIZE,
+		{0}
 	},
 	{
-		.name = "MAX",
-		.id = EBLOB_LST_MAX,
+		"want_defrag",
+		EBLOB_LST_WANT_DEFRAG,
+		{0}
+	},
+	{
+		"is_sorted",
+		EBLOB_LST_IS_SORTED,
+		{0}
+	},
+	{
+		"MAX",
+		EBLOB_LST_MAX,
+		{0}
 	},
 };
 
@@ -192,7 +225,7 @@ void eblob_stat_destroy(struct eblob_stat *s);
 int eblob_stat_init_backend(struct eblob_backend *b, const char *path);
 int eblob_stat_init_base(struct eblob_base_ctl *bctl);
 int eblob_stat_init_local(struct eblob_stat **s);
-int eblob_stat_init_io(struct eblob_backend *b, const char *path);
+const char *eblob_stat_get_name(struct eblob_stat *s, uint32_t id);
 void eblob_stat_summary_update(struct eblob_backend *b);
 int eblob_stat_commit(struct eblob_backend *b);
 int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size);

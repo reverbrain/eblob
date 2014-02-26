@@ -12,8 +12,14 @@ set(EBLOB_SRCS
     range.c
     rbtree.c
     stat.c
+    json_stat.cpp
     )
+
+add_definitions(-D__STDC_LIMIT_MACROS)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+
 add_library(eblob SHARED ${EBLOB_SRCS})
+
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}
     SOVERSION ${EBLOB_VERSION_ABI}
@@ -22,7 +28,7 @@ set_target_properties(eblob PROPERTIES
 
 add_subdirectory(react)
 
-target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} react)
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} eblob_actions react_c)
 
 install(TARGETS eblob
     LIBRARY DESTINATION lib${LIB_SUFFIX}

@@ -114,7 +114,6 @@ err_out_exit:
 /*!
  * Return name of stat by it's id
  */
-static inline
 const char *eblob_stat_get_name(struct eblob_stat *s, uint32_t id)
 {
 	assert(s != NULL);
@@ -129,7 +128,8 @@ eblob_stat_global_print(FILE *fp, struct eblob_backend *b)
 
 	fprintf(fp, "GLOBAL:\n");
 	for (i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
-		fprintf(fp, "%s: %" PRId64 "\n", eblob_stat_get_name(b->stat, i),
+		fprintf(fp, "%s: %" PRId64 "\n",
+				eblob_stat_get_name(b->stat, i),
 				eblob_stat_get(b->stat, i));
 	fprintf(fp, "\n");
 }
@@ -160,6 +160,18 @@ eblob_stat_summary_print(FILE *fp, struct eblob_backend *b)
 				eblob_stat_get_name(b->stat_summary, i),
 				eblob_stat_get(b->stat_summary, i));
 	fprintf(fp, "\n");
+}
+
+static void
+eblob_stat_base_update(struct eblob_backend *b)
+{
+	struct eblob_base_ctl *bctl;
+
+	assert(b != NULL);
+	list_for_each_entry(bctl, &b->bases, base_entry) {
+		eblob_stat_set(bctl->stat, EBLOB_LST_WANT_DEFRAG, eblob_want_defrag(bctl));
+		eblob_stat_set(bctl->stat, EBLOB_LST_IS_SORTED, datasort_base_is_sorted(bctl));
+	}
 }
 
 static void
@@ -204,6 +216,7 @@ int eblob_stat_commit(struct eblob_backend *b)
 	eblob_stat_summary_update(b);
 	eblob_stat_summary_print(fp, b);
 
+	eblob_stat_base_update(b);
 	eblob_stat_base_print(fp, b);
 
 	if (fclose(fp) == EOF)
@@ -219,11 +232,3 @@ int64_t eblob_stat_get_summary(struct eblob_backend *b, uint32_t id)
 {
 	return eblob_stat_get(b->stat_summary, id);
 }
-
-int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
-{
-	int err = 0;
-	err = get_time_stats(b->time_stats_tree, json_stat, size);
-	return err;
-}
-

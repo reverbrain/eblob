@@ -34,6 +34,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #ifndef __attribute_unused__
 #define __attribute_unused__	__attribute__ ((unused))
