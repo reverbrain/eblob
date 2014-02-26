@@ -48,117 +48,117 @@ struct eblob_stat {
 
 static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
-		.name = "MIN",
-		.id = EBLOB_GST_MIN,
-		.value = {0}
+		"MIN",
+		EBLOB_GST_MIN,
+		{0}
 	},
 	{
-		.name = "datasort_status",
-		.id = EBLOB_GST_DATASORT,
-		.value = {0}
+		"datasort_status",
+		EBLOB_GST_DATASORT,
+		{0}
 	},
 	{
-		.name = "read_copy_updates",
-		.id = EBLOB_GST_READ_COPY_UPDATE,
-		.value = {0}
+		"read_copy_updates",
+		EBLOB_GST_READ_COPY_UPDATE,
+		{0}
 	},
 	{
-		.name = "prepare_reused",
-		.id = EBLOB_GST_PREPARE_REUSED,
-		.value = {0}
+		"prepare_reused",
+		EBLOB_GST_PREPARE_REUSED,
+		{0}
 	},
 	{
-		.name = "memory_index_tree",
-		.id = EBLOB_GST_CACHED,
-		.value = {0}
+		"memory_index_tree",
+		EBLOB_GST_CACHED,
+		{0}
 	},
 	{
-		.name = "lookup_reads_number",
-		.id = EBLOB_GST_LOOKUP_READS_NUMBER,
-		.value = {0}
+		"lookup_reads_number",
+		EBLOB_GST_LOOKUP_READS_NUMBER,
+		{0}
 	},
 	{
-		.name = "data_reads_number",
-		.id = EBLOB_GST_DATA_READS_NUMBER,
-		.value = {0}
+		"data_reads_number",
+		EBLOB_GST_DATA_READS_NUMBER,
+		{0}
 	},
 	{
-		.name = "writes_number",
-		.id = EBLOB_GST_WRITES_NUMBER,
-		.value = {0}
+		"writes_number",
+		EBLOB_GST_WRITES_NUMBER,
+		{0}
 	},
 	{
-		.name = "reads_size",
-		.id = EBLOB_GST_READS_SIZE,
-		.value = {0}
+		"reads_size",
+		EBLOB_GST_READS_SIZE,
+		{0}
 	},
 	{
-		.name = "writes_size",
-		.id = EBLOB_GST_WRITES_SIZE,
-		.value = {0}
+		"writes_size",
+		EBLOB_GST_WRITES_SIZE,
+		{0}
 	},
 	{
-		.name = "index_files_reads_number",
-		.id = EBLOB_GST_INDEX_READS,
-		.value = {0}
+		"index_files_reads_number",
+		EBLOB_GST_INDEX_READS,
+		{0}
 	},
 	{
-		.name = "MAX",
-		.id = EBLOB_GST_MAX,
-		.value = {0}
+		"MAX",
+		EBLOB_GST_MAX,
+		{0}
 	},
 };
 
 static const struct eblob_stat_entry eblob_stat_default_local[] = {
 	{
-		.name = "MIN",
-		.id = EBLOB_LST_MIN,
-		.value = {0}
+		"MIN",
+		EBLOB_LST_MIN,
+		{0}
 	},
 	{
-		.name = "records_total",
-		.id = EBLOB_LST_RECORDS_TOTAL,
-		.value = {0}
+		"records_total",
+		EBLOB_LST_RECORDS_TOTAL,
+		{0}
 	},
 	{
-		.name = "records_removed",
-		.id = EBLOB_LST_RECORDS_REMOVED,
-		.value = {0}
+		"records_removed",
+		EBLOB_LST_RECORDS_REMOVED,
+		{0}
 	},
 	{
-		.name = "records_corrupted",
-		.id = EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
-		.value = {0}
+		"records_corrupted",
+		EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
+		{0}
 	},
 	{
-		.name = "base_size",
-		.id = EBLOB_LST_BASE_SIZE,
-		.value = {0}
+		"base_size",
+		EBLOB_LST_BASE_SIZE,
+		{0}
 	},
 	{
-		.name = "memory_bloom_filter",
-		.id = EBLOB_LST_BLOOM_SIZE,
-		.value = {0}
+		"memory_bloom_filter",
+		EBLOB_LST_BLOOM_SIZE,
+		{0}
 	},
 	{
-		.name = "memory_index_blocks",
-		.id = EBLOB_LST_INDEX_BLOCKS_SIZE,
-		.value = {0}
+		"memory_index_blocks",
+		EBLOB_LST_INDEX_BLOCKS_SIZE,
+		{0}
 	},
 	{
-		.name = "want_defrag",
-		.id = EBLOB_LST_WANT_DEFRAG,
-		.value = {0}
+		"want_defrag",
+		EBLOB_LST_WANT_DEFRAG,
+		{0}
 	},
 	{
-		.name = "is_sorted",
-		.id = EBLOB_LST_IS_SORTED,
-		.value = {0}
+		"is_sorted",
+		EBLOB_LST_IS_SORTED,
+		{0}
 	},
 	{
-		.name = "MAX",
-		.id = EBLOB_LST_MAX,
-		.value = {0}
+		"MAX",
+		EBLOB_LST_MAX,
+		{0}
 	},
 };
 

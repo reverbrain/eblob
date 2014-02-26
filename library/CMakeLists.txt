@@ -14,8 +14,12 @@ set(EBLOB_SRCS
     stat.c
     json_stat.cpp
     )
+
+add_definitions(-D__STDC_LIMIT_MACROS)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
+
 add_library(eblob SHARED ${EBLOB_SRCS})
+
 set_target_properties(eblob PROPERTIES
     VERSION ${EBLOB_VERSION}
     SOVERSION ${EBLOB_VERSION_ABI}

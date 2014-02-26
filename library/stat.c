@@ -169,8 +169,8 @@ eblob_stat_base_update(struct eblob_backend *b)
 
 	assert(b != NULL);
 	list_for_each_entry(bctl, &b->bases, base_entry) {
-		eblob_stat_set(b->stat, EBLOB_LST_WANT_DEFRAG, eblob_want_defrag(bctl));
-		eblob_stat_set(b->stat, EBLOB_LST_IS_SORTED, datasort_base_is_sorted(bctl));
+		eblob_stat_set(bctl->stat, EBLOB_LST_WANT_DEFRAG, eblob_want_defrag(bctl));
+		eblob_stat_set(bctl->stat, EBLOB_LST_IS_SORTED, datasort_base_is_sorted(bctl));
 	}
 }
 
