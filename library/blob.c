@@ -2344,6 +2344,7 @@ static void *eblob_periodic(void *data)
 		period = 0;
 
 		err = eblob_stat_commit(b);
+
 		if (err != 0)
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 					"eblob_stat_commit: FAILED");
@@ -2451,7 +2452,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_stat_free;
 	}
 
-	err = init_time_stats_tree(&b->time_stats_tree);
+	err = init_time_stats_tree(&b->time_stats_tree, eblob_actions);
 	if (err) {
 		eblob_log(c->log, EBLOB_LOG_ERROR,
 				"blob: init_time_stats_tree failed: %s %d.\n",

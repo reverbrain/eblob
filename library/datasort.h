@@ -144,7 +144,7 @@ eblob_binlog_entry_new(const struct eblob_key *key)
 
 	assert(key != NULL);
 
-	entry = malloc(sizeof(*entry));
+	entry = (struct eblob_binlog_entry*) malloc(sizeof(*entry));
 	if (entry == NULL)
 		return NULL;
 	entry->key = *key;

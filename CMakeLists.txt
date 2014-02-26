@@ -163,6 +163,7 @@ set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${B
 set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 # Build parts
+add_subdirectory(foreign/react/bindings/c)
 add_subdirectory(library)
 if (WITH_EXAMPLES)
     add_subdirectory(example)

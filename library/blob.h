@@ -34,6 +34,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #ifndef __attribute_unused__
 #define __attribute_unused__	__attribute__ ((unused))
@@ -63,6 +64,10 @@
 
 #ifndef FD_CLOEXEC
 #define FD_CLOEXEC	1
+#endif
+
+#ifndef UINT64_MAX
+#define UINT64_MAX (18446744073709551615ULL)
 #endif
 
 #define EBLOB_1_M				(1UL<<20)

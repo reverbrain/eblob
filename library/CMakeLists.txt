@@ -12,6 +12,7 @@ set(EBLOB_SRCS
     range.c
     rbtree.c
     stat.c
+    json_stat.cpp
     )
 add_library(eblob SHARED ${EBLOB_SRCS})
 set_target_properties(eblob PROPERTIES
@@ -22,7 +23,7 @@ set_target_properties(eblob PROPERTIES
 
 add_subdirectory(react)
 
-target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} react)
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} eblob_actions react_c)
 
 install(TARGETS eblob
     LIBRARY DESTINATION lib${LIB_SUFFIX}
