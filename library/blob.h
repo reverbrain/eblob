@@ -66,10 +66,6 @@
 #define FD_CLOEXEC	1
 #endif
 
-#ifndef UINT64_MAX
-#define UINT64_MAX (18446744073709551615ULL)
-#endif
-
 #define EBLOB_1_M				(1UL<<20)
 #define EBLOB_1_G				(1ULL<<30)
 
