@@ -1,3 +1,11 @@
+eblob (0.21.31) unstable; urgency=low
+
+  * stat: use atomics instead of locks
+  * stat: IO stats merged into global eblob stats
+  * stat: Json statistics. React C bindings.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 12 Mar 2014 00:21:40 +0400
+
 eblob (0.21.30) unstable; urgency=low
 
   * stat: Time statistics monitoring added.

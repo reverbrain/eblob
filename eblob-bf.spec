@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.30
+Version:	0.21.31
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -107,6 +107,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Mar 12 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.31
+- stat: use atomics instead of locks
+- stat: IO stats merged into global eblob stats
+- stat: Json statistics. React C bindings.
+
 * Mon Feb 17 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.30
 - stat: Time statistics monitoring added.
 
