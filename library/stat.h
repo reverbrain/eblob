@@ -21,9 +21,6 @@
 #ifndef __EBLOB_STAT_H
 #define __EBLOB_STAT_H
 
-#include "react/eblob_actions.h"
-#include "../foreign/react/bindings/c/react_c.h"
-
 #include <assert.h>
 #include <limits.h>
 #include <pthread.h>

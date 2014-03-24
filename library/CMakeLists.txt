@@ -26,9 +26,7 @@ set_target_properties(eblob PROPERTIES
     LINKER_LANGUAGE CXX
     )
 
-add_subdirectory(react)
-
-target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} eblob_actions react_c)
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} reverbrain_react)
 
 install(TARGETS eblob
     LIBRARY DESTINATION lib${LIB_SUFFIX}

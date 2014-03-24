@@ -45,6 +45,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "reverbrain_react.h"
+
 #if !defined(_D_EXACT_NAMLEN) && (defined(__FreeBSD__) || defined(__APPLE__))
 #define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
 #endif
@@ -689,7 +691,7 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key)
 int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *res, int *diskp)
 {
-	start_action(b->time_stats_tree, ACTION_CACHE_LOOKUP);
+	start_action(ACTION_EBLOB_CACHE_LOOKUP);
 
 	int err = 1, disk = 0;
 
@@ -714,7 +716,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	if (diskp != NULL)
 		*diskp = disk;
-	stop_action(b->time_stats_tree, ACTION_CACHE_LOOKUP);
+	stop_action(ACTION_EBLOB_CACHE_LOOKUP);
 	return err;
 }
 

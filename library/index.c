@@ -49,6 +49,8 @@
 
 #include "blob.h"
 
+#include "reverbrain_react.h"
+
 
 int eblob_key_sort(const void *key1, const void *key2)
 {
@@ -156,7 +158,7 @@ err_out_exit:
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
-	start_action(bctl->back->time_stats_tree, ACTION_INDEX_BLOCK_SEARCH_NOLOCK);
+	start_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 
 	struct eblob_index_block *t = NULL;
 	struct rb_node *n;
@@ -164,7 +166,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 
 	if (!eblob_bloom_get(bctl, &dc->key)) {
 		st->bloom_null++;
-		stop_action(bctl->back->time_stats_tree, ACTION_INDEX_BLOCK_SEARCH_NOLOCK);
+		stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 		return NULL;
 	}
 
@@ -203,7 +205,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	if (!n)
 		t = NULL;
 
-	stop_action(bctl->back->time_stats_tree, ACTION_INDEX_BLOCK_SEARCH_NOLOCK);
+	stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 	return t;
 }
 
@@ -355,7 +357,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc),
 		struct eblob_disk_search_stat *st)
 {
-	start_action(b->time_stats_tree, ACTION_FIND_ON_DISK);
+	start_action(ACTION_EBLOB_FIND_ON_DISK);
 
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
 	struct eblob_disk_control *search_start, *search_end;
@@ -434,7 +436,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	}
 
 out:
-	stop_action(b->time_stats_tree, ACTION_FIND_ON_DISK);
+	stop_action(ACTION_EBLOB_FIND_ON_DISK);
 	return found;
 }
 
@@ -557,7 +559,7 @@ err_out_exit:
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
-	start_action(b->time_stats_tree, ACTION_DISK_INDEX_LOOKUP);
+	start_action(ACTION_EBLOB_DISK_INDEX_LOOKUP);
 
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control *dc, tmp = { .key = *key, };
@@ -635,6 +637,6 @@ again:
 
 	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, loops);
 
-	stop_action(b->time_stats_tree, ACTION_DISK_INDEX_LOOKUP);
+	stop_action(ACTION_EBLOB_DISK_INDEX_LOOKUP);
 	return err;
 }

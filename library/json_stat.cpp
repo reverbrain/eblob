@@ -3,10 +3,12 @@ extern "C" {
 #include "blob.h"
 }
 
-#include "../foreign/react/bindings/c/react_c.hpp"
-
 #include <string>
 #include <iostream>
+
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 int eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
@@ -49,12 +51,6 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		doc.SetObject();
 		rapidjson::Document::AllocatorType &allocator = doc.GetAllocator();
 
-		rapidjson::Value time_stats(rapidjson::kObjectType);
-		err = get_time_stats(b->time_stats_tree, time_stats, allocator);
-		if (err) {
-			return err;
-		}
-
 		rapidjson::Value global_stats(rapidjson::kObjectType);
 		err = eblob_stat_global_json(b, global_stats, allocator);
 		if (err) {
@@ -73,7 +69,6 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 			return err;
 		}
 
-		doc.AddMember("time_stats", time_stats, allocator);
 		doc.AddMember("global_stats", global_stats, allocator);
 		doc.AddMember("summary_stats", summary_stats, allocator);
 		doc.AddMember("base_stats", base_stats, allocator);
