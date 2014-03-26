@@ -34,6 +34,9 @@
 #include <time.h>
 #include <unistd.h>
 
+/*
+ * This function can return thread_local variable to allow different trace_id in different threads
+ */
 int64_t (*eblob_trace_id_function) (void);
 
 void eblob_set_trace_id_function(int64_t (*trace_id_function)(void))

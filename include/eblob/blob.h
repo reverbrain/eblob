@@ -95,10 +95,18 @@ struct eblob_log {
 	void 			(* log)(void *priv, int level, const char *msg);
 };
 
+/*
+ * Functions for setting and getting trace_id shown in logs.
+ * Allows to trace specific commands by associating them with unique trace_id's.
+ * Function that returns trace_id can be set externally to allow trace_id consistency.
+ */
 void eblob_set_trace_id_function(int64_t (*trace_id_function)(void));
 int64_t eblob_get_trace_id();
 
-#define EBLOB_TRACE_BIT         (1ll<<63)         /*is used in trace_id for ignoring current log level*/
+/*
+ * Used in trace_id for ignoring current log level
+ */
+#define EBLOB_TRACE_BIT         (1ll<<63)         
 
 void eblob_log_raw_formatted(void *priv, int level, const char *msg);
 void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
