@@ -95,11 +95,16 @@ struct eblob_log {
 	void 			(* log)(void *priv, int level, const char *msg);
 };
 
+void eblob_set_trace_id_function(int64_t (*trace_id_function)(void));
+int64_t eblob_get_trace_id();
+
+#define EBLOB_TRACE_BIT         (1ll<<63)         /*is used in trace_id for ignoring current log level*/
+
 void eblob_log_raw_formatted(void *priv, int level, const char *msg);
 void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
 #define eblob_log(l, level, format, a...)			\
 	do {							\
-		if (level <= (l)->log_level)			\
+		if ((level <= (l)->log_level) || (eblob_get_trace_id() & EBLOB_TRACE_BIT))			\
 			eblob_log_raw((l), level, format, ##a); \
 	} while (0)
 

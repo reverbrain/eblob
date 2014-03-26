@@ -34,6 +34,22 @@
 #include <time.h>
 #include <unistd.h>
 
+int64_t (*eblob_trace_id_function) (void);
+
+void eblob_set_trace_id_function(int64_t (*trace_id_function)(void))
+{
+	eblob_trace_id_function = trace_id_function;
+}
+
+int64_t eblob_get_trace_id()
+{
+	if (!eblob_trace_id_function)
+	{
+		return 0;
+	}
+	return eblob_trace_id_function();
+}
+
 void eblob_log_raw_formatted(void *priv, int level, const char *msg)
 {
 	char str[64];
