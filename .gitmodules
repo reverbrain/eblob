@@ -1,3 +1,0 @@
-[submodule "foreign/react"]
-	path = foreign/react
-	url = git://github.com/reverbrain/react.git
