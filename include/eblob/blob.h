@@ -100,8 +100,8 @@ struct eblob_log {
  * Allows to trace specific commands by associating them with unique trace_id's.
  * Function that returns trace_id can be set externally to allow trace_id consistency.
  */
-void eblob_set_trace_id_function(int64_t (*trace_id_function)(void));
-int64_t eblob_get_trace_id();
+void eblob_set_trace_id_function(uint64_t (*trace_id_function)(void));
+uint64_t eblob_get_trace_id();
 
 /*
  * Used in trace_id for ignoring current log level
