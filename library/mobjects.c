@@ -405,8 +405,11 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 	if (eblob_mutex_init(&ctl->lock) != 0)
 		goto err_out_free;
 
-	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
+	if (pthread_cond_init(&ctl->critness_wait, NULL))
 		goto err_out_destroy_lock;
+
+	if (pthread_rwlock_init(&ctl->index_blocks_lock, NULL))
+		goto err_out_destroy_critness_wait;
 
 	if (eblob_stat_init_base(ctl) != 0)
 		goto err_out_destroy_blocks_lock;
@@ -415,6 +418,8 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 
 err_out_destroy_blocks_lock:
 	pthread_rwlock_destroy(&ctl->index_blocks_lock);
+err_out_destroy_critness_wait:
+	pthread_cond_destroy(&ctl->critness_wait);
 err_out_destroy_lock:
 	pthread_mutex_destroy(&ctl->lock);
 err_out_free:
