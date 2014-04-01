@@ -22,7 +22,7 @@ BuildRequires:	gcc44 gcc44-c++
 BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-regex, boost%{boost_ver}-system, boost%{boost_ver}-thread
 BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
-BuildRequires:	react >= 1.0.1
+BuildRequires:	react-devel >= 1.0.1
 
 %description
 libeblob is a low-level IO library which stores data in huge blob files
