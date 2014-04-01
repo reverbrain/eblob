@@ -1,4 +1,3 @@
-include_directories(../include)
 set(EBLOB_SRCS
     blob.c
     crypto/sha512.c

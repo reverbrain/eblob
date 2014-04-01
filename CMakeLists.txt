@@ -14,7 +14,11 @@ STRING (REGEX MATCH "([0-9]+$)" EBLOB_VERSION_MINOR "${DEBFULLVERSION}")
 set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+include(cmake/Modules/locate_library.cmake)
+locate_library(REACT "react/react.hpp" "react")
+
 include(CheckAtomic)
+include(CheckSymbolExists)
 
 option(WITH_ASSERTS "Enable asserts" OFF)
 option(WITH_HARDENING "Enable hardening" OFF)
@@ -24,10 +28,6 @@ option(WITH_TSAN "Enable thread sanitizer" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
-
-include(TestBigEndian)
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 
 # Turn off aserts
 if (NOT WITH_ASSERTS)
@@ -84,6 +84,7 @@ message(STATUS "tsan is: ${WITH_TSAN}")
 message(STATUS "Sanitizer lib: ${SANITIZER_LIBRARY}")
 
 # Test endianess
+include(TestBigEndian)
 test_big_endian(HAVE_BIG_ENDIAN)
 if(HAVE_BIG_ENDIAN)
     add_definitions(-DBYTEORDER=4321)
@@ -97,6 +98,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wmissing-declarations -Wredundant-decls")
 add_definitions(
+    -W
     -Wall
     -Wextra
     -Wstrict-aliasing=2
@@ -126,8 +128,19 @@ message(STATUS "Boost information:")
 message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
 message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
-include_directories(${Boost_INCLUDE_DIRS})
-link_directories(${Boost_LIBRARY_DIRS})
+
+
+include_directories(
+	${CMAKE_SOURCE_DIR}/include/
+	${Boost_INCLUDE_DIRS}
+	${REACT_INCLUDE_DIRS}
+)
+
+link_directories(
+	${Boost_LIBRARY_DIRS}
+	${REACT_LIBRARY_DIRS}
+)
+
 
 # Check for python
 if(WITH_PYTHON)
@@ -136,8 +149,6 @@ if(WITH_PYTHON)
     include_directories(${PYTHON_INCLUDE_PATH})
     include_directories(${PYTHON_INCLUDE_DIRS})
 endif()
-
-include(CheckSymbolExists)
 
 # Check for posix_fadvise
 check_symbol_exists(posix_fadvise "fcntl.h" HAVE_POSIX_FADVISE)
@@ -158,9 +169,9 @@ if (HAVE_FDATASYNC)
 endif()
 
 # Collect all libraries together
-set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SANITIZER_LIBRARY})
-set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
-set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SANITIZER_LIBRARY} ${REACT_LIBRARIES})
+set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY} ${REACT_LIBRARIES})
+set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${REACT_LIBRARIES})
 
 # Build parts
 add_subdirectory(library)
