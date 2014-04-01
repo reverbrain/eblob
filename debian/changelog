@@ -1,3 +1,10 @@
+eblob (0.21.32) unstable; urgency=low
+
+  * foreign: React is now shared library
+  * stat: Tools for exporting trace_id from elliptics added
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 01 Apr 2014 23:37:40 +0400
+
 eblob (0.21.31) unstable; urgency=low
 
   * stat: use atomics instead of locks

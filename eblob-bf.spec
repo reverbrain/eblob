@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.31
+Version:	0.21.32
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Apr 01 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.32
+- foreign: React is now shared library
+- stat: Tools for exporting trace_id from elliptics added
+
 * Wed Mar 12 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.31
 - stat: use atomics instead of locks
 - stat: IO stats merged into global eblob stats
