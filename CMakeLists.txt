@@ -28,10 +28,6 @@ option(WITH_TESTS "Build tests" ON)
 include(TestBigEndian)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/foreign/react/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/foreign/react/include/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/foreign/react/foreign/)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/foreign/react/examples/reverbrain/)
 
 # Turn off aserts
 if (NOT WITH_ASSERTS)
@@ -167,7 +163,6 @@ set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${B
 set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 # Build parts
-add_subdirectory(foreign/react/examples/reverbrain)
 add_subdirectory(library)
 if (WITH_EXAMPLES)
     add_subdirectory(example)

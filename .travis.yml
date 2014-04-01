@@ -1,7 +1,10 @@
 language: cpp
 before_install:
+  - curl http://repo.reverbrain.com/REVERBRAIN.GPG | sudo apt-key add -
+  - echo "deb http://repo.reverbrain.com/precise/ current/amd64/" | sudo tee -a /etc/apt/sources.list
+  - echo "deb http://repo.reverbrain.com/precise/ current/all/" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -qq
-  - sudo apt-get install -qq devscripts build-essential equivs python-all
+  - sudo apt-get install -qq devscripts build-essential equivs python-all react
 compiler:
   - gcc
   - clang

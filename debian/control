@@ -13,6 +13,7 @@ Build-Depends:
  libboost-thread-dev,
  python-dev,
  python-support,
+ react (>= 1.0.1),
 Standards-Version: 3.8.0
 Homepage: http://www.reverbrain.com/eblob/
 Vcs-Git: git://github.com/reverbrain/eblob.git
