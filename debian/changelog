@@ -1,3 +1,11 @@
+eblob (0.21.33) unstable; urgency=low
+
+  * cmake: missing locate_library.cmake added
+  * build: fixed build when react is not in standard packaged place
+  * build: depend on react developer version for compilation
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 05 Apr 2014 02:05:50 +0400
+
 eblob (0.21.32) unstable; urgency=low
 
   * foreign: React is now shared library

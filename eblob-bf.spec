@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.32
+Version:	0.21.33
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Apr 05 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.33
+- cmake: missing locate_library.cmake added
+- build: fixed build when react is not in standard packaged place
+- build: depend on react developer version for compilation
+
 * Tue Apr 01 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.32
 - foreign: React is now shared library
 - stat: Tools for exporting trace_id from elliptics added
