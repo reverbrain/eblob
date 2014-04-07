@@ -37,14 +37,14 @@
 /*
  * This function can return thread_local variable to allow different trace_id in different threads
  */
-int64_t (*eblob_trace_id_function) (void);
+uint64_t (*eblob_trace_id_function) (void);
 
-void eblob_set_trace_id_function(int64_t (*trace_id_function)(void))
+void eblob_set_trace_id_function(uint64_t (*trace_id_function)(void))
 {
 	eblob_trace_id_function = trace_id_function;
 }
 
-int64_t eblob_get_trace_id()
+uint64_t eblob_get_trace_id()
 {
 	if (!eblob_trace_id_function)
 	{

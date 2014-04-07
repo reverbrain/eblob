@@ -6,9 +6,9 @@ extern "C" {
 #include <string>
 #include <iostream>
 
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
-#include "rapidjson/stringbuffer.h"
+#include <react/rapidjson/document.h>
+#include <react/rapidjson/writer.h>
+#include <react/rapidjson/stringbuffer.h>
 
 int eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {

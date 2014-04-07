@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.31
+Version:	0.21.33
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -22,6 +22,7 @@ BuildRequires:	gcc44 gcc44-c++
 BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-regex, boost%{boost_ver}-system, boost%{boost_ver}-thread
 BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
+BuildRequires:	react-devel >= 1.0.1
 
 %description
 libeblob is a low-level IO library which stores data in huge blob files
@@ -107,6 +108,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Apr 05 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.33
+- cmake: missing locate_library.cmake added
+- build: fixed build when react is not in standard packaged place
+- build: depend on react developer version for compilation
+
+* Tue Apr 01 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.32
+- foreign: React is now shared library
+- stat: Tools for exporting trace_id from elliptics added
+
 * Wed Mar 12 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.31
 - stat: use atomics instead of locks
 - stat: IO stats merged into global eblob stats
