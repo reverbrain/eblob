@@ -118,11 +118,9 @@ void eblob_base_wait_locked(struct eblob_base_ctl *bctl)
 {
 	assert(bctl != NULL);
 
-	for (;;) {
-		pthread_mutex_lock(&bctl->lock);
-		if (bctl->critness == 0)
-			return;
-		pthread_mutex_unlock(&bctl->lock);
+	pthread_mutex_lock(&bctl->lock);
+	while (bctl->critness != 0) {
+		pthread_cond_wait(&bctl->critness_wait, &bctl->lock);
 	}
 }
 
@@ -158,6 +156,8 @@ void eblob_bctl_release(struct eblob_base_ctl *bctl)
 
 	pthread_mutex_lock(&bctl->lock);
 	bctl->critness--;
+	if (bctl->critness == 0)
+		pthread_cond_broadcast(&bctl->critness_wait);
 	pthread_mutex_unlock(&bctl->lock);
 }
 
@@ -388,7 +388,7 @@ static void *eblob_blob_iterator(void *data)
 
 	while (ACCESS_ONCE(ctl->thread_num) > 0) {
 		/* Wait until all pending writes are finished and lock */
-		eblob_base_wait_locked(bc);
+		pthread_mutex_lock(&bc->lock);
 
 		if (ACCESS_ONCE(ctl->thread_num) == 0) {
 			err = 0;
@@ -440,7 +440,7 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_check;
 	}
 
-	pthread_mutex_lock(&bc->lock);
+	goto err_out_check;
 
 err_out_unlock:
 	pthread_mutex_unlock(&bc->lock);
@@ -1495,7 +1495,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	size_t mapped_size = ALIGN(wc->total_data_size + off - offset, page_size);
 	void *data, *ptr;
 	int err = 0;
-	
+
 	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, wc->data_fd, offset);
 	if (data == MAP_FAILED) {
 		err = -errno;

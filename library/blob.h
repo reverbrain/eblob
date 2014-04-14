@@ -89,7 +89,7 @@ static const size_t EBLOB_L2HASH_ENTRY_SIZE = sizeof(struct eblob_l2hash_entry);
 struct eblob_map_fd {
 	int			fd;
 	uint64_t		offset, size;
-	
+
 	void			*data;
 
 	uint64_t		mapped_size;
@@ -147,6 +147,7 @@ struct eblob_base_ctl {
 	int			index;
 
 	pthread_mutex_t		lock;
+	pthread_cond_t		critness_wait;
 	int			data_fd, index_fd;
 	off_t			data_offset, index_offset;
 
