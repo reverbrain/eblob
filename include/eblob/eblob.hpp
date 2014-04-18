@@ -120,6 +120,9 @@ class eblob {
 		void truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags = -1);
 		void truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags = -1);
 
+		void start_defrag();
+		int defrag_status();
+
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
