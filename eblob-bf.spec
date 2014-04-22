@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.33
+Version:	0.21.34
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Apr 22 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.34
+- Added defragmentation methods to cpp binding.
+- Added defragmentation methods to python binding.
+- Fixed eblob bases which end by slash
+
 * Sat Apr 05 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.33
 - cmake: missing locate_library.cmake added
 - build: fixed build when react is not in standard packaged place
