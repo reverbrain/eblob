@@ -56,8 +56,10 @@ static const char *eblob_get_base(const char *blob_base)
 	const char *base;
 
 	base = strrchr(blob_base, '/');
-	if (!base || *(++base) == '\0')
+	if (!base)
 		base = blob_base;
+	else
+		++base;
 
 	return base;
 }
