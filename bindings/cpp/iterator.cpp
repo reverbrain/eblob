@@ -41,7 +41,9 @@ void eblob_iterator::iterate(eblob_iterator_callback &cb, const int tnum, int in
 	index_max_ = index_max;
 	data_num_ = found_num_ = 0;
 
-	open_next();
+	int err = open_next();
+	if (err != 0)
+		return;
 
 	boost::thread_group threads;
 	for (int i=0; i<tnum; ++i) {
@@ -65,7 +67,8 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 				boost::mutex::scoped_lock lock(data_lock_);
 
 				if (position_ + sizeof(dc) > index_size_) {
-					open_next();
+					if (open_next())
+						break;
 				}
 
 				bio::read<bio::file_source>(*index_file_, (char *)&dc, sizeof(struct eblob_disk_control));
@@ -93,28 +96,36 @@ void eblob_iterator::iter(eblob_iterator_callback *cb) {
 	found_num_ += found_num;
 }
 
-void eblob_iterator::open_next()
+int eblob_iterator::open_next()
 {
 	if (index_ >= index_max_) {
 		std::cout << "index: " << index_ << ", max-index: " << index_max_ << std::endl;
-		throw std::runtime_error("Completed");
+		return 1;
 	}
 
 	std::ostringstream filename;
 	filename << input_base_ << "." << index_;
 
 	data_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
-	if (!data_file_->is_open())
-		throw std::runtime_error("Completed: no data file");
+	if (!data_file_->is_open()) {
+		std::ostringstream ss;
+		ss << "index: " << index_ << ", max-index: " << index_max_ << ": no data file";
+		throw std::runtime_error(ss.str());
+	}
 
 	filename << ".index";
 	index_file_.reset(new bio::file_source(filename.str(), std::ios_base::in | std::ios_base::binary));
-	if (!index_file_->is_open())
-		throw std::runtime_error("Completed: no index file");
+	if (!index_file_->is_open()) {
+		std::ostringstream ss;
+		ss << "index: " << index_ << ", max-index: " << index_max_ << ": no index file";
+		throw std::runtime_error(ss.str());
+	}
 
 	index_size_ = bio::seek<bio::file_source>(*index_file_, 0, std::ios::end);
 	bio::seek<bio::file_source>(*index_file_, 0, std::ios::beg);
 
 	++index_;
 	position_ = 0;
+
+	return 0;
 }

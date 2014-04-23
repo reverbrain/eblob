@@ -147,7 +147,7 @@ class eblob_iterator {
 		std::string input_base_;
 		uint64_t data_num_, found_num_;
 
-		void open_next();
+		int open_next();
 		void iter(eblob_iterator_callback *cb);
 
 		size_t index_size_;
