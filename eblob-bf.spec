@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.34
+Version:	0.21.35
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Apr 23 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.35
+- iterator: do not throw exception if there are no more data files to iterate
+
 * Tue Apr 22 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.34
 - Added defragmentation methods to cpp binding.
 - Added defragmentation methods to python binding.

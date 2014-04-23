@@ -1,3 +1,9 @@
+eblob (0.21.35) unstable; urgency=low
+
+  * iterator: do not throw exception if there are no more data files to iterate
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 23 Apr 2014 18:54:54 +0400
+
 eblob (0.21.34) unstable; urgency=low
 
   * Added defragmentation methods to cpp binding.
