@@ -167,5 +167,7 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def("remove_hashed", &eblob_python::remove_hashed)
 		.def("elements", &eblob_python::elements)
 		.def("iterate", &eblob_python::py_iterate)
+		.def("start_defrag", &eblob::start_defrag)
+		.def("defrag_status", &eblob::defrag_status)
 	;
 };

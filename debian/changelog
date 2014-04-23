@@ -1,3 +1,11 @@
+eblob (0.21.34) unstable; urgency=low
+
+  * Added defragmentation methods to cpp binding.
+  * Added defragmentation methods to python binding.
+  * Fixed eblob bases which end by slash
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 22 Apr 2014 14:58:33 +0400
+
 eblob (0.21.33) unstable; urgency=low
 
   * cmake: missing locate_library.cmake added
