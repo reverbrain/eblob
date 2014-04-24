@@ -364,6 +364,7 @@ struct eblob_config {
 
 /*
  * This is in-memory cache. It should be kept as compact as possible.
+ * @size - data size (not disk size) of the given entry
  */
 struct eblob_ram_control {
 	uint64_t		data_offset, index_offset;
