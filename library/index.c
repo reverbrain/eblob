@@ -259,6 +259,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 	struct eblob_disk_control dc;
 	uint64_t block_count, block_id = 0, err_count = 0, offset = 0;
 	int64_t removed = 0;
+	int64_t removed_size = 0;
 	unsigned int i;
 	int err = 0;
 
@@ -327,10 +328,12 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			if (i == 0)
 				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
 
-			if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE))
+			if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE)) {
 				removed++;
-			else
+				removed_size += dc.data_size;
+			} else {
 				eblob_bloom_set(bctl, &dc.key);
+			}
 
 			offset += sizeof(struct eblob_disk_control);
 		}
@@ -343,6 +346,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			goto err_out_drop_tree;
 	}
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
+	eblob_stat_set(bctl->stat, EBLOB_LST_REMOVED_SIZE, removed_size);
 	return 0;
 
 err_out_drop_tree:
