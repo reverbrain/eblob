@@ -21,7 +21,7 @@ Vcs-Browser: https://github.com/reverbrain/eblob
 
 Package: eblob
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}, react (>= 2.1.1)
 Description: BLOB data container
  EBLOB is append data storage with fast indexes and comprehensive API
 
@@ -29,6 +29,6 @@ Package: eblob-dbg
 Architecture: any
 Section: debug
 Priority: extra
-Depends: eblob (= ${binary:Version}), ${misc:Depends}
+Depends: eblob (= ${binary:Version}), ${misc:Depends}, react-dbg (>= 2.1.1)
 Description: BLOB data container
  EBLOB is append data storage with fast indexes and comprehensive API
