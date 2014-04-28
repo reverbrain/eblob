@@ -13,7 +13,7 @@ Build-Depends:
  libboost-thread-dev,
  python-dev,
  python-support,
- react-dev (>= 2.1.1),
+ react-dev (>= 2.1.1)
 Standards-Version: 3.8.0
 Homepage: http://www.reverbrain.com/eblob/
 Vcs-Git: git://github.com/reverbrain/eblob.git
@@ -29,6 +29,6 @@ Package: eblob-dbg
 Architecture: any
 Section: debug
 Priority: extra
-Depends: eblob (= ${binary:Version}), ${misc:Depends}, react-dbg (>= 2.1.1)
+Depends: eblob (= ${binary:Version}), ${misc:Depends}
 Description: BLOB data container
  EBLOB is append data storage with fast indexes and comprehensive API
