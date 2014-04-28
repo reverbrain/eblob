@@ -330,7 +330,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 
 			if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE)) {
 				removed++;
-				removed_size += dc.data_size;
+				removed_size += dc.disk_size;
 			} else {
 				eblob_bloom_set(bctl, &dc.key);
 			}

@@ -327,7 +327,7 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, dc->data_size);
+		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
 	}
 
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
@@ -668,7 +668,7 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 	}
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
-	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, old->bctl->data_size);
+	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, old->size);
 
 	if (!b->cfg.sync) {
 		eblob_fdatasync(old->bctl->data_fd);
