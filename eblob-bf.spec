@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.35
+Version:	0.21.36
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Mon Apr 28 2014 Andrey Kashin <kashin.andrej@gmail.com> - 0.21.36
+- debian: react added to dependencies to eblob and eblob-dbg
+- foreign: React version updated
+- stat: REMOVED_SIZE stat estimation fixed
+- eblob: added comment about eblob_ram_control::size field
+- stat: Total size of removed records added
+
 * Wed Apr 23 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.35
 - iterator: do not throw exception if there are no more data files to iterate
 

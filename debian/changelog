@@ -1,3 +1,13 @@
+eblob (0.21.36) unstable; urgency=low
+
+  * debian: react added to dependencies to eblob and eblob-dbg
+  * foreign: React version updated
+  * stat: REMOVED_SIZE stat estimation fixed
+  * eblob: added comment about eblob_ram_control::size field
+  * stat: Total size of removed records added
+
+ -- Andrey Kashin <kashin.andrej@gmail.com>  Mon, 28 Apr 2014 16:47:03 +0400
+
 eblob (0.21.35) unstable; urgency=low
 
   * iterator: do not throw exception if there are no more data files to iterate
