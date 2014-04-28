@@ -123,6 +123,11 @@ static const struct eblob_stat_entry eblob_stat_default_local[] = {
 		{0}
 	},
 	{
+		"records_removed_size",
+		EBLOB_LST_REMOVED_SIZE,
+		{0}
+	},
+	{
 		"records_corrupted",
 		EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
 		{0}
