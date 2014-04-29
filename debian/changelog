@@ -1,3 +1,10 @@
+eblob (0.21.37) unstable; urgency=low
+
+  * debian: react version dependency updated to 2.3.1
+  * debian: react-dbg removed from dependencies
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 29 Apr 2014 23:49:43 +0400
+
 eblob (0.21.36) unstable; urgency=low
 
   * debian: react added to dependencies to eblob and eblob-dbg
