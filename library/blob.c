@@ -1041,7 +1041,7 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
  * @for_write:		specifies if this request is intended for future write
  */
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
-		struct eblob_write_control *wc, int for_write)
+		struct eblob_write_control *wc, int for_write, struct eblob_ram_control *old)
 {
 	react_start_action(ACTION_EBLOB_FILL_WRITE_CONTROL_FROM_RAM);
 
@@ -1056,6 +1056,8 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 				"blob: %s: %s: eblob_cache_lookup: %zd, on_disk: %d\n",
 				eblob_dump_id(key->id), __func__, err, wc->on_disk);
 		goto err_out_exit;
+	} else if(old) {
+		memcpy(old, &ctl, sizeof(struct eblob_ram_control));
 	}
 
 	/* only for write */
@@ -1378,13 +1380,11 @@ err_out_exit:
  */
 static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, uint64_t prepare_disk_size,
-		enum eblob_copy_flavour copy, uint64_t copy_offset)
+		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old)
 {
 	react_start_action(ACTION_EBLOB_WRITE_PREPARE_DISK);
 
 	ssize_t err = 0;
-	struct eblob_ram_control old;
-	int have_old, disk;
 	uint64_t size;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
@@ -1397,25 +1397,13 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_cache_lookup(b, key, &old, &disk);
-	switch (err) {
-	case -ENOENT:
-		have_old = 0;
-		break;
-	case 0:
-		have_old = 1;
-		break;
-	default:
-		goto err_out_exit;
-	}
-
 	/*
 	 * FIXME: There is TOC vs TOU race between cache lookup and
 	 * record copy
 	 */
 	pthread_mutex_lock(&b->lock);
 	err = eblob_write_prepare_disk_ll(b, key, wc, prepare_disk_size, copy,
-			copy_offset, have_old ? &old : NULL);
+			copy_offset, old);
 	pthread_mutex_unlock(&b->lock);
 
 err_out_exit:
@@ -1432,6 +1420,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	react_start_action(ACTION_EBLOB_WRITE_PREPARE);
 
 	struct eblob_write_control wc = { .offset = 0 };
+	struct eblob_ram_control old;
 	int err;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
@@ -1448,14 +1437,16 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	 * For eblob_write_prepare() this can not fail with -E2BIG, since
 	 * size/offset are zero.
 	 */
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, &old);
+	if (err && err != -ENOENT)
+		goto err_out_exit;
+
 	if (err == 0 && (wc.total_size >= eblob_calculate_size(b, 0, size))) {
 		eblob_stat_inc(b->stat, EBLOB_GST_PREPARE_REUSED);
 		goto err_out_exit;
 	} else {
 		wc.flags = flags;
-
-		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0);
+		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old);
 		if (err)
 			goto err_out_exit;
 		err = eblob_commit_ram(b, key, &wc);
@@ -1606,7 +1597,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	/* Do not allow closing of bctl while commit in progress */
 	pthread_mutex_lock(&b->lock);
 
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, NULL);
 	if (err < 0)
 		goto err_out_unlock;
 
@@ -1656,13 +1647,13 @@ err_out_exit:
 }
 
 static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc)
+		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc, struct eblob_ram_control *old)
 {
 	ssize_t err;
 	uint64_t flags = wc->flags;
 	const size_t size = wc->size;
 
-	err = eblob_fill_write_control_from_ram(b, key, wc, 1);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1, old);
 	if (err)
 		goto err_out_exit;
 
@@ -1755,7 +1746,7 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 
 	pthread_mutex_lock(&b->lock);
 
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1);
+	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, NULL);
 	if (err)
 		goto err_out_unlock;
 
@@ -1886,6 +1877,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	react_start_action(ACTION_EBLOB_WRITEV_RETURN);
 
 	struct eblob_iovec_bounds bounds;
+	struct eblob_ram_control old;
 	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
 	uint64_t copy_offset = 0;
 	int err;
@@ -1905,7 +1897,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	wc->flags = flags;
 	wc->index = -1;
 
-	err = eblob_try_overwritev(b, key, iov, iovcnt, wc);
+	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old);
 	if (err == 0) {
 		/* We have overwritten old data - bail out */
 		goto err_out_exit;
@@ -1944,7 +1936,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		wc->flags = flags;
 	}
 
-	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset);
+	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old);
 	if (err)
 		goto err_out_exit;
 
@@ -2086,7 +2078,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	eblob_stat_inc(b->stat, EBLOB_GST_LOOKUP_READS_NUMBER);
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
-	err = eblob_fill_write_control_from_ram(b, key, wc, 0);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 0, NULL);
 	if (err < 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: %s: %s: eblob_fill_write_control_from_ram: %d.\n",
