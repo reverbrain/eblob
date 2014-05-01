@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.37
+Version:	0.21.38
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu May 01 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.38
+- Removed looking up for key twice on write.
+
 * Tue Apr 29 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.37
 - debian: react version dependency updated to 2.3.1
 - debian: react-dbg removed from dependencies
