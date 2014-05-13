@@ -580,7 +580,7 @@ int eblob_defrag_status(struct eblob_backend *b);
 /* Per backend stats */
 enum eblob_stat_global_flavour {
 	EBLOB_GST_MIN,
-	EBLOB_GST_DATASORT,
+	EBLOB_GST_DATASORT_START_TIME,
 	EBLOB_GST_READ_COPY_UPDATE,
 	EBLOB_GST_PREPARE_REUSED,
 	EBLOB_GST_CACHED,
@@ -590,6 +590,8 @@ enum eblob_stat_global_flavour {
 	EBLOB_GST_READS_SIZE,
 	EBLOB_GST_WRITES_SIZE,
 	EBLOB_GST_INDEX_READS,
+	EBLOB_GST_DATASORT_COMPLETION_TIME,
+	EBLOB_GST_DATASORT_COMPLETION_STATUS,
 	EBLOB_GST_MAX,
 };
 

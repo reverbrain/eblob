@@ -120,7 +120,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	struct eblob_base_ctl *bctl, **bctls = NULL;
 	int err = 0, bctl_cnt = 0, bctl_num = 0;
 
-	eblob_stat_set(b->stat, EBLOB_GST_DATASORT, 1);
+	eblob_stat_set(b->stat, EBLOB_GST_DATASORT_START_TIME, time(NULL));
 
 	/* Count approximate number of bases */
 	list_for_each_entry(bctl, &b->bases, base_entry)
@@ -129,7 +129,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	/* Allocation of zero bytes is undefined check for that */
 	if (bctl_num == 0) {
 		err = -ENOENT;
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "count");
+		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: count");
 		goto err_out_exit;
 	}
 
@@ -137,7 +137,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	bctls = calloc(bctl_num, sizeof(struct eblob_base_ctl *));
 	if (bctls == NULL) {
 		err = -errno;
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "malloc");
+		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: malloc");
 		goto err_out_exit;
 	}
 
@@ -156,10 +156,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		want = eblob_want_defrag(bctl);
 		if (want < 0)
 			EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR,
-					"eblob_want_defrag: FAILED");
+					"defrag: eblob_want_defrag: FAILED");
 
 		if (want == EBLOB_REMOVE_NEEDED) {
-                        EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "empty blob - removing.");
+                        EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: empty blob - removing.");
 
                         pthread_mutex_lock(&b->lock);
                         /* Remove it from list, but do not poisson next and prev */
@@ -186,7 +186,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 		if (bctl_cnt < bctl_num) {
 			bctls[bctl_cnt++] = bctl;
 		} else {
-			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "bctl_num limit reached: "
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: bctl_num limit reached: "
 					"processing everything we can.");
 			break;
 		}
@@ -195,10 +195,10 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	/* Bailout if there are no bases to sort */
 	if (bctl_cnt == 0) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-				"no bases selected for datasort");
+				"defrag: no bases selected for datasort");
 		goto err_out_exit;
 	}
-	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "bases to sort: %d", bctl_cnt);
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: bases to sort: %d", bctl_cnt);
 
 	/*
 	 * Process bctls in chunks that fit into blob_size and records_in_blob
@@ -268,8 +268,9 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	}
 
 err_out_exit:
-	eblob_stat_set(b->stat, EBLOB_GST_DATASORT, err);
-	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: complete: %d", err);
+	eblob_stat_set(b->stat, EBLOB_GST_DATASORT_COMPLETION_STATUS, err);
+	eblob_stat_set(b->stat, EBLOB_GST_DATASORT_COMPLETION_TIME, time(NULL));
+	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: completed: %d", err);
 	free(bctls);
 	return err;
 }
