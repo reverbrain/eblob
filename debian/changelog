@@ -1,3 +1,10 @@
+eblob (0.21.39) unstable; urgency=low
+
+  * defrag: added start/completion time and status statistics
+  * eblob: added 'defrag' prefix for all defrag/sort related log prints
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 13 May 2014 23:01:18 +0400
+
 eblob (0.21.38) unstable; urgency=low
 
   * Removed looking up for key twice on write.

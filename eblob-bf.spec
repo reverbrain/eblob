@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.38
+Version:	0.21.39
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue May 13 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.39
+- defrag: added start/completion time and status statistics
+- eblob: added 'defrag' prefix for all defrag/sort related log prints
+
 * Thu May 01 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.38
 - Removed looking up for key twice on write.
 
