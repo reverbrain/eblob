@@ -245,7 +245,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 			.log = b->cfg.log,
 		};
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-				"sorting: %d base(s)", current - previous);
+				"defrag: sorting: %d base(s)", current - previous);
 		if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
 			EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR,
 					"defrag: datasort: FAILED");
