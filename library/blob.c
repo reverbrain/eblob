@@ -51,6 +51,8 @@
 
 #include "react/eblob_react.h"
 
+#define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
+
 struct eblob_iterate_priv {
 	struct eblob_iterate_control *ctl;
 	void *thread_priv;
@@ -1509,11 +1511,16 @@ err_out_exit:
  * eblob_write_commit_footer() - low-level commit phase computes checksum and
  * writes footer.
  */
-static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_write_control *wc)
+static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *key,
+                                     struct eblob_write_control *wc)
 {
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
 	ssize_t err = 0;
+	struct timeval start, end;
+	long csum_time = 0;
+	gettimeofday(&start, NULL);
+	end = start;
 
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		goto err_out_sync;
@@ -1525,6 +1532,8 @@ static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_write
 		if (err)
 			goto err_out_exit;
 	}
+	gettimeofday(&end, NULL);
+	csum_time = DIFF(start, end);
 
 	f.offset = wc->ctl_data_offset;
 
@@ -1540,6 +1549,13 @@ err_out_sync:
 	err = 0;
 
 err_out_exit:
+	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_write_commit_footer: Ok: data_fd: %d"
+	          ", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
+	          ", index_fd: %d, index_offset: %" PRIu64 ", size: %" PRIu64
+	          ", total(disk)_size: %" PRIu64 ", on_disk: %d, csum-time: %ld usecs, err: %d\n",
+	          eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
+	          wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
+	          csum_time, err);
 	return err;
 }
 
@@ -1554,7 +1570,7 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 
 	int err;
 
-	err = eblob_write_commit_footer(b, wc);
+	err = eblob_write_commit_footer(b, key, wc);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_write_commit_footer: ERROR", err);
 		goto err_out_exit;
@@ -2069,7 +2085,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 {
 	int err;
 	struct timeval start, end;
-	long diff;
+	long csum_time;
 
 	assert(b != NULL);
 	assert(key != NULL);
@@ -2092,7 +2108,6 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	gettimeofday(&start, NULL);
-#define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
 
 	if ((csum != EBLOB_READ_NOCSUM) && !(b->cfg.blob_flags & EBLOB_NO_FOOTER)) {
 		err = eblob_csum_ok(b, wc);
@@ -2103,7 +2118,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	gettimeofday(&end, NULL);
-	diff = DIFF(start, end);
+	csum_time = DIFF(start, end);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: eblob_read: Ok: data_fd: %d"
 			", ctl_data_offset: %" PRIu64 ", data_offset: %" PRIu64
@@ -2111,7 +2126,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 			", total(disk)_size: %" PRIu64 ", on_disk: %d, want-csum: %d, csum-time: %ld usecs, err: %d\n",
 			eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset, wc->data_offset,
 			wc->index_fd, wc->ctl_index_offset, wc->size, wc->total_size, wc->on_disk,
-			csum, diff, err);
+			csum, csum_time, err);
 
 err_out_exit:
 	return err;
