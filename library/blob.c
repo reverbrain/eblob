@@ -1125,7 +1125,6 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 			return -ENOSPC;
 
 		if (b->cfg.blob_size_limit) {
-
 			if (eblob_stat_get(b->stat_summary, EBLOB_LST_BASE_SIZE) + size > b->cfg.blob_size_limit) {
 				if (!print_once) {
 					print_once = 1;
@@ -1139,7 +1138,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 				return -ENOSPC;
 			}
 		} else if (((b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < total * 0.1)) ||
-				(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < b->cfg.blob_size))) {
+				(!(b->cfg.blob_flags & EBLOB_RESERVE_10_PERCENTS) && (avail < 2 * b->cfg.blob_size))) {
 			if (!print_once) {
 				print_once = 1;
 
