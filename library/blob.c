@@ -1519,13 +1519,14 @@ static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *
 	ssize_t err = 0;
 	struct timeval start, end;
 	long csum_time = 0;
+	gettimeofday(&start, NULL);
+	end = start;
 
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		goto err_out_sync;
 
 	memset(&f, 0, sizeof(f));
 
-	gettimeofday(&start, NULL);
 	if (!(wc->flags & BLOB_DISK_CTL_NOCSUM)) {
 		err = eblob_csum(b, f.csum, sizeof(f.csum), wc);
 		if (err)
