@@ -785,6 +785,8 @@ err_out_exit:
  */
 int __eblob_write_ll(int fd, void *data, size_t size, off_t offset)
 {
+	react_start_action(ACTION_EBLOB_WRITE_LL);
+	int err = 0;
 	ssize_t bytes;
 
 	while (size) {
@@ -793,13 +795,16 @@ again:
 		if (bytes == -1) {
 			if (errno == -EINTR)
 				goto again;
-			return -errno;
+			err = -errno;
+			goto err_out_exit;
 		}
 		data += bytes;
 		size -= bytes;
 		offset += bytes;
 	}
-	return 0;
+err_out_exit:
+	react_stop_action(ACTION_EBLOB_WRITE_LL);
+	return err;
 }
 
 /**
@@ -1492,10 +1497,12 @@ int eblob_hash(struct eblob_backend *b __attribute_unused__, void *dst,
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		struct eblob_write_control *wc)
 {
+	react_start_action(ACTION_EBLOB_CSUM);
 	long page_size = sysconf(_SC_PAGE_SIZE);
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	off_t offset = off & ~(page_size - 1);
 	size_t mapped_size = ALIGN(wc->total_data_size + off - offset, page_size);
+	react_add_stat_int("mapped_size", mapped_size);
 	void *data, *ptr;
 	int err = 0;
 
@@ -1511,6 +1518,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 	munmap(data, mapped_size);
 
 err_out_exit:
+	react_stop_action(ACTION_EBLOB_CSUM);
 	return err;
 }
 
@@ -1520,6 +1528,7 @@ err_out_exit:
  */
 static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_write_control *wc)
 {
+	react_start_action(ACTION_EBLOB_WRITE_COMMIT_FOOTER);
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
 	ssize_t err = 0;
@@ -1549,6 +1558,7 @@ err_out_sync:
 	err = 0;
 
 err_out_exit:
+	react_stop_action(ACTION_EBLOB_WRITE_COMMIT_FOOTER);
 	return err;
 }
 
