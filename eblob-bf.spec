@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.39
+Version:	0.21.40
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat May 17 2014 Andrey Kashin <kashin.andrej@gmail.com> - 0.21.40
+- warning fixed, ssize_t replaced with int
+- stat: detailed monitoring in write_commit_nolock() added
+- blob: reserve 2 blob sizes - this is needed for sorting - split+merge
+- Fixed garbage in csum-time.
+- Added logging eblob_write_commit_footer with csum-time
+
 * Tue May 13 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.39
 - defrag: added start/completion time and status statistics
 - eblob: added 'defrag' prefix for all defrag/sort related log prints

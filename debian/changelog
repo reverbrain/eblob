@@ -1,3 +1,13 @@
+eblob (0.21.40) unstable; urgency=low
+
+  * warning fixed, ssize_t replaced with int
+  * stat: detailed monitoring in write_commit_nolock() added
+  * blob: reserve 2 blob sizes - this is needed for sorting - split+merge
+  * Fixed garbage in csum-time.
+  * Added logging eblob_write_commit_footer with csum-time
+
+ -- Andrey Kashin <kashin.andrej@gmail.com>  Sat, 17 May 2014 13:03:00 +0400
+
 eblob (0.21.39) unstable; urgency=low
 
   * defrag: added start/completion time and status statistics
