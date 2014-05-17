@@ -50,8 +50,8 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 		{0}
 	},
 	{
-		"datasort_status",
-		EBLOB_GST_DATASORT,
+		"datasort_start_time",
+		EBLOB_GST_DATASORT_START_TIME,
 		{0}
 	},
 	{
@@ -97,6 +97,16 @@ static const struct eblob_stat_entry eblob_stat_default_global[] = {
 	{
 		"index_files_reads_number",
 		EBLOB_GST_INDEX_READS,
+		{0}
+	},
+	{
+		"datasort_completion_time",
+		EBLOB_GST_DATASORT_COMPLETION_TIME,
+		{0}
+	},
+	{
+		"datasort_completion_status",
+		EBLOB_GST_DATASORT_COMPLETION_STATUS,
 		{0}
 	},
 	{
