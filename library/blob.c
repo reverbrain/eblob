@@ -1524,7 +1524,7 @@ static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *
 	react_start_action(ACTION_EBLOB_WRITE_COMMIT_FOOTER);
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
-	ssize_t err = 0;
+	int err = 0;
 	struct timeval start, end;
 	long csum_time = 0;
 	gettimeofday(&start, NULL);
