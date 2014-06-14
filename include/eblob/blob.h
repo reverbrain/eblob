@@ -147,7 +147,7 @@ static inline char *eblob_dump_id_len_raw(const unsigned char *id, unsigned int 
  */
 #define eblob_dump_id_len(id,len)						\
 	({									\
-		static char __eblob_dump_str[2 * EBLOB_ID_SIZE + 1];		\
+		static __thread char __eblob_dump_str[2 * EBLOB_ID_SIZE + 1];	\
 		eblob_dump_id_len_raw(id, len, __eblob_dump_str);		\
 		__eblob_dump_str;						\
 	})
