@@ -198,11 +198,6 @@ void eblob::remove_blobs(void)
 	eblob_remove_blobs(eblob_);
 }
 
-int eblob::iterate(struct eblob_iterate_control &ctl)
-{
-	return eblob_iterate(eblob_, &ctl);
-}
-
 void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
 	int err;
@@ -268,4 +263,20 @@ void eblob::commit(const struct eblob_key &key, const uint64_t size, const uint6
 void eblob::commit_hashed(const std::string &key, const uint64_t size, const uint64_t flags)
 {
 	truncate_hashed(key, size, flags);
+}
+
+void eblob::iterate(const struct eblob_iterate_callbacks *callbacks, unsigned int flags, void *priv)
+{
+	struct eblob_iterate_control ctl;
+
+	memset(&ctl, 0, sizeof(struct eblob_iterate_control));
+
+	ctl.b = eblob_;
+	ctl.log = logger_.log();
+	ctl.thread_num = callbacks->thread_num;
+	ctl.flags = flags;
+	ctl.iterator_cb = *callbacks;
+	ctl.priv = priv;
+
+	eblob_iterate(eblob_, &ctl);
 }

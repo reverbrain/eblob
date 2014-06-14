@@ -116,22 +116,16 @@ public:
 		eblob::remove(key);
 	}
 
-	int py_iterate(struct eblob_py_iterator &it) {
-		struct eblob_iterate_control ctl;
-		int err;
+	void py_iterate(struct eblob_py_iterator &it) {
+		struct eblob_iterate_callbacks cb;
+		memset(&cb, 0, sizeof(struct eblob_iterate_callbacks));
 
-		memset(&ctl, 0, sizeof(ctl));
-
-		ctl.thread_num = 1;
-		ctl.priv = &it;
-
-		ctl.iterator_cb.iterator = &eblob_py_iterator::iterator;
+		cb.iterator = &eblob_py_iterator::iterator;
+		cb.thread_num = 1;
 
 		Py_BEGIN_ALLOW_THREADS
-		err = eblob::iterate(ctl);
+		eblob::iterate(&cb, 0, reinterpret_cast<void *>(&it));
 		Py_END_ALLOW_THREADS
-
-		return err;
 	}
 };
 

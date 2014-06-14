@@ -108,7 +108,7 @@ class eblob {
 
 		void remove_blobs(void);
 
-		int iterate(struct eblob_iterate_control &ctl);
+		void iterate(const struct eblob_iterate_callbacks *callbacks, unsigned int flags, void *priv);
 
 		void key(const std::string &key, struct eblob_key &ekey);
 
@@ -123,37 +123,12 @@ class eblob {
 		void start_defrag();
 		int defrag_status();
 
+		struct eblob_log *log() {
+			return logger_.log();
+		}
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
-};
-
-class eblob_iterator_callback {
-	public:
-		virtual bool callback(const struct eblob_disk_control *dc, const void *data, const int index = 0) = 0;
-		virtual void complete(const uint64_t total, const uint64_t found) = 0;
-};
-
-class eblob_iterator {
-	public:
-		eblob_iterator(const std::string &input_base);
-		virtual ~eblob_iterator();
-
-		void iterate(eblob_iterator_callback &cb, const int tnum = 16, int index = 0, int index_max = INT_MAX);
-
-	private:
-		boost::mutex data_lock_;
-		std::auto_ptr<boost::iostreams::file_source> index_file_, data_file_;
-
-		int index_, index_max_;
-		off_t position_;
-		std::string input_base_;
-		uint64_t data_num_, found_num_;
-
-		int open_next();
-		void iter(eblob_iterator_callback *cb);
-
-		size_t index_size_;
 };
 
 static inline std::string eblob_dump_control(const struct eblob_disk_control *dco, long long position, const int match, const int index)

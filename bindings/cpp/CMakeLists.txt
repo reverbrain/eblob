@@ -1,7 +1,6 @@
 include_directories(../../include)
 set(EBLOB_CPP_SRCS
     eblob.cpp
-    iterator.cpp
     )
 
 add_library(eblob_cpp SHARED ${EBLOB_CPP_SRCS})

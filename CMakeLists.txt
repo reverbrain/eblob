@@ -123,7 +123,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # Check for boost
-find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python)
+find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python program_options)
 message(STATUS "Boost information:")
 message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
