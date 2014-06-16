@@ -280,3 +280,14 @@ void eblob::iterate(const struct eblob_iterate_callbacks *callbacks, unsigned in
 
 	eblob_iterate(eblob_, &ctl);
 }
+
+void eblob::plain_write(const struct eblob_key &key, const void *data, const uint64_t offset,
+				const uint64_t size, const uint64_t flags)
+{
+	int err = eblob_plain_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, size, flags);
+	if (err) {
+		std::ostringstream str;
+		str << eblob_dump_id(key.id) << ": eblob plain write failed: offset: " << offset << ", size: " << size << ", flags: " << flags << ": " << strerror(-err);
+		throw std::runtime_error(str.str());
+	}
+}
