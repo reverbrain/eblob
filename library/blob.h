@@ -413,6 +413,20 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force);
 
 int eblob_want_defrag(struct eblob_base_ctl *bctl);
 
+struct eblob_event
+{
+	pthread_mutex_t lock;
+	pthread_cond_t  cond;
+	volatile int    data;
+};
+
+int eblob_event_init(struct eblob_event *event);
+int eblob_event_destroy(struct eblob_event *event);
+int eblob_event_get(struct eblob_event *event);
+int eblob_event_set(struct eblob_event *event);
+int eblob_event_reset(struct eblob_event *event);
+int eblob_event_wait(struct eblob_event *event, int timeout);
+
 struct eblob_backend {
 	struct eblob_config	cfg;
 
@@ -425,8 +439,9 @@ struct eblob_backend {
 	struct eblob_hash	hash;
 	/* Level two hash table */
 	struct eblob_l2hash	l2hash;
+	/* Threads exit event */
+	struct eblob_event exit_event;
 
-	volatile int		need_exit;
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
 	pthread_t		periodic_tid;
@@ -513,6 +528,7 @@ void eblob_bctl_hold(struct eblob_base_ctl *bctl);
 void eblob_bctl_release(struct eblob_base_ctl *bctl);
 
 int eblob_mutex_init(pthread_mutex_t *mutex);
+int eblob_cond_init(pthread_cond_t *cond);
 
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);

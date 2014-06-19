@@ -96,6 +96,159 @@ err_out_destroy:
 err_out_exit:
 	return err;
 }
+
+/**
+* eblob_cond_init() - Inits condition
+*/
+int eblob_cond_init(pthread_cond_t *cond)
+{
+	int err;
+
+	err = pthread_cond_init(cond, NULL);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+err_out_exit:
+	return err;
+}
+
+/**
+* eblob_event_init() - Inits the event
+*/
+int eblob_event_init(struct eblob_event *event)
+{
+	int err;
+
+	err = eblob_mutex_init(&event->lock);
+	if (err != 0)
+		goto err_out_exit;
+
+	err = eblob_cond_init(&event->cond);
+	if (err != 0)
+		goto err_out_exit;
+
+	err = eblob_event_reset(event);
+	if (err != 0)
+		goto err_out_exit;
+
+err_out_exit:
+	return err;
+}
+
+/**
+* eblob_event_destroy() - Destroys the event
+*/
+int eblob_event_destroy(struct eblob_event *event)
+{
+	int err;
+
+	err = pthread_cond_destroy(&event->cond);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+	err = pthread_mutex_destroy(&event->lock);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+err_out_exit:
+	return err;
+}
+
+/**
+* eblob_event_get() - Returns if the event is set or not
+*/
+int eblob_event_get(struct eblob_event *event)
+{
+	return event->data;
+}
+
+/**
+* eblob_event_set() - Sets the event and signals all waiting threads
+*/
+int eblob_event_set(struct eblob_event *event)
+{
+	int err;
+
+	err = pthread_mutex_lock(&event->lock);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+	event->data = 1;
+
+	err = pthread_cond_broadcast(&event->cond);
+	if (err != 0) {
+		err = -err;
+		goto err_out_unlock;
+	}
+	
+err_out_unlock:
+	pthread_mutex_unlock(&event->lock);
+err_out_exit:
+	return err;
+}
+
+/**
+* eblob_event_reset() - Resets the event
+*/
+int eblob_event_reset(struct eblob_event *event)
+{
+	int err;
+
+	err = pthread_mutex_lock(&event->lock);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+	event->data = 0;
+
+	pthread_mutex_unlock(&event->lock);
+
+err_out_exit:
+	return err;
+}
+
+/**
+* eblob_event_wait() - Waits until the event is set or the specified timeout (sec) expires
+* 
+* This functions returns -ETIMEDOUT in case the event was not set in the specified timeout
+*/
+int eblob_event_wait(struct eblob_event *event, int timeout)
+{
+	int err;
+
+	struct timespec end_time;
+	clock_gettime(CLOCK_REALTIME, &end_time);
+	end_time.tv_sec += timeout;
+
+	err = pthread_mutex_lock(&event->lock);
+	if (err != 0) {
+		err = -err;
+		goto err_out_exit;
+	}
+
+	while (event->data == 0) {
+		err = pthread_cond_timedwait(&event->cond, &event->lock, &end_time);
+		if (err != 0) {
+			err = -err;
+			goto err_out_unlock;
+		}
+	}
+
+err_out_unlock:
+	pthread_mutex_unlock(&event->lock);
+err_out_exit:
+	return err;
+}
+
 /**
  * eblob_get_index_fd() - Helper function that returns either sort.fd or
  * index_fd from bctl depending on what's available
@@ -2296,21 +2449,13 @@ static void *eblob_sync(void *data)
 {
 	struct eblob_backend *b = data;
 	struct eblob_base_ctl *ctl;
-	int sleep_time = b->cfg.sync;
 
-	while (b->cfg.sync && !b->need_exit) {
-		if (sleep_time != 0) {
-			sleep(1);
-			--sleep_time;
-			continue;
-		}
-
+	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT))
+	{
 		list_for_each_entry(ctl, &b->bases, base_entry) {
 			fsync(ctl->data_fd);
 			fsync(eblob_get_index_fd(ctl));
 		}
-
-		sleep_time = b->cfg.sync;
 	}
 
 	return NULL;
@@ -2351,18 +2496,10 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
 static void *eblob_periodic(void *data)
 {
 	struct eblob_backend *b = data;
-	int period = 30;
+	int err;
 
-	while (!b->need_exit) {
-		int err;
-
-		sleep(1);
-
-		if (++period < 30)
-			continue;
-
-		period = 0;
-
+	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT)
+	{
 		err = eblob_stat_commit(b);
 
 		if (err != 0)
@@ -2382,7 +2519,7 @@ static void *eblob_periodic(void *data)
 
 void eblob_cleanup(struct eblob_backend *b)
 {
-	b->need_exit = 1;
+	eblob_event_set(&b->exit_event);
 	pthread_join(b->sync_tid, NULL);
 	pthread_join(b->defrag_tid, NULL);
 	pthread_join(b->periodic_tid, NULL);
@@ -2513,7 +2650,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	err = eblob_mutex_init(&b->lock);
 	if (err != 0)
-		goto err_out_free_file;
+		goto err_out_lockf;
 
 	INIT_LIST_HEAD(&b->bases);
 	b->max_index = -1;
@@ -2537,10 +2674,14 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	}
 	eblob_stat_summary_update(b);
 
+	err = eblob_event_init(&b->exit_event);
+	if (err != 0)
+		goto err_out_cleanup;
+
 	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
-		goto err_out_cleanup;
+		goto err_out_exit_event_destroy;
 	}
 
 	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
@@ -2558,11 +2699,13 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	return b;
 
 err_out_join_defrag:
-	b->need_exit = 1;
+	eblob_event_set(&b->exit_event);
 	pthread_join(b->defrag_tid, NULL);
 err_out_join_sync:
-	b->need_exit = 1;
+	eblob_event_set(&b->exit_event);
 	pthread_join(b->sync_tid, NULL);
+err_out_exit_event_destroy:
+	eblob_event_destroy(&b->exit_event);
 err_out_cleanup:
 	eblob_bases_cleanup(b);
 err_out_l2hash_destroy:

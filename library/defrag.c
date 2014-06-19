@@ -210,7 +210,7 @@ static int eblob_defrag_raw(struct eblob_backend *b)
 	uint64_t total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
 	uint64_t records = 0; // number of records in current blob
 	uint64_t size = 0; // size of current blob
-	while (b->need_exit == 0) {
+	while (eblob_event_get(&b->exit_event) == 0) {
 		/*
 		 * For every but last base check for merge possibility
 		 * NB! Last base always triggers sort of accumulated bases.
@@ -287,9 +287,10 @@ void *eblob_defrag(void *data)
 		return NULL;
 
 	sleep_time = datasort_next_defrag(b);
-	while (!b->need_exit) {
+	while (1) {
 		if ((sleep_time-- != 0) && (b->want_defrag == 0)) {
-			sleep(1);
+			if (eblob_event_wait(&b->exit_event, 1) != -ETIMEDOUT)
+				break;
 			continue;
 		}
 

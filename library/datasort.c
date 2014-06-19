@@ -759,7 +759,7 @@ static int datasort_sort(struct datasort_cfg *dcfg)
 		list_del(&chunk->list);
 		datasort_destroy_chunk(dcfg, chunk);
 
-		if (dcfg->b->need_exit) {
+		if (eblob_event_get(&dcfg->b->exit_event)) {
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "defrag: exit requested - aborting sort");
 			goto err;
 		}
