@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.40
+Version:	0.21.41
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jun 19 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.41
+- eblob: fixed long eblob stopping time. Patch by Pavel Jurkas from wialus.co.nz
+- cpp: added plain_write() method, which is a wrapper on top of eblob_plain_write()
+- example: get rid of unused regex iterator, it used old iterator code, which did not take into account ext headers for example
+- iterate: updated iterators - exported new iterator similar to what is present in C code, get rid of old iterator class
+- log: made eblob_dump_id_len() and friends thread-safe by using per-thread allocated temporal buffers
+
 * Sat May 17 2014 Andrey Kashin <kashin.andrej@gmail.com> - 0.21.40
 - warning fixed, ssize_t replaced with int
 - stat: detailed monitoring in write_commit_nolock() added
