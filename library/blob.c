@@ -2520,9 +2520,12 @@ static void *eblob_periodic(void *data)
 void eblob_cleanup(struct eblob_backend *b)
 {
 	eblob_event_set(&b->exit_event);
-	pthread_join(b->sync_tid, NULL);
-	pthread_join(b->defrag_tid, NULL);
-	pthread_join(b->periodic_tid, NULL);
+
+	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
+		pthread_join(b->sync_tid, NULL);
+		pthread_join(b->defrag_tid, NULL);
+		pthread_join(b->periodic_tid, NULL);
+	}
 
 	eblob_bases_cleanup(b);
 
@@ -2678,22 +2681,26 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err != 0)
 		goto err_out_cleanup;
 
-	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
-		goto err_out_exit_event_destroy;
-	}
+	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
 
-	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
-		goto err_out_join_sync;
-	}
+		err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
+			goto err_out_exit_event_destroy;
+		}
 
-	err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
-		goto err_out_join_defrag;
+		err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
+			goto err_out_join_sync;
+		}
+
+		err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
+			goto err_out_join_defrag;
+		}
+
 	}
 
 	return b;

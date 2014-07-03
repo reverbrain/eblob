@@ -308,6 +308,10 @@ void *eblob_defrag(void *data)
  */
 int eblob_start_defrag(struct eblob_backend *b)
 {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
+		return -EINVAL;
+	}
+
 	if (b->want_defrag) {
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 				"defrag: defragmentation is in progress.\n");
@@ -320,5 +324,9 @@ int eblob_start_defrag(struct eblob_backend *b)
 
 int eblob_defrag_status(struct eblob_backend *b)
 {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
+		return -EINVAL;
+	}
+
 	return b->want_defrag;
 }
