@@ -223,13 +223,17 @@ err_out_exit:
 * @timeout is being converted into unsigned long so that '-1' could be a really large number,
 * which doesn't happen.
 */
-int eblob_event_wait(struct eblob_event *event, unsigned long timeout)
+int eblob_event_wait(struct eblob_event *event, long timeout)
 {
 	int err;
 
 	struct timespec end_time;
 	clock_gettime(CLOCK_REALTIME, &end_time);
-	end_time.tv_sec += timeout;
+
+	if (end_time.tv_sec + timeout < end_time.tv_sec)
+		end_time.tv_sec = LONG_MAX;
+	else
+		end_time.tv_sec += timeout;
 
 	err = pthread_mutex_lock(&event->lock);
 	if (err != 0) {
