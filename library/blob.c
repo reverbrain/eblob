@@ -220,8 +220,10 @@ err_out_exit:
 * eblob_event_wait() - Waits until the event is set or the specified timeout (sec) expires
 * 
 * This functions returns -ETIMEDOUT in case the event was not set in the specified timeout
+* @timeout is being converted into unsigned long so that '-1' could be a really large number,
+* which doesn't happen.
 */
-int eblob_event_wait(struct eblob_event *event, int timeout)
+int eblob_event_wait(struct eblob_event *event, unsigned long timeout)
 {
 	int err;
 
@@ -2450,8 +2452,7 @@ static void *eblob_sync(void *data)
 	struct eblob_backend *b = data;
 	struct eblob_base_ctl *ctl;
 
-	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT))
-	{
+	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
 		list_for_each_entry(ctl, &b->bases, base_entry) {
 			fsync(ctl->data_fd);
 			fsync(eblob_get_index_fd(ctl));
@@ -2498,8 +2499,7 @@ static void *eblob_periodic(void *data)
 	struct eblob_backend *b = data;
 	int err;
 
-	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT)
-	{
+	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT) {
 		err = eblob_stat_commit(b);
 
 		if (err != 0)

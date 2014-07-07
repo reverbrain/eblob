@@ -1,3 +1,9 @@
+eblob (0.21.42) unstable; urgency=low
+
+  * timeout: set eblob wait timeout to unsigned long, so that it would be converted to large number for negative tiemouts
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 05 Jul 2014 19:51:27 +0400
+
 eblob (0.21.41) unstable; urgency=low
 
   * eblob: fixed long eblob stopping time. Patch by Pavel Jurkas from wialus.co.nz
