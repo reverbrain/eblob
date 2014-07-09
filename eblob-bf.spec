@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.41
+Version:	0.21.44
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Jul 09 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.44
+- csum: do not check csum if there is no footer
+
+* Tue Jul 08 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.43
+- timeout: again fixed eblob_event_wait() for negative timeouts
+
+* Sat Jul 05 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.42
+- timeout: set eblob wait timeout to unsigned long, so that it would be converted to large number for negative tiemouts
+
 * Thu Jun 19 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.41
 - eblob: fixed long eblob stopping time. Patch by Pavel Jurkas from wialus.co.nz
 - cpp: added plain_write() method, which is a wrapper on top of eblob_plain_write()

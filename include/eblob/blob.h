@@ -267,6 +267,10 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * defrag_time and defrag_splay.
  */
 #define EBLOB_SCHEDULED_DATASORT		(1<<9)
+/*
+ * Disables starting permanent threads (sync, defrag, periodic)
+ */
+#define EBLOB_DISABLE_THREADS			(1<<10)
 
 struct eblob_config {
 	/* blob flags above */

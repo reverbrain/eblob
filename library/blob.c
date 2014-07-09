@@ -220,14 +220,20 @@ err_out_exit:
 * eblob_event_wait() - Waits until the event is set or the specified timeout (sec) expires
 * 
 * This functions returns -ETIMEDOUT in case the event was not set in the specified timeout
+* @timeout is being converted into unsigned long so that '-1' could be a really large number,
+* which doesn't happen.
 */
-int eblob_event_wait(struct eblob_event *event, int timeout)
+int eblob_event_wait(struct eblob_event *event, long timeout)
 {
 	int err;
 
 	struct timespec end_time;
 	clock_gettime(CLOCK_REALTIME, &end_time);
-	end_time.tv_sec += timeout;
+
+	if (end_time.tv_sec + timeout < end_time.tv_sec)
+		end_time.tv_sec = LONG_MAX;
+	else
+		end_time.tv_sec += timeout;
 
 	err = pthread_mutex_lock(&event->lock);
 	if (err != 0) {
@@ -2189,6 +2195,17 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		goto err_out_exit;
 	}
 
+	if (wc->flags & BLOB_DISK_CTL_NOCSUM) {
+		err = 0;
+		goto err_out_exit;
+	}
+
+	/* check if there is no footer - csum is ok in this case */
+	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_footer) + sizeof(struct eblob_disk_control)) {
+		err = 0;
+		goto err_out_exit;
+	}
+
 	memset(&m, 0, sizeof(struct eblob_map_fd));
 
 	/* mapping whole record including header and footer */
@@ -2217,10 +2234,12 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 
 	memset(csum, 0, sizeof(csum));
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
+	/* zero-filled csum is ok csum */
 	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = 0;
 		goto err_out_unmap;
 	}
+
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = -EILSEQ;
@@ -2450,8 +2469,7 @@ static void *eblob_sync(void *data)
 	struct eblob_backend *b = data;
 	struct eblob_base_ctl *ctl;
 
-	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT))
-	{
+	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
 		list_for_each_entry(ctl, &b->bases, base_entry) {
 			fsync(ctl->data_fd);
 			fsync(eblob_get_index_fd(ctl));
@@ -2498,8 +2516,7 @@ static void *eblob_periodic(void *data)
 	struct eblob_backend *b = data;
 	int err;
 
-	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT)
-	{
+	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT) {
 		err = eblob_stat_commit(b);
 
 		if (err != 0)
@@ -2520,9 +2537,12 @@ static void *eblob_periodic(void *data)
 void eblob_cleanup(struct eblob_backend *b)
 {
 	eblob_event_set(&b->exit_event);
-	pthread_join(b->sync_tid, NULL);
-	pthread_join(b->defrag_tid, NULL);
-	pthread_join(b->periodic_tid, NULL);
+
+	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
+		pthread_join(b->sync_tid, NULL);
+		pthread_join(b->defrag_tid, NULL);
+		pthread_join(b->periodic_tid, NULL);
+	}
 
 	eblob_bases_cleanup(b);
 
@@ -2678,22 +2698,26 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err != 0)
 		goto err_out_cleanup;
 
-	err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
-		goto err_out_exit_event_destroy;
-	}
+	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
 
-	err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
-		goto err_out_join_sync;
-	}
+		err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
+			goto err_out_exit_event_destroy;
+		}
 
-	err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
-	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
-		goto err_out_join_defrag;
+		err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
+			goto err_out_join_sync;
+		}
+
+		err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
+		if (err) {
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
+			goto err_out_join_defrag;
+		}
+
 	}
 
 	return b;
