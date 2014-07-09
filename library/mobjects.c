@@ -935,9 +935,7 @@ int eblob_preallocate(int fd, off_t offset, off_t size)
 	if (offset < 0 || size < 0 || fd < 0)
 		return -EINVAL;
 #ifdef HAVE_POSIX_FALLOCATE
-	if (posix_fallocate(fd, offset, size) == 0)
-		return 0;
-	/* Fallback to ftruncate if FS does not support fallocate */
+	return -posix_fallocate(fd, offset, size);
 #endif
 	/*
 	 * Crippled OSes/FSes go here
