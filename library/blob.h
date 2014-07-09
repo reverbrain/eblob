@@ -425,7 +425,7 @@ int eblob_event_destroy(struct eblob_event *event);
 int eblob_event_get(struct eblob_event *event);
 int eblob_event_set(struct eblob_event *event);
 int eblob_event_reset(struct eblob_event *event);
-int eblob_event_wait(struct eblob_event *event, unsigned long timeout);
+int eblob_event_wait(struct eblob_event *event, long timeout);
 
 struct eblob_backend {
 	struct eblob_config	cfg;

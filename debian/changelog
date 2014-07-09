@@ -1,3 +1,9 @@
+eblob (0.21.43) unstable; urgency=low
+
+  * timeout: again fixed eblob_event_wait() for negative timeouts
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 08 Jul 2014 00:16:47 +0400
+
 eblob (0.21.42) unstable; urgency=low
 
   * timeout: set eblob wait timeout to unsigned long, so that it would be converted to large number for negative tiemouts
