@@ -1,3 +1,9 @@
+eblob (0.21.44) unstable; urgency=low
+
+  * csum: do not check csum if there is no footer
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 09 Jul 2014 09:30:47 +0400
+
 eblob (0.21.43) unstable; urgency=low
 
   * timeout: again fixed eblob_event_wait() for negative timeouts
