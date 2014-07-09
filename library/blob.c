@@ -2191,6 +2191,17 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		goto err_out_exit;
 	}
 
+	if (wc->flags & BLOB_DISK_CTL_NOCSUM) {
+		err = 0;
+		goto err_out_exit;
+	}
+
+	/* check if there is no footer - csum is ok in this case */
+	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_footer) + sizeof(struct eblob_disk_control)) {
+		err = 0;
+		goto err_out_exit;
+	}
+
 	memset(&m, 0, sizeof(struct eblob_map_fd));
 
 	/* mapping whole record including header and footer */
@@ -2219,10 +2230,12 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 
 	memset(csum, 0, sizeof(csum));
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
+	/* zero-filled csum is ok csum */
 	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = 0;
 		goto err_out_unmap;
 	}
+
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = -EILSEQ;
