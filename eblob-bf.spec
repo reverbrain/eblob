@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.43
+Version:	0.21.44
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Jul 09 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.44
+- csum: do not check csum if there is no footer
+
 * Tue Jul 08 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.43
 - timeout: again fixed eblob_event_wait() for negative timeouts
 

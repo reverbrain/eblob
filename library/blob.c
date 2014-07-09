@@ -1611,6 +1611,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	} else {
 		wc.flags = flags;
+		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+			wc.flags |= BLOB_DISK_CTL_NOCSUM;
 		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old);
 		if (err)
 			goto err_out_exit;
@@ -1819,6 +1821,9 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (flags != ~0ULL)
 		wc.flags = flags;
 
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+		wc.flags |= BLOB_DISK_CTL_NOCSUM;
+
 	err = eblob_write_commit_nolock(b, key, &wc);
 	if (err)
 		goto err_out_unlock;
@@ -1966,6 +1971,8 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	wc.flags = flags;
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+		wc.flags |= BLOB_DISK_CTL_NOCSUM;
 	err = eblob_writev_raw(key, &wc, iov, iovcnt);
 	if (err)
 		goto err_out_unlock;
@@ -2079,6 +2086,8 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
 	wc->size = bounds.max;
 	wc->flags = flags;
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+		wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	wc->index = -1;
 
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old);
@@ -2118,6 +2127,8 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		/* overwrite can modify offset and flags */
 		wc->offset = 0;
 		wc->flags = flags;
+		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+			wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	}
 
 	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old);
@@ -2195,6 +2206,17 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		goto err_out_exit;
 	}
 
+	if (wc->flags & BLOB_DISK_CTL_NOCSUM) {
+		err = 0;
+		goto err_out_exit;
+	}
+
+	/* check if there is no footer - csum is ok in this case */
+	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_footer) + sizeof(struct eblob_disk_control)) {
+		err = 0;
+		goto err_out_exit;
+	}
+
 	memset(&m, 0, sizeof(struct eblob_map_fd));
 
 	/* mapping whole record including header and footer */
@@ -2223,10 +2245,12 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 
 	memset(csum, 0, sizeof(csum));
 	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
+	/* zero-filled csum is ok csum */
 	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = 0;
 		goto err_out_unmap;
 	}
+
 	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
 	if (memcmp(csum, f->csum, sizeof(f->csum))) {
 		err = -EILSEQ;
