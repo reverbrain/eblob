@@ -1088,7 +1088,6 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	assert(sorted_bctl->index_size == index.size);
 
 	sorted_bctl->data_offset = sorted_bctl->data_size;
-	sorted_bctl->index_offset = sorted_bctl->index_size;
 
 	/* Populate sorted index blocks */
 	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
