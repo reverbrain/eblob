@@ -118,7 +118,7 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 	eblob_data_unmap(&ctl->sort);
 
 	ctl->data_size = ctl->data_offset = 0;
-	ctl->index_size = ctl->index_offset = 0;
+	ctl->index_size = 0;
 
 	if (ctl->sort.fd >= 0)
 		close(ctl->sort.fd);

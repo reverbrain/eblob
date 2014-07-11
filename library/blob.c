@@ -558,20 +558,20 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
-		/* TODO: Rewrite me using __eblob_read_ll() */
-		err = pread(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
-		if (err != hdr_size * local_max_num) {
-			if (err < 0) {
-				err = -errno;
-				goto err_out_unlock;
-			}
-
-			local_max_num = err / hdr_size;
+		/*if index after index_offset has less then local_max_num eblob_disk_controls
+		* then read only available ones.
+		*/
+		if (ctl->index_offset + hdr_size * local_max_num > ctl->index_size){
+			local_max_num = (ctl->index_size - ctl->index_offset) / hdr_size;
 			if (local_max_num == 0) {
 				err = 0;
 				goto err_out_unlock;
 			}
 		}
+
+		err = __eblob_read_ll(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
+		if (err)
+			goto err_out_unlock;
 
 		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
 			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
@@ -627,7 +627,7 @@ err_out_check:
 		pthread_mutex_lock(&bc->lock);
 
 		bc->data_offset = bc->data_size;
-		bc->index_offset = ctl->index_offset;
+		bc->index_size = ctl->index_offset;
 
 		/* If we have only internal error */
 		if (err && !ctl->err) {
@@ -1342,7 +1342,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	ctl = list_last_entry(&b->bases, struct eblob_base_ctl, base_entry);
 	if ((ctl->data_offset >= (off_t)b->cfg.blob_size) || (ctl->sort.fd >= 0) ||
-			(ctl->index_offset / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
+			(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob)) {
 		err = eblob_add_new_base(b);
 		if (err)
 			goto err_out_exit;
@@ -1385,7 +1385,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	wc->index = ctl->index;
 	wc->on_disk = 0;
 
-	wc->ctl_index_offset = ctl->index_offset;
+	wc->ctl_index_offset = ctl->index_size;
 	wc->ctl_data_offset = ctl->data_offset;
 
 	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
@@ -1407,7 +1407,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		wc->total_size *= 2;
 
 	ctl->data_offset += wc->total_size;
-	ctl->index_offset += sizeof(struct eblob_disk_control);
+	ctl->index_size += sizeof(struct eblob_disk_control);
 
 	/*
 	 * We are doing early index update to prevent situations when system
@@ -1531,7 +1531,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 err_out_rollback:
 	ctl->data_offset -= wc->total_size;
-	ctl->index_offset -= sizeof(struct eblob_disk_control);
+	ctl->index_size -= sizeof(struct eblob_disk_control);
 err_out_exit:
 	react_stop_action(ACTION_EBLOB_WRITE_PREPARE_DISK_LL);
 	return err;
