@@ -2472,22 +2472,38 @@ int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key, uint6
 
 
 /**
- * eblob_sync() - sync thread.
+ * eblob_sync_thread() - sync thread.
  * Ones in a while syncs all bases of current blob to disk.
  */
-static void *eblob_sync(void *data)
+static void *eblob_sync_thread(void *data)
 {
 	struct eblob_backend *b = data;
-	struct eblob_base_ctl *ctl;
 
 	while (b->cfg.sync && (eblob_event_wait(&b->exit_event, b->cfg.sync) == -ETIMEDOUT)) {
-		list_for_each_entry(ctl, &b->bases, base_entry) {
-			fsync(ctl->data_fd);
-			fsync(eblob_get_index_fd(ctl));
-		}
+		eblob_sync(b);
 	}
 
 	return NULL;
+}
+
+/**
+ * eblob_sync() - sync (blocking call, synchronized)
+ * Syncs all bases of current blob to disk.
+ */
+int eblob_sync(struct eblob_backend *b)
+{
+	struct eblob_base_ctl *ctl;
+
+	pthread_mutex_lock(&b->sync_lock);
+
+	list_for_each_entry(ctl, &b->bases, base_entry) {
+		fsync(ctl->data_fd);
+		fsync(eblob_get_index_fd(ctl));
+	}
+
+	pthread_mutex_unlock(&b->sync_lock);
+
+	return 0;
 }
 
 /*!
@@ -2522,27 +2538,40 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
  * TODO: We can generalize periodic thread to be simple task scheduler that
  * pulls taks of the queue and executes it.
  */
-static void *eblob_periodic(void *data)
+static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
-	int err;
 
 	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT) {
-		err = eblob_stat_commit(b);
-
-		if (err != 0)
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-					"eblob_stat_commit: FAILED");
-
-		if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
-			err = eblob_cache_statvfs(b);
-			if (err != 0)
-				EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-						"eblob_cache_statvfs: FAILED");
-		}
+		eblob_periodic(b);
 	}
 
 	return NULL;
+}
+
+/**
+ * eblob_periodic() - performs periodic tasks (blocking call, synchronized)
+ */
+int eblob_periodic(struct eblob_backend *b)
+{
+	pthread_mutex_lock(&b->periodic_lock);
+
+	int err = eblob_stat_commit(b);
+
+	if (err != 0)
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+		"eblob_stat_commit: FAILED");
+
+	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
+		err = eblob_cache_statvfs(b);
+		if (err != 0)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+			"eblob_cache_statvfs: FAILED");
+	}
+
+	pthread_mutex_unlock(&b->periodic_lock);
+
+	return err;
 }
 
 void eblob_cleanup(struct eblob_backend *b)
@@ -2709,23 +2738,35 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err != 0)
 		goto err_out_cleanup;
 
+	err = eblob_mutex_init(&b->defrag_lock);
+	if (err != 0)
+		goto err_out_exit_event_destroy;
+
+	err = eblob_mutex_init(&b->sync_lock);
+	if (err != 0)
+		goto err_out_defrag_lock_destroy;
+
+	err = eblob_mutex_init(&b->periodic_lock);
+	if (err != 0)
+		goto err_out_sync_lock_destroy;
+
 	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
 
-		err = pthread_create(&b->sync_tid, NULL, eblob_sync, b);
+		err = pthread_create(&b->sync_tid, NULL, eblob_sync_thread, b);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_sync thread creation failed: %d.\n", err);
-			goto err_out_exit_event_destroy;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob sync thread creation failed: %d.\n", err);
+			goto err_out_periodic_lock_destroy;
 		}
 
-		err = pthread_create(&b->defrag_tid, NULL, eblob_defrag, b);
+		err = pthread_create(&b->defrag_tid, NULL, eblob_defrag_thread, b);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_defrag thread creation failed: %d.\n", err);
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob defrag thread creation failed: %d.\n", err);
 			goto err_out_join_sync;
 		}
 
-		err = pthread_create(&b->periodic_tid, NULL, eblob_periodic, b);
+		err = pthread_create(&b->periodic_tid, NULL, eblob_periodic_thread, b);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_periodic thread creation failed: %d.\n", err);
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob periodic thread creation failed: %d.\n", err);
 			goto err_out_join_defrag;
 		}
 
@@ -2739,6 +2780,12 @@ err_out_join_defrag:
 err_out_join_sync:
 	eblob_event_set(&b->exit_event);
 	pthread_join(b->sync_tid, NULL);
+err_out_periodic_lock_destroy:
+	pthread_mutex_destroy(&b->periodic_lock);
+err_out_sync_lock_destroy:
+	pthread_mutex_destroy(&b->sync_lock);
+err_out_defrag_lock_destroy:
+	pthread_mutex_destroy(&b->defrag_lock);
 err_out_exit_event_destroy:
 	eblob_event_destroy(&b->exit_event);
 err_out_cleanup:

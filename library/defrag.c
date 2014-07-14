@@ -110,15 +110,18 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 }
 
 /*!
+ * eblob_defrag() - defrag (blocking call, synchronized)
  * Divides all bctls in backend into ones that need defrag/sort and ones that
  * don't. Then subdivides sortable bctls into groups so that sum of group sizes
  * and record counts is within blob_size / records_in_blob limits and runs
  * eblob_generate_sorted_data() on each such sub-group.
  */
-static int eblob_defrag_raw(struct eblob_backend *b)
+int eblob_defrag(struct eblob_backend *b)
 {
 	struct eblob_base_ctl *bctl, **bctls = NULL;
 	int err = 0, bctl_cnt = 0, bctl_num = 0;
+
+	pthread_mutex_lock(&b->defrag_lock);
 
 	eblob_stat_set(b->stat, EBLOB_GST_DATASORT_START_TIME, time(NULL));
 
@@ -272,13 +275,14 @@ err_out_exit:
 	eblob_stat_set(b->stat, EBLOB_GST_DATASORT_COMPLETION_TIME, time(NULL));
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: completed: %d", err);
 	free(bctls);
+	pthread_mutex_unlock(&b->defrag_lock);
 	return err;
 }
 
 /**
- * eblob_defrag() - defragmentation thread that runs defrag by timer
+ * eblob_defrag_thread() - defragmentation thread that runs defrag by timer
  */
-void *eblob_defrag(void *data)
+void *eblob_defrag_thread(void *data)
 {
 	struct eblob_backend *b = data;
 	uint64_t sleep_time;
@@ -294,7 +298,7 @@ void *eblob_defrag(void *data)
 			continue;
 		}
 
-		eblob_defrag_raw(b);
+		eblob_defrag(b);
 		b->want_defrag = 0;
 		sleep_time = datasort_next_defrag(b);
 	}

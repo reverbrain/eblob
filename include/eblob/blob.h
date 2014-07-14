@@ -626,6 +626,10 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 #define EBLOB_IOVCNT_MIN		1
 #define EBLOB_IOVCNT_MAX		128
 
+int eblob_sync(struct eblob_backend *b);
+int eblob_defrag(struct eblob_backend *b);
+int eblob_periodic(struct eblob_backend *b);
+
 #ifdef __cplusplus
 }
 #endif

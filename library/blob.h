@@ -439,8 +439,13 @@ struct eblob_backend {
 	struct eblob_hash	hash;
 	/* Level two hash table */
 	struct eblob_l2hash	l2hash;
+
 	/* Threads exit event */
-	struct eblob_event exit_event;
+	struct eblob_event	exit_event;
+
+	pthread_mutex_t		defrag_lock;
+	pthread_mutex_t		sync_lock;
+	pthread_mutex_t		periodic_lock;
 
 	pthread_t		defrag_tid;
 	pthread_t		sync_tid;
@@ -485,7 +490,7 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 
 int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 
-void *eblob_defrag(void *data);
+void *eblob_defrag_thread(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
 
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
