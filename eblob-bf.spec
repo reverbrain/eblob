@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.45
+Version:	0.21.46
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Jul 12 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.46
+- Removed index_offset in eblob_base_ctl, replaced its use by index_size.
+
 * Thu Jul 10 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.45
 - preallocate: return error if posix_preallocate() failed
 - Add BLOB_DISCK_CTL_NOCSUM to record flags if blob has EBLOB_NO_FOOTER flag

@@ -149,7 +149,7 @@ struct eblob_base_ctl {
 	pthread_mutex_t		lock;
 	pthread_cond_t		critness_wait;
 	int			data_fd, index_fd;
-	off_t			data_offset, index_offset;
+	off_t			data_offset;
 
 	void			*data;
 	unsigned long long	data_size;
