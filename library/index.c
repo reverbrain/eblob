@@ -83,6 +83,38 @@ int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 	return cmp;
 }
 
+static int eblob_key_range_cmp(const void *k1, const void *k2)
+{
+	const struct eblob_key *key = k1;
+	const struct eblob_index_block *index = k2;
+	int cmp;
+
+	/* compare key against start of the [start_key, end_key] range */
+	cmp = eblob_id_cmp(key->id, index->start_key.id);
+
+	/* our key is less than the start, skip */
+	if (cmp < 0)
+		return -1;
+
+	/* our key belongs to the range - it is equal to the start of the range - accept */
+	if (cmp == 0)
+		return 0;
+
+	/* compare key against end of the [start_key, end_key] range
+	 * our key is already bigger than start of the range
+	 */
+	cmp = eblob_id_cmp(key->id, index->end_key.id);
+
+	/* our key is less or equal than the end of the range - accept */
+	if (cmp < 0)
+		return 0;
+	if (cmp == 0)
+		return 0;
+
+	/* key is bigger than the end of the range - skip */
+	return 1;
+}
+
 static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted,
 		struct eblob_disk_control *dc __attribute_unused__)
 {
@@ -107,62 +139,12 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 	return 0;
 }
 
-int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block)
-{
-	struct eblob_index_block *t;
-	struct rb_node **n, *parent = NULL;
-	int err = 0;
-	int cmp;
-
-	pthread_rwlock_wrlock(&bctl->index_blocks_lock);
-
-	n = &bctl->index_blocks_root.rb_node;
-
-	while (*n) {
-		parent = *n;
-
-		t = rb_entry(parent, struct eblob_index_block, node);
-
-		cmp = eblob_id_cmp(t->end_key.id, block->end_key.id);
-
-		eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "insert: range: start: %s, end: %s, "
-				"tree-end: %s, cmp: %d, offset: %llu\n",
-				eblob_dump_id(block->start_key.id),
-				eblob_dump_id(block->end_key.id),
-				eblob_dump_id(t->end_key.id), cmp, (unsigned long long)t->offset);
-		if (cmp <= 0)
-			n = &parent->rb_left;
-		else {
-			if (eblob_id_cmp(t->start_key.id, block->start_key.id) >= 0)
-				n = &parent->rb_right;
-			else
-				break;
-		}
-	}
-
-	/* TODO: Add checks for incorrect blocks boundaries */
-	if (*n) {
-		err = -EEXIST;
-		goto err_out_exit;
-	}
-
-	rb_link_node(&block->node, parent, n);
-	rb_insert_color(&block->node, &bctl->index_blocks_root);
-
-err_out_exit:
-	pthread_rwlock_unlock(&bctl->index_blocks_lock);
-
-	return err;
-}
-
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
 	react_start_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 
 	struct eblob_index_block *t = NULL;
-	struct rb_node *n;
-	int cmp;
 
 	if (!eblob_bloom_get(bctl, &dc->key)) {
 		st->bloom_null++;
@@ -170,40 +152,15 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 		return NULL;
 	}
 
-	n = bctl->index_blocks_root.rb_node;
-
-	while(n) {
-		t = rb_entry(n, struct eblob_index_block, node);
-
-		cmp = eblob_id_cmp(t->end_key.id, dc->key.id);
-		eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "lookup1: range: start: %s, end: %s, key: %s, cmp: %d\n",
-				eblob_dump_id(t->start_key.id),
-				eblob_dump_id(t->end_key.id),
-				eblob_dump_id(dc->key.id), cmp);
-
-		if (cmp < 0)
-			n = n->rb_left;
-		else if (cmp > 0) {
-			cmp = eblob_id_cmp(t->start_key.id, dc->key.id);
-			eblob_log(bctl->back->cfg.log, EBLOB_LOG_SPAM, "lookup2: range: start: %s, end: %s, "
-					"key: %s, cmp: %d, offset: %llu\n",
-					eblob_dump_id(t->start_key.id),
-					eblob_dump_id(t->end_key.id),
-					eblob_dump_id(dc->key.id), cmp, (unsigned long long)t->offset);
-			if (cmp > 0)
-				n = n->rb_right;
-			else
-				break;
-		} else
-			break;
-	}
-
-	if (n)
+	/*
+	 * Use binary search to find given eblob_index_block in bctl->index_blocks
+	 * Blocks were placed into that array in sorted order.
+	 */
+	t = bsearch(&dc->key, bctl->index_blocks,
+		eblob_stat_get(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE) / sizeof(struct eblob_index_block),
+		sizeof(struct eblob_index_block), eblob_key_range_cmp);
+	if (t)
 		st->range_has_key++;
-
-	/* n == NULL means that ID doesn't exist in this index */
-	if (!n)
-		t = NULL;
 
 	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 	return t;
@@ -339,11 +296,6 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 		}
 
 		memcpy(&block->end_key, &dc.key, sizeof(struct eblob_key));
-
-		/* FIXME: We don't need tree of index blocks now. */
-		err = eblob_index_blocks_insert(bctl, block);
-		if (err)
-			goto err_out_drop_tree;
 	}
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
 	eblob_stat_set(bctl->stat, EBLOB_LST_REMOVED_SIZE, removed_size);
@@ -597,7 +549,7 @@ again:
 			goto again;
 		}
 
-		/* If bctl does not have sorted index - skip it */
+		/* If bctl does not have sorted index - skip it, all its keys are already in ram */
 		if (bctl->sort.fd < 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 					"blob: %s: index: disk: index: %d: no sorted index\n",

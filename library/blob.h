@@ -107,9 +107,6 @@ void eblob_data_unmap(struct eblob_map_fd *map);
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
 struct eblob_index_block {
-	/* FIXME: Removing rb_node will decrease footprint by 15% on x86_64 */
-	struct rb_node		node;
-
 	struct eblob_key	start_key;
 	struct eblob_key	end_key;
 
@@ -158,17 +155,13 @@ struct eblob_base_ctl {
 	struct eblob_map_fd	sort;
 
 	/*
-	 * Index blocks tree
-	 * FIXME: We can remove it by using bsearch directly on index_blocks.
-	 */
-	struct rb_root		index_blocks_root;
-	/*
 	 * Bloom
 	 */
 	unsigned char		*bloom;
 	uint64_t		bloom_size;
 	/* Number of hash functions */
 	uint8_t			bloom_func_num;
+
 	/* Array of index blocks */
 	struct eblob_index_block	*index_blocks;
 	pthread_rwlock_t	index_blocks_lock;
@@ -496,7 +489,6 @@ void eblob_base_remove(struct eblob_base_ctl *bctl);
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
-int eblob_index_blocks_insert(struct eblob_base_ctl *bctl, struct eblob_index_block *block);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
 int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
