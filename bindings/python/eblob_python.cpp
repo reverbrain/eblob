@@ -78,7 +78,7 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 		std::string d((const char*)data, dc->data_size);
 
 		struct eblob_py_iterator *it = (struct eblob_py_iterator *)priv;
-		
+
 
 		it->process(id, d);
 		return 0;
@@ -121,7 +121,6 @@ public:
 		memset(&cb, 0, sizeof(struct eblob_iterate_callbacks));
 
 		cb.iterator = &eblob_py_iterator::iterator;
-		cb.thread_num = 1;
 
 		Py_BEGIN_ALLOW_THREADS
 		eblob::iterate(&cb, 0, reinterpret_cast<void *>(&it));
@@ -146,7 +145,6 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def_readwrite("blob_flags", &eblob_config::blob_flags)
 		.def_readwrite("sync", &eblob_config::sync)
 		.def_readwrite("file", &eblob_config::file)
-		.def_readwrite("iterate_threads", &eblob_config::iterate_threads)
 		.def_readwrite("blob_size", &eblob_config::blob_size)
 		.def_readwrite("records_in_blob", &eblob_config::records_in_blob)
 	;

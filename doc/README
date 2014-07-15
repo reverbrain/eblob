@@ -59,11 +59,6 @@ struct eblob_config {
 	 */
 	char			*file;
 
-	/* number of threads which will iterate over
-	 * each blob file at startup
-	 */
-	int			iterate_threads;
-
 	/* maximum blob size (supported modifiers: G, M, K)
 	 * when blob file size becomes bigger than this value
 	 * library will create new file

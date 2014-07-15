@@ -586,7 +586,6 @@ main(int argc, char **argv)
 	bcfg.defrag_time = DEFAULT_BLOB_DEFRAG_TIME;
 	bcfg.defrag_splay = DEFAULT_BLOB_DEFRAG_SPLAY;
 	bcfg.file = blob_path;
-	bcfg.iterate_threads = cfg.blob_threads;
 	bcfg.log = &logger;
 	bcfg.records_in_blob = cfg.blob_records;
 	bcfg.sync = cfg.blob_sync;
