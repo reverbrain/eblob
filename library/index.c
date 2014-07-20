@@ -115,6 +115,12 @@ static int eblob_key_range_cmp(const void *k1, const void *k2)
 	return 1;
 }
 
+int eblob_index_block_cmp(const void *k1, const void *k2)
+{
+	const struct eblob_index_block *k = k1;
+	return eblob_key_range_cmp(&k->start_key, k2);
+}
+
 static int eblob_find_non_removed_callback(struct eblob_disk_control *sorted,
 		struct eblob_disk_control *dc __attribute_unused__)
 {
@@ -139,6 +145,26 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 	return 0;
 }
 
+struct eblob_index_block *eblob_index_blocks_search_nolock_bsearch_nobloom(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		struct eblob_disk_search_stat *st)
+{
+	react_start_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK_BSEARCH_NOBLOOM);
+	struct eblob_index_block *t = NULL;
+
+	/*
+	 * Use binary search to find given eblob_index_block in bctl->index_blocks
+	 * Blocks were placed into that array in sorted order.
+	 */
+	t = bsearch(&dc->key, bctl->index_blocks,
+		eblob_stat_get(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE) / sizeof(struct eblob_index_block),
+		sizeof(struct eblob_index_block), eblob_key_range_cmp);
+	if (t)
+		st->range_has_key++;
+
+	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK_BSEARCH_NOBLOOM);
+	return t;
+}
+
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
@@ -152,15 +178,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 		return NULL;
 	}
 
-	/*
-	 * Use binary search to find given eblob_index_block in bctl->index_blocks
-	 * Blocks were placed into that array in sorted order.
-	 */
-	t = bsearch(&dc->key, bctl->index_blocks,
-		eblob_stat_get(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE) / sizeof(struct eblob_index_block),
-		sizeof(struct eblob_index_block), eblob_key_range_cmp);
-	if (t)
-		st->range_has_key++;
+	t = eblob_index_blocks_search_nolock_bsearch_nobloom(bctl, dc, st);
 
 	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 	return t;
@@ -248,7 +266,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 
 	while (offset < bctl->sort.size) {
 		block = &bctl->index_blocks[block_id++];
-		block->offset = offset;
+		block->start_offset = offset;
 		for (i = 0; i < bctl->back->cfg.index_block_size && offset < bctl->sort.size; ++i) {
 			err = pread(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), offset);
 			if (err != sizeof(struct eblob_disk_control)) {
@@ -283,7 +301,7 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			}
 
 			if (i == 0)
-				memcpy(&block->start_key, &dc.key, sizeof(struct eblob_key));
+				block->start_key = dc.key;
 
 			if (dc.flags & eblob_bswap64(BLOB_DISK_CTL_REMOVE)) {
 				removed++;
@@ -295,7 +313,8 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 			offset += sizeof(struct eblob_disk_control);
 		}
 
-		memcpy(&block->end_key, &dc.key, sizeof(struct eblob_key));
+		block->end_offset = offset;
+		block->end_key = dc.key;
 	}
 	eblob_stat_set(bctl->stat, EBLOB_LST_RECORDS_REMOVED, removed);
 	eblob_stat_set(bctl->stat, EBLOB_LST_REMOVED_SIZE, removed_size);
@@ -327,15 +346,21 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	pthread_rwlock_rdlock(&bctl->index_blocks_lock);
 	block = eblob_index_blocks_search_nolock(bctl, dc, st);
 	if (block) {
-		assert((bctl->sort.size - block->offset) / hdr_size > 0);
-		assert((bctl->sort.size - block->offset) % hdr_size == 0);
+		assert((bctl->sort.size - block->start_offset) / hdr_size > 0);
+		assert((bctl->sort.size - block->start_offset) % hdr_size == 0);
 
-		num = (bctl->sort.size - block->offset) / hdr_size;
+		num = (bctl->sort.size - block->start_offset) / hdr_size;
 
 		if (num > b->cfg.index_block_size)
 			num = b->cfg.index_block_size;
 
-		search_start = bctl->sort.data + block->offset;
+		search_start = bctl->sort.data + block->start_offset;
+		/*
+		 * We do not use @block->end_offset here, since it points to
+		 * the start offset of the *next* record, which potentially
+		 * can be outside of the index, i.e. be equal to the size of
+		 * the index.
+		 */
 		search_end = search_start + (num - 1);
 	} else {
 		pthread_rwlock_unlock(&bctl->index_blocks_lock);
@@ -347,7 +372,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n", 
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n", 
 			eblob_dump_id(dc->key.id),
 			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 

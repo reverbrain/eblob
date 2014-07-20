@@ -410,6 +410,23 @@ struct eblob_iterate_callbacks {
 #define EBLOB_ITERATE_FLAGS_READONLY		(1<<1)	/* do not modify entries while iterating a blob */
 #define EBLOB_ITERATE_FLAGS_INITIAL_LOAD	(1<<2)	/* set on initial load */
 
+/**
+ * Structure which controls which keys should be iterated over.
+ * [start, stop] keys are inclusive. 
+ */
+
+struct eblob_index_block {
+	struct eblob_key	start_key;
+	struct eblob_key	end_key;
+
+	/*
+	 * @start_offset shows start of the index block
+	 * @end_offset is set to the end of index block in blob and
+	 * is only used for iterator's range request
+	 */
+	uint64_t		start_offset, end_offset;
+};
+
 /* Iterate over all blob files */
 struct eblob_iterate_control {
 	struct eblob_backend		*b;
@@ -425,6 +442,16 @@ struct eblob_iterate_control {
 
 	struct eblob_iterate_callbacks	iterator_cb;
 	void				*priv;
+
+	/*
+	 * Ranges must be sorted in ascending order
+	 * This array *will be* sorted inside iterator helpers
+	 *
+	 * @start_offset/@end_offset will be used to store
+	 * appropriate helper offsets within sorted blobs
+	 */
+	struct eblob_index_block	*range;
+	int				range_num;
 
 	int				blob_start, blob_num;
 

@@ -522,6 +522,89 @@ static int eblob_check_disk(struct eblob_iterate_local *loc)
 	return 0;
 }
 
+static int eblob_fill_range_offsets(struct eblob_base_ctl *bctl, struct eblob_iterate_control *ctl)
+{
+	int i;
+	struct eblob_index_block *t;
+	struct eblob_disk_search_stat st;
+	struct eblob_disk_control local_dc;
+	char start_key_str[2*EBLOB_ID_SIZE+1];
+	char end_key_str[2*EBLOB_ID_SIZE+1];
+
+	/*
+	 * For sorted indexes we skip keys rigth to the block containing requested key range.
+	 * Let's find those index blocks.
+	 */
+
+	if (bctl->sort.fd < 0)
+		return -1;
+
+	if (ctl->range_num == 0)
+		return -1;
+
+	memset(&st, 0, sizeof(struct eblob_disk_search_stat));
+	memset(&local_dc, 0, sizeof(struct eblob_disk_control));
+
+	for (i = 0; i < ctl->range_num; ++i) {
+		struct eblob_index_block *range = &ctl->range[i];
+
+		local_dc.key = range->start_key;
+		t = eblob_index_blocks_search_nolock_bsearch_nobloom(bctl, &local_dc, &st);
+		if (!t) {
+			/*
+			 * There is no index block in sorted index (AND sorted blob) which corresponds
+			 * to the start of requested key range, it is still possible that the end of the
+			 * requested range overlaps with the index.
+			 *
+			 * In this case we have to search starting from offset zero.
+			 * This potentially looks something like this
+			 *
+			 * [requested range start; requested range end]
+			 *            [index start; ....
+			 */
+
+			range->start_offset = 0;
+		} else {
+			/*
+			 * We have found index block containing our range start
+			 */
+
+			range->start_offset = t->start_offset;
+		}
+
+
+		local_dc.key = range->end_key;
+		t = eblob_index_blocks_search_nolock_bsearch_nobloom(bctl, &local_dc, &st);
+		if (!t) {
+			/*
+			 * There is no index block covering range's end, assume following scenario
+			 *
+			 * [requested range start; requested range end]
+			 *          ...             index end]
+			 */
+
+			range->end_offset = ctl->index_size;
+		} else {
+			/*
+			 * We have found index block covering the end of the requested range.
+			 */
+
+			range->end_offset = t->end_offset;
+		}
+
+		eblob_log(ctl->log, EBLOB_LOG_NOTICE, "iterator-range: blob: index: %d, data-fd: %d, index-fd: %d, data-size: %llu, index-size: %llu, "
+				"keys: %s..%s, index offsets: %llu..%llu\n",
+				bctl->index, bctl->data_fd, bctl->index_fd, (unsigned long long)bctl->data_size, (unsigned long long)bctl->index_size,
+				eblob_dump_id_len_raw(range->start_key.id, EBLOB_ID_SIZE, start_key_str),
+				eblob_dump_id_len_raw(range->end_key.id, EBLOB_ID_SIZE, end_key_str),
+				(unsigned long long)range->start_offset,
+				(unsigned long long)range->end_offset);
+	}
+
+	ctl->index_offset = ctl->range[0].start_offset;
+	return 0;
+}
+
 /**
  * eblob_blob_iterator() - one iterator thread.
  *
@@ -532,35 +615,45 @@ static void *eblob_blob_iterator(void *data)
 {
 	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
-	struct eblob_base_ctl *bc = ctl->base;
+	struct eblob_base_ctl *bctl = ctl->base;
 
 	int local_max_num = 1024;
 	struct eblob_disk_control dc[local_max_num];
 	struct eblob_iterate_local loc;
 	int err = 0;
+	int current_range_index = -1;
+
 	/*
 	 * TODO: We should probably use unsorted index because order of records
 	 * in it is identical to order of records in data blob.
 	 */
-	int index_fd = eblob_get_index_fd(bc);
+	int index_fd = eblob_get_index_fd(bctl);
 	static int hdr_size = sizeof(struct eblob_disk_control);
 
 	memset(&loc, 0, sizeof(loc));
 
 	loc.iter_priv = iter_priv;
 
+	pthread_mutex_lock(&bctl->lock);
+	current_range_index = eblob_fill_range_offsets(bctl, ctl);
+	pthread_mutex_unlock(&bctl->lock);
+
+	if (ctl->range_num)
+		current_range_index = 0;
+
 	while (ACCESS_ONCE(ctl->thread_num) > 0) {
 		/* Wait until all pending writes are finished and lock */
-		pthread_mutex_lock(&bc->lock);
+		pthread_mutex_lock(&bctl->lock);
 
 		if (ACCESS_ONCE(ctl->thread_num) == 0) {
 			err = 0;
 			goto err_out_unlock;
 		}
 
-		/*if index after index_offset has less then local_max_num eblob_disk_controls
-		* then read only available ones.
-		*/
+		/*
+		 * if index after index_offset has less then local_max_num eblob_disk_controls
+		 * then read only available ones.
+		 */
 		if (ctl->index_offset + hdr_size * local_max_num > ctl->index_size){
 			local_max_num = (ctl->index_size - ctl->index_offset) / hdr_size;
 			if (local_max_num == 0) {
@@ -586,7 +679,47 @@ static void *eblob_blob_iterator(void *data)
 		loc.index_offset = ctl->index_offset;
 
 		ctl->index_offset += hdr_size * local_max_num;
-		pthread_mutex_unlock(&bc->lock);
+
+		if (ctl->range_num && current_range_index >= 0) {
+			struct eblob_index_block *range = &ctl->range[current_range_index];
+
+			if (ctl->index_offset > range->end_offset) {
+				while (1) {
+					++current_range_index;
+
+					if (current_range_index >= ctl->range_num) {
+						eblob_log(ctl->log, EBLOB_LOG_NOTICE, "blob: index: %d, iterator reached end of the requested range "
+								"[%llu, %llu], index-offset: %llu: switching to the next blob\n",
+								bctl->index, (unsigned long long)range->start_offset, (unsigned long long)range->end_offset,
+								ctl->index_offset);
+
+						err = 0;
+						goto err_out_unlock;
+					} else {
+						struct eblob_index_block *next = &ctl->range[current_range_index];
+
+						eblob_log(ctl->log, EBLOB_LOG_NOTICE, "blob: index: %d, iterator reached end of the requested ranges "
+								"(last range: [%llu, %llu]), index-offset: %llu: switching to the next range [%llu, %llu]\n",
+								bctl->index, (unsigned long long)range->start_offset, (unsigned long long)range->end_offset,
+								ctl->index_offset, (unsigned long long)next->start_offset, (unsigned long long)next->end_offset);
+
+						/*
+						 * Current index offset has already passed over the whole next range, skip it and check the next one
+						 */
+						if (ctl->index_offset > next->end_offset)
+							continue;
+
+
+						/*
+						 * We have found next range which is beyond or starts with the current index offset, use it.
+						 */
+						ctl->index_offset = next->start_offset;
+						break;
+					}
+				}
+			}
+		}
+		pthread_mutex_unlock(&bctl->lock);
 
 		loc.dc = dc;
 		loc.pos = 0;
@@ -596,9 +729,9 @@ static void *eblob_blob_iterator(void *data)
 		 * Hold btcl for duration of one batch - thus nobody can
 		 * invalidate bctl->data
 		 */
-		eblob_bctl_hold(bc);
+		eblob_bctl_hold(bctl);
 		err = eblob_check_disk(&loc);
-		eblob_bctl_release(bc);
+		eblob_bctl_release(bctl);
 		if (err)
 			goto err_out_check;
 	}
@@ -606,7 +739,7 @@ static void *eblob_blob_iterator(void *data)
 	goto err_out_check;
 
 err_out_unlock:
-	pthread_mutex_unlock(&bc->lock);
+	pthread_mutex_unlock(&bctl->lock);
 err_out_check:
 	/*
 	 * Returning error from iterator callback is dangerous - iterator stops
@@ -615,7 +748,7 @@ err_out_check:
 
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
 			"data_size: %llu, index_offset: %llu\n",
-			bc->index, bc->data_fd, index_fd, ctl->data_size, ctl->index_offset);
+			bctl->index, bctl->data_fd, index_fd, ctl->data_size, ctl->index_offset);
 
 	/*
 	 * On open we are trying to auto-fix broken blobs by truncating them to
@@ -624,10 +757,10 @@ err_out_check:
 	 * NB! This is questionable behaviour.
 	 */
 	if (!(ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
-		pthread_mutex_lock(&bc->lock);
+		pthread_mutex_lock(&bctl->lock);
 
-		bc->data_offset = bc->data_size;
-		bc->index_size = ctl->index_offset;
+		bctl->data_offset = bctl->data_size;
+		bctl->index_size = ctl->index_offset;
 
 		/* If we have only internal error */
 		if (err && !ctl->err) {
@@ -644,15 +777,15 @@ err_out_check:
 				ctl->index_offset = loc.last_valid_offset;
 				eblob_convert_disk_control(&idc);
 
-				memcpy(&data_dc, bc->data + idc.position, hdr_size);
+				memcpy(&data_dc, bctl->data + idc.position, hdr_size);
 				eblob_convert_disk_control(&data_dc);
 
-				bc->data_offset = idc.position + data_dc.disk_size;
+				bctl->data_offset = idc.position + data_dc.disk_size;
 
 				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
 						"data_size(was): %llu, data_offset: %" PRIu64 ", "
 						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %llu\n",
-						bc->data_fd, index_fd, ctl->data_size, bc->data_offset, idc.position, idc.disk_size,
+						bctl->data_fd, index_fd, ctl->data_size, bctl->data_offset, idc.position, idc.disk_size,
 						ctl->index_offset);
 
 				err = ftruncate(index_fd, ctl->index_offset);
@@ -663,7 +796,7 @@ err_out_check:
 				}
 			}
 		}
-		pthread_mutex_unlock(&bc->lock);
+		pthread_mutex_unlock(&bctl->lock);
 	}
 
 	/*
@@ -687,6 +820,13 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	int created = 0, inited = 0;
 	pthread_t tid[ctl->thread_num];
 	struct eblob_iterate_priv iter_priv[ctl->thread_num];
+
+	if (ctl->range_num) {
+		/*
+		 * Ranges must be sorted in ascending order
+		 */
+		qsort(ctl->range, ctl->range_num, sizeof(struct eblob_index_block), eblob_index_block_cmp);
+	}
 
 	/* Wait until nobody uses bctl->data */
 	eblob_base_wait_locked(ctl->base);

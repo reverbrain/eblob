@@ -86,12 +86,12 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		 * Even more sanity: do not remove blob if index size does not equal to
 		 * size of removed entries
 		 */
-		int64_t removed_size = removed * sizeof(struct eblob_disk_control);
+		uint64_t removed_size = removed * sizeof(struct eblob_disk_control);
 		if (bctl->index_size != removed_size) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: FAILED: trying to remove non empty blob: "
 					"removed: %" PRIu64 ", total: %" PRIu64
-					"index_size: %" PRIu64 ", removed_size: %" PRIu64 "\n",
+					"index_size: %llu, removed_size: %" PRIu64 "\n",
 					__func__, removed, total,
 					bctl->index_size, removed_size);
 			err = EBLOB_DEFRAG_NEEDED;

@@ -106,13 +106,6 @@ void eblob_data_unmap(struct eblob_map_fd *map);
  */
 #define EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH		(EBLOB_INDEX_DEFAULT_BLOCK_SIZE * 128)
 
-struct eblob_index_block {
-	struct eblob_key	start_key;
-	struct eblob_key	end_key;
-
-	uint64_t		offset;
-};
-
 /*
  * Sync written data to disk
  *
@@ -504,6 +497,9 @@ struct eblob_disk_search_stat {
 
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st);
+struct eblob_index_block *eblob_index_blocks_search_nolock_bsearch_nobloom(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
+		struct eblob_disk_search_stat *st);
+int eblob_index_block_cmp(const void *k1, const void *k2);
 
 ssize_t eblob_get_actual_size(int fd);
 
