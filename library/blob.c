@@ -638,9 +638,6 @@ static void *eblob_blob_iterator(void *data)
 	current_range_index = eblob_fill_range_offsets(bctl, ctl);
 	pthread_mutex_unlock(&bctl->lock);
 
-	if (ctl->range_num)
-		current_range_index = 0;
-
 	while (ACCESS_ONCE(ctl->thread_num) > 0) {
 		/* Wait until all pending writes are finished and lock */
 		pthread_mutex_lock(&bctl->lock);
