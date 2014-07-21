@@ -73,8 +73,6 @@ struct datasort_cfg {
 	uint64_t			chunk_size;
 	/* Limit on number of records in one chunk */
 	uint64_t			chunk_limit;
-	/* Split iterator threads */
-	unsigned int			thread_num;
 	/* Lock used by blob iterator */
 	pthread_mutex_t			lock;
 	/* Splitter chunks */
