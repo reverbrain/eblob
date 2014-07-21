@@ -2780,10 +2780,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	char stat_file[PATH_MAX];
 	int err;
 
-	eblob_log(c->log, EBLOB_LOG_ERROR, "blob: start\n");
-
-	/* Init random number generator */
-	srandom(time(NULL));
+	eblob_log(c->log, EBLOB_LOG_INFO, "blob: start\n");
 
 	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
