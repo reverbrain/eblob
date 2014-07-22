@@ -605,6 +605,65 @@ static int eblob_fill_range_offsets(struct eblob_base_ctl *bctl, struct eblob_it
 	return 0;
 }
 
+static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int current_range_index, struct eblob_iterate_local *loc)
+{
+	int i, j, out_pos = 0, err;
+	struct eblob_disk_control *out;
+
+	out = calloc(loc->num, sizeof(struct eblob_disk_control));
+	if (!out) {
+		err = -ENOMEM;
+		goto err_out_exit;
+	}
+
+	for (i = loc->pos; i < loc->num; ++i) {
+		struct eblob_disk_control *dc = &loc->dc[i];
+
+		for (j = current_range_index; j < ctl->range_num; ++j) {
+			struct eblob_index_block *range = &ctl->range[j];
+			int cmp;
+
+			cmp = eblob_id_cmp(dc->key.id, range->start_key.id);
+			if (cmp < 0) {
+				/*
+				 * key is less than range start, skip it.
+				 * Do not check next ranges, they are higher than this one.
+				 */
+				break;
+			}
+
+			cmp = eblob_id_cmp(dc->key.id, range->end_key.id);
+			if (cmp > 0) {
+				/*
+				 * Key is larger than current's range higher boundary,
+				 * skip this range, but check the next one.
+				 */
+				continue;
+			}
+
+			/*
+			 * That's our key, it is exactly within current range []
+			 */
+
+			out[++out_pos] = *dc;
+			break;
+		}
+	}
+
+	for (i = 0; i < out_pos; ++i) {
+		loc->dc[i] = out[i];
+	}
+
+	loc->pos = 0;
+	loc->num = out_pos;
+
+	free(out);
+	err = out_pos;
+
+err_out_exit:
+	return err;
+}
+
 /**
  * eblob_blob_iterator() - one iterator thread.
  *
@@ -647,36 +706,6 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_unlock;
 		}
 
-		/*
-		 * if index after index_offset has less then local_max_num eblob_disk_controls
-		 * then read only available ones.
-		 */
-		if (ctl->index_offset + hdr_size * local_max_num > ctl->index_size){
-			local_max_num = (ctl->index_size - ctl->index_offset) / hdr_size;
-			if (local_max_num == 0) {
-				err = 0;
-				goto err_out_unlock;
-			}
-		}
-
-		err = __eblob_read_ll(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
-		if (err)
-			goto err_out_unlock;
-
-		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
-					"index_offset+local_max_num: %llu, but wanted less than index_size.\n",
-					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
-					ctl->index_offset + local_max_num * hdr_size);
-			err = 0;
-			goto err_out_unlock;
-		}
-
-		loc.index_offset = ctl->index_offset;
-
-		ctl->index_offset += hdr_size * local_max_num;
-
 		if (ctl->range_num && current_range_index >= 0) {
 			struct eblob_index_block *range = &ctl->range[current_range_index];
 
@@ -716,11 +745,48 @@ static void *eblob_blob_iterator(void *data)
 				}
 			}
 		}
+
+		/*
+		 * if index after index_offset has less then local_max_num eblob_disk_controls
+		 * then read only available ones.
+		 */
+		if (ctl->index_offset + hdr_size * local_max_num > ctl->index_size){
+			local_max_num = (ctl->index_size - ctl->index_offset) / hdr_size;
+			if (local_max_num == 0) {
+				err = 0;
+				goto err_out_unlock;
+			}
+		}
+
+		err = __eblob_read_ll(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
+		if (err)
+			goto err_out_unlock;
+
+		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
+					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
+					"index_offset+local_max_num: %llu, but wanted less than index_size.\n",
+					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
+					ctl->index_offset + local_max_num * hdr_size);
+			err = 0;
+			goto err_out_unlock;
+		}
+
+		loc.index_offset = ctl->index_offset;
+
+		ctl->index_offset += hdr_size * local_max_num;
 		pthread_mutex_unlock(&bctl->lock);
 
 		loc.dc = dc;
 		loc.pos = 0;
 		loc.num = local_max_num;
+
+		err = eblob_local_ranges_check(ctl, current_range_index, &loc);
+		if (err < 0)
+			continue;
+
+		if (err == 0)
+			continue;
 
 		/*
 		 * Hold btcl for duration of one batch - thus nobody can
