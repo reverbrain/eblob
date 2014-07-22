@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.21.46
+Version:	0.22.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Jul 22 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.0
+- iterate: check locally ranges and found keys, skip those keys which do not fit ranges.
+- init: get rid of internal random generator initialization.
+- interator: initial range iterator implementation, this breaks old unused(?) iterator API.
+- 	Caller can provide array of ranges to scan and if we have sorted index for given base_ctl,
+- 	we can skip indexes to index blocks which contain our needed keys.
+- index_block: get rid of index range tree, use bsearch() to find given range in index_blocks array
+- threads: allow calling sync, defrag and periodic tasks on behalf of calling threads, not dedicated threads. Patch from <pavel@wialus.co.nz>
+- Removed multithreading at blobs iterations 
+
 * Sat Jul 12 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.21.46
 - Removed index_offset in eblob_base_ctl, replaced its use by index_size.
 
