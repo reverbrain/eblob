@@ -650,16 +650,15 @@ static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int curre
 			 * That's our key, it is exactly within current range []
 			 */
 
-			out[++out_pos] = *dc;
+			out[out_pos++] = *dc;
 			break;
 		}
 	}
 
-	for (i = 0; i < out_pos; ++i) {
+	for (i = loc->pos; i < out_pos; ++i) {
 		loc->dc[i] = out[i];
 	}
 
-	loc->pos = 0;
 	loc->num = out_pos;
 
 	free(out);
