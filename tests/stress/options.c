@@ -89,7 +89,6 @@ options_set_defaults(void)
 	cfg.blob_records = DEFAULT_BLOB_RECORDS;
 	cfg.blob_size = DEFAULT_BLOB_SIZE;
 	cfg.blob_sync = DEFAULT_BLOB_SYNC;
-	cfg.blob_threads = DEFAULT_BLOB_THREADS;
 	cfg.log_level = DEFAULT_LOG_LEVEL;
 	cfg.test_delay = DEFAULT_TEST_DELAY;
 	cfg.test_force_defrag = DEFAULT_TEST_FORCE_DEFRAG;
@@ -183,9 +182,6 @@ options_get(int argc, char **argv)
 		case 'S':
 			options_get_ll(&cfg.test_item_size, optarg);
 			break;
-		case 't':
-			options_get_l(&cfg.blob_threads, optarg);
-			break;
 		case 'T':
 			options_get_l(&cfg.test_threads, optarg);
 			break;
@@ -215,7 +211,6 @@ options_dump(void)
 	printf("Maximum number of records per base: %lld\n", cfg.blob_records);
 	printf("Maximum size of base in bytes: %lld\n", cfg.blob_size);
 	printf("sync(2) period in seconds: %ld\n", cfg.blob_sync);
-	printf("Number of iterator threads: %ld\n", cfg.blob_threads);
 	printf("Log level for eblog_log: %ld\n", cfg.log_level);
 	printf("Delay in milliseconds between iterations: %ld\n", cfg.test_delay);
 	printf("Force defrag after: %lld\n", cfg.test_force_defrag);
