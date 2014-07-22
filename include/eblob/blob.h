@@ -290,11 +290,8 @@ struct eblob_config {
 	 */
 	char			*file;
 
-	/* number of threads which will iterate over
-	 * each blob file at startup
-	 * Default: 1
-	 */
-	int			iterate_threads;
+	/* for future use */
+	int				reserved;
 
 	/* maximum blob size
 	 * when blob file size becomes bigger than this value
@@ -401,9 +398,8 @@ struct eblob_iterate_callbacks {
 	 */
 	int				(* iterator_free)(struct eblob_iterate_control *ctl, void **thread_priv);
 
-	/* Number of iterator threads. If this value is not 0 it will override default from config */
-	int				thread_num;
-
+	/* for future use */
+	int				reserved;
 };
 
 #define EBLOB_ITERATE_FLAGS_ALL			(1<<0)	/* iterate over all blobs, not only the last one */
@@ -435,7 +431,9 @@ struct eblob_iterate_control {
 
 	struct eblob_base_ctl		*base;
 
-	int				thread_num;
+	/* for future use */
+	int				reserved;
+
 	int				err;
 
 	unsigned int			flags;

@@ -542,7 +542,6 @@ static int datasort_split(struct datasort_cfg *dcfg)
 	assert(dcfg != NULL);
 	assert(dcfg->b != NULL);
 	assert(dcfg->bctl != NULL);
-	assert(dcfg->thread_num > 0);
 	assert(dcfg->bctl_cnt > 0);
 
 	/* Init iterator config */
@@ -554,14 +553,13 @@ static int datasort_split(struct datasort_cfg *dcfg)
 		ictl.b = dcfg->b;
 		ictl.base = dcfg->bctl[n];
 		ictl.log = dcfg->b->cfg.log;
-		ictl.thread_num = dcfg->thread_num;
 		ictl.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_FLAGS_READONLY;
 		ictl.iterator_cb.iterator = datasort_split_iterator;
 		ictl.iterator_cb.iterator_init = datasort_split_iterator_init;
 		ictl.iterator_cb.iterator_free = datasort_split_iterator_free;
 
-		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "defrag: split: start, name: %s, threads: %d",
-				ictl.base->name, ictl.thread_num);
+		EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "defrag: split: start, name: %s",
+				ictl.base->name);
 
 		/* Run iteration */
 		err = eblob_blob_iterate(&ictl);
@@ -1333,8 +1331,6 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "defrag: sorting: %s", dcfg->bctl[n]->name);
 
 	/* Setup defaults */
-	if (dcfg->thread_num == 0)
-		dcfg->thread_num = dcfg->b->cfg.iterate_threads;
 	if (dcfg->chunk_size == 0)
 		dcfg->chunk_size = EBLOB_DATASORT_DEFAULTS_CHUNK_SIZE;
 	if (dcfg->chunk_limit == 0)

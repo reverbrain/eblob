@@ -30,7 +30,6 @@ eblob::eblob(const char *log_file, const int log_level, const std::string &eblob
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.file = (char *)eblob_path.c_str();
 	cfg.log = logger_.log();
-	cfg.iterate_threads = 16;
 	cfg.sync = 30;
 
 	eblob_ = eblob_init(&cfg);
@@ -273,7 +272,6 @@ void eblob::iterate(const struct eblob_iterate_callbacks *callbacks, unsigned in
 
 	ctl.b = eblob_;
 	ctl.log = logger_.log();
-	ctl.thread_num = callbacks->thread_num;
 	ctl.flags = flags;
 	ctl.iterator_cb = *callbacks;
 	ctl.priv = priv;

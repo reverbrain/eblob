@@ -69,7 +69,6 @@ struct test_cfg {
 	long long	blob_records;		/* Number of records in base */
 	long long	blob_size;		/* Max size of base in bytes */
 	long		blob_sync;		/* sync(2) period in seconds */
-	long		blob_threads;		/* Number of iterator threads */
 	long		log_level;		/* Log level for eblog_log */
 	long		test_delay;		/* Delay in milliseconds between
 						   iterations */
@@ -121,7 +120,6 @@ struct test_thread_cfg {
 #define DEFAULT_BLOB_RECORDS		(10000)
 #define DEFAULT_BLOB_SIZE		(100 * 1<<20)
 #define DEFAULT_BLOB_SYNC		(-1)
-#define DEFAULT_BLOB_THREADS		(16)
 #define DEFAULT_LOG_LEVEL		(EBLOB_LOG_DEBUG + 1)
 #define DEFAULT_TEST_DELAY		(10)
 #define DEFAULT_TEST_FORCE_DEFRAG	(0)

@@ -747,7 +747,7 @@ static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_contr
 
 static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_control *ctl)
 {
-	int err, thread_num = ctl->thread_num, idx = 0;
+	int err, idx = 0;
 	struct eblob_base_ctl *bctl, *bctl_tmp;
 	int want;
 
@@ -756,12 +756,6 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 	ctl->log = b->cfg.log;
 	ctl->b = b;
-
-	if (!thread_num)
-		thread_num = b->cfg.iterate_threads;
-
-	if (ctl->iterator_cb.thread_num)
-		thread_num = ctl->iterator_cb.thread_num;
 
 	if (ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD) {
 		err = eblob_scan_base(b);
@@ -777,7 +771,6 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 		if (!ctl->blob_num ||
 				((idx >= ctl->blob_start) && (idx < ctl->blob_num - ctl->blob_start))) {
 			ctl->base = bctl;
-			ctl->thread_num = thread_num;
 
 			err = 0;
 			if (bctl->sort.fd < 0 || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {

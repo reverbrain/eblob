@@ -671,17 +671,16 @@ err_out_exit:
 /**
  * eblob_blob_iterator() - one iterator thread.
  *
- * Splits data into `local_max_num' chunks and passes them to
+ * Splits data into `batch_size' chunks and passes them to
  * eblob_check_disk()
  */
-static void *eblob_blob_iterator(void *data)
+static int eblob_blob_iterator(struct eblob_iterate_priv *iter_priv)
 {
-	struct eblob_iterate_priv *iter_priv = data;
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
 	struct eblob_base_ctl *bctl = ctl->base;
 
-	int local_max_num = 1024;
-	struct eblob_disk_control dc[local_max_num];
+	int batch_size = 1024;
+	struct eblob_disk_control dc[batch_size];
 	struct eblob_iterate_local loc;
 	int err = 0;
 	int current_range_index = -1;
@@ -691,7 +690,7 @@ static void *eblob_blob_iterator(void *data)
 	 * in it is identical to order of records in data blob.
 	 */
 	int index_fd = eblob_get_index_fd(bctl);
-	static int hdr_size = sizeof(struct eblob_disk_control);
+	static const int hdr_size = sizeof(struct eblob_disk_control);
 
 	memset(&loc, 0, sizeof(loc));
 
@@ -701,15 +700,7 @@ static void *eblob_blob_iterator(void *data)
 	current_range_index = eblob_fill_range_offsets(bctl, ctl);
 	pthread_mutex_unlock(&bctl->lock);
 
-	while (ACCESS_ONCE(ctl->thread_num) > 0) {
-		/* Wait until all pending writes are finished and lock */
-		pthread_mutex_lock(&bctl->lock);
-
-		if (ACCESS_ONCE(ctl->thread_num) == 0) {
-			err = 0;
-			goto err_out_unlock;
-		}
-
+	while (ctl->index_offset < ctl->index_size) {
 		if (ctl->range_num && current_range_index >= 0) {
 			struct eblob_index_block *range = &ctl->range[current_range_index];
 
@@ -724,7 +715,7 @@ static void *eblob_blob_iterator(void *data)
 								ctl->index_offset);
 
 						err = 0;
-						goto err_out_unlock;
+						goto err_out_check;
 					} else {
 						struct eblob_index_block *next = &ctl->range[current_range_index];
 
@@ -754,36 +745,40 @@ static void *eblob_blob_iterator(void *data)
 		 * if index after index_offset has less then local_max_num eblob_disk_controls
 		 * then read only available ones.
 		 */
-		if (ctl->index_offset + hdr_size * local_max_num > ctl->index_size){
-			local_max_num = (ctl->index_size - ctl->index_offset) / hdr_size;
-			if (local_max_num == 0) {
+		if (ctl->index_offset + hdr_size * batch_size > ctl->index_size){
+			batch_size = (ctl->index_size - ctl->index_offset) / hdr_size;
+			if (batch_size == 0) {
 				err = 0;
-				goto err_out_unlock;
+				goto err_out_check;
 			}
 		}
 
-		err = __eblob_read_ll(index_fd, dc, hdr_size * local_max_num, ctl->index_offset);
-		if (err)
-			goto err_out_unlock;
-
-		if (ctl->index_offset + local_max_num * hdr_size > ctl->index_size) {
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
-					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, local_max_num: %d, "
-					"index_offset+local_max_num: %llu, but wanted less than index_size.\n",
-					ctl->index_offset, ctl->index_size, ctl->data_size, local_max_num,
-					ctl->index_offset + local_max_num * hdr_size);
-			err = 0;
-			goto err_out_unlock;
+		/* Wait until all pending writes are finished and lock */
+		pthread_mutex_lock(&bctl->lock);
+		err = __eblob_read_ll(index_fd, dc, batch_size * hdr_size, ctl->index_offset);
+		if (err) {
+			pthread_mutex_unlock(&bctl->lock);
+			goto err_out_check;
 		}
-
-		loc.index_offset = ctl->index_offset;
-
-		ctl->index_offset += hdr_size * local_max_num;
 		pthread_mutex_unlock(&bctl->lock);
 
+		if (ctl->index_offset + batch_size * hdr_size > ctl->index_size) {
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: index grew under us, iteration stops: "
+					"index_offset: %llu, index_size: %llu, eblob_data_size: %llu, batch_size: %d, "
+					"index_offset+batch_size: %llu, but wanted less than index_size.\n",
+					ctl->index_offset, ctl->index_size, ctl->data_size, batch_size,
+					ctl->index_offset + batch_size * hdr_size);
+			err = 0;
+			goto err_out_check;
+		}
+
+
+		loc.index_offset = ctl->index_offset;
 		loc.dc = dc;
 		loc.pos = 0;
-		loc.num = local_max_num;
+		loc.num = batch_size;
+
+		ctl->index_offset += hdr_size * batch_size;
 
 		err = eblob_local_ranges_check(ctl, current_range_index, &loc);
 		if (err < 0)
@@ -803,15 +798,7 @@ static void *eblob_blob_iterator(void *data)
 			goto err_out_check;
 	}
 
-	goto err_out_check;
-
-err_out_unlock:
-	pthread_mutex_unlock(&bctl->lock);
 err_out_check:
-	/*
-	 * Returning error from iterator callback is dangerous - iterator stops
-	 */
-	ctl->thread_num = 0;
 
 	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
 			"data_size: %llu, index_offset: %llu\n",
@@ -874,7 +861,7 @@ err_out_check:
 	if (ctl->err == 0 && err != 0)
 		ctl->err = err;
 
-	return NULL;
+	return err;
 }
 
 /**
@@ -883,10 +870,8 @@ err_out_check:
  */
 int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 {
-	int i, err, thread_num = ctl->thread_num;
-	int created = 0, inited = 0;
-	pthread_t tid[ctl->thread_num];
-	struct eblob_iterate_priv iter_priv[ctl->thread_num];
+	int err;
+	struct eblob_iterate_priv iter_priv;
 
 	if (ctl->range_num) {
 		/*
@@ -909,36 +894,27 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl)
 	ctl->index_size = ctl->base->index_size;
 	pthread_mutex_unlock(&ctl->base->lock);
 
-	for (i = 0; i < thread_num; ++i) {
-		iter_priv[i].ctl = ctl;
-		iter_priv[i].thread_priv = NULL;
+	iter_priv.ctl = ctl;
+	iter_priv.thread_priv = NULL;
 
-		if (ctl->iterator_cb.iterator_init) {
-			err = ctl->iterator_cb.iterator_init(ctl, &iter_priv[i].thread_priv);
-			if (err) {
-				ctl->err = err;
-				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to init iterator: %d.\n", err);
-				break;
-			}
-			inited++;
-		}
-
-		err = pthread_create(&tid[i], NULL, eblob_blob_iterator, &iter_priv[i]);
+	if (ctl->iterator_cb.iterator_init) {
+		err = ctl->iterator_cb.iterator_init(ctl, &iter_priv.thread_priv);
 		if (err) {
 			ctl->err = err;
-			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to create iterator thread: %d.\n", err);
-			break;
+			eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: failed to init iterator: %d.\n", err);
+			goto err_out_exit;
 		}
-		created++;
 	}
 
-	for (i = 0; i < created; ++i) {
-		pthread_join(tid[i], NULL);
+	err = eblob_blob_iterator(&iter_priv);
+	if (err) {
+		ctl->err = err;
+		eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: iterator failed: %d.\n", err);
+		goto err_out_exit;
 	}
 
-	for (i = 0; ctl->iterator_cb.iterator_free && i < inited; ++i) {
-		ctl->iterator_cb.iterator_free(ctl, &iter_priv[i].thread_priv);
-	}
+	if (ctl->iterator_cb.iterator_free)
+		ctl->iterator_cb.iterator_free(ctl, &iter_priv.thread_priv);
 
 	if ((ctl->err == -ENOENT) && eblob_total_elements(ctl->b))
 		ctl->err = 0;
@@ -2878,8 +2854,6 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		c->index_block_bloom_length = EBLOB_INDEX_DEFAULT_BLOCK_BLOOM_LENGTH;
 	if (!c->blob_size)
 		c->blob_size = EBLOB_BLOB_DEFAULT_BLOB_SIZE;
-	if (!c->iterate_threads)
-		c->iterate_threads = EBLOB_DEFAULT_ITERATE_THREADS;
 	if (!c->records_in_blob)
 		c->records_in_blob = EBLOB_BLOB_DEFAULT_RECORDS_IN_BLOB;
 	if (!c->defrag_timeout)

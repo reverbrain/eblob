@@ -78,7 +78,6 @@
 #define EBLOB_DEFAULT_DEFRAG_TIME		(3)
 #define EBLOB_DEFAULT_DEFRAG_SPLAY		(3)
 #define EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT	(60)
-#define EBLOB_DEFAULT_ITERATE_THREADS		(1)
 
 /* Size of one entry in cache */
 static const size_t EBLOB_HASH_ENTRY_SIZE = sizeof(struct eblob_ram_control)

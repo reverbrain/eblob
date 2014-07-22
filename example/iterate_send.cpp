@@ -347,7 +347,6 @@ int main(int argc, char *argv[])
 	int ch;
 	int index_start = 0;
 	int index_max = INT_MAX;
-	int thread_num = 16;
 	std::string base("/opt/elliptics/data-");
 	char *addr = (char *)"localhost";
 	int port = 1025;
@@ -366,9 +365,6 @@ int main(int argc, char *argv[])
 				break;
 			case 'I':
 				index_max = atoi(optarg);
-				break;
-			case 't':
-				thread_num = atoi(optarg);
 				break;
 			case 'g':
 				group = atoi(optarg);
@@ -394,10 +390,10 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	isend is(group, addr, port, thread_num, write, log_mask, wait_timeout);
+	isend is(group, addr, port, write, log_mask, wait_timeout);
 	eblob_iterator it(base);
 
-	it.iterate(is, thread_num, index_start, index_max);
+	it.iterate(is, index_start, index_max);
 
 	is.need_exit = true;
 }
