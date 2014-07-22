@@ -610,6 +610,11 @@ static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int curre
 	int i, j, out_pos = 0, err;
 	struct eblob_disk_control *out;
 
+	if (current_range_index < 0) {
+		err = loc->num;
+		goto err_out_exit;
+	}
+
 	out = calloc(loc->num, sizeof(struct eblob_disk_control));
 	if (!out) {
 		err = -ENOMEM;
