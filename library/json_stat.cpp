@@ -40,6 +40,22 @@ int eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat, rapidj
 	return 0;
 }
 
+int eblob_stat_config_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator) {
+	stat.AddMember("blob_flags", b->cfg.blob_flags, allocator);
+	stat.AddMember("sync", b->cfg.sync, allocator);
+	stat.AddMember("file", b->cfg.file, allocator);
+	stat.AddMember("blob_size", b->cfg.blob_size, allocator);
+	stat.AddMember("records_in_blob", b->cfg.records_in_blob, allocator);
+	stat.AddMember("defrag_percentage", b->cfg.defrag_percentage, allocator);
+	stat.AddMember("defrag_timeout", b->cfg.defrag_timeout, allocator);
+	stat.AddMember("index_block_size", b->cfg.index_block_size, allocator);
+	stat.AddMember("index_block_bloom_length", b->cfg.index_block_bloom_length, allocator);
+	stat.AddMember("blob_size_limit", b->cfg.blob_size_limit, allocator);
+	stat.AddMember("defrag_time", b->cfg.defrag_time, allocator);
+	stat.AddMember("defrag_splay", b->cfg.defrag_splay, allocator);
+	return 0;
+}
+
 int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 {
 	static char *static_json_stats = NULL;
@@ -69,9 +85,16 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 			return err;
 		}
 
+		rapidjson::Value config(rapidjson::kObjectType);
+		err = eblob_stat_config_json(b, config, allocator);
+		if (err) {
+			return err;
+		}
+
 		doc.AddMember("global_stats", global_stats, allocator);
 		doc.AddMember("summary_stats", summary_stats, allocator);
 		doc.AddMember("base_stats", base_stats, allocator);
+		doc.AddMember("config", config, allocator);
 
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
