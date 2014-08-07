@@ -74,12 +74,13 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	/*
 	 * If defrag threshold is met or base (number of accessible keys) is less than 1/10 of it's limit
 	 * in both record number AND base size.
-	 * Last condition is needed to properly merge "small" bases into one.
+	 * Last condition is needed to properly merge "small" bases into one and is marked as EBLOB_MERGE_NEEDED.
 	 */
-	if (removed >= total * b->cfg.defrag_percentage / 100
-			|| (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10)
-				&& ((uint64_t)size < b->cfg.blob_size / 10)))
+	if (removed >= total * b->cfg.defrag_percentage / 100)
 		err = EBLOB_DEFRAG_NEEDED;
+	else if (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10) &&
+	    ((uint64_t)size < b->cfg.blob_size / 10))
+		err = EBLOB_MERGE_NEEDED;
 
 	if (total == removed) {
 		/*
@@ -158,24 +159,23 @@ int eblob_defrag(struct eblob_backend *b)
 		/* Decide what we want to do with this bctl */
 		want = eblob_want_defrag(bctl);
 		if (want < 0)
-			EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR,
-					"defrag: eblob_want_defrag: FAILED");
+			EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR, "defrag: eblob_want_defrag: FAILED");
 
 		if (want == EBLOB_REMOVE_NEEDED) {
-                        EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: empty blob - removing.");
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: empty blob - removing.");
 
-                        pthread_mutex_lock(&b->lock);
-                        /* Remove it from list, but do not poisson next and prev */
-                        __list_del(bctl->base_entry.prev, bctl->base_entry.next);
+			pthread_mutex_lock(&b->lock);
+			/* Remove it from list, but do not poisson next and prev */
+			__list_del(bctl->base_entry.prev, bctl->base_entry.next);
 
-                        /* Remove base files */
-                        eblob_base_remove(bctl);
+			/* Remove base files */
+			eblob_base_remove(bctl);
 
-                        /* Wait until bctl is unused */
-                        eblob_base_wait_locked(bctl);
-                        _eblob_base_ctl_cleanup(bctl);
-                        pthread_mutex_unlock(&bctl->lock);
-                        pthread_mutex_unlock(&b->lock);
+			/* Wait until bctl is unused */
+			eblob_base_wait_locked(bctl);
+			_eblob_base_ctl_cleanup(bctl);
+			pthread_mutex_unlock(&bctl->lock);
+			pthread_mutex_unlock(&b->lock);
 			continue;
 		}
 
@@ -240,18 +240,25 @@ int eblob_defrag(struct eblob_backend *b)
 			}
 		}
 
-		/* Sort all bases between @previous and @current */
+
 		struct datasort_cfg dcfg = {
 			.b = b,
 			.bctl = bctls + previous,
 			.bctl_cnt = current - previous,
 			.log = b->cfg.log,
 		};
-		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-				"defrag: sorting: %d base(s)", current - previous);
-		if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
-			EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR,
-					"defrag: datasort: FAILED");
+
+		/*
+		 * Sort all bases between @previous and @current
+		 * Do not sort one base if its deframentation is not required.
+		 */
+		if (dcfg.bctl_cnt != 1 || eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED) {
+			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+					"defrag: sorting: %d base(s)", current - previous);
+			if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
+				EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR,
+						"defrag: datasort: FAILED");
+		}
 
 		/*
 		 * Bump positions use current base in the next accumulation
