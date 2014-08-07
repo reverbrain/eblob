@@ -181,8 +181,9 @@ enum eblob_defrag_type {
 	/* Defrag thresholds weren't met */
 	EBLOB_DEFRAG_NOT_NEEDED = 0,
 	/* Defrag needed */
-	EBLOB_DEFRAG_NEEDED,
-	EBLOB_REMOVE_NEEDED,
+	EBLOB_DEFRAG_NEEDED,	/* Entry should be defragmented */
+	EBLOB_REMOVE_NEEDED,	/* Entry could be removed */
+	EBLOB_MERGE_NEEDED		/* Entry could be merged into a biggest entry */
 };
 
 /*
