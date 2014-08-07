@@ -1,3 +1,11 @@
+eblob (0.22.1) unstable; urgency=low
+
+  * disk-lookup: added rich disk-lookup stats: bloom, range array, bsearch and so on
+  * Defrag: added new state - EBLOB_MERGE_NEEDED and do not defrag one base that could only be merged
+  * Stats: added config to json statistics
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 07 Aug 2014 23:53:11 +0400
+
 eblob (0.22.0) unstable; urgency=low
 
   * iterate: check locally ranges and found keys, skip those keys which do not fit ranges.

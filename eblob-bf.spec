@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.0
+Version:	0.22.1
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Aug 07 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.1
+- disk-lookup: added rich disk-lookup stats: bloom, range array, bsearch and so on
+- Defrag: added new state - EBLOB_MERGE_NEEDED and do not defrag one base that could only be merged
+- Stats: added config to json statistics
+
 * Tue Jul 22 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.0
 - iterate: check locally ranges and found keys, skip those keys which do not fit ranges.
 - init: get rid of internal random generator initialization.
