@@ -487,11 +487,15 @@ int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
 int __eblob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
-	int			bloom_null;
-	int			range_has_key;
-	int			bsearch_reached;
-	int			bsearch_found;
-	int			additional_reads;
+	int			loops;			// number of bctls checked
+	int			no_sort;		// bctl doesn't have sorted index, all keys are in ram
+	int			search_on_disk;		// going to search data on disk: check index_block array
+	int			bloom_null;		// bloom filter says there is no given key
+	int			found_index_block;	// found index block which can have given key
+	int			no_block;		// there is no index_block for given key in block_index array
+	int			bsearch_reached;	// going to perform binary search for given key on mapped sorted index data on disk
+	int			bsearch_found;		// bsearch has found given key
+	int			additional_reads;	// if key found doesn't match criteria (file is removed for example), perform additional sequential reads
 };
 
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,

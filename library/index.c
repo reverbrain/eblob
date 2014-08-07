@@ -159,7 +159,7 @@ struct eblob_index_block *eblob_index_blocks_search_nolock_bsearch_nobloom(struc
 		eblob_stat_get(bctl->stat, EBLOB_LST_INDEX_BLOCKS_SIZE) / sizeof(struct eblob_index_block),
 		sizeof(struct eblob_index_block), eblob_key_range_cmp);
 	if (t)
-		st->range_has_key++;
+		st->found_index_block++;
 
 	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK_BSEARCH_NOBLOOM);
 	return t;
@@ -179,6 +179,8 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	}
 
 	t = eblob_index_blocks_search_nolock_bsearch_nobloom(bctl, dc, st);
+	if (!t)
+		st->no_block++;
 
 	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 	return t;
@@ -339,6 +341,8 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	struct eblob_index_block *block;
 	size_t num;
 	const int hdr_size = sizeof(struct eblob_disk_control);
+
+	st->search_on_disk++;
 
 	end = bctl->sort.data + bctl->sort.size;
 	start = bctl->sort.data;
@@ -537,6 +541,20 @@ err_out_exit:
 	return err;
 }
 
+static char *eblob_dump_search_stat(const struct eblob_disk_search_stat *st, int err)
+{
+	static __thread char ss[1024];
+
+	snprintf(ss, sizeof(ss), "bctls: %d, no-sorted-index: %d, search-on-disk: %d, bloom-no-key: %d, "
+			"found-index-block: %d, no-index-block: %d, bsearch-reached: %d, bsearch-found: %d, "
+			"additional-reads: %d, err: %d",
+			 st->loops, st->no_sort, st->search_on_disk, st->bloom_null,
+			 st->found_index_block, st->no_block, st->bsearch_reached, st->bsearch_found,
+			 st->additional_reads, err);
+
+	return ss;
+}
+
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
@@ -545,18 +563,15 @@ int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control *dc, tmp = { .key = *key, };
 	struct eblob_disk_search_stat st = { .bloom_null = 0, };
-	uint64_t loops;
 	static const int max_tries = 10;
 	int err = -ENOENT, tries = 0;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-			"blob: %s: index: disk.\n", eblob_dump_id(key->id));
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: index: disk.\n", eblob_dump_id(key->id));
 
 again:
-	loops = 0;
 	list_for_each_entry_reverse(bctl, &b->bases, base_entry) {
 		/* Count number of loops before break */
-		++loops;
+		++st.loops;
 		/* Protect against datasort */
 		eblob_bctl_hold(bctl);
 
@@ -576,6 +591,7 @@ again:
 
 		/* If bctl does not have sorted index - skip it, all its keys are already in ram */
 		if (bctl->sort.fd < 0) {
+			st.no_sort++;
 			eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
 					"blob: %s: index: disk: index: %d: no sorted index\n",
 					eblob_dump_id(key->id), bctl->index);
@@ -603,20 +619,17 @@ again:
 
 		eblob_bctl_release(bctl);
 
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-				"blob: %s: index: disk: index: %d, position: %" PRIu64
-				", data_size: %" PRIu64 "\n", eblob_dump_id(key->id),
-				rctl->bctl->index, rctl->data_offset, rctl->size);
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, eblob_dump_id(key->id),
+				"blob: %s: index: %d, position: %" PRIu64
+				", data_size: %" PRIu64 ": %s\n", eblob_dump_id(key->id),
+				rctl->bctl->index, rctl->data_offset, rctl->size, eblob_dump_search_stat(&st, 0));
 		break;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-			"blob: %s: stat: loops: %" PRIu64 ", range_has_key: %d, bloom_null: %d, "
-			"bsearch_reached: %d, bsearch_found: %d, add_reads: %d, err: %d\n",
-			eblob_dump_id(key->id), loops, st.range_has_key, st.bloom_null,
-			st.bsearch_reached, st.bsearch_found, st.additional_reads, err);
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, 0));
 
-	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, loops);
+
+	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, st.loops);
 
 	react_stop_action(ACTION_EBLOB_DISK_INDEX_LOOKUP);
 	return err;
