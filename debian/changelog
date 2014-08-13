@@ -1,3 +1,10 @@
+eblob (0.22.2) unstable; urgency=low
+
+  * json_stat: added schema with comments of json statistics.
+  * json_stats: fixed summary statistics output. Added vfs & device statistics from procfs.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 13 Aug 2014 22:18:27 +0400
+
 eblob (0.22.1) unstable; urgency=low
 
   * disk-lookup: added rich disk-lookup stats: bloom, range array, bsearch and so on
