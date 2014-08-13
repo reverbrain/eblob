@@ -11,6 +11,90 @@ extern "C" {
 #include <react/rapidjson/writer.h>
 #include <react/rapidjson/stringbuffer.h>
 
+/*!
+ * Eblob json statistics has follow schema
+ * {
+ * 	"global_stats": {
+ * 		"datasort_start_time": 0,		// start timestamp of the last defragmentation
+ * 		"read_copy_updates": 0,			// number of successed data copying from old place to new
+ * 		"prepare_reused": 0,			// number of times when prepare was succeded by using current place
+ * 		"memory_index_tree": 0,			// size of in-memory index tree
+ * 		"lookup_reads_number": 0,		// number of lookups for @fd, @offset and @size by key
+ * 		"data_reads_number": 0,			// number of data reads made by eblob
+ * 		"writes_number": 0,				// number of writes
+ * 		"reads_size": 0,				// total size of read data made by eblob
+ * 		"writes_size": 0,				// total size of written data
+ * 		"index_files_reads_number": 0,	// number of index files that was processed by eblob while looking up records "on-disk".
+ * 		"datasort_completion_time": 0,	// end timestamp of the last defragmentation
+ * 		"datasort_completion_status": 0	// status of last deframentation
+ * 	},
+ * 	"summary_stats": {					// summary statistics for all blobs
+ * 		"records_total": 301,			// total number of records in all blobs both real and removed
+ * 		"records_removed": 0,			// total number of removed records in all blobs
+ * 		"records_removed_size": 0,		// total size of all removed records in all blobs
+ * 		"records_corrupted": 0,			// total number of corrupted records in all blobs
+ * 		"base_size": 105156713,			// total size of all blobs
+ * 		"memory_bloom_filter": 5120,	// total size of all in-memory bloom filter for all blobs
+ * 		"memory_index_blocks": 1152,	// total size of all in-memory index blocks for all blobs
+ * 		"want_defrag": 0,				// summ of "want_defrag" of all blobs
+ * 		"is_sorted": 0					// number of sorted blobs
+ * 	},
+ * 	"base_stats": {							// statistics per blobs
+ * 		"data-0.0": {						// "data-0.0" statistics
+ * 			"records_total": 301,			// number of records in the blob
+ * 			"records_removed": 0,			// number of removed records in the blob
+ * 			"records_removed_size": 0,		// size of all removed records in the blob
+ * 			"records_corrupted": 0,			// number of corrupted records in the blob
+ * 			"base_size": 105156713,			// size of the blob
+ * 			"memory_bloom_filter": 5120,	// size of in-memory bloom filter for the blob
+ * 			"memory_index_blocks": 1152,	// size of all in-memory index block for the blob
+ * 			"want_defrag": 0,				// the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h
+ * 			"is_sorted": 0					// shows if the blob is sorted
+ * 		}
+ * 	},
+ * 	"config": {								// configuration with which eblob is working
+ * 		"blob_flags": 1,					// bit mask of flags
+ * 		"sync": 30,							// sync timeout in seconds
+ * 		"file": "/opt/elliptics/1.1/data",	// path template for blobs
+ * 		"blob_size": 10737418240,			// maximum size of one blob
+ * 		"records_in_blob": 50,				// maximum number of records in one blob
+ * 		"defrag_percentage": 100,			// percentage removed/total records that will be a trigger for blob defragmentation
+ * 		"defrag_timeout": 60,				// timeout for auto-defragmentation
+ * 		"index_block_size": 40,				// size of one index block
+ * 		"index_block_bloom_length": 5120,	// length of one index block bloom filter
+ * 		"blob_size_limit": 0,				// maximum size of all blobs
+ * 		"defrag_time": 0,					// scheduled defragmentation start time and splay
+ * 		"defrag_splay": 0					// scheduled defragmentation start time and splay
+ * 	},
+ * 	"vfs": {							// statvfs statistics
+ * 		"bsize": 4096,					// file system block size
+ * 		"frsize": 4096,					// fragment size
+ * 		"blocks": 754909842,			// size of fs in f_frsize units
+ * 		"bfree": 754119439,				// free blocks
+ * 		"bavail": 715770547,			// free blocks for unprivileged users
+ * 		"files": 191750144,				// inodes
+ * 		"ffree": 191729989,				// free inodes
+ * 		"favail": 191729989,			// free inodes for unprivileged users
+ * 		"fsid": 14549465280769991588,	// file system ID
+ * 		"flag": 1024,					// mount flags
+ * 		"namemax": 255					// maximum filename length
+ * 	},
+ * 	"dstat": {
+ * 		"read_ios": 4645,			// number of read I/Os processed
+ * 		"read_merges": 0,			// number of read I/Os merged with in-queue I/O
+ * 		"read_sectors": 176922,		// number of sectors read
+ * 		"read_ticks": 0,			// total wait time for read requests
+ * 		"write_ios": 9057594,		// number of write I/Os processed
+ * 		"write_merges": 0,			// number of write I/Os merged with in-queue I/O
+ * 		"write_sectors": 402940832,	// number of sectors written
+ * 		"write_ticks": 0,			// total wait time for write requests
+ * 		"in_flight": 0,				// number of I/Os currently in flight
+ * 		"io_ticks": 0,				// total time this block device has been active
+ * 		"time_in_queue": 0			// total wait time for all requests
+ * 	}
+ * }
+ */
+
 int eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (uint32_t i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
