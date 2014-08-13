@@ -79,7 +79,7 @@ extern "C" {
  * 		"flag": 1024,					// mount flags
  * 		"namemax": 255					// maximum filename length
  * 	},
- * 	"dstat": {
+ * 	"dstat": { //this statistics is gathered from sysfs and more details can be found at https://www.kernel.org/doc/Documentation/block/stat.txt
  * 		"read_ios": 4645,			// number of read I/Os processed
  * 		"read_merges": 0,			// number of read I/Os merged with in-queue I/O
  * 		"read_sectors": 176922,		// number of sectors read
