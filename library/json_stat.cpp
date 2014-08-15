@@ -339,9 +339,12 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		std::string result = buffer.GetString();
 
 		*json_stat = (char *)malloc(result.length() + 1);
-		*size = result.length();
-
-		strncpy(*json_stat, result.c_str(), *size);
+		if (*json_stat) {
+			*size = result.length();
+			strncpy(*json_stat, result.c_str(), *size);
+		} else {
+			*size = 0;
+		}
 	} catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -EINVAL;
