@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.2
+Version:	0.22.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Aug 15 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.3
+- stat: do not cache statistics in static buffer, it is not thread-safe other backend request can overwrite this data under us
+
 * Wed Aug 13 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.2
 - json_stat: added schema with comments of json statistics.
 - json_stats: fixed summary statistics output. Added vfs & device statistics from procfs.

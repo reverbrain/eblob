@@ -1,3 +1,9 @@
+eblob (0.22.3) unstable; urgency=low
+
+  * stat: do not cache statistics in static buffer, it is not thread-safe other backend request can overwrite this data under us
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 15 Aug 2014 05:35:16 +0400
+
 eblob (0.22.2) unstable; urgency=low
 
   * json_stat: added schema with comments of json statistics.
