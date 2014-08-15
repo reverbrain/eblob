@@ -284,8 +284,6 @@ static int eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapid
 
 int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 {
-	static char *static_json_stats = NULL;
-	static size_t static_size = 0;
 	int err = 0;
 
 	try {
@@ -340,13 +338,10 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		doc.Accept(writer);
 		std::string result = buffer.GetString();
 
-		if (static_size < result.length() + 1) {
-			static_json_stats = (char*) realloc(static_json_stats, result.length() + 1);
-		}
-		static_size = result.length();
-		strcpy(static_json_stats, result.c_str());
-		*json_stat = static_json_stats;
-		*size = static_size;
+		*json_stat = (char *)malloc(result.length() + 1);
+		*size = result.length();
+
+		strncpy(*json_stat, result.c_str(), *size);
 	} catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 		return -EINVAL;
