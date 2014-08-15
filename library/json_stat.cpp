@@ -341,7 +341,7 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		*json_stat = (char *)malloc(result.length() + 1);
 		if (*json_stat) {
 			*size = result.length();
-			strncpy(*json_stat, result.c_str(), *size);
+			snprintf(*json_stat, *size + 1, "%s", result.c_str());
 		} else {
 			*size = 0;
 		}
