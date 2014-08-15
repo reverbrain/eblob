@@ -1,3 +1,10 @@
+eblob (0.22.4) unstable; urgency=low
+
+  * stat: added malloc() return value check
+  * stat: fixed null-byte json string generation
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 15 Aug 2014 07:48:25 +0400
+
 eblob (0.22.3) unstable; urgency=low
 
   * stat: do not cache statistics in static buffer, it is not thread-safe other backend request can overwrite this data under us
