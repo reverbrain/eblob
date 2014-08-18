@@ -52,12 +52,13 @@
 int eblob_want_defrag(struct eblob_base_ctl *bctl)
 {
 	struct eblob_backend *b = bctl->back;
-	int64_t total, removed, size;
+	int64_t total, removed, size, removed_size;
 	int err = EBLOB_DEFRAG_NOT_NEEDED;
 
 	eblob_base_wait_locked(bctl);
 	total = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	removed = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
+	removed_size = eblob_stat_get(bctl->stat, EBLOB_LST_REMOVED_SIZE);
 	size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 	pthread_mutex_unlock(&bctl->lock);
 
@@ -68,6 +69,8 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 
 	if (total < removed)
 		return -EINVAL;
+	if (size < removed_size)
+		return -EINVAL;
 	if (size < 0)
 		return -EINVAL;
 
@@ -76,10 +79,10 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	 * in both record number AND base size.
 	 * Last condition is needed to properly merge "small" bases into one and is marked as EBLOB_MERGE_NEEDED.
 	 */
-	if (removed >= total * b->cfg.defrag_percentage / 100)
+	if (removed_size >= size * b->cfg.defrag_percentage / 100)
 		err = EBLOB_DEFRAG_NEEDED;
 	else if (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10) &&
-	    ((uint64_t)size < b->cfg.blob_size / 10))
+	    ((uint64_t)(size - removed_size) < b->cfg.blob_size / 10))
 		err = EBLOB_MERGE_NEEDED;
 
 	if (total == removed) {
@@ -87,14 +90,14 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		 * Even more sanity: do not remove blob if index size does not equal to
 		 * size of removed entries
 		 */
-		uint64_t removed_size = removed * sizeof(struct eblob_disk_control);
-		if (bctl->index_size != removed_size) {
+		uint64_t removed_index_size = removed * sizeof(struct eblob_disk_control);
+		if (bctl->index_size != removed_index_size) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: FAILED: trying to remove non empty blob: "
 					"removed: %" PRIu64 ", total: %" PRIu64
-					"index_size: %llu, removed_size: %" PRIu64 "\n",
+					"index_size: %llu, removed_index_size: %" PRIu64 "\n",
 					__func__, removed, total,
-					bctl->index_size, removed_size);
+					bctl->index_size, removed_index_size);
 			err = EBLOB_DEFRAG_NEEDED;
 		} else {
 			err = EBLOB_REMOVE_NEEDED;
