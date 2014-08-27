@@ -55,6 +55,13 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	int64_t total, removed, size, removed_size;
 	int err = EBLOB_DEFRAG_NOT_NEEDED;
 
+	/*
+	 * do not compute want_defrag status for the last base
+	 * the last base does not participate in defragmentation
+	 */
+	if (list_is_last(&bctl->base_entry, &bctl->back->bases))
+		return EBLOB_DEFRAG_NOT_NEEDED;
+
 	eblob_base_wait_locked(bctl);
 	total = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	removed = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
