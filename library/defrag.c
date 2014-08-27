@@ -69,10 +69,10 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	size = eblob_stat_get(bctl->stat, EBLOB_LST_BASE_SIZE);
 	pthread_mutex_unlock(&bctl->lock);
 
-        /* Sanity: Do not remove seem-to-be empty blob if offsets are non-zero */
-        if (((removed == 0) && (total == 0)) &&
-            ((bctl->data_offset != 0) || (bctl->index_size != 0)))
-                return -EINVAL;
+	/* Sanity: Do not remove seem-to-be empty blob if offsets are non-zero */
+	if (((removed == 0) && (total == 0)) &&
+	    ((bctl->data_offset != 0) || (bctl->index_size != 0)))
+		return -EINVAL;
 
 	if (total < removed)
 		return -EINVAL;
