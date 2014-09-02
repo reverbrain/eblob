@@ -128,6 +128,10 @@ class eblob {
 		struct eblob_log *log() {
 			return logger_.log();
 		}
+
+		struct eblob_backend *get_native() {
+			return eblob_;
+		}
 	private:
 		eblob_logger		logger_;
 		struct eblob_backend	*eblob_;
