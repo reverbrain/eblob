@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.4
+Version:	0.22.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Sep 02 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.5
+- C++: added method for getting eblob_backend* from eblob object
+- code: use tab instead of spaces
+- defrag: do not compute want_defrag status for the last base
+- datasort: defrag_percentage now checks size of removed records instead of number of removed records
+- json_stat:
+-       * do not fail all stat if some stats are not available.
+-       * fixed gcc warnings with fscanf.
+
 * Fri Aug 15 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.4
 - stat: added malloc() return value check
 - stat: fixed null-byte json string generation

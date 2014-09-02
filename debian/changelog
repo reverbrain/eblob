@@ -1,3 +1,15 @@
+eblob (0.22.5) unstable; urgency=low
+
+  * C++: added method for getting eblob_backend* from eblob object
+  * code: use tab instead of spaces
+  * defrag: do not compute want_defrag status for the last base
+  * datasort: defrag_percentage now checks size of removed records instead of number of removed records
+  * json_stat:
+  *       * do not fail all stat if some stats are not available.
+  *       * fixed gcc warnings with fscanf.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 02 Sep 2014 20:38:37 +0400
+
 eblob (0.22.4) unstable; urgency=low
 
   * stat: added malloc() return value check
