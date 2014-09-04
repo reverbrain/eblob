@@ -2725,7 +2725,7 @@ static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
-	while (eblob_event_wait(&b->exit_event, 30) == -ETIMEDOUT) {
+	while (eblob_event_wait(&b->exit_event, EBLOB_PERIODIC_THREAD_TIMEOUT) == -ETIMEDOUT) {
 		eblob_periodic(b);
 	}
 
@@ -2739,7 +2739,12 @@ int eblob_periodic(struct eblob_backend *b)
 {
 	pthread_mutex_lock(&b->periodic_lock);
 
-	int err = eblob_stat_commit(b);
+	int err = eblob_json_commit(b);
+	if (err != 0)
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+		"eblob_json_coomit: FAILED");
+
+	err = eblob_stat_commit(b);
 
 	if (err != 0)
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
@@ -2766,6 +2771,8 @@ void eblob_cleanup(struct eblob_backend *b)
 		pthread_join(b->defrag_tid, NULL);
 		pthread_join(b->periodic_tid, NULL);
 	}
+
+	eblob_json_stat_destroy(b);
 
 	eblob_bases_cleanup(b);
 
@@ -2928,12 +2935,16 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (err != 0)
 		goto err_out_sync_lock_destroy;
 
+	err = eblob_json_stat_init(b);
+	if (err != 0)
+		goto err_out_periodic_lock_destroy;
+
 	if (!(b->cfg.blob_flags & EBLOB_DISABLE_THREADS)) {
 
 		err = pthread_create(&b->sync_tid, NULL, eblob_sync_thread, b);
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: eblob sync thread creation failed: %d.\n", err);
-			goto err_out_periodic_lock_destroy;
+			goto err_out_json_stat_destroy;
 		}
 
 		err = pthread_create(&b->defrag_tid, NULL, eblob_defrag_thread, b);
@@ -2958,6 +2969,8 @@ err_out_join_defrag:
 err_out_join_sync:
 	eblob_event_set(&b->exit_event);
 	pthread_join(b->sync_tid, NULL);
+err_out_json_stat_destroy:
+	eblob_json_stat_destroy(b);
 err_out_periodic_lock_destroy:
 	pthread_mutex_destroy(&b->periodic_lock);
 err_out_sync_lock_destroy:

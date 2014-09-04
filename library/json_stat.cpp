@@ -5,7 +5,9 @@ extern "C" {
 
 #include <string>
 #include <iostream>
+#include <mutex>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <react/rapidjson/document.h>
 #include <react/rapidjson/writer.h>
@@ -67,6 +69,10 @@ extern "C" {
  * 		"defrag_splay": 0					// scheduled defragmentation start time and splay
  * 	},
  * 	"vfs": {							// statvfs statistics
+ * 		"timestamp": {					// timestamp when vfs stat were collected
+ *			"tv_sec": 123123,
+ *			"tv_usec": 123123
+ *		},
  * 		"bsize": 4096,					// file system block size
  * 		"frsize": 4096,					// fragment size
  * 		"blocks": 754909842,			// size of fs in f_frsize units
@@ -80,6 +86,10 @@ extern "C" {
  * 		"namemax": 255					// maximum filename length
  * 	},
  * 	"dstat": { //this statistics is gathered from sysfs and more details can be found at https://www.kernel.org/doc/Documentation/block/stat.txt
+ * 		"timestamp": {				// timestamp when dstat were collected
+ * 			"tv_sec": 123123,
+ * 			"tv_usec": 123123
+ * 		},
  * 		"read_ios": 4645,			// number of read I/Os processed
  * 		"read_merges": 0,			// number of read I/Os merged with in-queue I/O
  * 		"read_sectors": 176922,		// number of sectors read
@@ -91,9 +101,36 @@ extern "C" {
  * 		"in_flight": 0,				// number of I/Os currently in flight
  * 		"io_ticks": 0,				// total time this block device has been active
  * 		"time_in_queue": 0			// total wait time for all requests
+ * 	},
+ * 	"timestamp": {				//timestamp when all statistics were collected
+ * 		"tv_sec": 123123,
+ * 		"tv_usec": 123123
  * 	}
  * }
  */
+
+struct json_stat_cache {
+	json_stat_cache()
+	: timestamp({0, 0})
+	{}
+
+	std::string		json;
+	std::mutex		lock;
+	timeval			timestamp;
+};
+
+static void eblob_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
+	rapidjson::Value timestamp(rapidjson::kObjectType);
+	timestamp.AddMember("tv_sec", tv.tv_sec, allocator);
+	timestamp.AddMember("tv_usec", tv.tv_usec, allocator);
+	stat.AddMember(name, allocator, timestamp, allocator);
+}
+
+static void eblob_add_timestamp(rapidjson::Value &stat, const char *name, rapidjson::Document::AllocatorType &allocator) {
+	timeval tv;
+	gettimeofday(&tv, NULL);
+	eblob_add_timestamp_raw(stat, name, tv, allocator);
+}
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
@@ -231,6 +268,7 @@ static void eblob_stat_dstat_json(struct eblob_backend *b, rapidjson::Value &sta
 
 	memset(&dstat, 0, sizeof(dev_stat));
 	err = eblob_stat_dstat(b, dstat);
+	eblob_add_timestamp(stat_val, "timestamp", allocator);
 	if (err) {
 		stat_val.AddMember("error", err, allocator);
 		return;
@@ -255,6 +293,7 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 	char *path = get_dir_path(b->cfg.file);
 
 	err = statvfs(path, &s);
+	eblob_add_timestamp(stat, "timestamp", allocator);
 	free(path);
 	if (err) {
 		stat.AddMember("error", -errno, allocator);
@@ -274,9 +313,32 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 	stat.AddMember("namemax", s.f_namemax, allocator);
 }
 
-int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
-{
+int eblob_json_stat_init(struct eblob_backend *b) {
 	try {
+		b->json_stat = new json_stat_cache();
+	} catch(std::bad_alloc &e) {
+		return -ENOMEM;
+	} catch(std::system_error &e) {
+		return -e.code().value();
+	}
+	return 0;
+}
+
+void eblob_json_stat_destroy(struct eblob_backend *b) {
+	json_stat_cache *json_stat_ptr = NULL;
+	std::swap(b->json_stat, json_stat_ptr);
+	delete json_stat_ptr;
+}
+
+int eblob_json_commit(struct eblob_backend *b) {
+	if (b == NULL || b->json_stat == NULL)
+		return -EINVAL;
+
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: dumping json statistics\n");
+
+	try {
+		struct timeval tv;
+
 		rapidjson::Document doc;
 		doc.SetObject();
 		rapidjson::Document::AllocatorType &allocator = doc.GetAllocator();
@@ -305,21 +367,61 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		eblob_stat_dstat_json(b, dstat_stats, allocator);
 		doc.AddMember("dstat", dstat_stats, allocator);
 
+		gettimeofday(&tv, NULL);
+		eblob_add_timestamp_raw(doc, "timestamp", tv, allocator);
+
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 		doc.Accept(writer);
-		std::string result = buffer.GetString();
 
-		*json_stat = (char *)malloc(result.length() + 1);
-		if (*json_stat) {
-			*size = result.length();
-			snprintf(*json_stat, *size + 1, "%s", result.c_str());
-		} else {
-			*size = 0;
+		std::string result = buffer.GetString();
+		{
+			std::unique_lock<std::mutex> locker(b->json_stat->lock);
+			std::swap(b->json_stat->json, result);
+			std::swap(b->json_stat->timestamp, tv);
 		}
-	} catch (std::exception& e) {
-		std::cerr << e.what() << std::endl;
-		return -EINVAL;
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: json statistics has been dumped\n");
+
+	} catch (std::exception &e) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to collect statistics: %s\n", e.what());
+		return -ENOMEM;
 	}
 	return 0;
+}
+
+bool timeval_empty(struct timeval &tv) {
+	return tv.tv_sec == 0 && tv.tv_usec == 0;
+}
+
+int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
+{
+	int err = 0;
+	if (b == NULL || b->json_stat == NULL) {
+		err = -EINVAL;
+		goto err_out_reset;
+	}
+
+	if (timeval_empty(b->json_stat->timestamp)) {
+		err = eblob_json_commit(b);
+		if (err)
+			goto err_out_reset;
+	}
+	{
+		std::unique_lock<std::mutex> locker(b->json_stat->lock);
+		*json_stat = (char *)malloc(b->json_stat->json.length() + 1);
+		if (*json_stat) {
+			*size = b->json_stat->json.length();
+			snprintf(*json_stat, *size + 1, "%s", b->json_stat->json.c_str());
+		} else {
+			err = -ENOMEM;
+			goto err_out_reset;
+		}
+	}
+
+	return 0;
+
+err_out_reset:
+	*size = 0;
+	*json_stat = NULL;
+	return err;
 }

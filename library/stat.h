@@ -242,4 +242,8 @@ void eblob_stat_summary_update(struct eblob_backend *b);
 int eblob_stat_commit(struct eblob_backend *b);
 int eblob_stat_io_get(struct eblob_backend *b, char **stat, uint32_t *size);
 
+int eblob_json_stat_init(struct eblob_backend *b);
+void eblob_json_stat_destroy(struct eblob_backend *b);
+int eblob_json_commit(struct eblob_backend *b);
+
 #endif /* __EBLOB_STAT_H */
