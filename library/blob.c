@@ -2725,7 +2725,7 @@ static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
-	while (eblob_event_wait(&b->exit_event, EBLOB_PERIODIC_THREAD_TIMEOUT) == -ETIMEDOUT) {
+	while (eblob_event_wait(&b->exit_event, b->cfg.periodic_timeout) == -ETIMEDOUT) {
 		eblob_periodic(b);
 	}
 
@@ -2871,6 +2871,10 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 			|| (c->defrag_splay < 0 || c->defrag_time > 24)) {
 		c->defrag_time = EBLOB_DEFAULT_DEFRAG_TIME;
 		c->defrag_splay = EBLOB_DEFAULT_DEFRAG_SPLAY;
+	}
+
+	if (!c->periodic_timeout) {
+		c->periodic_timeout = EBLOB_DEFAULT_PERIODIC_THREAD_TIMEOUT;
 	}
 
 	memcpy(&b->cfg, c, sizeof(struct eblob_config));

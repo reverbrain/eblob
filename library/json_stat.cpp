@@ -399,6 +399,13 @@ int eblob_json_commit(struct eblob_backend *b) {
 	return 0;
 }
 
+/*
+ * calculates lifetime_limit in usecs as doubled periodic timeout
+ */
+static uint32_t get_lifetime_limit(struct eblob_backend *b) {
+	return b->cfg.periodic_timeout * 2 * 1000000;
+}
+
 static int eblob_stat_add_timeout_error(struct eblob_backend *b, std::string &json, timeval &current_tv, long lifetime) {
 	static const char error_message[] = "cached json is too old";
 	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s\n", error_message);
@@ -411,7 +418,7 @@ static int eblob_stat_add_timeout_error(struct eblob_backend *b, std::string &js
 		error.AddMember("code", ETIMEDOUT, allocator);
 		error.AddMember("message", error_message, allocator);
 		error.AddMember("lifetime", lifetime, allocator);
-		error.AddMember("lifetime_limit", EBLOB_JSON_CACHE_LIFETIME_LIMIT_USEC, allocator);
+		error.AddMember("lifetime_limit", get_lifetime_limit(b), allocator);
 		eblob_stat_add_timestamp_raw(error, "current_timestamp", current_tv, allocator);
 		doc.AddMember("error", error, allocator);
 
@@ -457,7 +464,7 @@ int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 		goto err_out_reset;
 	}
 
-	if (lifetime > EBLOB_JSON_CACHE_LIFETIME_LIMIT_USEC) {
+	if (lifetime > get_lifetime_limit(b)) {
 		err = eblob_stat_add_timeout_error(b, json, current_tv, lifetime);
 		if (err)
 			goto err_out_reset;

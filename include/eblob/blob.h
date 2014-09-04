@@ -356,6 +356,11 @@ struct eblob_config {
 	 */
 	int			defrag_splay;
 
+	/*
+	 * Dumps statistics (json, data.stat etc.) each periodic_timeout seconds.
+	 */
+	uint32_t	periodic_timeout;
+
 	/* for future use */
 	uint64_t		__pad_64[8];
 	int			__pad_int[6];
