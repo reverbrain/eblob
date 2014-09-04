@@ -105,6 +105,16 @@ extern "C" {
  * 	"timestamp": {				//timestamp when all statistics were collected
  * 		"tv_sec": 123123,
  * 		"tv_usec": 123123
+ * 	},
+ * 	"error": {									// optional field, it tells that cached json is too old
+ * 		"code": 110,							// error code
+ * 		"message": "cached json is too old",	// error message
+ * 		"lifetime": 312943923847,				// lifetime of cached json
+ * 		"lifetime_limit": 60000000,				// current limit on cached json lifetime
+ * 		"current_timestamp": {					// timestamp when cached json lifetime was checked
+ * 			"tv_sec": 123123,
+ * 			"tv_usec": 123123
+ * 		}
  * 	}
  * }
  */
@@ -119,17 +129,17 @@ struct json_stat_cache {
 	timeval			timestamp;
 };
 
-static void eblob_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
+static void eblob_stat_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
 	rapidjson::Value timestamp(rapidjson::kObjectType);
 	timestamp.AddMember("tv_sec", tv.tv_sec, allocator);
 	timestamp.AddMember("tv_usec", tv.tv_usec, allocator);
 	stat.AddMember(name, allocator, timestamp, allocator);
 }
 
-static void eblob_add_timestamp(rapidjson::Value &stat, const char *name, rapidjson::Document::AllocatorType &allocator) {
+static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, rapidjson::Document::AllocatorType &allocator) {
 	timeval tv;
 	gettimeofday(&tv, NULL);
-	eblob_add_timestamp_raw(stat, name, tv, allocator);
+	eblob_stat_add_timestamp_raw(stat, name, tv, allocator);
 }
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
@@ -268,7 +278,7 @@ static void eblob_stat_dstat_json(struct eblob_backend *b, rapidjson::Value &sta
 
 	memset(&dstat, 0, sizeof(dev_stat));
 	err = eblob_stat_dstat(b, dstat);
-	eblob_add_timestamp(stat_val, "timestamp", allocator);
+	eblob_stat_add_timestamp(stat_val, "timestamp", allocator);
 	if (err) {
 		stat_val.AddMember("error", err, allocator);
 		return;
@@ -293,7 +303,7 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 	char *path = get_dir_path(b->cfg.file);
 
 	err = statvfs(path, &s);
-	eblob_add_timestamp(stat, "timestamp", allocator);
+	eblob_stat_add_timestamp(stat, "timestamp", allocator);
 	free(path);
 	if (err) {
 		stat.AddMember("error", -errno, allocator);
@@ -334,7 +344,7 @@ int eblob_json_commit(struct eblob_backend *b) {
 	if (b == NULL || b->json_stat == NULL)
 		return -EINVAL;
 
-	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: dumping json statistics\n");
+	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: caching json statistics\n");
 
 	try {
 		struct timeval tv;
@@ -368,7 +378,7 @@ int eblob_json_commit(struct eblob_backend *b) {
 		doc.AddMember("dstat", dstat_stats, allocator);
 
 		gettimeofday(&tv, NULL);
-		eblob_add_timestamp_raw(doc, "timestamp", tv, allocator);
+		eblob_stat_add_timestamp_raw(doc, "timestamp", tv, allocator);
 
 		rapidjson::StringBuffer buffer;
 		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -380,42 +390,86 @@ int eblob_json_commit(struct eblob_backend *b) {
 			std::swap(b->json_stat->json, result);
 			std::swap(b->json_stat->timestamp, tv);
 		}
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: json statistics has been dumped\n");
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: json statistics has been cached\n");
 
 	} catch (std::exception &e) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to collect statistics: %s\n", e.what());
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to collect json statistics: %s\n", e.what());
 		return -ENOMEM;
 	}
 	return 0;
 }
 
-bool timeval_empty(struct timeval &tv) {
-	return tv.tv_sec == 0 && tv.tv_usec == 0;
+static int eblob_stat_add_timeout_error(struct eblob_backend *b, std::string &json, timeval &current_tv, long lifetime) {
+	static const char error_message[] = "cached json is too old";
+	eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s\n", error_message);
+	try {
+		rapidjson::Document doc;
+		doc.Parse<0>(json.c_str());
+		rapidjson::Document::AllocatorType &allocator = doc.GetAllocator();
+
+		rapidjson::Value error(rapidjson::kObjectType);
+		error.AddMember("code", ETIMEDOUT, allocator);
+		error.AddMember("message", error_message, allocator);
+		error.AddMember("lifetime", lifetime, allocator);
+		error.AddMember("lifetime_limit", EBLOB_JSON_CACHE_LIFETIME_LIMIT_USEC, allocator);
+		eblob_stat_add_timestamp_raw(error, "current_timestamp", current_tv, allocator);
+		doc.AddMember("error", error, allocator);
+
+		rapidjson::StringBuffer buffer;
+		rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+		doc.Accept(writer);
+
+		json = buffer.GetString();
+	} catch(std::exception &e) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to add '%s' error to resulting json: %s\n", error_message, e.what());
+		return -ENOMEM;
+	}
+	return 0;
 }
+
+#define DIFF(s, e) ((e).tv_sec - (s).tv_sec) * 1000000 + ((e).tv_usec - (s).tv_usec)
+#define TIMEVAL_IS_EMPTY(tv) (tv.tv_sec == 0 && tv.tv_usec == 0)
 
 int eblob_stat_json_get(struct eblob_backend *b, char **json_stat, size_t *size)
 {
 	int err = 0;
+	timeval current_tv;
+	long lifetime;
+	std::string json;
 	if (b == NULL || b->json_stat == NULL) {
 		err = -EINVAL;
 		goto err_out_reset;
 	}
 
-	if (timeval_empty(b->json_stat->timestamp)) {
+	if (TIMEVAL_IS_EMPTY(b->json_stat->timestamp)) {
 		err = eblob_json_commit(b);
 		if (err)
 			goto err_out_reset;
 	}
-	{
+	try {
 		std::unique_lock<std::mutex> locker(b->json_stat->lock);
-		*json_stat = (char *)malloc(b->json_stat->json.length() + 1);
-		if (*json_stat) {
-			*size = b->json_stat->json.length();
-			snprintf(*json_stat, *size + 1, "%s", b->json_stat->json.c_str());
-		} else {
-			err = -ENOMEM;
+		json = b->json_stat->json;
+		gettimeofday(&current_tv, NULL);
+		lifetime = DIFF(b->json_stat->timestamp, current_tv);
+	} catch(std::exception &e) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: couldn't copy cached json: %s\n", e.what());
+		err = -ENOMEM;
+		goto err_out_reset;
+	}
+
+	if (lifetime > EBLOB_JSON_CACHE_LIFETIME_LIMIT_USEC) {
+		err = eblob_stat_add_timeout_error(b, json, current_tv, lifetime);
+		if (err)
 			goto err_out_reset;
-		}
+	}
+
+	*json_stat = (char *)malloc(json.length() + 1);
+	if (*json_stat) {
+		*size = json.length();
+		snprintf(*json_stat, *size + 1, "%s", json.c_str());
+	} else {
+		err = -ENOMEM;
+		goto err_out_reset;
 	}
 
 	return 0;
