@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.5
+Version:	0.22.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Sep 10 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.6
+- config: made periodic_timeout configurable and decreased its default to 15
+- json: checks cached json lifetime and if it is greater than doubled timeout of json update, adds 'error' section to json
+- json: added caching json statistics in periodic thread and made eblob_stat_json_get return cached json
+
 * Tue Sep 02 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.5
 - C++: added method for getting eblob_backend* from eblob object
 - code: use tab instead of spaces

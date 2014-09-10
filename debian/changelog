@@ -1,3 +1,11 @@
+eblob (0.22.6) unstable; urgency=low
+
+  * config: made periodic_timeout configurable and decreased its default to 15
+  * json: checks cached json lifetime and if it is greater than doubled timeout of json update, adds 'error' section to json
+  * json: added caching json statistics in periodic thread and made eblob_stat_json_get return cached json
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 10 Sep 2014 17:58:37 +0400
+
 eblob (0.22.5) unstable; urgency=low
 
   * C++: added method for getting eblob_backend* from eblob object
