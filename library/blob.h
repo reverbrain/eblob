@@ -78,6 +78,7 @@
 #define EBLOB_DEFAULT_DEFRAG_TIME		(3)
 #define EBLOB_DEFAULT_DEFRAG_SPLAY		(3)
 #define EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT	(60)
+#define EBLOB_DEFAULT_PERIODIC_THREAD_TIMEOUT	(15)
 
 /* Size of one entry in cache */
 static const size_t EBLOB_HASH_ENTRY_SIZE = sizeof(struct eblob_ram_control)
@@ -413,6 +414,8 @@ int eblob_event_set(struct eblob_event *event);
 int eblob_event_reset(struct eblob_event *event);
 int eblob_event_wait(struct eblob_event *event, long timeout);
 
+struct json_stat_cache;
+
 struct eblob_backend {
 	struct eblob_config	cfg;
 
@@ -456,6 +459,8 @@ struct eblob_backend {
 
 	/* Tree for time monitoring, global time stat */
 	void			*time_stats_tree;
+	/* cached json statistics */
+	struct json_stat_cache *json_stat;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);
