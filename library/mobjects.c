@@ -851,7 +851,7 @@ int eblob_load_data(struct eblob_backend *b)
 /**
  * eblob_add_new_base_ll() - sequentially tries bases until it finds unused one.
  */
-static struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b)
+static struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b, int *errp)
 {
 	struct eblob_base_ctl *ctl;
 	int err;
@@ -862,8 +862,10 @@ static struct eblob_base_ctl *eblob_add_new_base_ll(struct eblob_backend *b)
 	base = eblob_get_base(b->cfg.file);
 
 	dir_base = strdup(b->cfg.file);
-	if (dir_base == NULL)
+	if (dir_base == NULL) {
+		*errp = -ENOMEM;
 		return NULL;
+	}
 
 	tmp = strrchr(dir_base, '/');
 	if (tmp)
@@ -873,6 +875,7 @@ try_again:
 	b->max_index++;
 	snprintf(name, sizeof(name), "%s-0.%d", base, b->max_index);
 
+	err = 0;
 	ctl = eblob_get_base_ctl(b, dir_base, base, name, strlen(name), &err);
 	if (ctl == NULL) {
 		if (err == -ENOENT) {
@@ -886,6 +889,7 @@ try_again:
 	}
 
 	free(dir_base);
+	*errp = err;
 	return ctl;
 }
 
@@ -900,8 +904,7 @@ int eblob_add_new_base(struct eblob_backend *b)
 	if (b == NULL)
 		return -EINVAL;
 
-	if ((ctl = eblob_add_new_base_ll(b)) == NULL) {
-		err = -ENOMEM;
+	if ((ctl = eblob_add_new_base_ll(b, &err)) == NULL) {
 		goto err_out_exit;
 	}
 	eblob_add_new_base_ctl(b, ctl);
