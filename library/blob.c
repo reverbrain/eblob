@@ -1459,8 +1459,8 @@ err_out_exit:
 }
 
 /**
- * eblob_check_free_space() - checks if there is enough space for yet another
- * blob or there is at least 10% of free space available on this FS.
+ * eblob_check_free_space() - checks if there is enough space for another 2 blobs
+ * (2 blobs are needed for sorting) -  or there is at least 10% of free space available on this FS.
  */
 static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 {
