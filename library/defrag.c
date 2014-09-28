@@ -88,8 +88,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	 */
 	if (removed_size >= size * b->cfg.defrag_percentage / 100)
 		err = EBLOB_DEFRAG_NEEDED;
-	else if (((uint64_t)(total - removed) < b->cfg.records_in_blob / 10) &&
-	    ((uint64_t)(size - removed_size) < b->cfg.blob_size / 10))
+	else if ((uint64_t)(size - removed_size) < b->cfg.blob_size / 10)
 		err = EBLOB_MERGE_NEEDED;
 
 	if (total == removed) {
@@ -112,10 +111,11 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO,
-			"%s: index: %d, removed: %" PRId64 ", total: %" PRId64 ", "
-			"percentage: %d, size: %" PRId64 ", want-defrag: %d\n",
-			__func__, bctl->index, removed, total,
-			b->cfg.defrag_percentage, size, err);
+			"%s: index: %d, removed-records: %" PRId64 ", removed-size: %" PRId64 ", "
+			"total-records: %" PRId64 ", total-size: %" PRId64 ", "
+			"defrag-percentage: %d, want-defrag: %d\n",
+			__func__, bctl->index, removed, removed_size, total, size,
+			b->cfg.defrag_percentage, err);
 
 	return err;
 }
