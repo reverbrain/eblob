@@ -1,3 +1,10 @@
+eblob (0.22.8) unstable; urgency=low
+
+  * defrag: merge blobs if blob data size (total-removed) is less than 10% of the max blob size, do not take into account number of records
+  * write: updated space check function commit
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 02 Oct 2014 16:43:31 +0400
+
 eblob (0.22.7) unstable; urgency=low
 
   * base: propagate new base creation error to higher level

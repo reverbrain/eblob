@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.7
+Version:	0.22.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Oct 02 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.8
+- defrag: merge blobs if blob data size (total-removed) is less than 10% of the max blob size, do not take into account number of records
+- write: updated space check function commit
+
 * Sun Sep 28 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.7
 - base: propagate new base creation error to higher level
 
