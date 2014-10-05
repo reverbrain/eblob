@@ -108,6 +108,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Oct 05 2014 BogusDateBot
+- Eliminated rpmbuild "bogus date" warnings due to inconsistent weekday,
+  by assuming the date is correct and changing the weekday.
+  Sun Jul 28 2010 --> Sun Jul 25 2010 or Wed Jul 28 2010 or Sun Aug 01 2010 or ....
+  Tue Jun 22 2011 --> Tue Jun 21 2011 or Wed Jun 22 2011 or Tue Jun 28 2011 or ....
+
 * Thu Oct 02 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.8
 - defrag: merge blobs if blob data size (total-removed) is less than 10% of the max blob size, do not take into account number of records
 - write: updated space check function commit
@@ -903,7 +909,8 @@ rm -rf %{buildroot}
 * Sat Jun 25 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.5.0
 - Added multiple columns support
 
-* Tue Jun 22 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.4
+* Wed Jun 22 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.4
+  Tue Jun 22 2011 --> Tue Jun 21 2011 or Wed Jun 22 2011 or Tue Jun 28 2011 or ....
 - Added eblob_remove_hashed() and eblob::remove_hashed()
 
 * Tue Jun 21 2011 Evgeniy Polyakov <zbr@ioremap.net> - 0.4.3
@@ -978,5 +985,6 @@ rm -rf %{buildroot}
 * Mon Nov 29 2010 Evgeniy Polyakov <zbr@ioremap.net> - 0.1.0-1
 - Switched to sha512 and 64-byte IDs
 
-* Sun Jul 28 2010 Evgeniy Polyakov <zbr@ioremap.net> - 0.0.1-1
+* Wed Jul 28 2010 Evgeniy Polyakov <zbr@ioremap.net> - 0.0.1-1
+  Sun Jul 28 2010 --> Sun Jul 25 2010 or Wed Jul 28 2010 or Sun Aug 01 2010 or ....
 - Initial build for Fedora.
