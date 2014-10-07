@@ -539,6 +539,22 @@ int eblob_cond_init(pthread_cond_t *cond);
 struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 		const char *name, int name_len);
 
+static inline const char *eblob_want_defrag_string(int want_defrag)
+{
+	switch (want_defrag) {
+		case EBLOB_DEFRAG_NOT_NEEDED:
+			return "not_needed";
+		case EBLOB_DEFRAG_NEEDED:
+			return "needed";
+		case EBLOB_REMOVE_NEEDED:
+			return "can_be_removed";
+		case EBLOB_MERGE_NEEDED:
+			return "can_be_merged";
+		default:
+			return "unknown";
+	}
+}
+
 /* Min/Max macros */
 #define EBLOB_MIN(a,b) ((a) < (b) ? (a) : (b))
 #define EBLOB_MAX(a,b) ((a) > (b) ? (a) : (b))

@@ -113,9 +113,9 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 			"%s: index: %d, removed-records: %" PRId64 ", removed-size: %" PRId64 ", "
 			"total-records: %" PRId64 ", total-size: %" PRId64 ", "
-			"defrag-percentage: %d, want-defrag: %d\n",
+			"defrag-percentage: %d, want-defrag: %d [%s]\n",
 			__func__, bctl->index, removed, removed_size, total, size,
-			b->cfg.defrag_percentage, err);
+			b->cfg.defrag_percentage, err, eblob_want_defrag_string(err));
 
 	return err;
 }

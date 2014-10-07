@@ -51,6 +51,7 @@ extern "C" {
  * 			"memory_bloom_filter": 5120,	// size of in-memory bloom filter for the blob
  * 			"memory_index_blocks": 1152,	// size of all in-memory index block for the blob
  * 			"want_defrag": 0,				// the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h
+ * 			"string_want_defrag":			// string representation of blob defragmentation status
  * 			"is_sorted": 0					// shows if the blob is sorted
  * 		}
  * 	},
@@ -165,6 +166,7 @@ static void eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat
 		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++) {
 			base_stat.AddMember(eblob_stat_get_name(bctl->stat, i), eblob_stat_get(bctl->stat, i), allocator);
 		}
+		base_stat.AddMember("string_want_defrag", eblob_want_defrag_string(eblob_stat_get(bctl->stat, EBLOB_LST_WANT_DEFRAG)), allocator);
 		stat.AddMember(bctl->name, base_stat, allocator);
 	}
 }
