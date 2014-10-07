@@ -1728,33 +1728,47 @@ err_out_exit:
  */
 static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, uint64_t prepare_disk_size,
-		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old)
+		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old,
+		size_t defrag_generation)
 {
 	react_start_action(ACTION_EBLOB_WRITE_PREPARE_DISK);
 
 	ssize_t err = 0;
 	uint64_t size;
+	struct eblob_ram_control upd_old;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 			"blob: %s: eblob_write_prepare_disk: start: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ", prepare: %" PRIu64 "\n",
 			eblob_dump_id(key->id), wc->size, wc->offset, prepare_disk_size);
 
+	pthread_mutex_lock(&b->lock);
+
+	if (defrag_generation != b->defrag_generation) {
+		int disk;
+		err = eblob_cache_lookup(b, key, &upd_old, &disk);
+		switch (err) {
+		case -ENOENT:
+			old = NULL;
+			break;
+		case 0:
+			old = &upd_old;
+			break;
+		default:
+			goto err_out_exit;
+		}
+	}
+
 	size = prepare_disk_size > wc->size + wc->offset ? prepare_disk_size : wc->size + wc->offset;
 	err = eblob_check_free_space(b, eblob_calculate_size(b, 0, size));
 	if (err)
 		goto err_out_exit;
 
-	/*
-	 * FIXME: There is TOC vs TOU race between cache lookup and
-	 * record copy
-	 */
-	pthread_mutex_lock(&b->lock);
 	err = eblob_write_prepare_disk_ll(b, key, wc, prepare_disk_size, copy,
 			copy_offset, old);
-	pthread_mutex_unlock(&b->lock);
 
 err_out_exit:
+	pthread_mutex_unlock(&b->lock);
 	react_stop_action(ACTION_EBLOB_WRITE_PREPARE_DISK);
 	return err;
 }
@@ -1770,6 +1784,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	struct eblob_write_control wc = { .offset = 0 };
 	struct eblob_ram_control old;
 	int err;
+	size_t defrag_generation = 0;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
 			"key: %s, size: %" PRIu64 ", flags: %s",
@@ -1785,6 +1800,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	 * For eblob_write_prepare() this can not fail with -E2BIG, since
 	 * size/offset are zero.
 	 */
+	defrag_generation = b->defrag_generation;
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, &old);
 	if (err && err != -ENOENT)
 		goto err_out_exit;
@@ -1796,7 +1812,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		wc.flags = flags;
 		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 			wc.flags |= BLOB_DISK_CTL_NOCSUM;
-		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old);
+		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
 			goto err_out_exit;
 		err = eblob_commit_ram(b, key, &wc);
@@ -2019,11 +2035,14 @@ err_out_exit:
 }
 
 static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc, struct eblob_ram_control *old)
+		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc, struct eblob_ram_control *old, size_t *defrag_generation)
 {
 	ssize_t err;
 	uint64_t flags = wc->flags;
 	const size_t size = wc->size;
+
+	pthread_mutex_lock(&b->lock);
+	*defrag_generation = b->defrag_generation;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1, old);
 	if (err)
@@ -2045,7 +2064,6 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 		if (wc->offset == 0)
 			flags &= ~BLOB_DISK_CTL_APPEND;
 
-	pthread_mutex_lock(&b->lock);
 
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
@@ -2053,7 +2071,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	 */
 	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
 		err = -EROFS;
-		goto err_out_release;
+		goto err_out_exit;
 	}
 
 	wc->flags = flags;
@@ -2063,7 +2081,7 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_writev_raw", err);
-		goto err_out_release;
+		goto err_out_exit;
 	}
 
 	eblob_stat_inc(b->stat, EBLOB_GST_WRITES_NUMBER);
@@ -2072,14 +2090,13 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_write_commit_nolock(b, key, wc);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_commit_nolock", err);
-		goto err_out_release;
+		goto err_out_exit;
 	}
 
 	eblob_dump_wc(b, key, wc, "eblob_try_overwrite", err);
 
-err_out_release:
-	pthread_mutex_unlock(&b->lock);
 err_out_exit:
+	pthread_mutex_unlock(&b->lock);
 	return err;
 }
 
@@ -2255,6 +2272,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	enum eblob_copy_flavour copy = EBLOB_DONT_COPY_RECORD;
 	uint64_t copy_offset = 0;
 	int err;
+	size_t defrag_generation = 0;
 
 	if (b == NULL || key == NULL || iov == NULL || wc == NULL)
 		return -EINVAL;
@@ -2273,7 +2291,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	wc->index = -1;
 
-	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old);
+	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old, &defrag_generation);
 	if (err == 0) {
 		/* We have overwritten old data - bail out */
 		goto err_out_exit;
@@ -2314,7 +2332,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 			wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	}
 
-	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old);
+	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
 	if (err)
 		goto err_out_exit;
 

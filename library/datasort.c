@@ -1459,6 +1459,10 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	/* Mark base as sorted */
 	dcfg->sorted_bctl->sorted = 1;
 
+	/* Increase defrag_generation in order to interrupted operation could relookup keys.
+	 */
+	dcfg->b->defrag_generation += 1;
+
 	/* Unlock */
 	for (n = 0; n < dcfg->bctl_cnt; ++n)
 		pthread_mutex_unlock(&dcfg->bctl[n]->lock);

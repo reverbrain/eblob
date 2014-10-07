@@ -461,6 +461,10 @@ struct eblob_backend {
 	void			*time_stats_tree;
 	/* cached json statistics */
 	struct json_stat_cache *json_stat;
+	/* generation counter that is incremented by defrag/data-sort
+	 * it is used for determining that blob has been defraged
+	 */
+	 size_t		defrag_generation;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);
