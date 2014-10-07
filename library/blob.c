@@ -470,8 +470,8 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 		struct eblob_disk_control *dc_data = (struct eblob_disk_control *)(bc->data + dc->position);
 		if (dc_data->flags & BLOB_DISK_CTL_REMOVE) {
 			eblob_log(ctl->log, EBLOB_LOG_INFO,
-					"blob: %s: key removed(0x%" PRIx64 ") in blob(%d), but not in index(%d), fixing\n",
-					eblob_dump_id(dc->key.id), dc_data->flags, bc->data_fd, eblob_get_index_fd(bc));
+					"blob: %s: key removed(%s) in blob(%d), but not in index(%d), fixing\n",
+					eblob_dump_id(dc->key.id), eblob_dump_dctl_flags(dc_data->flags), bc->data_fd, eblob_get_index_fd(bc));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 			err = __eblob_write_ll(eblob_get_index_fd(bc), dc,
 					sizeof(struct eblob_disk_control), loc->index_offset);
@@ -481,9 +481,9 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	}
 
 	eblob_log(ctl->log, EBLOB_LOG_DEBUG, "blob: %s: pos: %" PRIu64 ", disk_size: %" PRIu64
-			", data_size: %" PRIu64 ", flags: 0x%" PRIx64 "\n",
+			", data_size: %" PRIu64 ", flags: %s\n",
 			eblob_dump_id(dc->key.id), dc->position,
-			dc->disk_size, dc->data_size, dc->flags);
+			dc->disk_size, dc->data_size, eblob_dump_dctl_flags(dc->flags));
 
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
@@ -946,11 +946,11 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 		log_level = EBLOB_LOG_ERROR;
 
 	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
-			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: 0x%" PRIx64 ", "
+			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: %s, "
 			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
 			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
 			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
-			wc->offset, wc->size, wc->flags, wc->total_data_size, wc->total_size,
+			wc->offset, wc->size, eblob_dump_dctl_flags(wc->flags), wc->total_data_size, wc->total_size,
 			wc->data_fd, wc->index_fd, wc->bctl, err);
 }
 
@@ -1772,8 +1772,8 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	int err;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
-			"key: %s, size: %" PRIu64 ", flags 0x%" PRIx64,
-			eblob_dump_id(key->id), size, flags);
+			"key: %s, size: %" PRIu64 ", flags: %s",
+			eblob_dump_id(key->id), size, eblob_dump_dctl_flags(flags));
 
 	/* Sanity */
 	if (b == NULL || key == NULL) {
@@ -1960,8 +1960,8 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
-			"key: %s, size: %" PRIu64 ", flags 0x%" PRIx64,
-			eblob_dump_id(key->id), size, flags);
+			"key: %s, size: %" PRIu64 ", flags: %s",
+			eblob_dump_id(key->id), size, eblob_dump_dctl_flags(flags));
 
 	/* Do not allow closing of bctl while commit in progress */
 	pthread_mutex_lock(&b->lock);
@@ -2110,8 +2110,8 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		return -E2BIG;
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_DEBUG,
-			"key: %s, iovcnt: %" PRIu16 ", flags 0x%" PRIx64,
-			eblob_dump_id(key->id), iovcnt, flags);
+			"key: %s, iovcnt: %" PRIu16 ", flags: %s",
+			eblob_dump_id(key->id), iovcnt, eblob_dump_dctl_flags(flags));
 
 	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
 	wc.size = bounds.max;

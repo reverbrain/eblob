@@ -54,19 +54,20 @@ extern "C" {
  * 			"is_sorted": 0					// shows if the blob is sorted
  * 		}
  * 	},
- * 	"config": {								// configuration with which eblob is working
- * 		"blob_flags": 1,					// bit mask of flags
- * 		"sync": 30,							// sync timeout in seconds
- * 		"data": "/opt/elliptics/1.1/data",	// path template for blobs
- * 		"blob_size": 10737418240,			// maximum size of one blob
- * 		"records_in_blob": 50,				// maximum number of records in one blob
- * 		"defrag_percentage": 100,			// percentage removed/total records that will be a trigger for blob defragmentation
- * 		"defrag_timeout": 60,				// timeout for auto-defragmentation
- * 		"index_block_size": 40,				// size of one index block
- * 		"index_block_bloom_length": 5120,	// length of one index block bloom filter
- * 		"blob_size_limit": 0,				// maximum size of all blobs
- * 		"defrag_time": 0,					// scheduled defragmentation start time and splay
- * 		"defrag_splay": 0					// scheduled defragmentation start time and splay
+ * 	"config": {									// configuration with which eblob is working
+ * 		"blob_flags": 1,						// bit mask of flags
+ * 		"string_blob_flags": "0x40 [l2hash]"	// string representation of blob flags
+ * 		"sync": 30,								// sync timeout in seconds
+ * 		"data": "/opt/elliptics/1.1/data",		// path template for blobs
+ * 		"blob_size": 10737418240,				// maximum size of one blob
+ * 		"records_in_blob": 50,					// maximum number of records in one blob
+ * 		"defrag_percentage": 100,				// percentage removed/total records that will be a trigger for blob defragmentation
+ * 		"defrag_timeout": 60,					// timeout for auto-defragmentation
+ * 		"index_block_size": 40,					// size of one index block
+ * 		"index_block_bloom_length": 5120,		// length of one index block bloom filter
+ * 		"blob_size_limit": 0,					// maximum size of all blobs
+ * 		"defrag_time": 0,						// scheduled defragmentation start time and splay
+ * 		"defrag_splay": 0						// scheduled defragmentation start time and splay
  * 	},
  * 	"vfs": {							// statvfs statistics
  * 		"timestamp": {					// timestamp when vfs stat were collected
@@ -170,6 +171,7 @@ static void eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat
 
 static void eblob_stat_config_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator) {
 	stat.AddMember("blob_flags", b->cfg.blob_flags, allocator);
+	stat.AddMember("string_blob_flags", eblob_dump_blob_flags(b->cfg.blob_flags), allocator);
 	stat.AddMember("sync", b->cfg.sync, allocator);
 	stat.AddMember("data", b->cfg.file, allocator);
 	stat.AddMember("blob_size", b->cfg.blob_size, allocator);

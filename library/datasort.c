@@ -466,8 +466,8 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	}
 
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "iterator: %s: fd: %d, offset: %" PRIu64
-			", size: %" PRIu64 ", flags: 0x%" PRIx64,
-			eblob_dump_id(dc->key.id), c->fd, c->offset, dc->disk_size, dc->flags);
+			", size: %" PRIu64 ", flags: %s",
+			eblob_dump_id(dc->key.id), c->fd, c->offset, dc->disk_size, eblob_dump_dctl_flags(dc->flags));
 
 	/* Rewrite position */
 	dc->position = c->offset;
@@ -957,8 +957,8 @@ static int datasort_binlog_apply(struct datasort_cfg *dcfg)
 
 			/* Mark entry removed in both index and data file */
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG, "%s: defrag: removing: dc: "
-					"flags: 0x%" PRIx64 ", data_size: %" PRIu64,
-					eblob_dump_id(dc.key.id), dc.flags, dc.data_size);
+					"flags: %s, data_size: %" PRIu64,
+					eblob_dump_id(dc.key.id), eblob_dump_dctl_flags(dc.flags), dc.data_size);
 			dcfg->result->index[index].flags |= BLOB_DISK_CTL_REMOVE;
 
 			EBLOB_WARNX(dcfg->log, EBLOB_LOG_DEBUG,

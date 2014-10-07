@@ -206,7 +206,7 @@ options_dump(void)
 
 	printf("Stress version: v" EBLOB_TEST_VERSION "\n");
 	printf("\n");
-	printf("Flags: %lld\n", cfg.blob_flags);
+	printf("Flags: %s\n", eblob_dump_blob_flags(cfg.blob_flags));
 	printf("Defrag timeout in seconds: %ld\n", cfg.blob_defrag);
 	printf("Maximum number of records per base: %lld\n", cfg.blob_records);
 	printf("Maximum size of base in bytes: %lld\n", cfg.blob_size);

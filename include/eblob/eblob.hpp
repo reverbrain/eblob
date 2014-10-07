@@ -148,7 +148,7 @@ static inline std::string eblob_dump_control(const struct eblob_disk_control *dc
 		"data_size: " << dco->data_size << ", " <<
 		"disk_size: " << dco->disk_size << ", " <<
 		"position: " << dco->position << ", " <<
-		"flags: " << std::hex << dco->flags << std::dec;
+		"flags: " << eblob_dump_dctl_flags(dco->flags) << std::dec;
 
 	std::string mstr = match ? ": MATCH" : ": NOT_MATCH";
 	out << mstr;
