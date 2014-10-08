@@ -391,6 +391,8 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 	assert(bctl != NULL);
 	assert(bctl->back != NULL);
 
+	const unsigned long long bctl_size = bctl->data_size > bctl->data_offset ? bctl->data_size : bctl->data_offset;
+
 	/*
 	 * Check record itself
 	 */
@@ -415,11 +417,11 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 	/*
 	 * Check bounds inside bctl
 	 */
-	if (dc->position + dc->disk_size > bctl->data_size) {
+	if (dc->position + dc->disk_size > bctl_size) {
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
 				"blob: malformed entry: position + data_size is outside of blob: "
 				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", bctl_size: %llu\n",
-				dc->position, dc->disk_size, bctl->data_size);
+				dc->position, dc->disk_size, bctl_size);
 		return -ESPIPE;
 	}
 
