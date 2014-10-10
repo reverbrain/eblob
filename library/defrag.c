@@ -262,7 +262,9 @@ int eblob_defrag(struct eblob_backend *b)
 		 * Sort all bases between @previous and @current
 		 * Do not sort one base if its deframentation is not required.
 		 */
-		if (dcfg.bctl_cnt != 1 || eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED) {
+		if (dcfg.bctl_cnt != 1 ||
+		    eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED ||
+		    datasort_base_is_sorted(*dcfg.bctl) != 1) {
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
 					"defrag: sorting: %d base(s)", current - previous);
 			if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
