@@ -2854,7 +2854,7 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 
 	b = calloc(1, sizeof(struct eblob_backend));
 	if (!b) {
-		errno = -ENOMEM;
+		err = -ENOMEM;
 		goto err_out_exit;
 	}
 
