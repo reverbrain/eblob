@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.8
+Version:	0.22.9
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,15 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Oct 14 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.9
+- init: set errno if init has failed
+- defrag: sort unsorted blobs even if defrag is not needed
+- fixed base size (bctl_size) in eblob_check_record
+- logs & json stat: added string representation of want_defrag status
+- core: added defrag_generation counter that is increased each time when blobs are defraged
+- logger: added method for dumping blob config and disk control flags
+- spec: fixed bogus dates
+
 * Sun Oct 05 2014 BogusDateBot
 - Eliminated rpmbuild "bogus date" warnings due to inconsistent weekday,
   by assuming the date is correct and changing the weekday.

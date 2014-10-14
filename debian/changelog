@@ -1,3 +1,15 @@
+eblob (0.22.9) unstable; urgency=low
+
+  * init: set errno if init has failed
+  * defrag: sort unsorted blobs even if defrag is not needed
+  * fixed base size (bctl_size) in eblob_check_record
+  * logs & json stat: added string representation of want_defrag status
+  * core: added defrag_generation counter that is increased each time when blobs are defraged
+  * logger: added method for dumping blob config and disk control flags
+  * spec: fixed bogus dates
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 14 Oct 2014 21:10:52 +0400
+
 eblob (0.22.8) unstable; urgency=low
 
   * defrag: merge blobs if blob data size (total-removed) is less than 10% of the max blob size, do not take into account number of records
