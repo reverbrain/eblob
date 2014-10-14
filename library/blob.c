@@ -3023,6 +3023,7 @@ err_out_stat_free:
 err_out_free:
 	free(b);
 err_out_exit:
+	errno = err;
 	return NULL;
 }
 
