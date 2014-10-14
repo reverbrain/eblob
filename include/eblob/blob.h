@@ -660,6 +660,73 @@ int eblob_sync(struct eblob_backend *b);
 int eblob_defrag(struct eblob_backend *b);
 int eblob_periodic(struct eblob_backend *b);
 
+struct eblob_flag_info {
+	uint64_t flag;
+	const char *name;
+};
+
+static inline void eblob_dump_flags_raw(char *buffer, size_t buffer_size, uint64_t flags, struct eblob_flag_info *infos, size_t infos_count) {
+	size_t offset;
+	size_t i;
+	int any_printed = 0;
+
+	offset = snprintf(buffer, buffer_size, "0x%llx [", (unsigned long long)flags);
+	buffer_size -= offset;
+	buffer += offset;
+
+	for (i = 0; i < infos_count; ++i) {
+		if (flags & infos[i].flag) {
+			if (buffer_size > 0) {
+				offset = snprintf(buffer, buffer_size, "%s%s", any_printed ? "|" : "", infos[i].name);
+				buffer_size -= offset;
+				buffer += offset;
+			}
+			any_printed = 1;
+		}
+	}
+
+	if (buffer_size > 0) {
+		offset = snprintf(buffer, buffer_size, "]");
+		buffer_size -= offset;
+		buffer += offset;
+	}
+}
+
+static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
+	static __thread char buffer[256];
+	static struct eblob_flag_info infos[] = {
+		{ BLOB_DISK_CTL_REMOVE, "remove"},
+		{ BLOB_DISK_CTL_NOCSUM, "nocsum"},
+		{ BLOB_DISK_CTL_COMPRESS, "compress"},
+		{ BLOB_DISK_CTL_WRITE_RETURN, "write_return"},
+		{ BLOB_DISK_CTL_APPEND, "append"},
+		{ BLOB_DISK_CTL_OVERWRITE, "overwrite"},
+		{ BLOB_DISK_CTL_EXTHDR, "exthdr"}
+	};
+
+	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
+	return buffer;
+}
+
+static inline const char *eblob_dump_blob_flags(unsigned int flags) {
+	static __thread char buffer[256];
+	static struct eblob_flag_info infos[] = {
+		{ EBLOB_RESERVE_10_PERCENTS, "reserve_10_percents"},
+		{ EBLOB_OVERWRITE_COMMITS, "overwrite_commits"},
+		{ EBLOB_TRY_OVERWRITE, "try_overwrite"},
+		{ EBLOB_NO_FOOTER, "no_footer"},
+		{ EBLOB_NO_FREE_SPACE_CHECK, "no_free_space_check"},
+		{ EBLOB_L2HASH, "l2hash"},
+		{ EBLOB_AUTO_DATASORT, "auto_datasort"},
+		{ EBLOB_TIMED_DATASORT, "timed_datasort"},
+		{ EBLOB_SCHEDULED_DATASORT, "scheduled_datasort"},
+		{ EBLOB_DISABLE_THREADS, "disabled_threads"},
+	};
+
+	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
+	return buffer;
+}
+
 #ifdef __cplusplus
 }
 #endif
