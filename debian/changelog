@@ -1,3 +1,12 @@
+eblob (0.22.10) unstable; urgency=low
+
+  * stat: run periodic statistics task once per second (it is cheap), but dump it into data.stat file once per @periodic_timeout seconds
+  * core: added base directory (calculated at start time from cfg.file), use it for getting statistics
+  * Fixed signed/unsigned warnings
+  * init: fixed possible unintialized errno set
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 15 Oct 2014 23:09:39 +0400
+
 eblob (0.22.9) unstable; urgency=low
 
   * init: set errno if init has failed
