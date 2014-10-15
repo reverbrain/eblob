@@ -441,6 +441,11 @@ struct eblob_backend {
 	pthread_t		periodic_tid;
 
 	/*
+	 * @base_dir is a parent directory for @cfg.file
+	 */
+	char			*base_dir;
+
+	/*
 	 * Set when defrag/data-sort are explicitly requested
 	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
 	 * 0:	data-sort should be preformed according to defrag_timeout

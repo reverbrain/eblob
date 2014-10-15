@@ -2716,21 +2716,7 @@ int eblob_sync(struct eblob_backend *b)
  */
 static int eblob_cache_statvfs(struct eblob_backend *b)
 {
-	char dir_base[PATH_MAX], *tmp;
-
-	if (b == NULL || b->cfg.file == NULL)
-		return -EINVAL;
-
-	/* TODO: It's waste of CPU to do it every iteration */
-	if (snprintf(dir_base, PATH_MAX, "%s", b->cfg.file) >= PATH_MAX)
-		return -ENAMETOOLONG;
-
-	/* TODO: Create eblob_dirname function */
-	tmp = strrchr(dir_base, '/');
-	if (tmp != NULL)
-		*tmp = '\0';
-
-	if (statvfs(dir_base, &b->vfs_stat) == -1)
+	if (statvfs(b->base_dir, &b->vfs_stat) == -1)
 		return -errno;
 
 	return 0;
@@ -2801,6 +2787,7 @@ void eblob_cleanup(struct eblob_backend *b)
 	eblob_hash_destroy(&b->hash);
 	eblob_l2hash_destroy(&b->l2hash);
 
+	free(b->base_dir);
 	free(b->cfg.file);
 
 	eblob_stat_destroy(b->stat);
@@ -2907,10 +2894,18 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 		goto err_out_stat_free_local;
 	}
 
+	b->base_dir = strdup(c->file);
+	if (!b->base_dir) {
+		errno = -ENOMEM;
+		goto err_out_free_file;
+	}
+	// dirname() modifes its argument
+	b->base_dir = dirname(b->base_dir);
+
 	err = eblob_lock_blob(b);
 	if (err != 0) {
 		eblob_log(c->log, EBLOB_LOG_ERROR, "blob: eblob_lock_blob: FAILED: %s: %d.\n", strerror(-err), err);
-		goto err_out_free_file;
+		goto err_out_free_base_dir;
 	}
 
 	err = eblob_cache_statvfs(b);
@@ -3016,6 +3011,8 @@ err_out_lock_destroy:
 err_out_lockf:
 	(void)lockf(b->lock_fd, F_ULOCK, 0);
 	(void)close(b->lock_fd);
+err_out_free_base_dir:
+	free(b->base_dir);
 err_out_free_file:
 	free(b->cfg.file);
 err_out_stat_free_local:
