@@ -394,7 +394,7 @@ int eblob_json_commit(struct eblob_backend *b) {
 			std::swap(b->json_stat->json, result);
 			std::swap(b->json_stat->timestamp, tv);
 		}
-		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: json statistics has been cached\n");
+		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: json statistics has been cached\n");
 
 	} catch (std::exception &e) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: failed to collect json statistics: %s\n", e.what());

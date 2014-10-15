@@ -2724,7 +2724,8 @@ static int eblob_cache_statvfs(struct eblob_backend *b)
 
 /**
  * This is thread for various periodic tasks e.g: statistics update and free
- * space calculations.
+ * space calculations. It runs data statistics task every second, but only
+ * update data.stat file once per @b->cfg.periodic_timeout to reduce disk thrashing.
  *
  * TODO: We can generalize periodic thread to be simple task scheduler that
  * pulls taks of the queue and executes it.
@@ -2733,7 +2734,7 @@ static void *eblob_periodic_thread(void *data)
 {
 	struct eblob_backend *b = data;
 
-	while (eblob_event_wait(&b->exit_event, b->cfg.periodic_timeout) == -ETIMEDOUT) {
+	while (eblob_event_wait(&b->exit_event, 1) == -ETIMEDOUT) {
 		eblob_periodic(b);
 	}
 
@@ -2745,24 +2746,33 @@ static void *eblob_periodic_thread(void *data)
  */
 int eblob_periodic(struct eblob_backend *b)
 {
+	int err;
+	time_t t = time(NULL);
+
 	pthread_mutex_lock(&b->periodic_lock);
 
-	int err = eblob_json_commit(b);
-	if (err != 0)
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-		"eblob_json_coomit: FAILED");
+	if (t > b->stat_file_time + b->cfg.periodic_timeout) {
+		err = eblob_stat_commit(b);
+		if (err != 0) {
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+				"eblob_stat_commit: FAILED");
+		}
 
-	err = eblob_stat_commit(b);
-
-	if (err != 0)
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-		"eblob_stat_commit: FAILED");
+		b->stat_file_time = t;
+	}
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
 		err = eblob_cache_statvfs(b);
-		if (err != 0)
+		if (err != 0) {
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
-			"eblob_cache_statvfs: FAILED");
+				"eblob_cache_statvfs: FAILED");
+		}
+	}
+
+	err = eblob_json_commit(b);
+	if (err != 0) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
+			"eblob_json_coomit: FAILED");
 	}
 
 	pthread_mutex_unlock(&b->periodic_lock);

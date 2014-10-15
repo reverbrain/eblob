@@ -441,6 +441,13 @@ struct eblob_backend {
 	pthread_t		periodic_tid;
 
 	/*
+	 * Last time when data.stat file was updated. Data statistics is being updated by periodic thread
+	 * once per second, but it is only dumped into data.stat file once per @cfg.periodic_timeout
+	 * seconds to reduce disk thrashing.
+	 */
+	time_t			stat_file_time;
+
+	/*
 	 * @base_dir is a parent directory for @cfg.file
 	 */
 	char			*base_dir;
