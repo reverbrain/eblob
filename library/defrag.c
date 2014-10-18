@@ -54,6 +54,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	struct eblob_backend *b = bctl->back;
 	int64_t total, removed, size, removed_size;
 	int err = EBLOB_DEFRAG_NOT_NEEDED;
+	int level = EBLOB_LOG_DEBUG;
 
 	/*
 	 * do not compute want_defrag status for the last base
@@ -110,7 +111,10 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		}
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+	if (err != EBLOB_DEFRAG_NOT_NEEDED)
+		level = EBLOB_LOG_INFO;
+
+	eblob_log(b->cfg.log, level,
 			"%s: index: %d, removed-records: %" PRId64 ", removed-size: %" PRId64 ", "
 			"total-records: %" PRId64 ", total-size: %" PRId64 ", "
 			"defrag-percentage: %d, want-defrag: %d [%s]\n",
