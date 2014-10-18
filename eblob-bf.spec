@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.10
+Version:	0.22.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Oct 18 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.11
+- defrag: do not spam logs with 'defragmentation is not needed' messages
+
 * Wed Oct 15 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.10
 - stat: run periodic statistics task once per second (it is cheap), but dump it into data.stat file once per @periodic_timeout seconds
 - core: added base directory (calculated at start time from cfg.file), use it for getting statistics

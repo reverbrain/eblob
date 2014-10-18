@@ -1,3 +1,9 @@
+eblob (0.22.11) unstable; urgency=low
+
+  * defrag: do not spam logs with 'defragmentation is not needed' messages
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 18 Oct 2014 19:58:44 +0400
+
 eblob (0.22.10) unstable; urgency=low
 
   * stat: run periodic statistics task once per second (it is cheap), but dump it into data.stat file once per @periodic_timeout seconds
