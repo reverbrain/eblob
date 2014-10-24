@@ -1709,6 +1709,8 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
 			wc->total_size + sizeof(struct eblob_disk_control));
+	eblob_stat_add(b->stat_summary, EBLOB_LST_BASE_SIZE,
+	               wc->total_size + sizeof(struct eblob_disk_control));
 	eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_TOTAL);
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
