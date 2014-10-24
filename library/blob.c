@@ -610,7 +610,7 @@ static int eblob_fill_range_offsets(struct eblob_base_ctl *bctl, struct eblob_it
 }
 
 /*
- * Check that range \a r contain key \a k.
+ * Compare key \a k and range \a r.
  * Returns:
  * 0 if key is from range
  * -1 if key less than start of range
@@ -653,6 +653,7 @@ static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int curre
 
 	for (i = loc->pos; i < loc->num; ++i) {
 		struct eblob_disk_control *dc = &loc->dc[i];
+		/* search range that holds the key by bsearch. If there is no such range then skip the key */
 		if (bsearch(&dc->key, bases, bases_num, sizeof(struct eblob_index_block), eblob_key_range_compare) != NULL) {
 			out[out_pos++] = *dc;
 		}
