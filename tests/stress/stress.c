@@ -236,17 +236,17 @@ item_check(struct shadow *item, struct eblob_backend *b)
 	if (item->flags & BLOB_DISK_CTL_REMOVE) {
 		/* Item is removed and read MUST fail */
 		if (error == 0) {
-			errx(EX_SOFTWARE, "key NOT supposed to exist: %s (%s)",
+			errx(EX_SOFTWARE, "key is NOT supposed to exist: %s (%s)",
 					item->key, eblob_dump_id(item->ekey.id));
 		} else if (error != -ENOENT) {
-			warnx("read failed: %s (%s), retrying, error: %d",
+			warnx("read has been failed: %s (%s), retrying, error: %d",
 			    item->key, eblob_dump_id(item->ekey.id), -error);
 			return error;
 		}
 	} else {
 		/* Check data consistency */
 		if (error != 0) {
-			warnx("key supposed to exist: %s (%s), flags: %s, error: %d",
+			warnx("key is supposed to exist: %s (%s), flags: %s, error: %d",
 			    item->key, eblob_dump_id(item->ekey.id), item->hflags, -error);
 			return error;
 		}
@@ -257,7 +257,7 @@ item_check(struct shadow *item, struct eblob_backend *b)
 		assert(item->size > 0);
 		error = memcmp(data, item->value, item->size);
 		if (error != 0)
-			errx(EX_SOFTWARE, "data verification failed for: %s (%s), flags: %s",
+			errx(EX_SOFTWARE, "data verification has been failed for: %s (%s), flags: %s",
 			    item->key, eblob_dump_id(item->ekey.id), item->hflags);
 	}
 	free(data);
@@ -379,21 +379,21 @@ blob_three_stage_write(struct eblob_backend *b, struct eblob_key *key,
 
 	error = eblob_write_prepare(b, key, size, flags);
 	if (error) {
-		warnx("prepare failed: %s: size: %" PRIu64 ", err: %d",
+		warnx("prepare has been failed: %s: size: %" PRIu64 ", err: %d",
 				eblob_dump_id(key->id), size, -error);
 		return error;
 	}
 
 	error = eblob_plain_write(b, key, data, 0, size, flags);
 	if (error) {
-		warnx("plain write failed: %s, size: %" PRIu64 ", err: %d",
+		warnx("plain write has been failed: %s, size: %" PRIu64 ", err: %d",
 				eblob_dump_id(key->id), size, -error);
 		return error;
 	}
 
 	error = eblob_write_commit(b, key, size, flags);
 	if (error) {
-		warnx("commit failed: %s: size: %" PRIu64 ", err: %d",
+		warnx("commit has been failed: %s: size: %" PRIu64 ", err: %d",
 		    eblob_dump_id(key->id), size, -error);
 		return error;
 	}
@@ -434,7 +434,7 @@ item_sync(struct shadow *item, struct eblob_backend *b)
 	}
 
 	if (error != 0) {
-		warnx("write failed: %s: flags: %s, error: %d",
+		warnx("write has been failed: %s: flags: %s, error: %d",
 		    item->key, item->hflags, -error);
 		return error;
 	}
@@ -482,7 +482,7 @@ test_thread(void *priv)
 	struct test_thread_cfg *tcfg = priv;
 
 	pthread_rwlock_wrlock(&tcfg->gcfg->lock);
-	warnx("thread started: %d", tcfg->tid);
+	warnx("thread has been started: %d", tcfg->tid);
 	pthread_rwlock_unlock(&tcfg->gcfg->lock);
 
 	/*
@@ -526,10 +526,238 @@ test_thread(void *priv)
 	}
 
 	pthread_rwlock_wrlock(&tcfg->gcfg->lock);
-	warnx("thread finished: %d", tcfg->tid);
+	warnx("thread has been finished: %d", tcfg->tid);
 	pthread_rwlock_unlock(&tcfg->gcfg->lock);
 
 	return NULL;
+}
+
+struct shadow_wrap {
+	struct shadow *item;
+	int checked;
+};
+
+struct iterate_private {
+	struct test_cfg		*cfg;
+	struct shadow_wrap	*shadow;
+	long long			shadow_count;
+
+};
+
+/*
+ * Callback function that will be passed to iteration.
+ * It will be called for each found key from iteration ranges.
+ * It checks that passed key is expected, marks corresponding shadow_wrap as checked.
+ * If callback calls twice for the one key it will warn but not fail because it is not critical and known situation.
+ * If passed key is not expected or its data is wrong it will fail the execution.
+ */
+static int iterate_callback(struct eblob_disk_control *dc,
+                            struct eblob_ram_control *rctl __attribute_unused__,
+                            void *data, void *priv, void *thread_priv __attribute_unused__) {
+	struct iterate_private *ipriv = (struct iterate_private*)priv;
+	struct test_cfg *cfg = ipriv->cfg;
+	int i, error;
+	assert (dc != NULL);
+	assert (data != NULL);
+	for (i = 0; i < ipriv->shadow_count; ++i) {
+		struct shadow_wrap *item = &ipriv->shadow[i];
+		if (eblob_id_cmp(dc->key.id, item->item->ekey.id) == 0) {
+			if (item->checked) {
+				warnx("key has been found twice: %s (%s)",
+				      item->item->key, eblob_dump_id(item->item->ekey.id));
+			} else if (item->item->flags & BLOB_DISK_CTL_REMOVE) {
+				if (!(dc->flags & BLOB_DISK_CTL_REMOVE)) {
+					errx(EX_SOFTWARE, "key is NOT supposed to exist: %s (%s)",
+							item->item->key, eblob_dump_id(item->item->ekey.id));
+				}
+			} else {
+				/* Check data consistency */
+				if (dc->flags & BLOB_DISK_CTL_REMOVE) {
+					errx(EX_SOFTWARE, "key is supposed to exist: %s (%s), flags: %s, error: %d",
+					    item->item->key, eblob_dump_id(item->item->ekey.id), item->item->hflags, -ENOENT);
+				}
+				if (item->item->size != dc->data_size) {
+					errx(EX_SOFTWARE, "size mismatch for key: %s (%s): "
+							"stored: %" PRIu64 ", current: %" PRIu64,
+							item->item->key, eblob_dump_id(item->item->ekey.id), item->item->size, dc->data_size);
+				}
+				assert(item->item->size > 0);
+				error = memcmp(data, item->item->value, item->item->size);
+				if (error != 0) {
+					errx(EX_SOFTWARE, "data verification has been failed for: %s (%s), flags: %s",
+					    item->item->key, eblob_dump_id(item->item->ekey.id), item->item->hflags);
+				}
+				item->checked = 1;
+			}
+			break;
+		}
+	}
+
+	if (i == ipriv->shadow_count) {
+		errx(1, "Unknown key: %s", eblob_dump_id(dc->key.id));
+	}
+
+	return 1;
+}
+
+/*
+ * Common test method for checking iteration.
+ * It filters items that should be iterated and runs iteration.
+ * After iteration it checks that all filtered keys has been marked by callback -
+ * it means that callback was called for each expected keys.
+ */
+static void test_iteration(struct test_cfg *cfg, struct eblob_config *bcfg, struct eblob_index_block *range, int range_num) {
+	int i, j, found, error;
+	/* Run iteration and check all data */
+	struct eblob_iterate_control eictl = {
+		.b = cfg->b,
+		.log = bcfg->log,
+		.flags = EBLOB_ITERATE_FLAGS_ALL | EBLOB_ITERATE_FLAGS_READONLY,
+		.iterator_cb = { .iterator = iterate_callback, },
+		.range = range,
+		.range_num = range_num,
+	};
+
+	struct iterate_private ipriv = {
+		.cfg = cfg,
+		.shadow_count = 0,
+	};
+
+	eictl.priv = &ipriv;
+
+	ipriv.shadow = calloc(cfg->test_items, sizeof(struct shadow));
+	for (i = 0; i < cfg->test_items; ++i) {
+		struct shadow *item = &cfg->shadow[i];
+		if (item->flags & BLOB_DISK_CTL_REMOVE)
+			continue;
+		found = 0;
+		for (j = 0; j < range_num; ++j) {
+			if (eblob_id_cmp(item->ekey.id, range[j].start_key.id) < 0) {
+				found = 0;
+				break;
+			}
+			if (eblob_id_cmp(item->ekey.id, range[j].end_key.id) < 0) {
+				found = 1;
+				break;
+			}
+		}
+
+		if (found) {
+			struct shadow_wrap * wrap = &ipriv.shadow[ipriv.shadow_count++];
+			wrap->item = item;
+			wrap->checked = 0;
+		}
+	}
+
+	warnx("iterating %lld keys: started", ipriv.shadow_count);
+	error = eblob_iterate(cfg->b, &eictl);
+	if (error)
+		errx(EX_SOFTWARE, "iterating keys: failed: %d", error);
+
+
+	for (i = 0; i < ipriv.shadow_count; ++i) {
+		struct shadow_wrap *item = &ipriv.shadow[i];
+		if (!item->checked) {
+			errx(EX_SOFTWARE, "key is supposed to be iterated: %s (%s)",
+			     item->item->key, eblob_dump_id(item->item->ekey.id));
+		}
+	}
+	warnx("iterating %lld keys: finished", ipriv.shadow_count);
+
+	free(ipriv.shadow);
+}
+
+/*
+ * Increases \a key by searching for the first \a key's byte less than 0xff.
+ * Search is performed from the end to the beginning of the \a key.
+ * When we have found the first byte less than 0xff it is increased by 1.
+ */
+static void increase_key(struct eblob_key *key) {
+	int i;
+	for (i = EBLOB_ID_SIZE - 1; i >=0; --i) {
+		if (key->id[i] < 0xff) {
+			key->id[i]++;
+			break;
+		}
+	}
+}
+
+/*
+ * Decreases \a key by searching for the first \a key's byte bigger than 0x00.
+ * Search is performed from the end to the beginning of the \a key.
+ * When we have found the first byte bigger than 0x00 it is decreased by 1.
+ */
+static void decrease_key(struct eblob_key *key) {
+	int i;
+	for (i = EBLOB_ID_SIZE - 1; i >=0; --i) {
+		if (key->id[i] > 0) {
+			key->id[i]--;
+			break;
+		}
+	}
+}
+
+/*
+ * Runs iteration of ranges: [00..0, minimal key) and (maximal key, FF..F].
+ * Checks that no keys was found while iteration.
+ */
+static void test_iteration_out_of_ranges(struct test_cfg *cfg, struct eblob_config *bcfg) {
+	/* Initializes ranges */
+	int i;
+	struct eblob_index_block out_of_ranges[2];
+	memset(out_of_ranges, 0, sizeof(struct eblob_index_block) * 2);
+	memcpy(out_of_ranges[0].end_key.id, cfg->shadow[0].ekey.id, EBLOB_ID_SIZE);
+	memcpy(out_of_ranges[1].start_key.id, cfg->shadow[0].ekey.id, EBLOB_ID_SIZE);
+	memset(&out_of_ranges[1].end_key.id, 0xff, EBLOB_ID_SIZE);
+	/* Finds the smallest and biggest existent keys and set them as end and start of corresponding ranges */
+	for (i = 0; i < cfg->test_items; ++i) {
+		struct shadow *const item = &cfg->shadow[i];
+		if (item->flags & BLOB_DISK_CTL_REMOVE)
+			continue;
+		if (eblob_id_cmp(item->ekey.id, out_of_ranges[0].end_key.id) < 0) {
+			memcpy(out_of_ranges[0].end_key.id, item->ekey.id, EBLOB_ID_SIZE);
+		}
+		if (eblob_id_cmp(item->ekey.id, out_of_ranges[1].start_key.id) > 0) {
+			memcpy(out_of_ranges[1].start_key.id, item->ekey.id, EBLOB_ID_SIZE);
+		}
+	}
+	/* Decreases end of first range to exclude the smallest key from the range */
+	decrease_key(&out_of_ranges[0].end_key);
+	/* Increases start of second range to exclude the biggest key from the range */
+	increase_key(&out_of_ranges[1].start_key);
+
+	test_iteration(cfg, bcfg, out_of_ranges, 2); // [start, end]);
+}
+
+/*
+ * Runs iteration of ranges: [00..0, 40..0] and [C0..0, F0..0].
+ * These ranges ares supposed to contain some existent keys.
+ * Count such keys and check that iteration has call callback for each of them.
+ */
+static void test_iteration_part_of_ranges(struct test_cfg *cfg, struct eblob_config *bcfg) {
+	/* Initializes ranges [00..0, 40..0] and [C0..0, F0..0] */
+	struct eblob_index_block valid_ranges[2];
+	memset(valid_ranges, 0, sizeof(struct eblob_index_block) * 2);
+	valid_ranges[0].end_key.id[0] = 0x40;
+
+	valid_ranges[1].start_key.id[0] = 0xc0;
+	valid_ranges[1].end_key.id[0] = 0xf0;
+
+	test_iteration(cfg, bcfg, valid_ranges, 2); // [start, end]);
+}
+
+/*
+ * Runs iteration of range: [00..0, FF.F].
+ * Checks that callback has been called for each of them.
+ */
+static void test_iteration_full_range(struct test_cfg *cfg, struct eblob_config *bcfg) {
+
+	/* Initializes range [00.0, FF..F] */
+	struct eblob_index_block full_range;
+	memset(&full_range, 0, sizeof(struct eblob_index_block));
+	memset(full_range.end_key.id, 0xff, EBLOB_ID_SIZE);
+
+	test_iteration(cfg, bcfg, &full_range, 1); // start, end);
 }
 
 /*
@@ -648,7 +876,7 @@ main(int argc, char **argv)
 		/* Start test thread */
 		error = pthread_create(&threads[i], NULL, test_thread, &tcfg[i]);
 		if (error != 0)
-			errx(EX_OSERR, "thread creation failed: %d", error);
+			errx(EX_OSERR, "thread creation is failed: %d", error);
 	}
 
 	while (cfg.need_exit == 0) {
@@ -696,6 +924,10 @@ main(int argc, char **argv)
 		if (error != 0)
 			errx(EX_OSERR, "thread join failed: %d", error);
 	}
+
+	test_iteration_out_of_ranges(&cfg, &bcfg);
+	test_iteration_part_of_ranges(&cfg, &bcfg);
+	test_iteration_full_range(&cfg, &bcfg);
 
 	pthread_rwlock_destroy(&cfg.lock);
 

@@ -609,15 +609,41 @@ static int eblob_fill_range_offsets(struct eblob_base_ctl *bctl, struct eblob_it
 	return 0;
 }
 
+/*
+ * Compare key \a k and range \a r.
+ * Returns:
+ * 0 if key is from range
+ * -1 if key less than start of range
+ * 1 if key greater than the end of range
+ */
+static int eblob_key_range_compare(const void *k, const void *r) {
+	const struct eblob_key *key = k;
+	const struct eblob_index_block *range = r;
+	if (eblob_id_cmp(key->id, range->start_key.id) < 0)
+		return -1;
+	if (eblob_id_cmp(key->id, range->end_key.id) > 0)
+		return 1;
+	return 0;
+}
+
 static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int current_range_index, struct eblob_iterate_local *loc)
 {
-	int i, j, out_pos = 0, err;
+	int i, out_pos = 0, err, bases_num;
 	struct eblob_disk_control *out;
+	struct eblob_index_block *bases;
 
+	/* if current_range_index was not set, use all ranges for filtering keys */
 	if (current_range_index < 0) {
+		current_range_index = 0;
+	}
+
+	bases_num = ctl->range_num - current_range_index;
+	/* if there is no range that can be used for filtering - return all key */
+	if (bases_num <= 0) {
 		err = loc->num;
 		goto err_out_exit;
 	}
+	bases = &ctl->range[current_range_index];
 
 	out = calloc(loc->num, sizeof(struct eblob_disk_control));
 	if (!out) {
@@ -627,35 +653,9 @@ static int eblob_local_ranges_check(struct eblob_iterate_control *ctl, int curre
 
 	for (i = loc->pos; i < loc->num; ++i) {
 		struct eblob_disk_control *dc = &loc->dc[i];
-
-		for (j = current_range_index; j < ctl->range_num; ++j) {
-			struct eblob_index_block *range = &ctl->range[j];
-			int cmp;
-
-			cmp = eblob_id_cmp(dc->key.id, range->start_key.id);
-			if (cmp < 0) {
-				/*
-				 * key is less than range start, skip it.
-				 * Do not check next ranges, they are higher than this one.
-				 */
-				break;
-			}
-
-			cmp = eblob_id_cmp(dc->key.id, range->end_key.id);
-			if (cmp > 0) {
-				/*
-				 * Key is larger than current's range higher boundary,
-				 * skip this range, but check the next one.
-				 */
-				continue;
-			}
-
-			/*
-			 * That's our key, it is exactly within current range []
-			 */
-
+		/* search range that holds the key by bsearch. If there is no such range then skip the key */
+		if (bsearch(&dc->key, bases, bases_num, sizeof(struct eblob_index_block), eblob_key_range_compare) != NULL) {
 			out[out_pos++] = *dc;
-			break;
 		}
 	}
 
@@ -1709,6 +1709,8 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 
 	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
 			wc->total_size + sizeof(struct eblob_disk_control));
+	eblob_stat_add(b->stat_summary, EBLOB_LST_BASE_SIZE,
+	               wc->total_size + sizeof(struct eblob_disk_control));
 	eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_TOTAL);
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
