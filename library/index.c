@@ -523,16 +523,16 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	if (err == -1)
 		goto err_out_unmap_dst;
 
+	pthread_mutex_lock(&bctl->lock);
+	bctl->sort = dst;
+	pthread_mutex_unlock(&bctl->lock);
+
 	err = eblob_index_blocks_fill(bctl);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"bctl: index: %d, eblob_index_blocks_fill: FAILED\n", bctl->index);
 		goto err_out_unmap_dst;
 	}
-
-	pthread_mutex_lock(&bctl->lock);
-	bctl->sort = dst;
-	pthread_mutex_unlock(&bctl->lock);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: generated sorted: index: %d, "
 			"index-size: %llu, data-size: %llu, file: %s\n",
