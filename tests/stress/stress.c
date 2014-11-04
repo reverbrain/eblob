@@ -540,7 +540,7 @@ struct shadow_wrap {
 struct iterate_private {
 	struct test_cfg		*cfg;
 	struct shadow_wrap	*shadow;
-	long long			shadow_count;
+	long long		shadow_count;
 
 };
 
@@ -555,10 +555,11 @@ static int iterate_callback(struct eblob_disk_control *dc,
                             struct eblob_ram_control *rctl __attribute_unused__,
                             void *data, void *priv, void *thread_priv __attribute_unused__) {
 	struct iterate_private *ipriv = (struct iterate_private*)priv;
-	struct test_cfg *cfg = ipriv->cfg;
 	int i, error;
+
 	assert (dc != NULL);
 	assert (data != NULL);
+
 	for (i = 0; i < ipriv->shadow_count; ++i) {
 		struct shadow_wrap *item = &ipriv->shadow[i];
 		if (eblob_id_cmp(dc->key.id, item->item->ekey.id) == 0) {
@@ -578,8 +579,9 @@ static int iterate_callback(struct eblob_disk_control *dc,
 				}
 				if (item->item->size != dc->data_size) {
 					errx(EX_SOFTWARE, "size mismatch for key: %s (%s): "
-							"stored: %" PRIu64 ", current: %" PRIu64,
-							item->item->key, eblob_dump_id(item->item->ekey.id), item->item->size, dc->data_size);
+						"stored: %" PRIu64 ", current: %" PRIu64,
+						item->item->key, eblob_dump_id(item->item->ekey.id),
+						item->item->size, dc->data_size);
 				}
 				assert(item->item->size > 0);
 				error = memcmp(data, item->item->value, item->item->size);
