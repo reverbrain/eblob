@@ -284,12 +284,6 @@ again:
 						"bctl: index: %d, eblob_generate_sorted_index: FAILED\n", ctl->index);
 				goto err_out_close_index;
 			}
-			err = eblob_index_blocks_fill(ctl);
-			if (err) {
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-						"bctl: index: %d, eblob_index_blocks_fill: FAILED\n", ctl->index);
-				goto err_out_close_index;
-			}
 		} else {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
@@ -545,6 +539,7 @@ void eblob_bases_cleanup(struct eblob_backend *b)
 
 static int eblob_scan_base(struct eblob_backend *b)
 {
+	struct eblob_base_ctl *bctl;
 	int base_len, err;
 	DIR *dir;
 	struct dirent64 *d;
@@ -594,24 +589,43 @@ static int eblob_scan_base(struct eblob_backend *b)
 			continue;
 
 		if (!strncmp(d->d_name, base, base_len)) {
-			struct eblob_base_ctl *ctl;
-
 			/*
 			 * FIXME: Error detection that is based on errno of
 			 * chain of functions is error prone - it would be
 			 * better if eblob_get_base_ctl() could explicitly
 			 * propagate an error through return value
 			 */
-			ctl = eblob_get_base_ctl(b, dir_base, base, d->d_name, d_len, &err);
-			if (!ctl) {
+			bctl = eblob_get_base_ctl(b, dir_base, base, d->d_name, d_len, &err);
+			if (!bctl) {
 				if (err != 0 && err != -EINVAL)
 					goto err_out_bases_cleanup;
 				continue;
 			}
 
 
-			eblob_add_new_base_ctl(b, ctl);
+			eblob_add_new_base_ctl(b, bctl);
 		}
+	}
+
+	/*
+	 * Run over all bases and sort all indexes except the last one.
+	 * There is another similar code at eblob_base_ctl_open() - we generate
+	 * sorted index if given blob is large enough, in particular when number of records
+	 * or data size exceed config parameters.
+	 *
+	 * But it is possible that sorted index was not generated and config changed,
+	 * for example maximum allowed blob size increased. In this case check in eblob_base_ctl_open()
+	 * will never be true ending up with eating memory to hold indexes.
+	 *
+	 * This loop fixes that - we ALWAYS generate sorted index for all but the last blob at the start.
+	 */
+	list_for_each_entry(bctl, &b->bases, base_entry) {
+		/* do not process last entry, it can be used for writing */
+		if (list_is_last(&bctl->base_entry, &b->bases))
+			break;
+
+		if (bctl->index_size)
+			eblob_generate_sorted_index(b, bctl);
 	}
 
 	closedir(dir);

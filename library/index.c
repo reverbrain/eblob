@@ -463,6 +463,17 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	snprintf(file, len, "%s-0.%d.index.tmp", b->cfg.file, bctl->index);
 	snprintf(dst_file, len, "%s-0.%d.index.sorted", b->cfg.file, bctl->index);
 
+	/*
+	 * If sorted index exists, use it.
+	 */
+	err = access(dst_file, R_OK);
+	if (!err) {
+		err = 0;
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: index: %d: sorted index already exists\n",
+				bctl->index);
+		goto err_out_free_dst_file;
+	}
+
 	fd = open(file, O_RDWR | O_TRUNC | O_CREAT | O_CLOEXEC, 0644);
 	if (fd < 0) {
 		err = -errno;
@@ -511,6 +522,13 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	err = msync(dst.data, dst.size, MS_SYNC);
 	if (err == -1)
 		goto err_out_unmap_dst;
+
+	err = eblob_index_blocks_fill(bctl);
+	if (err) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+				"bctl: index: %d, eblob_index_blocks_fill: FAILED\n", bctl->index);
+		goto err_out_unmap_dst;
+	}
 
 	pthread_mutex_lock(&bctl->lock);
 	bctl->sort = dst;
