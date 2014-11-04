@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.11
+Version:	0.22.12
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Nov 04 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.12
+- index: always generate sorted index for all but the last blob at the start
+- stats: updates total size of blobs on write_prepare.
+- 	eblob_check_free_space use this stat for determining that blob_size_limit is reached.
+- iteration: checks ranges on iteration even if index isn't sorted. Use bsearch for checking if the key from ranges.
+- stress: added tests for iteration: out of ranges, part of ranges and full range.
+
 * Sat Oct 18 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.11
 - defrag: do not spam logs with 'defragmentation is not needed' messages
 

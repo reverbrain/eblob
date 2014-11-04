@@ -1,3 +1,13 @@
+eblob (0.22.12) unstable; urgency=low
+
+  * index: always generate sorted index for all but the last blob at the start
+  * stats: updates total size of blobs on write_prepare.
+  * 	eblob_check_free_space use this stat for determining that blob_size_limit is reached.
+  * iteration: checks ranges on iteration even if index isn't sorted. Use bsearch for checking if the key from ranges.
+  * stress: added tests for iteration: out of ranges, part of ranges and full range.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 04 Nov 2014 04:27:53 +0400
+
 eblob (0.22.11) unstable; urgency=low
 
   * defrag: do not spam logs with 'defragmentation is not needed' messages
