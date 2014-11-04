@@ -1,3 +1,9 @@
+eblob (0.22.13) unstable; urgency=low
+
+  * index: bctl->sort must be set before filling index block
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 04 Nov 2014 04:52:52 +0400
+
 eblob (0.22.12) unstable; urgency=low
 
   * index: always generate sorted index for all but the last blob at the start
