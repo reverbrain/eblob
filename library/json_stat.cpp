@@ -131,6 +131,20 @@ struct json_stat_cache {
 	timeval			timestamp;
 };
 
+static inline const char *print_time(const struct timeval *t)
+{
+	char str[64];
+	struct tm tm;
+
+	static __thread char __print_time[128];
+
+	localtime_r((time_t *)&t->tv_sec, &tm);
+	strftime(str, sizeof(str), "%F %R:%S", &tm);
+
+	snprintf(__print_time, sizeof(__print_time), "%s.%06llu", str, (long long unsigned) t->tv_usec);
+	return __print_time;
+}
+
 static void eblob_stat_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
 	rapidjson::Value timestamp(rapidjson::kObjectType);
 	timestamp.AddMember("tv_sec", tv.tv_sec, allocator);
@@ -142,12 +156,21 @@ static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, r
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	eblob_stat_add_timestamp_raw(stat, name, tv, allocator);
+	stat.AddMember((std::string("string_") + name).c_str(), print_time(&tv), allocator);
 }
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (uint32_t i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
 		stat.AddMember(eblob_stat_get_name(b->stat, i), eblob_stat_get(b->stat, i), allocator);
+
+	timeval stat_time;
+	stat_time.tv_sec = b->stat_file_time;
+	stat_time.tv_usec = 0;
+	eblob_stat_add_timestamp_raw(stat, "stat_file_time", stat_time, allocator);
+	stat.AddMember("string_stat_file_time_", print_time(&stat_time), allocator);
+	stat.AddMember("stat_file_error", b->stat_file_error, allocator);
+	stat.AddMember("string_stat_file_error", strerror(-b->stat_file_error), allocator);
 }
 
 static void eblob_stat_summary_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
