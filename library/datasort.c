@@ -104,6 +104,9 @@ int datasort_force_sort(struct eblob_backend *b)
 	/* Kick in data-sort if auto-sort is enabled */
 	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
 		return eblob_start_defrag(b);
+	else if(b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT)
+		return eblob_start_index_sort(b);
+
 	return 0;
 }
 
@@ -902,27 +905,6 @@ static void datasort_destroy(struct datasort_cfg *dcfg)
 	free(dcfg->dir);
 };
 
-/**
- * datasort_index_search() - bsearch sorted index for disk control of
- * corresponding @key
- * @base:	pointer to the start of sorted index
- * @nel:	number of elements in index
- *
- * Returns index of key inside of \a base
- */
-static uint64_t datasort_index_search(const struct eblob_key *key,
-               const struct eblob_disk_control *base, uint64_t nel)
-{
-	const struct eblob_disk_control dc = { .key = *key };
-	const struct eblob_disk_control * const found =
-		bsearch(&dc, base, nel, sizeof(dc), eblob_disk_control_sort);
-	uint64_t index = -1;
-
-	if (found != NULL)
-		index = found - base;
-	return index;
-}
-
 /*!
  * Removes from resulting blob entries that were removed during data-sort
  */
@@ -941,7 +923,7 @@ static int datasort_binlog_apply(struct datasort_cfg *dcfg)
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE,
 				"applying binlog to: %s", dcfg->bctl[n]->name);
 		while ((it = eblob_binlog_iterate(bcfg, it)) != NULL) {
-			const uint64_t index = datasort_index_search(&it->key,
+			const uint64_t index = sorted_index_bsearch_raw(&it->key,
 					dcfg->result->index, dcfg->result->count);
 			struct eblob_disk_control dc;
 

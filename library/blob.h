@@ -454,6 +454,7 @@ struct eblob_backend {
 
 	/*
 	 * Set when defrag/data-sort are explicitly requested
+	 * 2:	index-sort is explicitly requested via eblob_start_index_sort()
 	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
 	 * 0:	data-sort should be preformed according to defrag_timeout
 	 */
@@ -488,9 +489,18 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *ctl);
-
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);
+
+/*
+ * sorted_index_bsearch_raw() - bsearch disk control of \a key in sorted index \a base
+ * @base:	pointer to the start of sorted index
+ * @nel:	number of elements in index
+ *
+ * Returns index of the key disk control inside of \a base
+ */
+uint64_t sorted_index_bsearch_raw(const struct eblob_key *key,
+                                  const struct eblob_disk_control *base, uint64_t nel);
 
 int eblob_check_record(const struct eblob_base_ctl *bctl,
 		const struct eblob_disk_control *dc);
@@ -500,6 +510,10 @@ int eblob_blob_iterate(struct eblob_iterate_control *ctl);
 void *eblob_defrag_thread(void *data);
 void eblob_base_remove(struct eblob_base_ctl *bctl);
 
+/*
+ * Generates sorted index for the blob \a bctl
+ * flushes keys from cache and fills index blocks
+ */
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);

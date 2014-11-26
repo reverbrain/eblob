@@ -106,7 +106,7 @@ uint64_t eblob_get_trace_id();
 /*
  * Used in trace_id for ignoring current log level
  */
-#define EBLOB_TRACE_BIT         (1ll<<63)         
+#define EBLOB_TRACE_BIT		(1ll << 63)
 
 void eblob_log_raw_formatted(void *priv, int level, const char *msg);
 void eblob_log_raw(struct eblob_log *l, int level, const char *format, ...) EBLOB_LOG_CHECK;
@@ -271,6 +271,12 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  * Disables starting permanent threads (sync, defrag, periodic)
  */
 #define EBLOB_DISABLE_THREADS			(1<<10)
+
+/*
+ * Enables automatic index-only-sort.
+ * Index-only sort will kick-in on base's "close".
+ */
+#define EBLOB_AUTO_INDEXSORT			(1<<11)
 
 struct eblob_config {
 	/* blob flags above */
@@ -608,7 +614,26 @@ int eblob_hash(struct eblob_backend *b, void *dst, unsigned int dsize, const voi
 
 void eblob_remove_blobs(struct eblob_backend *b);
 
+enum eblob_defrag_state {
+	EBLOB_DEFRAG_STATE_NOT_STARTED,	/* no defrag is in progress */
+	EBLOB_DEFRAG_STATE_DATA_SORT,	/* data-sort is in progress */
+	EBLOB_DEFRAG_STATE_INDEX_SORT	/* index-sort is in progress */
+};
+
+/*
+ * eblob_start_defrag() - forces defragmentation thread to run defrag
+ * regardless of timer.
+ */
 int eblob_start_defrag(struct eblob_backend *b);
+
+/*
+ * eblob_start_index_sort() - forces defragmentation thread to sort index regardless of timer
+ */
+int eblob_start_index_sort(struct eblob_backend *b);
+
+/*
+ * eblob_defrag_status() - return current state of defragmentation thread
+ */
 int eblob_defrag_status(struct eblob_backend *b);
 
 /* Per backend stats */
@@ -721,6 +746,7 @@ static inline const char *eblob_dump_blob_flags(unsigned int flags) {
 		{ EBLOB_TIMED_DATASORT, "timed_datasort"},
 		{ EBLOB_SCHEDULED_DATASORT, "scheduled_datasort"},
 		{ EBLOB_DISABLE_THREADS, "disabled_threads"},
+		{ EBLOB_AUTO_INDEXSORT, "auto_indexsort"},
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));

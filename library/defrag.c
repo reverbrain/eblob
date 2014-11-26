@@ -193,7 +193,14 @@ int eblob_defrag(struct eblob_backend *b)
 			continue;
 		}
 
+		/* skips sorted bases if defrag for them is not needed. Always defrag unsorted bases and
+		 * bases that could be merged or defraged.
+		 **/
 		if (want == EBLOB_DEFRAG_NOT_NEEDED && datasort_base_is_sorted(bctl) == 1)
+			continue;
+
+		/* skips bases with sorted index if defrag thread was started only for index sort*/
+		if (b->want_defrag == EBLOB_DEFRAG_STATE_INDEX_SORT && bctl->sort.fd >= 0)
 			continue;
 
 		/*
@@ -231,8 +238,9 @@ int eblob_defrag(struct eblob_backend *b)
 		/*
 		 * For every but last base check for merge possibility
 		 * NB! Last base always triggers sort of accumulated bases.
+		 * index sort process doesn't merge blobs, so skip this.
 		 */
-		if (current < bctl_cnt) {
+		if (current < bctl_cnt && b->want_defrag == EBLOB_DEFRAG_STATE_DATA_SORT) {
 			/* Shortcuts */
 			struct eblob_base_ctl * const bctl = bctls[current];
 			records = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL)
@@ -254,26 +262,36 @@ int eblob_defrag(struct eblob_backend *b)
 			}
 		}
 
-
-		struct datasort_cfg dcfg = {
-			.b = b,
-			.bctl = bctls + previous,
-			.bctl_cnt = current - previous,
-			.log = b->cfg.log,
-		};
-
-		/*
-		 * Sort all bases between @previous and @current
-		 * Do not sort one base if its deframentation is not required.
-		 */
-		if (dcfg.bctl_cnt != 1 ||
-		    eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED ||
-		    datasort_base_is_sorted(*dcfg.bctl) != 1) {
-			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-					"defrag: sorting: %d base(s)", current - previous);
-			if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
-				EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR,
-						"defrag: datasort: FAILED");
+		switch (b->want_defrag) {
+			case EBLOB_DEFRAG_STATE_INDEX_SORT: {
+				struct eblob_base_ctl * const bctl = bctls[previous];
+				/* If defrag started only for index sort - check that blob's index is unsorted. */
+				if (bctl->sort.fd < 0) {
+					if (err = eblob_generate_sorted_index(b, bctl))
+						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: FAILED");
+				}
+				break;
+			}
+			case EBLOB_DEFRAG_STATE_DATA_SORT: {
+				struct datasort_cfg dcfg = {
+					.b = b,
+					.bctl = bctls + previous,
+					.bctl_cnt = current - previous,
+					.log = b->cfg.log,
+				};
+				/* Sort all bases between @previous and @current
+				 * Do not sort one base if its deframentation is not required.
+				 */
+				if (dcfg.bctl_cnt != 1 ||
+				    eblob_want_defrag(*dcfg.bctl) == EBLOB_DEFRAG_NEEDED ||
+				    datasort_base_is_sorted(bctl) != 1) {
+					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
+							"defrag: sorting: %d base(s)", current - previous);
+					if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
+						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: datasort: FAILED");
+				}
+				break;
+			}
 		}
 
 		/*
@@ -315,24 +333,20 @@ void *eblob_defrag_thread(void *data)
 
 	sleep_time = datasort_next_defrag(b);
 	while (1) {
-		if ((sleep_time-- != 0) && (b->want_defrag == 0)) {
+		if ((sleep_time-- != 0) && (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED)) {
 			if (eblob_event_wait(&b->exit_event, 1) != -ETIMEDOUT)
 				break;
 			continue;
 		}
 
 		eblob_defrag(b);
-		b->want_defrag = 0;
+		b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
 		sleep_time = datasort_next_defrag(b);
 	}
 
 	return NULL;
 }
 
-/**
- * eblob_start_defrag() - forces defragmentation thread to run defrag
- * regardless of timer.
- */
 int eblob_start_defrag(struct eblob_backend *b)
 {
 	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
@@ -345,7 +359,21 @@ int eblob_start_defrag(struct eblob_backend *b)
 		return -EALREADY;
 	}
 
-	b->want_defrag = 1;
+	b->want_defrag = EBLOB_DEFRAG_STATE_DATA_SORT;
+	return 0;
+}
+
+int eblob_start_index_sort(struct eblob_backend *b) {
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS)
+		return -EINVAL;
+
+	if (b->want_defrag) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+		          "index_sort: defragmentation is in progress.\n");
+		return -EALREADY;
+	}
+
+	b->want_defrag = EBLOB_DEFRAG_STATE_INDEX_SORT;
 	return 0;
 }
 
