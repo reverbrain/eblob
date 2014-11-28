@@ -624,8 +624,11 @@ static int eblob_scan_base(struct eblob_backend *b)
 		if (list_is_last(&bctl->base_entry, &b->bases))
 			break;
 
-		if (bctl->index_size)
+		/* Sort only nonempty and unsorted indexes */
+		if (bctl->index_size &&
+		    bctl->sort.fd < 0) {
 			eblob_generate_sorted_index(b, bctl);
+		}
 	}
 
 	closedir(dir);

@@ -2761,6 +2761,7 @@ int eblob_periodic(struct eblob_backend *b)
 		}
 
 		b->stat_file_time = t;
+		b->stat_file_error = err;
 	}
 
 	if (!(b->cfg.blob_flags & EBLOB_NO_FREE_SPACE_CHECK)) {
