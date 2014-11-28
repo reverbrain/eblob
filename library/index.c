@@ -469,9 +469,11 @@ static int indexsort_binlog_apply(struct eblob_base_ctl *bctl, struct eblob_map_
 				sorted->data,
 				sorted->size / sizeof(struct eblob_disk_control));
 
-		/* If key wasn't found in sorted index - skip it */
+		/* It is sanity check. In common case binlog shouldn't have nonexistent keys.
+		 * If it has, print log and continue with skipping this key.
+		 */
 		if (index == -1ULL) {
-			EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "%s: skipped",
+			EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR, "%s: skipped",
 						eblob_dump_id(it->key.id));
 			continue;
 		}
