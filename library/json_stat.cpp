@@ -156,7 +156,8 @@ static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, r
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	eblob_stat_add_timestamp_raw(stat, name, tv, allocator);
-	stat.AddMember((std::string("string_") + name).c_str(), print_time(&tv), allocator);
+	rapidjson::Value ts_val(print_time(&tv), allocator);
+	stat.AddMember((std::string("string_") + name).c_str(), allocator, ts_val, allocator);
 }
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
@@ -168,7 +169,7 @@ static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &st
 	stat_time.tv_sec = b->stat_file_time;
 	stat_time.tv_usec = 0;
 	eblob_stat_add_timestamp_raw(stat, "stat_file_time", stat_time, allocator);
-	stat.AddMember("string_stat_file_time_", print_time(&stat_time), allocator);
+	stat.AddMember("string_stat_file_time", print_time(&stat_time), allocator);
 	stat.AddMember("stat_file_error", b->stat_file_error, allocator);
 	stat.AddMember("string_stat_file_error", strerror(-b->stat_file_error), allocator);
 }
