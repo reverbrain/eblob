@@ -29,6 +29,14 @@ extern "C" {
  * 		"index_files_reads_number": 0,		// number of index files that was processed by eblob while looking up records "on-disk".
  * 		"datasort_completion_time": 0,		// end timestamp of the last defragmentation
  * 		"datasort_completion_status": 0		// status of last deframentation
+ * 		"stat_file_time": {			// last time when data.stat file was updated
+ *			"tv_sec": 123123,
+ *			"tv_usec": 123123
+ * 		},
+ * 		"string_stat_file_time":
+ * 			"1970-01-02 13:12:03.000123",	// string representation of previous timestamp
+ * 		"stat_file_error": 0,			// last data.stat file update error
+ * 		"string_stat_file_error": "Success"	// string representation of last data.stat file update error
  * 	},
  * 	"summary_stats": {				// summary statistics for all blobs
  * 		"records_total": 301,			// total number of records in all blobs both real and removed
@@ -75,6 +83,8 @@ extern "C" {
  *			"tv_sec": 123123,
  *			"tv_usec": 123123
  *		},
+ *		"string_timestamp":
+ *			"1970-01-02 13:12:03.000123",	// string representation of previous timestamp
  * 		"bsize": 4096,				// file system block size
  * 		"frsize": 4096,				// fragment size
  * 		"blocks": 754909842,			// size of fs in f_frsize units
@@ -92,6 +102,8 @@ extern "C" {
  * 			"tv_sec": 123123,
  * 			"tv_usec": 123123
  * 		},
+ *		"string_timestamp":
+ *			"1970-01-02 13:12:03.000123",	// string representation of previous timestamp
  * 		"read_ios": 4645,			// number of read I/Os processed
  * 		"read_merges": 0,			// number of read I/Os merged with in-queue I/O
  * 		"read_sectors": 176922,			// number of sectors read
@@ -108,6 +120,8 @@ extern "C" {
  * 		"tv_sec": 123123,
  * 		"tv_usec": 123123
  * 	},
+ *	"string_timestamp":
+ *		"1970-01-02 13:12:03.000123",		// string representation of previous timestamp
  * 	"error": {					// optional field, it tells that cached json is too old
  * 		"code": 110,				// error code
  * 		"message": "cached json is too old",	// error message
@@ -116,7 +130,9 @@ extern "C" {
  * 		"current_timestamp": {			// timestamp when cached json lifetime was checked
  * 			"tv_sec": 123123,
  * 			"tv_usec": 123123
- * 		}
+ * 		},
+ *		"string_current_timestamp":
+ *			"1970-01-02 13:12:03.000123"	// string representation of previous timestamp
  * 	}
  * }
  */
