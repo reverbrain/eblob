@@ -440,10 +440,11 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	struct eblob_iterate_control *ctl = iter_priv->ctl;
 	struct eblob_base_ctl *bc = ctl->base;
 	struct eblob_disk_control *dc = &loc->dc[loc->pos];
+    struct eblob_disk_control dc_data;
 	struct eblob_ram_control rc;
 	int err;
 
-	if (bc->data == NULL)
+	if (bc->data_size == 0)
 		return -EAGAIN;
 
 	memset(&rc, 0, sizeof(rc));
@@ -471,11 +472,14 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL)
 			&& !(ctl->flags & EBLOB_ITERATE_FLAGS_READONLY)
 			&& !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
-		struct eblob_disk_control *dc_data = (struct eblob_disk_control *)(bc->data + dc->position);
-		if (dc_data->flags & BLOB_DISK_CTL_REMOVE) {
+        err = __eblob_read_ll(bc->data_fd, &dc_data, sizeof(struct eblob_disk_control), dc->position);
+        if (err)
+            goto err_out_exit;
+
+		if (dc_data.flags & BLOB_DISK_CTL_REMOVE) {
 			eblob_log(ctl->log, EBLOB_LOG_INFO,
 					"blob: %s: key removed(%s) in blob(%d), but not in index(%d), fixing\n",
-					eblob_dump_id(dc->key.id), eblob_dump_dctl_flags(dc_data->flags), bc->data_fd, eblob_get_index_fd(bc));
+					eblob_dump_id(dc->key.id), eblob_dump_dctl_flags(dc_data.flags), bc->data_fd, eblob_get_index_fd(bc));
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 			err = __eblob_write_ll(eblob_get_index_fd(bc), dc,
 					sizeof(struct eblob_disk_control), loc->index_offset);
@@ -501,7 +505,7 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 		goto err_out_exit;
 	}
 
-	err = ctl->iterator_cb.iterator(dc, &rc, bc->data + dc->position + sizeof(struct eblob_disk_control),
+	err = ctl->iterator_cb.iterator(dc, &rc, bc->data_fd, dc->position + sizeof(struct eblob_disk_control),
 			ctl->priv, iter_priv->thread_priv);
 
 err_out_exit:
@@ -835,7 +839,13 @@ err_out_check:
 				ctl->index_offset = loc.last_valid_offset;
 				eblob_convert_disk_control(&idc);
 
-				memcpy(&data_dc, bctl->data + idc.position, hdr_size);
+                err = __eblob_read_ll(bctl->data_fd, &data_dc, hdr_size, idc.position);
+                if (err) {
+                    memset(&data_dc, 0, hdr_size);
+                    eblob_log(ctl->log, EBLOB_LOG_ERROR,
+							"blob: read failed: fd: %d, err: %d\n", bctl->data_fd, -err);
+                    ctl->err = err;
+                }
 				eblob_convert_disk_control(&data_dc);
 
 				bctl->data_offset = idc.position + data_dc.disk_size;
@@ -1176,6 +1186,41 @@ again:
 		offset += bytes;
 	}
 	return 0;
+}
+
+int __eblob_copy_ll(int src_fd, int dst_fd, size_t size, off_t src_offset, off_t dst_offset)
+{
+    static const size_t BLOCKSIZE = 32 * 1024;
+    int err = 0;
+    void *buffer;
+    size_t read_amount;
+
+    buffer = malloc(BLOCKSIZE);
+    if (!buffer) {
+        err = -ENOMEM;
+        goto err_out;
+    }
+
+    while (size > 0) {
+        read_amount = (size < BLOCKSIZE) ? size : BLOCKSIZE;
+        err = __eblob_read_ll(src_fd, buffer, read_amount, src_offset);
+        if (err)
+            goto err_out_free;
+
+        size -= read_amount;
+        src_offset += read_amount;
+
+        err = __eblob_write_ll(dst_fd, buffer, read_amount, dst_offset);
+        if (err)
+            goto err_out_free;
+
+        dst_offset += read_amount;
+    }
+
+err_out_free:
+    free(buffer);
+err_out:
+	return err;
 }
 
 /**
@@ -1845,37 +1890,30 @@ int eblob_hash(struct eblob_backend *b __attribute_unused__, void *dst,
 }
 
 /**
+ * eblob_file_hash() - generate file's hash. For now it's simple sha512.
+ */
+static int eblob_file_hash(struct eblob_backend *b __attribute_unused__, void *dst,
+        unsigned int dsize __attribute_unused__, int fd, off_t offset, uint64_t size)
+{
+    react_start_action(ACTION_EBLOB_FILE_HASH);
+    int err = sha512_file(fd, offset, size, dst);
+	react_stop_action(ACTION_EBLOB_FILE_HASH);
+	return err;
+}
+
+/**
  * eblob_csum() - Computes checksum of data pointed by @wc and stores
  * it in @dst.
- * NB! Expensive routine that calls mmap/munmap on each call.
+ * NB! Expensive routine
  *
  * TODO: Can be merged with eblob_csum_ok()
- * TODO: Can use eblob_data_map()
  */
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		struct eblob_write_control *wc)
 {
 	react_start_action(ACTION_EBLOB_CSUM);
-	long page_size = sysconf(_SC_PAGE_SIZE);
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-	off_t offset = off & ~(page_size - 1);
-	size_t mapped_size = ALIGN(wc->total_data_size + off - offset, page_size);
-	react_add_stat_int("mapped_size", mapped_size);
-	void *data, *ptr;
-	int err = 0;
-
-	data = mmap(NULL, mapped_size, PROT_READ, MAP_SHARED, wc->data_fd, offset);
-	if (data == MAP_FAILED) {
-		err = -errno;
-		goto err_out_exit;
-	}
-	ptr = data + off - offset;
-
-	eblob_hash(b, dst, dsize, ptr, wc->total_data_size);
-
-	munmap(data, mapped_size);
-
-err_out_exit:
+    int err = eblob_file_hash(b, dst, dsize, wc->data_fd, off, wc->total_data_size);
 	react_stop_action(ACTION_EBLOB_CSUM);
 	return err;
 }
@@ -2395,16 +2433,13 @@ err_out_exit:
 
 /**
  * eblob_csum_ok() - verifies checksum of entry pointed by @wc.
- * If entry is bigger than alloc_size - mmap(2) it, otherwise malloc
- * space for it.
  */
 static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc)
 {
-	struct eblob_disk_footer *f;
+	struct eblob_disk_footer f;
 	unsigned char csum[EBLOB_ID_SIZE];
-	struct eblob_map_fd m;
-	void *adata = NULL;
-	int err;
+    off_t off;
+	int err = 0;
 
 	if (wc->total_size < sizeof(struct eblob_disk_footer)
 			|| wc->total_size < sizeof(struct eblob_disk_control)
@@ -2413,64 +2448,33 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		goto err_out_exit;
 	}
 
-	if (wc->flags & BLOB_DISK_CTL_NOCSUM) {
-		err = 0;
+	if (wc->flags & BLOB_DISK_CTL_NOCSUM)
 		goto err_out_exit;
-	}
 
 	/* check if there is no footer - csum is ok in this case */
-	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_footer) + sizeof(struct eblob_disk_control)) {
-		err = 0;
+	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_footer) + sizeof(struct eblob_disk_control))
+		goto err_out_exit;
+
+    off = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
+    err = __eblob_read_ll(wc->data_fd, &f, sizeof(struct eblob_disk_footer), off);
+    if (err)
+        goto err_out_exit;
+
+	memset(csum, 0, sizeof(csum));
+	/* zero-filled csum is ok csum */
+	if (!memcmp(csum, f.csum, sizeof(f.csum)))
+		goto err_out_exit;
+
+    off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+    err = eblob_file_hash(b, csum, sizeof(csum), wc->data_fd, off, wc->total_data_size);
+    if (err)
+        goto err_out_exit;
+
+	if (memcmp(csum, f.csum, sizeof(csum))) {
+		err = -EILSEQ;
 		goto err_out_exit;
 	}
 
-	memset(&m, 0, sizeof(struct eblob_map_fd));
-
-	/* mapping whole record including header and footer */
-	m.fd = wc->data_fd;
-	m.size = wc->total_size;
-	m.offset = wc->ctl_data_offset;
-
-	/* If record is big - mmap it, otherwise alloc in heap */
-	if (m.size > EBLOB_1_M) {
-		/* TODO: Here we can use existing data mapping in case of closed blob */
-		err = eblob_data_map(&m);
-		if (err)
-			goto err_out_exit;
-	} else {
-		adata = malloc(m.size);
-		if (!adata) {
-			err = -ENOMEM;
-			goto err_out_unmap;
-		}
-
-		err = __eblob_read_ll(wc->data_fd, adata, m.size, wc->ctl_data_offset);
-		if (err)
-			goto err_out_unmap;
-		m.data = adata;
-	}
-
-	memset(csum, 0, sizeof(csum));
-	f = m.data + wc->total_size - sizeof(struct eblob_disk_footer);
-	/* zero-filled csum is ok csum */
-	if (!memcmp(csum, f->csum, sizeof(f->csum))) {
-		err = 0;
-		goto err_out_unmap;
-	}
-
-	eblob_hash(b, csum, sizeof(csum), m.data + sizeof(struct eblob_disk_control), wc->total_data_size);
-	if (memcmp(csum, f->csum, sizeof(f->csum))) {
-		err = -EILSEQ;
-		goto err_out_unmap;
-	}
-
-	err = 0;
-
-err_out_unmap:
-	if (adata)
-		free(adata);
-	else
-		eblob_data_unmap(&m);
 err_out_exit:
 	return err;
 }
@@ -2576,38 +2580,6 @@ int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
 		return -EINVAL;
 
 	return _eblob_read_ll(b, key, csum, wc);
-}
-
-/**
- * eblob_data_map() - mmap(2) data with respect to Linux alignment requirements.
- */
-int eblob_data_map(struct eblob_map_fd *map)
-{
-	uint64_t off;
-	long page_size = sysconf(_SC_PAGE_SIZE);
-	int err = 0;
-
-	off = map->offset & ~(page_size - 1);
-	map->mapped_size = ALIGN(map->size + map->offset - off, page_size);
-
-	map->mapped_data = mmap(NULL, map->mapped_size, PROT_READ | PROT_WRITE, MAP_SHARED, map->fd, off);
-	if (map->mapped_data == MAP_FAILED) {
-		err = -errno;
-		goto err_out_exit;
-	}
-
-	map->data = map->mapped_data + map->offset - off;
-
-err_out_exit:
-	return err;
-}
-
-void eblob_data_unmap(struct eblob_map_fd *map)
-{
-	if (map->mapped_data && map->mapped_size) {
-		munmap(map->mapped_data, map->mapped_size);
-		map->mapped_data = NULL;
-	}
 }
 
 /**

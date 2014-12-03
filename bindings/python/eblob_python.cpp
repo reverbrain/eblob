@@ -14,6 +14,7 @@
  */
 
 
+#include <memory>
 #include <boost/python.hpp>
 #include <boost/python/list.hpp>
 
@@ -52,6 +53,29 @@ static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 	eblob_extract_arr(e.id, id.id, &len);
 }
 
+/**
+ * __eblob_read_ll() - interruption-safe wrapper for pread(2)
+ */
+static int __eblob_read_ll(int fd, char *data, size_t size, off_t offset)
+{
+	ssize_t bytes;
+
+	while (size) {
+again:
+		bytes = pread(fd, data, size, offset);
+		if (bytes == -1) {
+			if (errno == -EINTR)
+				goto again;
+			return -errno;
+		} else if (bytes == 0)
+			return -ESPIPE;
+		data += bytes;
+		size -= bytes;
+		offset += bytes;
+	}
+	return 0;
+}
+
 struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
 {
 	eblob_py_iterator() {};
@@ -72,13 +96,18 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	}
 
 	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc __attribute__((unused)),
-			void *data, void *priv, void *thread_priv __attribute__((unused)))
+                        int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute__((unused)))
 	{
+        std::auto_ptr<char> p(new char[dc->data_size]);
+
+        int err = __eblob_read_ll(fd, p.get(), dc->data_size, data_offset);
+        if (err)
+            return 0;
+
 		struct eblob_id id(dc->key);
-		std::string d((const char*)data, dc->data_size);
+		std::string d(p.get(), dc->data_size);
 
 		struct eblob_py_iterator *it = (struct eblob_py_iterator *)priv;
-		
 
 		it->process(id, d);
 		return 0;

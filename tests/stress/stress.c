@@ -553,12 +553,11 @@ struct iterate_private {
  */
 static int iterate_callback(struct eblob_disk_control *dc,
                             struct eblob_ram_control *rctl __attribute_unused__,
-                            void *data, void *priv, void *thread_priv __attribute_unused__) {
+                            int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute_unused__) {
 	struct iterate_private *ipriv = (struct iterate_private*)priv;
 	int i, error;
 
 	assert (dc != NULL);
-	assert (data != NULL);
 
 	for (i = 0; i < ipriv->shadow_count; ++i) {
 		struct shadow_wrap *item = &ipriv->shadow[i];
@@ -584,11 +583,19 @@ static int iterate_callback(struct eblob_disk_control *dc,
 						item->item->size, dc->data_size);
 				}
 				assert(item->item->size > 0);
+                void *data = malloc(item->item->size);
+                assert(data);
+                error = pread(fd, data, item->item->size, data_offset);
+                if (error == -1) {
+                    errx(EX_SOFTWARE, "pread has been failed for: %s (%s), flags: %s, error: %d",
+                         item->item->key, eblob_dump_id(item->item->ekey.id), item->item->hflags, errno);
+                }
 				error = memcmp(data, item->item->value, item->item->size);
 				if (error != 0) {
 					errx(EX_SOFTWARE, "data verification has been failed for: %s (%s), flags: %s",
 					    item->item->key, eblob_dump_id(item->item->ekey.id), item->item->hflags);
 				}
+                free(data);
 				item->checked = 1;
 			}
 			break;
