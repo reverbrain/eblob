@@ -1188,41 +1188,6 @@ again:
 	return 0;
 }
 
-int __eblob_copy_ll(int src_fd, int dst_fd, size_t size, off_t src_offset, off_t dst_offset)
-{
-    static const size_t BLOCKSIZE = 32 * 1024;
-    int err = 0;
-    void *buffer;
-    size_t read_amount;
-
-    buffer = malloc(BLOCKSIZE);
-    if (!buffer) {
-        err = -ENOMEM;
-        goto err_out;
-    }
-
-    while (size > 0) {
-        read_amount = (size < BLOCKSIZE) ? size : BLOCKSIZE;
-        err = __eblob_read_ll(src_fd, buffer, read_amount, src_offset);
-        if (err)
-            goto err_out_free;
-
-        size -= read_amount;
-        src_offset += read_amount;
-
-        err = __eblob_write_ll(dst_fd, buffer, read_amount, dst_offset);
-        if (err)
-            goto err_out_free;
-
-        dst_offset += read_amount;
-    }
-
-err_out_free:
-    free(buffer);
-err_out:
-	return err;
-}
-
 /**
  * eblob_calculate_size() - calculate size of data with respect to
  * header/footer and alignment
@@ -1282,7 +1247,7 @@ err_out_exit:
  * eblob_copy_data() - canonical copy of data from one file to another for OSes
  * that do not have splice(2)
  */
-static int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
+int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len)
 {
 	void *buf;
 	ssize_t err;

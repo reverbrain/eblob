@@ -517,7 +517,6 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
 int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
 int __eblob_read_ll(int fd, void *data, size_t size, off_t offset);
-int __eblob_copy_ll(int src_fd, int dst_fd, size_t size, off_t src_offset, off_t dst_offset);
 
 struct eblob_disk_search_stat {
 	int			loops;			// number of bctls checked
@@ -543,6 +542,7 @@ int eblob_key_sort(const void *key1, const void *key2);
 int eblob_disk_control_sort(const void *d1, const void *d2);
 int eblob_disk_control_sort_with_flags(const void *d1, const void *d2);
 
+int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
 int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
 
 int eblob_preallocate(int fd, off_t offset, off_t size);

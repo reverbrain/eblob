@@ -495,7 +495,10 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	c->offset += hdr_size;
 
     /* Copy data */
-    err = __eblob_copy_ll(fd, c->fd, dc->disk_size - hdr_size, data_offset, c->offset);
+    if (fd != c->fd)
+        err = eblob_splice_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
+    else
+        err = eblob_copy_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
     if (err) {
         EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: copy-data");
         goto err;
