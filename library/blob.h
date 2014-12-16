@@ -519,7 +519,7 @@ void eblob_base_remove(struct eblob_base_ctl *bctl);
  * Generates sorted index for the blob \a bctl
  * flushes keys from cache and fills index blocks
  */
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int init_load);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 
