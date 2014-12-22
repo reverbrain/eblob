@@ -514,8 +514,6 @@ static int indexsort_flush_cache(struct eblob_backend *b, struct eblob_map_fd *s
 
 	for (offset = 0; offset < sorted->size; offset += hdr_size) {
 		struct eblob_disk_control *dc = sorted->data + offset;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "defrag: indexsort: removing key: %s from cache flags: %s\n",
-		          eblob_dump_id(dc->key.id), eblob_dump_dctl_flags(dc->flags));
 		/* This entry was removed in binlog_apply */
 		if (dc->flags & BLOB_DISK_CTL_REMOVE)
 			continue;
