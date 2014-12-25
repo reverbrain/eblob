@@ -58,7 +58,7 @@ static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
  */
 static int __eblob_read_ll(int fd, char *data, size_t size, off_t offset)
 {
-	ssize_t bytes;
+	::ssize_t bytes;
 
 	while (size) {
 again:
