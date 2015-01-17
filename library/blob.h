@@ -448,11 +448,6 @@ struct eblob_backend {
 	time_t			stat_file_time;
 
 	/*
-	 * Last data.stat file update error.
-	 */
-	int			stat_file_error;
-
-	/*
 	 * @base_dir is a parent directory for @cfg.file
 	 */
 	char			*base_dir;
