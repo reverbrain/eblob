@@ -78,11 +78,11 @@ class eblob {
 		eblob(const char *log_file, const int log_level, struct eblob_config *cfg);
 		virtual ~eblob();
 
-		void write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize,
+		int write(const struct eblob_key &key, const void *data, const uint64_t offset, const uint64_t dsize,
 				uint64_t flags = 0);
-		void write(const struct eblob_key &key, const std::string &data, const uint64_t offset = 0,
+		int write(const struct eblob_key &key, const std::string &data, const uint64_t offset = 0,
 				uint64_t flags = 0);
-		void write_hashed(const std::string &key, const std::string &data, const uint64_t offset,
+		int write_hashed(const std::string &key, const std::string &data, const uint64_t offset,
 				uint64_t flags = 0);
 
 		std::string read(const struct eblob_key &key, const uint64_t offset, const uint64_t size);
@@ -94,35 +94,35 @@ class eblob {
 		int read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
 				enum eblob_read_flavour csum);
 
-		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size);
-		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size,
+		int read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size);
+		int read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size,
 				enum eblob_read_flavour csum);
 		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size);
 		std::string read_hashed(const std::string &key, const uint64_t offset, const uint64_t size,
 				enum eblob_read_flavour csum);
 
-		void remove(const struct eblob_key &key);
-		void remove_hashed(const std::string &key);
+		int remove(const struct eblob_key &key);
+		int remove_hashed(const std::string &key);
 
 		unsigned long long elements(void);
 
 		void remove_blobs(void);
 
-		void iterate(const struct eblob_iterate_callbacks *callbacks, unsigned int flags, void *priv);
+		int iterate(const struct eblob_iterate_callbacks *callbacks, unsigned int flags, void *priv);
 
-		void key(const std::string &key, struct eblob_key &ekey);
+		int key(const std::string &key, struct eblob_key &ekey);
 
-		void prepare(const struct eblob_key &key, const uint64_t size, const uint64_t flags = 0);
-		void prepare_hashed(const std::string &kdata, const uint64_t size, const uint64_t flags = 0);
-		void commit(const struct eblob_key &key, const uint64_t size = -1, const uint64_t flags = -1);
-		void commit_hashed(const std::string &key, const uint64_t size = -1, const uint64_t flags = -1);
-		void plain_write(const struct eblob_key &key, const void *data, const uint64_t offset,
+		int prepare(const struct eblob_key &key, const uint64_t size, const uint64_t flags = 0);
+		int prepare_hashed(const std::string &kdata, const uint64_t size, const uint64_t flags = 0);
+		int commit(const struct eblob_key &key, const uint64_t size = -1, const uint64_t flags = -1);
+		int commit_hashed(const std::string &key, const uint64_t size = -1, const uint64_t flags = -1);
+		int plain_write(const struct eblob_key &key, const void *data, const uint64_t offset,
 				const uint64_t size, const uint64_t flags);
 
-		void truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags = -1);
-		void truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags = -1);
+		int truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags = -1);
+		int truncate_hashed(const std::string &key, const uint64_t size, const uint64_t flags = -1);
 
-		void start_defrag();
+		int start_defrag();
 		int defrag_status();
 
 		struct eblob_log *log() {
