@@ -267,7 +267,7 @@ int eblob_defrag(struct eblob_backend *b)
 				struct eblob_base_ctl * const bctl = bctls[previous];
 				/* If defrag started only for index sort - check that blob's index is unsorted. */
 				if (bctl->sort.fd < 0) {
-					if (err = eblob_generate_sorted_index(b, bctl))
+					if (err = eblob_generate_sorted_index(b, bctl, 0))
 						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: FAILED");
 				}
 				break;

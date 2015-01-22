@@ -278,7 +278,7 @@ again:
 		if (ctl->index_size &&
 				((ctl->data_size >= b->cfg.blob_size) ||
 				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
-			err = eblob_generate_sorted_index(b, ctl);
+			err = eblob_generate_sorted_index(b, ctl, 1);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 						"bctl: index: %d, eblob_generate_sorted_index: FAILED\n", ctl->index);
@@ -627,7 +627,7 @@ static int eblob_scan_base(struct eblob_backend *b)
 		/* Sort only nonempty and unsorted indexes */
 		if (bctl->index_size &&
 		    bctl->sort.fd < 0) {
-			eblob_generate_sorted_index(b, bctl);
+			eblob_generate_sorted_index(b, bctl, 1);
 		}
 	}
 
