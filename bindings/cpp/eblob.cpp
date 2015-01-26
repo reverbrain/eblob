@@ -22,8 +22,17 @@
 
 using namespace ioremap::eblob;
 
-eblob::eblob(const char *log_file, const int log_level, const std::string &eblob_path) :
-	logger_(log_file, log_level)
+static eblob_backend *init_eblob(eblob_config *cfg) {
+	eblob_backend *ret = eblob_init(cfg);
+	if (!ret) {
+		std::ostringstream str;
+		str << "EBLOB: Failed to initialize eblob: " << strerror(-errno);
+	}
+	return ret;
+}
+
+eblob::eblob(const char *log_file, const int log_level, const std::string &eblob_path)
+: logger_(log_file, log_level)
 {
 	struct eblob_config cfg;
 
@@ -32,30 +41,22 @@ eblob::eblob(const char *log_file, const int log_level, const std::string &eblob
 	cfg.log = logger_.log();
 	cfg.sync = 30;
 
-	eblob_ = eblob_init(&cfg);
-	if (!eblob_) {
-		throw std::runtime_error("Failed to initialize eblob");
-	}
+	eblob_ = init_eblob(&cfg);
 }
 
-eblob::eblob(struct eblob_config *cfg) : logger_("/dev/stdout", EBLOB_LOG_ERROR)
+eblob::eblob(struct eblob_config *cfg)
+: logger_("/dev/stdout", EBLOB_LOG_ERROR)
 {
 	if (!cfg->log)
 		cfg->log = logger_.log();
-	eblob_ = eblob_init(cfg);
-	if (!eblob_) {
-		throw std::runtime_error("Failed to initialize eblob");
-	}
+	eblob_ = init_eblob(cfg);
 }
 
-eblob::eblob(const char *log_file, const int log_level, struct eblob_config *cfg) :
-	logger_(log_file, log_level)
+eblob::eblob(const char *log_file, const int log_level, struct eblob_config *cfg)
+: logger_(log_file, log_level)
 {
 	cfg->log = logger_.log();
-	eblob_ = eblob_init(cfg);
-	if (!eblob_) {
-		throw std::runtime_error("Failed to initialize eblob");
-	}
+	eblob_ = init_eblob(cfg);
 }
 
 eblob::~eblob()
@@ -73,7 +74,8 @@ void eblob::write(const struct eblob_key &key, const void *data, const uint64_t 
 	int err = eblob_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, dsize, flags);
 	if (err) {
 		std::ostringstream str;
-		str << "eblob write failed: dsize: " << dsize << ": " << strerror(-err);
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": eblob write failed: offset: "
+			<< offset << ", dsize: " << dsize << ", flags: " << flags << ": " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }
@@ -83,27 +85,25 @@ void eblob::write(const struct eblob_key &key, const std::string &data, const ui
 	write(key, data.data(), offset, data.size(), flags);
 }
 
-int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size)
+void eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size)
 {
-	return read(key, fd, offset, size, EBLOB_READ_CSUM);
+	read(key, fd, offset, size, EBLOB_READ_CSUM);
 }
 
-int eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
-		enum eblob_read_flavour csum)
-{
+void eblob::read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
+		enum eblob_read_flavour csum) {
 	int err;
-
 	if (csum)
 		err = eblob_read(eblob_, (struct eblob_key *)&key, fd, offset, size);
 	else
 		err = eblob_read_nocsum(eblob_, (struct eblob_key *)&key, fd, offset, size);
-	if (err < 0) {
+
+	if (err) {
 		std::ostringstream str;
-		str << "eblob read failed: " << strerror(-err);
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": eblob read failed: offset: "
+			<< offset << ", size: " << size << ": " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
-
-	return err;
 }
 
 std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset, const uint64_t req_size)
@@ -126,7 +126,8 @@ std::string eblob::read(const struct eblob_key &key, const uint64_t req_offset,
 		err = eblob_read_data_nocsum(eblob_, (struct eblob_key *)&key, req_offset, &data, &dsize);
 	if (err < 0) {
 		std::ostringstream str;
-		str << "eblob read failed: " << strerror(-err);
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": eblob read failed: offset: "
+			<< req_offset << ", size: " << dsize << ": " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 
@@ -179,7 +180,13 @@ std::string eblob::read_hashed(const std::string &key, const uint64_t offset, co
 
 void eblob::remove(const struct eblob_key &key)
 {
-	eblob_remove(eblob_, (struct eblob_key *)&key);
+	int err = eblob_remove(eblob_, (struct eblob_key *)&key);
+	if (err) {
+		std::ostringstream str;
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": eblob remove failed: "
+			<< strerror(-err);
+		throw std::runtime_error(str.str());
+	}
 }
 
 unsigned long long eblob::elements(void)
@@ -189,7 +196,13 @@ unsigned long long eblob::elements(void)
 
 void eblob::remove_hashed(const std::string &key)
 {
-	eblob_remove_hashed(eblob_, key.data(), key.size());
+	int err = eblob_remove_hashed(eblob_, key.data(), key.size());
+	if (err) {
+		std::ostringstream str;
+		str << "EBLOB: " << key << ": failed to remove hashed key, err: "
+			<< strerror(-err);
+		throw std::runtime_error(str.str());
+	}
 }
 
 void eblob::remove_blobs(void)
@@ -199,13 +212,11 @@ void eblob::remove_blobs(void)
 
 void eblob::truncate(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
-	int err;
-
-	err = eblob_write_commit(eblob_, (struct eblob_key *)&key, size, flags);
+	int err = eblob_write_commit(eblob_, (struct eblob_key *)&key, size, flags);
 	if (err < 0) {
 		std::ostringstream str;
-		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to truncate/commit to " << size <<
-			", flags: " << flags << ", err: " << err;
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to truncate/commit to "
+			<< size << ", flags: " << flags << ", err: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }
@@ -224,7 +235,7 @@ void eblob::start_defrag()
 	err = eblob_start_defrag(eblob_);
 	if (err) {
 		std::ostringstream str;
-		str << "EBLOB: failed to start defragmentation, err: " << err;
+		str << "EBLOB: failed to start defragmentation, err: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }
@@ -236,13 +247,11 @@ int eblob::defrag_status()
 
 void eblob::prepare(const struct eblob_key &key, const uint64_t size, const uint64_t flags)
 {
-	int err;
-
-	err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, size, flags);
+	int err = eblob_write_prepare(eblob_, (struct eblob_key *)&key, size, flags);
 	if (err) {
 		std::ostringstream str;
 		str << "EBLOB: " << eblob_dump_id(key.id) << ": failed to prepare for size: "
-			<< size << ", err: " << err;
+			<< size << ", err: " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }
@@ -276,7 +285,12 @@ void eblob::iterate(const struct eblob_iterate_callbacks *callbacks, unsigned in
 	ctl.iterator_cb = *callbacks;
 	ctl.priv = priv;
 
-	eblob_iterate(eblob_, &ctl);
+	int err = eblob_iterate(eblob_, &ctl);
+	if (err) {
+		std::ostringstream str;
+		str << "EBLOB: iteration failed: " << strerror(-err);
+		throw std::runtime_error(str.str());
+	}
 }
 
 void eblob::plain_write(const struct eblob_key &key, const void *data, const uint64_t offset,
@@ -285,7 +299,8 @@ void eblob::plain_write(const struct eblob_key &key, const void *data, const uin
 	int err = eblob_plain_write(eblob_, (struct eblob_key *)&key, (void *)data, offset, size, flags);
 	if (err) {
 		std::ostringstream str;
-		str << eblob_dump_id(key.id) << ": eblob plain write failed: offset: " << offset << ", size: " << size << ", flags: " << flags << ": " << strerror(-err);
+		str << "EBLOB: " << eblob_dump_id(key.id) << ": eblob plain write failed: offset: "
+			<< offset << ", size: " << size << ", flags: " << flags << ": " << strerror(-err);
 		throw std::runtime_error(str.str());
 	}
 }

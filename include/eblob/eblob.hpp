@@ -90,8 +90,8 @@ class eblob {
 				enum eblob_read_flavour csum);
 
 		/* read() returns exception on error, zero on success, positive return value if data is compressed */
-		int read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size);
-		int read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
+		void read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size);
+		void read(const struct eblob_key &key, int *fd, uint64_t *offset, uint64_t *size,
 				enum eblob_read_flavour csum);
 
 		void read_hashed(const std::string &key, int *fd, uint64_t *offset, uint64_t *size);
