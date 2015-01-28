@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.14
+Version:	0.22.15
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Jan 28 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.15
+- tests: fixed cpp tests - remove also should use prefixes
+- cpp: made messages of all exception thrown by eblob cpp binding in common style.
+- 	Also made `remove` and `iterate` to throw exception on error.
+
 * Sat Jan 17 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.14
 - indexsort: changed level of log at sanity check while applying binlog. At startup added check that index is unsorted before sort it.
 - flags: added EBLOB_AUTO_INDEXSORT: if this flag is set - eblob will force sorting blob's index after the blob is closed

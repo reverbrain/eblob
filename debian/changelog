@@ -1,3 +1,11 @@
+eblob (0.22.15) unstable; urgency=low
+
+  * tests: fixed cpp tests - remove also should use prefixes
+  * cpp: made messages of all exception thrown by eblob cpp binding in common style.
+  * 	Also made `remove` and `iterate` to throw exception on error.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 28 Jan 2015 15:36:37 +0400
+
 eblob (0.22.14) unstable; urgency=low
 
   * indexsort: changed level of log at sanity check while applying binlog. At startup added check that index is unsorted before sort it.
