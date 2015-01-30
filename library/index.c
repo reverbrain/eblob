@@ -3,17 +3,17 @@
  * All rights reserved.
  *
  * This file is part of Eblob.
- * 
+ *
  * Eblob is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Eblob is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with Eblob.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -49,7 +49,7 @@
 
 #include "blob.h"
 
-#include "react/eblob_react.h"
+#include "measure_points.h"
 
 
 int eblob_key_sort(const void *key1, const void *key2)
@@ -75,7 +75,7 @@ int eblob_disk_control_sort_with_flags(const void *d1, const void *d2)
 	if (cmp == 0) {
 		if ((dc1->flags & BLOB_DISK_CTL_REMOVE) && !(dc2->flags & BLOB_DISK_CTL_REMOVE))
 			cmp = -1;
-		
+
 		if (!(dc1->flags & BLOB_DISK_CTL_REMOVE) && (dc2->flags & BLOB_DISK_CTL_REMOVE))
 			cmp = 1;
 	}
@@ -148,7 +148,6 @@ int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl)
 struct eblob_index_block *eblob_index_blocks_search_nolock_bsearch_nobloom(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
-	react_start_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK_BSEARCH_NOBLOOM);
 	struct eblob_index_block *t = NULL;
 
 	/*
@@ -161,20 +160,16 @@ struct eblob_index_block *eblob_index_blocks_search_nolock_bsearch_nobloom(struc
 	if (t)
 		st->found_index_block++;
 
-	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK_BSEARCH_NOBLOOM);
 	return t;
 }
 
 struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		struct eblob_disk_search_stat *st)
 {
-	react_start_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
-
 	struct eblob_index_block *t = NULL;
 
 	if (!eblob_bloom_get(bctl, &dc->key)) {
 		st->bloom_null++;
-		react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 		return NULL;
 	}
 
@@ -182,7 +177,6 @@ struct eblob_index_block *eblob_index_blocks_search_nolock(struct eblob_base_ctl
 	if (!t)
 		st->no_block++;
 
-	react_stop_action(ACTION_EBLOB_INDEX_BLOCK_SEARCH_NOLOCK);
 	return t;
 }
 
@@ -334,7 +328,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc),
 		struct eblob_disk_search_stat *st)
 {
-	react_start_action(ACTION_EBLOB_FIND_ON_DISK);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.lookup.one", b->cfg.stat_id));
 
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *start, *found = NULL;
 	struct eblob_disk_control *search_start, *search_end;
@@ -376,7 +370,7 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n", 
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: start: %p, end: %p, blob_start: %p, blob_end: %p, num: %zd\n",
 			eblob_dump_id(dc->key.id),
 			search_start, search_end, bctl->sort.data, bctl->sort.data + bctl->sort.size, num);
 
@@ -421,7 +415,6 @@ static struct eblob_disk_control *eblob_find_on_disk(struct eblob_backend *b,
 	}
 
 out:
-	react_stop_action(ACTION_EBLOB_FIND_ON_DISK);
 	return found;
 }
 
@@ -749,7 +742,7 @@ static char *eblob_dump_search_stat(const struct eblob_disk_search_stat *st, int
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
-	react_start_action(ACTION_EBLOB_DISK_INDEX_LOOKUP);
+	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.lookup", b->cfg.stat_id));
 
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control *dc, tmp = { .key = *key, };
@@ -822,7 +815,6 @@ again:
 
 	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, st.loops);
 
-	react_stop_action(ACTION_EBLOB_DISK_INDEX_LOOKUP);
 	return err;
 }
 

@@ -3,17 +3,17 @@
  * All rights reserved.
  *
  * This file is part of Eblob.
- * 
+ *
  * Eblob is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * Eblob is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with Eblob.  If not, see <http://www.gnu.org/licenses/>.
  */
@@ -45,7 +45,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "react/eblob_react.h"
+#include "measure_points.h"
 
 #if !defined(_D_EXACT_NAMLEN) && (defined(__FreeBSD__) || defined(__APPLE__))
 #define _D_EXACT_NAMLEN(d) ((d)->d_namlen)
@@ -675,8 +675,10 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	/* Bump counters only if entry was added and not replaced */
-	if (err == 0 && replaced == 0)
+	if (err == 0 && replaced == 0) {
 		eblob_stat_add(b->stat, EBLOB_GST_CACHED, entry_size);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.cache.size", b->cfg.stat_id), 1);
+	}
 
 err_out_exit:
 	pthread_rwlock_unlock(&b->hash.root_lock);
@@ -697,8 +699,10 @@ int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 		entry_size = EBLOB_HASH_ENTRY_SIZE;
 	}
 
-	if (err == 0)
+	if (err == 0) {
 		eblob_stat_sub(b->stat, EBLOB_GST_CACHED, entry_size);
+		FORMATTED(HANDY_COUNTER_DECREMENT, ("eblob.%u.cache.size", b->cfg.stat_id), 1);
+	}
 
 	return err;
 }
@@ -716,10 +720,9 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key)
 int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *res, int *diskp)
 {
-	react_start_action(ACTION_EBLOB_CACHE_LOOKUP);
-
 	int err = 1, disk = 0;
 
+	FORMATTED(HANDY_TIMER_START, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
 	pthread_rwlock_rdlock(&b->hash.root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		/* If l2hash is enabled - look in it */
@@ -729,6 +732,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		err = eblob_hash_lookup_nolock(&b->hash, key, res);
 	}
 	pthread_rwlock_unlock(&b->hash.root_lock);
+	FORMATTED(HANDY_TIMER_STOP, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
 
 	if (err == -ENOENT) {
 		/* Look on disk */
@@ -741,7 +745,6 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	if (diskp != NULL)
 		*diskp = disk;
-	react_stop_action(ACTION_EBLOB_CACHE_LOOKUP);
 	return err;
 }
 

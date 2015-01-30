@@ -9,10 +9,6 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <react/rapidjson/document.h>
-#include <react/rapidjson/writer.h>
-#include <react/rapidjson/stringbuffer.h>
-
 /*!
  * Eblob json statistics has follow schema
  * {
@@ -120,6 +116,10 @@ extern "C" {
  * 	}
  * }
  */
+
+#include <handystats/rapidjson/document.h>
+#include <handystats/rapidjson/writer.h>
+#include <handystats/rapidjson/stringbuffer.h>
 
 struct json_stat_cache {
 	json_stat_cache()
