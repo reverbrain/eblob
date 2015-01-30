@@ -17,8 +17,6 @@ set(EBLOB_SRCS
 add_definitions(-D__STDC_LIMIT_MACROS)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++0x")
 
-add_subdirectory(react)
-
 add_library(eblob SHARED ${EBLOB_SRCS})
 
 set_target_properties(eblob PROPERTIES
@@ -27,7 +25,7 @@ set_target_properties(eblob PROPERTIES
     LINKER_LANGUAGE CXX
     )
 
-target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} eblob_react rt)
+target_link_libraries(eblob ${EBLOB_LIBRARIES} ${Boost_SYSTEM_LIBRARIES} handystats rt)
 
 install(TARGETS eblob
     LIBRARY DESTINATION lib${LIB_SUFFIX}

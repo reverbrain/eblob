@@ -15,7 +15,10 @@ set(EBLOB_VERSION "${EBLOB_VERSION_ABI}.${EBLOB_VERSION_MINOR}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 include(cmake/Modules/locate_library.cmake)
-locate_library(REACT "react/react.hpp" "react")
+
+locate_library(HANDYSTATS "handystats/core.hpp" "handystats")
+include_directories(${HANDYSTATS_INCLUDE_DIRS})
+link_directories(${HANDYSTATS_LIBRARY_DIRS})
 
 include(CheckAtomic)
 include(CheckSymbolExists)
@@ -28,6 +31,7 @@ option(WITH_TSAN "Enable thread sanitizer" OFF)
 option(WITH_PYTHON "Build python bindings" ON)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_TESTS "Build tests" ON)
+option(WITH_STATS "Build with runtime statistics gathering" ON)
 
 # Turn off aserts
 if (NOT WITH_ASSERTS)
@@ -133,12 +137,10 @@ message(STATUS "  Boost_LIBRARIES: ${Boost_LIBRARIES}")
 include_directories(
 	${CMAKE_SOURCE_DIR}/include/
 	${Boost_INCLUDE_DIRS}
-	${REACT_INCLUDE_DIRS}
 )
 
 link_directories(
 	${Boost_LIBRARY_DIRS}
-	${REACT_LIBRARY_DIRS}
 )
 
 
@@ -168,10 +170,26 @@ if (HAVE_FDATASYNC)
     add_definitions(-DHAVE_FDATASYNC)
 endif()
 
+# Check for handystats
+if (WITH_STATS)
+    find_package(Handystats REQUIRED)
+    include_directories(${HANDYSTATS_INCLUDE_DIRS})
+    add_definitions(${HANDYSTATS_CFLAGS})
+else()
+    # Handystats symbols are spilled across many source files,
+    # so even if we do want to disable handystats instrumentation,
+    # handystats headers still needed to define macros as empty stubs.
+    find_package(Handystats)
+    if (HANDYSTATS_FOUND)
+        add_definitions(${HANDYSTATS_CFLAGS})
+        add_definitions("-DHANDYSTATS_DISABLE=1")
+    endif()
+endif()
+
 # Collect all libraries together
-set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SANITIZER_LIBRARY} ${REACT_LIBRARIES})
-set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY} ${REACT_LIBRARIES})
-set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${REACT_LIBRARIES})
+set(EBLOB_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${SANITIZER_LIBRARY})
+set(EBLOB_CPP_LIBRARIES ${CMAKE_THREAD_LIBS_INIT} ${Boost_IOSTREAMS_LIBRARY} ${Boost_THREAD_LIBRARY} ${Boost_REGEX_LIBRARY})
+set(EBLOB_PYTHON_LIBRARIES ${Boost_PYTHON_LIBRARY} ${PYTHON_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 # Build parts
 add_subdirectory(library)
