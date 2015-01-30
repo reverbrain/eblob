@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.15
+Version:	0.22.16
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Jan 30 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.16
+- doc: Added example/statistics.qdoc that describes statistics collected by eblob
+- Got rid of react and added using handystats. Added configurable stat_id which identifies eblob instance statistics at handystats.
+
 * Wed Jan 28 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.15
 - tests: fixed cpp tests - remove also should use prefixes
 - cpp: made messages of all exception thrown by eblob cpp binding in common style.
