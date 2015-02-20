@@ -15,7 +15,7 @@ off_t get_file_size(const std::string &filename)
 inline bool check_record(const struct eblob_disk_control &dc, uint64_t offset, size_t blob_length)
 {
 	static const uint64_t hdr_size = sizeof(struct eblob_disk_control);
-	if (dc.disk_size < offset + hdr_size) {
+	if (dc.disk_size < dc.data_size + hdr_size) {
 		std::cerr << "malformed entry: disk_size is less than data_size + hdr_size: "
 			"offset: " << offset << '\n' <<
 			"key: " << eblob_dump_id(dc.key.id) << std::endl;
@@ -27,7 +27,7 @@ inline bool check_record(const struct eblob_disk_control &dc, uint64_t offset, s
 	}
 
 	if (blob_length < offset + dc.disk_size) {
-		std::cerr << "malformed entry: offset + data_size is outside of blob: "
+		std::cerr << "malformed entry: offset + disk_size is outside of blob: "
 			"offset: " << offset << std::endl;
 		return false;
 	}
