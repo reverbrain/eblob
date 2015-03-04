@@ -4,7 +4,7 @@ before_install:
   - echo "deb http://repo.reverbrain.com/precise/ current/amd64/" | sudo tee -a /etc/apt/sources.list
   - echo "deb http://repo.reverbrain.com/precise/ current/all/" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -qq
-  - sudo apt-get install -qq devscripts build-essential equivs python-all react
+  - sudo apt-get install -qq devscripts build-essential equivs python-all
 compiler:
   - gcc
   - clang

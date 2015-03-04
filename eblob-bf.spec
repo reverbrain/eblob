@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.13
+Version:	0.22.16
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -22,7 +22,7 @@ BuildRequires:	gcc44 gcc44-c++
 BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-regex, boost%{boost_ver}-system, boost%{boost_ver}-thread
 BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
-BuildRequires:	react-devel >= 2.3.1
+BuildRequires:	handystats >= 1.10.2
 
 %description
 libeblob is a low-level IO library which stores data in huge blob files
@@ -108,6 +108,20 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Jan 30 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.16
+- doc: Added example/statistics.qdoc that describes statistics collected by eblob
+- Got rid of react and added using handystats. Added configurable stat_id which identifies eblob instance statistics at handystats.
+
+* Wed Jan 28 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.15
+- tests: fixed cpp tests - remove also should use prefixes
+- cpp: made messages of all exception thrown by eblob cpp binding in common style.
+- 	Also made `remove` and `iterate` to throw exception on error.
+
+* Sat Jan 17 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.14
+- indexsort: changed level of log at sanity check while applying binlog. At startup added check that index is unsorted before sort it.
+- flags: added EBLOB_AUTO_INDEXSORT: if this flag is set - eblob will force sorting blob's index after the blob is closed
+- json: fixed comment indent
+
 * Tue Nov 04 2014 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.13
 - index: bctl->sort must be set before filling index block
 

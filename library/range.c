@@ -61,9 +61,9 @@ static int eblob_id_in_range(const unsigned char *id, const unsigned char *start
 static int eblob_disk_control_in_range(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		ssize_t pos, struct eblob_key *start, struct eblob_key *end)
 {
-    int err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), pos * sizeof(struct eblob_disk_control));
-    if (err)
-        return 0;
+	int err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), pos * sizeof(struct eblob_disk_control));
+	if (err)
+		return 0;
 	eblob_convert_disk_control(dc);
 
 	return eblob_id_in_range(dc->key.id, start->id, end->id);
@@ -76,14 +76,14 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 	ssize_t low, high, i, found = -1;
 	struct eblob_disk_control dc;
 	int cmp;
-    int err;
+	int err;
 
 	for (low = -1, high = num; high - low > 1; ) {
 		i = low + (high - low)/2;
 
-        err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(dc), i * sizeof(dc));
-        if (err)
-            break;
+		err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(dc), i * sizeof(dc));
+		if (err)
+			break;
 
 		eblob_convert_disk_control(&dc);
 

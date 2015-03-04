@@ -85,16 +85,18 @@ class eblob_test {
 			}
 		}
 
-		void remove(int start)
+		void remove(int start, const std::vector<std::string>& prefixes)
 		{
 			for (int i = start; i < m_iterations; ++i) {
-				std::ostringstream key;
+				for(std::vector<std::string>::const_iterator p = prefixes.begin();
+						p != prefixes.end(); ++p) {
+					std::ostringstream key;
+					key << *p << m_key_base << i;
 
-				key << m_key_base << i;
-
-				struct eblob_key ekey;
-				m_blob->key(key.str(), ekey);
-				m_blob->remove(ekey);
+					struct eblob_key ekey;
+					m_blob->key(key.str(), ekey);
+					m_blob->remove(ekey);
+				}
 			}
 			m_iterations = start;
 		}
@@ -137,7 +139,7 @@ int main()
 		t.check(prefixes);
 
 		// Fragment
-		t.remove(iterations / 4);
+		t.remove(iterations / 4, prefixes);
 
 		// Wait
 		std::cout << "Sleeping " << timeout << " seconds waiting for defragmentation" << std::endl;

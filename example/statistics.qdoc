@@ -1,0 +1,407 @@
+/*
+ * 2015+ Copyright (c) Kirill Smorodinnikov <shaitkir@gmail.com>
+ *
+ * This file is part of Elliptics.
+ *
+ * Elliptics is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Elliptics is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Elliptics.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*!
+
+\page statistics.html Statistics
+\brief Description of eblob statistics
+
+\tableofcontent
+
+\section introduction Introduction
+
+Eblob collects different statistics. It includes internal statistics and statistics provided by handystats.
+Internal statistics can be gotten by @eblob_stat_json_get method which allocates and fills json_stat string.
+Handystats has a several `measure point` which collects eblob performance information.
+Eblob doesn't provide interface for getting statistics collected by handystats, doesn't initialize handystats core
+and expects that handystats core is initialized by user.
+
+Also eblob dumps some part of internal statistics to stat file.
+
+\section internalstatistics Eblob internal statistics
+
+Json of eblob internal statistics has follow schema:
+
+`{
+	"description": "Eblob internal statistics json schema",
+	"type": "object",
+	"global_stats": {
+		"description": "Global eblob instance statistics",
+		"type": "object",
+		"datasort_start_time": {
+			"description": "Unix timestamp of the last defragmentation start",
+			"type": "integer" },
+		"read_copy_updates": {
+			"description": "number of successed data copying from old place to new",
+			"type": "integer" },
+		"prepare_reused":{
+			"description": "number of prepares which was succeded by using current place",
+			"type": "integer" },
+		"memory_index_tree":{
+			"description": "size of in-memory index tree",
+			"type": "integer" },
+		"lookup_reads_number":{
+			"description": "number of lookups for @fd, @offset and @size by key",
+			"type": "integer" },
+		"data_reads_number":{
+			"description": "number of data reads made by eblob",
+			"type": "integer" },
+		"writes_number":{
+			"description": "number of writes",
+			"type": "integer" },
+		"reads_size":{
+			"description": "total size of read data made by eblob",
+			"type": "integer" },
+		"writes_size":{
+			"description": "total size of written data",
+			"type": "integer" },
+		"index_files_reads_number":{
+			"description": "number of index files that was processed by eblob while looking up records "on-disk".",
+			"type": "integer" },
+		"datasort_completion_time":{
+			"description": "end timestamp of the last defragmentation",
+			"type": "integer" },
+		"datasort_completion_status":{
+			"description": "status of last deframentation",
+			"type": "integer" } },
+	"summary_stats": {
+		"description": "summary statistics for all blobs",
+		"records_total": {
+			"description": "total number of records in all blobs both real and removed",
+			"type": "integer" },
+		"records_removed": {
+			"description": "total number of removed records in all blobs",
+			"type": "integer" },
+		"records_removed_size": {
+			"description": "total size of all removed records in all blobs",
+			"type": "integer" },
+		"records_corrupted": {
+			"description": "total number of corrupted records in all blobs",
+			"type": "integer" },
+		"base_size": {
+			"description": "total size of all blobs",
+			"type": "integer" },
+		"memory_bloom_filter": {
+			"description": "total size of all in-memory bloom filter for all blobs",
+			"type": "integer" },
+		"memory_index_blocks": {
+			"description": "total size of all in-memory index blocks for all blobs",
+			"type": "integer" },
+		"want_defrag": {
+			"description": "summ of "want_defrag" of all blobs",
+			"type": "integer" },
+		"is_sorted": {
+			"description": "number of sorted blobs",
+			"type": "integer" } },
+	"base_stats": {
+		"description": "collection of per blob statistics",
+		"type": "object",
+		"data-0.[0-9]*": {
+			"description": "one blob statistics",
+			"type": "object",
+			"records_total": {
+				"description": "number of records in the blob",
+				"type": "number" },
+			"records_removed": {
+				"description": "number of removed records in the blob",
+				"type": "number" },
+			"records_removed_size": {
+				"description": "size of all removed records in the blob",
+				"type": "number" },
+			"records_corrupted": {
+				"description": "number of corrupted records in the blob",
+				"type": "number" },
+			"base_size": {
+				"description": "size of the blob",
+				"type": "number" },
+			"memory_bloom_filter": {
+				"description": "size of in-memory bloom filter for the blob",
+				"type": "number" },
+			"memory_index_blocks": {
+				"description": "size of all in-memory index block for the blob",
+				"type": "number" },
+			"want_defrag": {
+				"description": "the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h",
+				"type": { "enum": [ 0, 1, 2, 3]} },
+			"string_want_defrag":{
+				"description": "string representation of blob defragmentation status"
+				"type": { "enum": [ "not_needed", "needed", "can_be_removed", "can_be_merged", "unknown" ] } },
+			"is_sorted": {
+				"description": "shows if the blob is sorted. 0 - unsorted, 1 - sorted",
+				"type": { "enum": [ 0, 1 ]} }
+		} ,... },
+	"config": {
+		"description": "configuration with which eblob is working",
+		"type": "object",
+		"blob_flags": {
+			"description": "bit mask of flags",
+			"type": "integer" },
+		"string_blob_flags": {
+			"description": "string representation of blob flags",
+			"type": "string",
+			"pattern": "flags hex [flags strings devided by |]" },
+		"sync": {
+			"description": "sync timeout in seconds",
+			"type": "integer" },
+		"data": {
+			"destination": "path template for blobs",
+			"type": "string" },
+		"blob_size": {
+			"description": "maximum size of one blob",
+			"type": "integer" },
+		"records_in_blob": {
+			"description": "maximum number of records in one blob",
+			"type": "integer" },
+		"defrag_percentage": {
+			"description": "percentage removed/total records that will be a trigger for blob defragmentation",
+			"type": "integer" },
+		"defrag_timeout": {
+			"description": "timeout for auto-defragmentation",
+			"type": "integer" },
+		"index_block_size": {
+			"description": "size of one index block",
+			"type": "integer" },
+		"index_block_bloom_length": {
+			"description": "length of one index block bloom filter",
+			"type": "integer" },
+		"blob_size_limit": {
+			"description": "maximum size of all blobs",
+			"type": "integer" },
+		"defrag_time": {
+			"description": "scheduled defragmentation start time and splay",
+			"type": "integer" },
+		"defrag_splay": {
+			"description": "scheduled defragmentation start time and splay",
+			"type": "integer" } },
+	"vfs": {
+		"description": "statvfs statistics",
+		"type": "object",
+		"timestamp": {
+			"description": "timestamp when vfs stat were collected",
+			"type": "object",
+			"tv_sec": {
+				"description": "seconds part of timestamp",
+				"type": "integer" },
+			"tv_usec": {
+				"description": "microseconds part of timestamp",
+				"type": "integer" } },
+		"string_timestamp": {
+			"description": "string representation of previous timestamp",
+			"type": "string" },
+		"bsize": {
+			"description": "file system block size",
+			"type": "integer" },
+		"frsize": {
+			"description": "fragment size",
+			"type": "integer" },
+		"blocks": {
+			"description": "size of fs in f_frsize units",
+			"type": "integer" },
+		"bfree": {
+			"description": "free blocks",
+			"type": "integer" },
+		"bavail": {
+			"description": "free blocks for unprivileged users",
+			"type": "integer" },
+		"files": {
+			"description": "inodes",
+			"type": "integer" },
+		"ffree": {
+			"description": "free inodes",
+			"type": "integer" },
+		"favail": {
+			"description": "free inodes for unprivileged users",
+			"type": "integer" },
+		"fsid": {
+			"description": "file system ID",
+			"type": "integer" },
+		"flag": {
+			"description": "mount flags",
+			"type": "integer" },
+		"namemax": {
+			"description": "maximum filename length",
+			"type": "integer" } },
+	"dstat": {
+		"description": "this statistics is gathered from sysfs and more details can be found at https://www.kernel.org/doc/Documentation/block/stat.txt",
+		"type": "object",
+		"timestamp": {
+			"description": "timestamp when dstat was collected",
+			"type": "object",
+			"tv_sec": {
+				"description": "seconds part of timestamp",
+				"type": "integer" },
+			"tv_usec": {
+				"description": "microseconds part of timestamp",
+				"type": "integer" } },
+		"string_timestamp": {
+			"description": "string representation of previous timestamp",
+			"type": "string" },
+		"read_ios": {
+			"description": "number of read I/Os processed",
+			"type": "number" },
+		"read_merges": {
+			"description": "number of read I/Os merged with in-queue I/O",
+			"type": "number" },
+		"read_sectors": {
+			"description": "number of sectors read",
+			"type": "number" },
+		"read_ticks": {
+			"description": "total wait time for read requests",
+			"type": "number" },
+		"write_ios": {
+			"description": "number of write I/Os processed",
+			"type": "number" },
+		"write_merges": {
+			"description": "number of write I/Os merged with in-queue I/O",
+			"type": "number" },
+		"write_sectors": {
+			"description": "number of sectors written",
+			"type": "number" },
+		"write_ticks": {
+			"description": "total wait time for write requests",
+			"type": "number" },
+		"in_flight": {
+			"description": "number of I/Os currently in flight",
+			"type": "number" },
+		"io_ticks": {
+			"description": "total time this block device has been active",
+			"type": "number" },
+		"time_in_queue": {
+			"description": "total wait time for all requests",
+			"type": "number" } },
+	"timestamp": {
+		"description": "timestamp when all statistics were collected",
+		"type": "object",
+		"tv_sec": {
+			"description": "seconds part of timestamp",
+			"type": "integer" },
+		"tv_usec": {
+			"description": "microseconds part of timestamp",
+			"type": "integer" } },
+	"error": {
+		"description": "optional field, it tells that cached json is too old",
+		"type": "object",
+		"code": {
+			"description": "error code",
+			"type": "number" },
+		"message": {
+			"description": "error message",
+			"type": "string" },
+		"lifetime": {
+			"description": "lifetime of cached json",
+			"type": "number" },
+		"lifetime_limit": {
+			"description": "current limit on cached json lifetime",
+			"type": "number" },
+		"current_timestamp": {
+			"description": "timestamp when cached json lifetime was checked",
+			"type": "object",
+			"tv_sec": {
+				"description": "seconds part of timestamp",
+				"type": "integer" },
+			"tv_usec": {
+				"description": "microseconds part of timestamp",
+				"type": "integer" } } }
+}`
+
+\section handystats Handystats statistics
+
+All handystats statistics has a prefix "eblob.<stat_id>." where @stat_id is statistics identifier of
+eblob instance. By default, @stat_id is 0 and can be changed by changing @eblob_config.stat_id.
+
+- read commands stats:
+	- eblob.<stat_id>.disk.read - time of lookuping key and returning it's fd, offset and size
+	- eblob.<stat_id>.disk.read.errors - number of failed reads
+	- eblob.<stat_id>.disk.read_data - time of creatiing buffer, lookuping the key and reading the data into the buffer
+	- eblob.<stat_id>.disk.read_data.errors - number of failed read_data
+- write commands stats:
+	- eblob.<stat_id>.disk.write.raw - time of writing eblob_iovec to a blob
+	- eblob.<stat_id>.disk.write.prepare.disk.ll - time of low level preparing record for new data which includes:
+		- creating new blob if it is needed
+		- preallocation place for the key
+		- copying old record to the new place if it is needed
+	- eblob.<stat_id>.disk.write - full time of write which includes all phases of write
+	- eblob.<stat_id>.disk.write.prepare.disk - time of middle level prepare place for new data which
+	- eblob.<stat_id>.disk.write.prepare - time of high level preparing place for new data which can do not call
+		middle level if old data exists and new data can be placed in place of the old data.
+	- eblob.<stat_id>.disk.write.footer - time of writing footer which includes csum calculation and writing footer to disk
+	- eblob.<stat_id>.disk.write.plain.errors - number of failed plain writes
+	- eblob.<stat_id>.disk.write.commit.ll - time of updating key header in index and blob on disk
+	- eblob.<stat_id>.disk.write.commit - time of writeing footer, updating header on disk and ram
+	- eblob.<stat_id>.disk.write.rewrites - number of successful rewrites
+	- eblob.<stat_id>.disk.write.errors - number of failed writes
+	- eblob.<stat_id>.disk.write.move.size - size of data which was moved from the previous place to the new one while preparing
+- remove commands stats:
+	- eblob.<stat_id>.disk.remove - time of removing
+	- eblob.<stat_id>.disk.remove.errors - number of failed removes
+- lookup commands stats:
+	- eblob.<stat_id>.lookup - time of lookuping a key and filling write_control structure
+	- eblob.<stat_id>.cache.lookup - time of lookuping a key in the cache
+	- eblob.<stat_id>.disk.lookup.one - time of lookuping a key in a index-file
+	- eblob.<stat_id>.disk.lookup - time of lookuping a key in all sorted index-files
+- cache statistics:
+	- eblob.<stat_id>.cache.size - number of elements in eblob cache
+- supporting commands stats:
+	- eblob.<stat_id>.hash - time of data hashing
+	- eblob.<stat_id>.csum - time of data csum calculation which includes mmaping and hashing data
+	- eblob.<stat_id>.csum.ok - time of checking csum which includes mmaping data, data csuming and csums comparing
+	- eblob.<stat_id>.disk.stat_commit.errors - number of failed data_stat updates
+
+\section statfile Eblob stat file
+
+Eblob periodically dumps some internal statistics into stat file which is located at @eblob_config.file + ".stat".
+The stat file has follow structure:
+
+`
+GLOBAL:					// Global eblob instance statistics
+datasort_start_time: 0			// Unix timestamp of the last defragmentation start
+read_copy_updates: 0			// number of successed data copying from old place to new
+prepare_reused: 0			// number of prepares which was succeded by using current place
+memory_index_tree: 34344		// size of in-memory index tree
+lookup_reads_number: 0			// number of lookups for @fd, @offset and @size by key
+data_reads_number: 0			// number of data reads made by eblob
+writes_number: 0			// number of writes
+reads_size: 0				// total size of read data made by eblob
+writes_size: 0				// total size of written data
+index_files_reads_number: 0		// number of index files that was processed by eblob while looking up records "on-disk".
+datasort_completion_time: 0		// end timestamp of the last defragmentation
+datasort_completion_status: 0		// status of last deframentation
+
+SUMMARY:				// summary statistics for all blobs
+records_total: 989			// total number of records in all blobs both real and removed
+records_removed: 0			// total number of removed records in all blobs
+records_removed_size: 0			// total size of all removed records in all blobs
+records_corrupted: 0			// total number of corrupted records in all blobs
+base_size: 103075342808			// total size of all blobs
+memory_bloom_filter: 8320		// total size of all in-memory bloom filter for all blobs
+memory_index_blocks: 1872		// total size of all in-memory index blocks for all blobs
+want_defrag: 0				// summ of "want_defrag" of all blobs
+is_sorted: 1				// number of sorted blobs
+
+BASE: data-0.[0-9]*			// one blob statistics
+records_total: 512			// number of records in the blob
+records_removed: 0			// number of removed records in the blob
+records_removed_size: 0			// size of all removed records in the blob
+records_corrupted: 0			// number of corrupted records in the blob
+base_size: 53687250944			// size of the blob
+memory_bloom_filter: 8320		// size of in-memory bloom filter for the blob
+memory_index_blocks: 1872		// size of all in-memory index block for the blob
+want_defrag: 0				// the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h
+is_sorted: 1				// shows if the blob is sorted. 0 - unsorted, 1 - sorted
+`

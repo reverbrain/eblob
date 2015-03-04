@@ -9,117 +9,9 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <react/rapidjson/document.h>
-#include <react/rapidjson/writer.h>
-#include <react/rapidjson/stringbuffer.h>
-
-/*!
- * Eblob json statistics has follow schema
- * {
- * 	"global_stats": {
- * 		"datasort_start_time": 0,		// start timestamp of the last defragmentation
- * 		"read_copy_updates": 0,			// number of successed data copying from old place to new
- * 		"prepare_reused": 0,			// number of times when prepare was succeded by using current place
- * 		"memory_index_tree": 0,			// size of in-memory index tree
- * 		"lookup_reads_number": 0,		// number of lookups for @fd, @offset and @size by key
- * 		"data_reads_number": 0,			// number of data reads made by eblob
- * 		"writes_number": 0,			// number of writes
- * 		"reads_size": 0,			// total size of read data made by eblob
- * 		"writes_size": 0,			// total size of written data
- * 		"index_files_reads_number": 0,		// number of index files that was processed by eblob while looking up records "on-disk".
- * 		"datasort_completion_time": 0,		// end timestamp of the last defragmentation
- * 		"datasort_completion_status": 0		// status of last deframentation
- * 	},
- * 	"summary_stats": {				// summary statistics for all blobs
- * 		"records_total": 301,			// total number of records in all blobs both real and removed
- * 		"records_removed": 0,			// total number of removed records in all blobs
- * 		"records_removed_size": 0,		// total size of all removed records in all blobs
- * 		"records_corrupted": 0,			// total number of corrupted records in all blobs
- * 		"base_size": 105156713,			// total size of all blobs
- * 		"memory_bloom_filter": 5120,		// total size of all in-memory bloom filter for all blobs
- * 		"memory_index_blocks": 1152,		// total size of all in-memory index blocks for all blobs
- * 		"want_defrag": 0,			// summ of "want_defrag" of all blobs
- * 		"is_sorted": 0				// number of sorted blobs
- * 	},
- * 	"base_stats": {					// statistics per blobs
- * 		"data-0.0": {				// "data-0.0" statistics
- * 			"records_total": 301,		// number of records in the blob
- * 			"records_removed": 0,		// number of removed records in the blob
- * 			"records_removed_size": 0,	// size of all removed records in the blob
- * 			"records_corrupted": 0,		// number of corrupted records in the blob
- * 			"base_size": 105156713,		// size of the blob
- * 			"memory_bloom_filter": 5120,	// size of in-memory bloom filter for the blob
- * 			"memory_index_blocks": 1152,	// size of all in-memory index block for the blob
- * 			"want_defrag": 0,		// the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h
- * 			"string_want_defrag":		// string representation of blob defragmentation status
- * 			"is_sorted": 0			// shows if the blob is sorted
- * 		}
- * 	},
- * 	"config": {					// configuration with which eblob is working
- * 		"blob_flags": 1,			// bit mask of flags
- * 		"string_blob_flags": "0x40 [l2hash]"	// string representation of blob flags
- * 		"sync": 30,				// sync timeout in seconds
- * 		"data": "/opt/elliptics/1.1/data",	// path template for blobs
- * 		"blob_size": 10737418240,		// maximum size of one blob
- * 		"records_in_blob": 50,			// maximum number of records in one blob
- * 		"defrag_percentage": 100,		// percentage removed/total records that will be a trigger for blob defragmentation
- * 		"defrag_timeout": 60,			// timeout for auto-defragmentation
- * 		"index_block_size": 40,			// size of one index block
- * 		"index_block_bloom_length": 5120,	// length of one index block bloom filter
- * 		"blob_size_limit": 0,			// maximum size of all blobs
- * 		"defrag_time": 0,			// scheduled defragmentation start time and splay
- * 		"defrag_splay": 0			// scheduled defragmentation start time and splay
- * 	},
- * 	"vfs": {					// statvfs statistics
- * 		"timestamp": {				// timestamp when vfs stat were collected
- *			"tv_sec": 123123,
- *			"tv_usec": 123123
- *		},
- * 		"bsize": 4096,				// file system block size
- * 		"frsize": 4096,				// fragment size
- * 		"blocks": 754909842,			// size of fs in f_frsize units
- * 		"bfree": 754119439,			// free blocks
- * 		"bavail": 715770547,			// free blocks for unprivileged users
- * 		"files": 191750144,			// inodes
- * 		"ffree": 191729989,			// free inodes
- * 		"favail": 191729989,			// free inodes for unprivileged users
- * 		"fsid": 14549465280769991588,		// file system ID
- * 		"flag": 1024,				// mount flags
- * 		"namemax": 255				// maximum filename length
- * 	},
- * 	"dstat": { 					// this statistics is gathered from sysfs and more details can be found at https://www.kernel.org/doc/Documentation/block/stat.txt
- * 		"timestamp": {				// timestamp when dstat were collected
- * 			"tv_sec": 123123,
- * 			"tv_usec": 123123
- * 		},
- * 		"read_ios": 4645,			// number of read I/Os processed
- * 		"read_merges": 0,			// number of read I/Os merged with in-queue I/O
- * 		"read_sectors": 176922,			// number of sectors read
- * 		"read_ticks": 0,			// total wait time for read requests
- * 		"write_ios": 9057594,			// number of write I/Os processed
- * 		"write_merges": 0,			// number of write I/Os merged with in-queue I/O
- * 		"write_sectors": 402940832,		// number of sectors written
- * 		"write_ticks": 0,			// total wait time for write requests
- * 		"in_flight": 0,				// number of I/Os currently in flight
- * 		"io_ticks": 0,				// total time this block device has been active
- * 		"time_in_queue": 0			// total wait time for all requests
- * 	},
- * 	"timestamp": {					//timestamp when all statistics were collected
- * 		"tv_sec": 123123,
- * 		"tv_usec": 123123
- * 	},
- * 	"error": {					// optional field, it tells that cached json is too old
- * 		"code": 110,				// error code
- * 		"message": "cached json is too old",	// error message
- * 		"lifetime": 312943923847,		// lifetime of cached json
- * 		"lifetime_limit": 60000000,		// current limit on cached json lifetime
- * 		"current_timestamp": {			// timestamp when cached json lifetime was checked
- * 			"tv_sec": 123123,
- * 			"tv_usec": 123123
- * 		}
- * 	}
- * }
- */
+#include <handystats/rapidjson/document.h>
+#include <handystats/rapidjson/writer.h>
+#include <handystats/rapidjson/stringbuffer.h>
 
 struct json_stat_cache {
 	json_stat_cache()
@@ -130,20 +22,6 @@ struct json_stat_cache {
 	std::mutex		lock;
 	timeval			timestamp;
 };
-
-static inline const char *print_time(const struct timeval *t)
-{
-	char str[64];
-	struct tm tm;
-
-	static __thread char __print_time[128];
-
-	localtime_r((time_t *)&t->tv_sec, &tm);
-	strftime(str, sizeof(str), "%F %R:%S", &tm);
-
-	snprintf(__print_time, sizeof(__print_time), "%s.%06llu", str, (long long unsigned) t->tv_usec);
-	return __print_time;
-}
 
 static void eblob_stat_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
 	rapidjson::Value timestamp(rapidjson::kObjectType);
@@ -156,21 +34,12 @@ static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, r
 	timeval tv;
 	gettimeofday(&tv, NULL);
 	eblob_stat_add_timestamp_raw(stat, name, tv, allocator);
-	stat.AddMember((std::string("string_") + name).c_str(), print_time(&tv), allocator);
 }
 
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (uint32_t i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
 		stat.AddMember(eblob_stat_get_name(b->stat, i), eblob_stat_get(b->stat, i), allocator);
-
-	timeval stat_time;
-	stat_time.tv_sec = b->stat_file_time;
-	stat_time.tv_usec = 0;
-	eblob_stat_add_timestamp_raw(stat, "stat_file_time", stat_time, allocator);
-	stat.AddMember("string_stat_file_time_", print_time(&stat_time), allocator);
-	stat.AddMember("stat_file_error", b->stat_file_error, allocator);
-	stat.AddMember("string_stat_file_error", strerror(-b->stat_file_error), allocator);
 }
 
 static void eblob_stat_summary_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)

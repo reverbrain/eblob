@@ -439,11 +439,6 @@ struct eblob_backend {
 	time_t			stat_file_time;
 
 	/*
-	 * Last data.stat file update error.
-	 */
-	int			stat_file_error;
-
-	/*
 	 * @base_dir is a parent directory for @cfg.file
 	 */
 	char			*base_dir;
@@ -473,7 +468,12 @@ struct eblob_backend {
 	/* generation counter that is incremented by defrag/data-sort
 	 * it is used for determining that blob has been defraged
 	 */
-	 size_t		defrag_generation;
+	size_t		defrag_generation;
+
+	/*
+	 * Id which identifies this eblob instance at handystats.
+	 */
+	uint32_t	stat_id;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);
@@ -510,7 +510,7 @@ void eblob_base_remove(struct eblob_base_ctl *bctl);
  * Generates sorted index for the blob \a bctl
  * flushes keys from cache and fills index blocks
  */
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl);
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int init_load);
 
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 

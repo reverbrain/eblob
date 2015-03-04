@@ -494,15 +494,15 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	}
 	c->offset += hdr_size;
 
-    /* Copy data */
-    if (fd != c->fd)
-        err = eblob_splice_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
-    else
-        err = eblob_copy_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
-    if (err) {
-        EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: copy-data");
-        goto err;
-    }
+	/* Copy data */
+	if (fd != c->fd)
+		err = eblob_splice_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
+	else
+		err = eblob_copy_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: copy-data");
+		goto err;
+	}
 
 	c->offset += dc->disk_size - hdr_size;
 	c->count++;
@@ -1034,14 +1034,14 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 
 	/* write index */
 	if (index.size > 0) {
-        err = __eblob_write_ll(index.fd, dcfg->result->index, index.size, 0);
-        if (err) {
+		err = __eblob_write_ll(index.fd, dcfg->result->index, index.size, 0);
+		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"defrag: eblob_write: fd: %d, size: %" PRIu64, index.fd, index.size);
 			goto err_free_base;
 		}
 
-        if ((err = fsync(index.fd)) == -1) {
+		if ((err = fsync(index.fd)) == -1) {
 			err = -errno;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"defrag: fsync: fd: %d, size: %" PRIu64, index.fd, index.size);
