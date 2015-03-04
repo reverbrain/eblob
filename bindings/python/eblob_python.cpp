@@ -96,13 +96,13 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	}
 
 	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc __attribute__((unused)),
-                        int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute__((unused)))
+			    int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute__((unused)))
 	{
-        std::auto_ptr<char> p(new char[dc->data_size]);
+		std::auto_ptr<char> p(new char[dc->data_size]);
 
-        int err = __eblob_read_ll(fd, p.get(), dc->data_size, data_offset);
-        if (err)
-            return 0;
+		int err = __eblob_read_ll(fd, p.get(), dc->data_size, data_offset);
+		if (err)
+			return 0;
 
 		struct eblob_id id(dc->key);
 		std::string d(p.get(), dc->data_size);
