@@ -473,9 +473,9 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_ALL)
 			&& !(ctl->flags & EBLOB_ITERATE_FLAGS_READONLY)
 			&& !(dc->flags & BLOB_DISK_CTL_REMOVE)) {
-	err = __eblob_read_ll(bc->data_fd, &dc_data, sizeof(struct eblob_disk_control), dc->position);
-	if (err)
-		goto err_out_exit;
+		err = __eblob_read_ll(bc->data_fd, &dc_data, sizeof(struct eblob_disk_control), dc->position);
+		if (err)
+			goto err_out_exit;
 
 		if (dc_data.flags & BLOB_DISK_CTL_REMOVE) {
 			eblob_log(ctl->log, EBLOB_LOG_INFO,
