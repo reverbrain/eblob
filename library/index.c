@@ -377,7 +377,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 	if (bytes != hdr_block_size) {
-		if (err < 0)
+		if (bytes < 0)
 			err = -errno;
 		goto err_out_free_index;
 	}
@@ -427,7 +427,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 			bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 			if (bytes != hdr_block_size) {
-				if (err < 0)
+				if (bytes < 0)
 					err = -errno;
 				break;
 			}
@@ -471,7 +471,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 		bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 		if (bytes != hdr_block_size) {
-		    if (err < 0)
+		    if (bytes < 0)
 			err = -errno;
 		    break;
 		}
@@ -733,7 +733,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 			goto err_unlock_hash;
 		}
 
-		if ((err = fsync(fd)) == -1) {
+		err = fsync(fd);
+		if (err == -1) {
 			err = -errno;
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync after binlog apply: index: %d, size: %llu: %s",
 					bctl->index, (unsigned long long)index_size, file);

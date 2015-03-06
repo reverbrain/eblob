@@ -53,29 +53,6 @@ static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
 	eblob_extract_arr(e.id, id.id, &len);
 }
 
-/**
- * __eblob_read_ll() - interruption-safe wrapper for pread(2)
- */
-static int __eblob_read_ll(int fd, char *data, size_t size, off_t offset)
-{
-	::ssize_t bytes;
-
-	while (size) {
-again:
-		bytes = pread(fd, data, size, offset);
-		if (bytes == -1) {
-			if (errno == -EINTR)
-				goto again;
-			return -errno;
-		} else if (bytes == 0)
-			return -ESPIPE;
-		data += bytes;
-		size -= bytes;
-		offset += bytes;
-	}
-	return 0;
-}
-
 struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_iterate_control>
 {
 	eblob_py_iterator() {};
@@ -100,8 +77,8 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	{
 		std::auto_ptr<char> p(new char[dc->data_size]);
 
-		int err = __eblob_read_ll(fd, p.get(), dc->data_size, data_offset);
-		if (err)
+		ssize_t bytes = pread(fd, p.get(), dc->data_size, data_offset);
+		if (bytes != dc->data_size)
 			return 0;
 
 		struct eblob_id id(dc->key);
