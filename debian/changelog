@@ -1,3 +1,10 @@
+eblob (0.22.17) unstable; urgency=low
+
+  * defrag: fixed data is sorted check on invalid bctl
+  * example: get rid of useless example
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 14 Mar 2015 23:56:33 +0400
+
 eblob (0.22.16) unstable; urgency=low
 
   * doc: Added example/statistics.qdoc that describes statistics collected by eblob
