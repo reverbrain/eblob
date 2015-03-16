@@ -336,7 +336,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 	size_t num;
 	ssize_t hdr_block_size;
 	ssize_t bytes;
-	uint64_t hdr_block_offset;
+	uint64_t hdr_block_offset, saved_hdr_block_offset;
 	const size_t hdr_size = sizeof(struct eblob_disk_control);
 	int err = -ENOENT;
 
@@ -401,8 +401,15 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	st->bsearch_found++;
 
+	/*
+	 * Sorted index may contain range of keys with the same key.
+	 * Some keys in that range may be marked as removed.
+	 * Do forward linear search (reading block by block) in range of keys,
+	 * until reached range's end or found existing key.
+	 */
 	sorted = sorted_orig;
 	end = search_end;
+	saved_hdr_block_offset = hdr_block_offset;
 	while (eblob_disk_control_sort(sorted, dc) == 0) {
 		if (callback(sorted, dc)) {
 			found = sorted;
@@ -441,14 +448,13 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		goto err_out_free_index;
 	}
 
+	/* Do the same thing as in previous loop, only switching to backward linear search */
+	hdr_block_offset = saved_hdr_block_offset + hdr_block_size;
 	sorted = hdr_block - 1;
 	while (1) {
 	    if (sorted >= hdr_block) {
 		st->additional_reads++;
-		/*
-		 * sorted_orig - 1 at the very beginning may contain different key,
-		 * so we change check logic here if compare it with previous loop
-		 */
+
 		if (eblob_disk_control_sort(sorted, dc))
 			break;
 
@@ -458,6 +464,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		}
 		sorted--;
 	    } else {
+		/* read next block of headers */
 		if (!hdr_block_offset)
 			break;
 
@@ -476,7 +483,16 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		    break;
 		}
 
-		sorted = hdr_block + (num - 1);
+		/*
+		 * if it is first and initial block read then start searching record starting
+		 * from record preceded to founded by bsearch record (sorted_orig),
+		 * otherwise starting from last block record
+		 */
+		if (hdr_block_offset == saved_hdr_block_offset) {
+			sorted = sorted_orig - 1;
+		} else {
+			sorted = hdr_block + (num - 1);
+		}
 	    }
 	}
 
