@@ -925,6 +925,7 @@ int eblob_add_new_base(struct eblob_backend *b)
 		return -EINVAL;
 
 	if ((ctl = eblob_add_new_base_ll(b, &err)) == NULL) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "eblob: %s: could not add new base: %d\n", __func__, err);
 		goto err_out_exit;
 	}
 	eblob_add_new_base_ctl(b, ctl);

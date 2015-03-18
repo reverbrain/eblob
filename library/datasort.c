@@ -101,10 +101,13 @@ int datasort_force_sort(struct eblob_backend *b)
 	if (b == NULL)
 		return -EINVAL;
 
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "eblob: %s: scheduling sorting: datasort: %d, indexsort: %d\n",
+			__func__, (b->cfg.blob_flags & EBLOB_AUTO_DATASORT), (b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT));
+
 	/* Kick in data-sort if auto-sort is enabled */
 	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
 		return eblob_start_defrag(b);
-	else if(b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT)
+	else if (b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT)
 		return eblob_start_index_sort(b);
 
 	return 0;
