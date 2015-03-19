@@ -77,7 +77,7 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	{
 		std::auto_ptr<char> p(new char[dc->data_size]);
 
-		ssize_t bytes = pread(fd, p.get(), dc->data_size, data_offset);
+		::ssize_t bytes = pread(fd, p.get(), dc->data_size, data_offset);
 		if (bytes != dc->data_size)
 			return 0;
 
