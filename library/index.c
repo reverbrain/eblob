@@ -613,7 +613,7 @@ static int indexsort_flush_cache(struct eblob_backend *b, void *sorted_index, ui
 	return 0;
 }
 
-int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl, int init_load) {
+int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
 	int fd, err, len;
 	char *file, *dst_file;
 	ssize_t index_size;
@@ -682,14 +682,13 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_close;
 	}
 
-	if (!init_load) {
-		/* Capture all removed entries starting from that moment */
-		err = indexsort_binlog_start(b, bctl);
-		if (err != 0) {
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_start: index: %d",
-					bctl->index);
-			goto err_out_free_index;
-		}
+
+	/* Capture all removed entries starting from that moment */
+	err = indexsort_binlog_start(b, bctl);
+	if (err != 0) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_start: index: %d",
+			    bctl->index);
+		goto err_out_free_index;
 	}
 
 	err = __eblob_read_ll(bctl->index_fd, sorted_index, index_size, 0);
@@ -720,50 +719,47 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	pthread_mutex_lock(&b->lock);
 	/* Wait for pending writes to finish and lock bctl(s) */
 	eblob_base_wait_locked(bctl);
-
-	if (!init_load) {
-		/* Lock hash - prevent using old offsets with new sorted index */
-		if ((err = pthread_rwlock_wrlock(&b->hash.root_lock)) != 0) {
-			err = -err;
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: pthread_rwlock_wrlock: index: %d: FAILED",
-					bctl->index);
-			goto err_unlock_bctl;
-		}
-
-		/* Apply binlog */
-		err = indexsort_binlog_apply(bctl, sorted_index, index_size);
-		if (err != 0) {
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_apply: index: %d: FAILED",
-					bctl->index);
-			goto err_unlock_hash;
-		}
-
-		err = __eblob_write_ll(fd, sorted_index, index_size, 0);
-		if (err) {
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: write after binlog apply: index: %d, size: %llu: %s",
-					bctl->index, (unsigned long long)index_size, file);
-			goto err_unlock_hash;
-		}
-
-		err = fsync(fd);
-		if (err == -1) {
-			err = -errno;
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync after binlog apply: index: %d, size: %llu: %s",
-					bctl->index, (unsigned long long)index_size, file);
-			goto err_unlock_hash;
-		}
-
-		/*
-		 * Remove sorted index keys from cache
-		 *! This should be made before setting bctl->sort because l2hash reads data from index and
-		 *! uses eblob_get_index_fd for determining index_fd which will return bctl->sort if it is set.
-		 */
-		err = indexsort_flush_cache(b, sorted_index, index_size);
-		if (err) {
-			EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
+	/* Lock hash - prevent using old offsets with new sorted index */
+	if ((err = pthread_rwlock_wrlock(&b->hash.root_lock)) != 0) {
+		err = -err;
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: pthread_rwlock_wrlock: index: %d: FAILED",
 				bctl->index);
-			goto err_unlock_hash;
-		}
+		goto err_unlock_bctl;
+	}
+
+	/* Apply binlog */
+	err = indexsort_binlog_apply(bctl, sorted_index, index_size);
+	if (err != 0) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_apply: index: %d: FAILED",
+			    bctl->index);
+		goto err_unlock_hash;
+	}
+
+	err = __eblob_write_ll(fd, sorted_index, index_size, 0);
+	if (err) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: write after binlog apply: index: %d, size: %llu: %s",
+			    bctl->index, (unsigned long long)index_size, file);
+		goto err_unlock_hash;
+	}
+
+	err = fsync(fd);
+	if (err == -1) {
+		err = -errno;
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync after binlog apply: index: %d, size: %llu: %s",
+			    bctl->index, (unsigned long long)index_size, file);
+		goto err_unlock_hash;
+	}
+
+	/*
+	 * Remove sorted index keys from cache
+	 *! This should be made before setting bctl->sort because l2hash reads data from index and
+	 *! uses eblob_get_index_fd for determining index_fd which will return bctl->sort if it is set.
+	 */
+	err = indexsort_flush_cache(b, sorted_index, index_size);
+	if (err) {
+		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
+			    bctl->index);
+		goto err_unlock_hash;
 	}
 
 	bctl->sort.fd = fd;
@@ -781,18 +777,16 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 
 	rename(file, dst_file);
 
-	if (!init_load) {
-		/* Stop binlog */
-		err = eblob_binlog_stop(&bctl->binlog);
-		if (err != 0) {
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: eblob_binlog_stop: index: %d: FAILED",
-					bctl->index);
-			goto err_unlock_hash;
-		}
-		/* Unlock */
-		pthread_rwlock_unlock(&b->hash.root_lock);
+	/* Stop binlog */
+	err = eblob_binlog_stop(&bctl->binlog);
+	if (err != 0) {
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: eblob_binlog_stop: index: %d: FAILED",
+				bctl->index);
+		goto err_unlock_hash;
 	}
 
+	/* Unlock */
+	pthread_rwlock_unlock(&b->hash.root_lock);
 	pthread_mutex_unlock(&bctl->lock);
 	pthread_mutex_unlock(&b->lock);
 
@@ -807,14 +801,12 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	return 0;
 
 err_unlock_hash:
-	if (!init_load)
-		pthread_rwlock_unlock(&b->hash.root_lock);
+	pthread_rwlock_unlock(&b->hash.root_lock);
 err_unlock_bctl:
 	pthread_mutex_unlock(&bctl->lock);
 	pthread_mutex_unlock(&b->lock);
 err_out_stop_binlog:
-	if (!init_load)
-		eblob_binlog_stop(&bctl->binlog);
+	eblob_binlog_stop(&bctl->binlog);
 err_out_free_index:
 	free(sorted_index);
 err_out_close:

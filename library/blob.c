@@ -1413,8 +1413,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	err = eblob_cache_lookup(b, key, &ctl, &wc->on_disk);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-				"blob: %s: %s: eblob_cache_lookup: %zd, on_disk: %d\n",
+		int level = EBLOB_LOG_DEBUG;
+		if (err != -ENOENT)
+			level = EBLOB_LOG_ERROR;
+
+		eblob_log(b->cfg.log, level, "blob: %s: %s: eblob_cache_lookup: %zd, on_disk: %d\n",
 				eblob_dump_id(key->id), __func__, err, wc->on_disk);
 		goto err_out_exit;
 	} else if(old) {
@@ -1456,10 +1459,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
-		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG,
-					"%s: %s: size check failed: disk-size: %llu, calculated: %llu\n",
-					__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
-					(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+			"%s: %s: size check failed: disk-size: %llu, calculated: %llu\n",
+			__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
+			(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-size-check", err);
 		goto err_out_exit;
 	}
 
@@ -1730,6 +1734,7 @@ err_out_rollback:
 	ctl->data_offset -= wc->total_size;
 	ctl->index_size -= sizeof(struct eblob_disk_control);
 err_out_exit:
+	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: error", err);
 	return err;
 }
 
@@ -1782,6 +1787,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 
 err_out_exit:
 	pthread_mutex_unlock(&b->lock);
+	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk", err);
 	return err;
 }
 
