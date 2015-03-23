@@ -101,10 +101,13 @@ int datasort_force_sort(struct eblob_backend *b)
 	if (b == NULL)
 		return -EINVAL;
 
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "eblob: %s: scheduling sorting: datasort: %d, indexsort: %d\n",
+			__func__, (b->cfg.blob_flags & EBLOB_AUTO_DATASORT), (b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT));
+
 	/* Kick in data-sort if auto-sort is enabled */
 	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT)
 		return eblob_start_defrag(b);
-	else if(b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT)
+	else if (b->cfg.blob_flags & EBLOB_AUTO_INDEXSORT)
 		return eblob_start_index_sort(b);
 
 	return 0;
@@ -487,19 +490,17 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	c->index[c->count] = *dc;
 
 	/* Write header */
-	err = pwrite(c->fd, dc, hdr_size, c->offset);
-	if (err != hdr_size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: pwrite-hdr");
+	err = __eblob_write_ll(c->fd, dc, hdr_size, c->offset);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: __eblob_write_ll-hdr");
 		goto err;
 	}
 	c->offset += hdr_size;
 
 	/* Write data */
-	err = pwrite(c->fd, data, dc->disk_size - hdr_size, c->offset);
-	if (err != (ssize_t)(dc->disk_size - hdr_size)) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: pwrite-data");
+	err = __eblob_write_ll(c->fd, data, dc->disk_size - hdr_size, c->offset);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: __eblob_write_ll-data");
 		goto err;
 	}
 
@@ -605,10 +606,9 @@ static int datasort_copy_record(struct datasort_cfg *dcfg,
 	dc->position = offset;
 
 	/* Write header */
-	err = pwrite(to_chunk->fd, dc, hdr_size, offset);
-	if (err != hdr_size) {
-		err = (err == -1) ? -errno : -EINTR; /* TODO: handle signal case gracefully */
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "pwrite: %s, fd: %d, offset: %" PRIu64,
+	err = __eblob_write_ll(to_chunk->fd, dc, hdr_size, offset);
+	if (err) {
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "__eblob_write_ll: %s, fd: %d, offset: %" PRIu64,
 				to_chunk->path, to_chunk->fd, offset);
 		goto err;
 	}

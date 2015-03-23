@@ -1,3 +1,22 @@
+eblob (0.22.19) unstable; urgency=low
+
+  * eblob: more debug in eblob_write_prepare() path
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 18 Mar 2015 17:56:45 +0400
+
+eblob (0.22.18) unstable; urgency=low
+
+  * sorting: revert changes which changed sorting logic
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 17 Mar 2015 19:29:43 +0400
+
+eblob (0.22.17) unstable; urgency=low
+
+  * defrag: fixed data is sorted check on invalid bctl
+  * example: get rid of useless example
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sat, 14 Mar 2015 23:56:33 +0400
+
 eblob (0.22.16) unstable; urgency=low
 
   * doc: Added example/statistics.qdoc that describes statistics collected by eblob
