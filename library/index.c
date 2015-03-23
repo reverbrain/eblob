@@ -335,10 +335,9 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 	struct eblob_index_block *block;
 	size_t num;
 	ssize_t hdr_block_size;
-	ssize_t bytes;
 	uint64_t hdr_block_offset, saved_hdr_block_offset;
 	const size_t hdr_size = sizeof(struct eblob_disk_control);
-	int err = -ENOENT;
+	int read_err, err = -ENOENT;
 
 	st->search_on_disk++;
 
@@ -375,10 +374,9 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		goto err_out_exit;
 	}
 
-	bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
-	if (bytes != hdr_block_size) {
-		if (bytes < 0)
-			err = -errno;
+	read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
+	if (read_err < 0) {
+		err = read_err;
 		goto err_out_free_index;
 	}
 
@@ -432,10 +430,9 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 			sorted = hdr_block;
 			end = sorted + (num - 1);
 
-			bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
-			if (bytes != hdr_block_size) {
-				if (bytes < 0)
-					err = -errno;
+			read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
+			if (read_err < 0) {
+				err = read_err;
 				break;
 			}
 		}
@@ -476,11 +473,10 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 			hdr_block_offset -= hdr_block_size;
 		}
 
-		bytes = pread(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
-		if (bytes != hdr_block_size) {
-		    if (bytes < 0)
-			err = -errno;
-		    break;
+		read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
+		if (read_err < 0) {
+			err = read_err;
+			break;
 		}
 
 		/*
