@@ -530,9 +530,13 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	struct eblob_map_fd src, dst;
 	int fd, err, len;
 	char *file, *dst_file;
+	int cache_is_empty = 0;
 
 	if (b == NULL || bctl == NULL)
 		return -EINVAL;
+
+	/* check that eblob cache is empty. If cache is empty we can skip iterating and flushing it */
+	cache_is_empty = eblob_cache_empty(b);
 
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "defrag: indexsort: sorting: %s, index: %d",
 			bctl->name, bctl->index);
@@ -608,12 +612,14 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_out_unmap_src;
 	}
 
-	/* Capture all removed entries starting from that moment */
-	err = indexsort_binlog_start(b, bctl);
-	if (err != 0) {
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_start: index: %d",
-				bctl->index);
-		goto err_out_unmap_dst;
+	if (!cache_is_empty) {
+		/* Capture all removed entries starting from that moment */
+		err = indexsort_binlog_start(b, bctl);
+		if (err != 0) {
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_start: index: %d",
+					bctl->index);
+			goto err_out_unmap_dst;
+		}
 	}
 
 	memcpy(dst.data, src.data, dst.size);
@@ -632,32 +638,35 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	pthread_mutex_lock(&b->lock);
 	/* Wait for pending writes to finish and lock bctl(s) */
 	eblob_base_wait_locked(bctl);
-	/* Lock hash - prevent using old offsets with new sorted index */
-	if ((err = pthread_rwlock_wrlock(&b->hash.root_lock)) != 0) {
-		err = -err;
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: pthread_rwlock_wrlock: index: %d: FAILED",
-				bctl->index);
-		goto err_unlock_bctl;
-	}
 
-	/* Apply binlog */
-	err = indexsort_binlog_apply(bctl, &dst);
-	if (err != 0) {
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_apply: index: %d: FAILED",
-				bctl->index);
-		goto err_unlock_hash;
-	}
+	if (!cache_is_empty) {
+		/* Lock hash - prevent using old offsets with new sorted index */
+		if ((err = pthread_rwlock_wrlock(&b->hash.root_lock)) != 0) {
+			err = -err;
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: pthread_rwlock_wrlock: index: %d: FAILED",
+					bctl->index);
+			goto err_unlock_bctl;
+		}
 
-	/*
-	 * Remove sorted index keys from cache
-	 *! This should be made before setting bctl->sort because l2hash reads data from index and
-	 *! uses eblob_get_index_fd for determining index_fd which will return bctl->sort if it is set.
-	 */
-	err = indexsort_flush_cache(b, &dst);
-	if (err) {
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
-			bctl->index);
-		goto err_unlock_hash;
+		/* Apply binlog */
+		err = indexsort_binlog_apply(bctl, &dst);
+		if (err != 0) {
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_binlog_apply: index: %d: FAILED",
+					bctl->index);
+			goto err_unlock_hash;
+		}
+
+		/*
+		 * Remove sorted index keys from cache
+		 *! This should be made before setting bctl->sort because l2hash reads data from index and
+		 *! uses eblob_get_index_fd for determining index_fd which will return bctl->sort if it is set.
+		 */
+		err = indexsort_flush_cache(b, &dst);
+		if (err) {
+			EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
+				bctl->index);
+			goto err_unlock_hash;
+		}
 	}
 
 	bctl->sort = dst;
@@ -673,16 +682,20 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 
 	rename(file, dst_file);
 
-	/* Stop binlog */
-	err = eblob_binlog_stop(&bctl->binlog);
-	if (err != 0) {
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: eblob_binlog_stop: index: %d: FAILED",
-				bctl->index);
-		goto err_unlock_hash;
+	if (!cache_is_empty) {
+		/* Stop binlog */
+		err = eblob_binlog_stop(&bctl->binlog);
+		if (err != 0) {
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: eblob_binlog_stop: index: %d: FAILED",
+					bctl->index);
+			goto err_unlock_hash;
+		}
+
+		/* Unlock hash */
+		pthread_rwlock_unlock(&b->hash.root_lock);
 	}
 
 	/* Unlock */
-	pthread_rwlock_unlock(&b->hash.root_lock);
 	pthread_mutex_unlock(&bctl->lock);
 	pthread_mutex_unlock(&b->lock);
 
