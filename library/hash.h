@@ -39,6 +39,11 @@ int eblob_hash_lookup_nolock(struct eblob_hash *h, struct eblob_key *key, void *
 int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *datap);
 int eblob_hash_replace_nolock(struct eblob_hash *h, struct eblob_key *key, void *data, int *replaced);
 
+static inline int eblob_hash_empty(struct eblob_hash *h)
+{
+	return (h == NULL) || (rb_first(&h->root) == NULL);
+}
+
 struct eblob_hash_entry {
 	struct eblob_key	key;
 	struct rb_node		node;
