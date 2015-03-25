@@ -505,6 +505,22 @@ static int indexsort_flush_cache(struct eblob_backend *b, struct eblob_map_fd *s
 	static const size_t hdr_size = sizeof(struct eblob_disk_control);
 	uint64_t offset;
 
+	/*
+	 * Check whether cache is empty
+	 */
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		err = eblob_l2hash_empty(&b->l2hash);
+	} else {
+		err = eblob_hash_empty(&b->hash);
+	}
+	if (err) {
+		/*
+		 * There is nothing we can flush - cache is empty.
+		 * Skip iterating over indexes, this should speed up initial eblob load.
+		 */
+		return 0;
+	}
+
 	for (offset = 0; offset < sorted->size; offset += hdr_size) {
 		struct eblob_disk_control *dc = sorted->data + offset;
 		/* This entry was removed in binlog_apply */
