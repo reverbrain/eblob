@@ -359,7 +359,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		 * the index.
 		 */
 		hdr_block_size = num * hdr_size;
-		hdr_block_offset = block->start_offset;
+		saved_hdr_block_offset = hdr_block_offset = block->start_offset;
 	} else {
 		pthread_rwlock_unlock(&bctl->index_blocks_lock);
 		goto err_out_exit;
@@ -377,6 +377,9 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 	read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 	if (read_err < 0) {
 		err = read_err;
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+			  eblob_dump_id(dc->key.id),
+			  bctl->sort.fd, hdr_block_offset, hdr_block_size, bctl->sort.size, num, strerror(-err), err);
 		goto err_out_free_index;
 	}
 
@@ -407,7 +410,6 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 	 */
 	sorted = sorted_orig;
 	end = search_end;
-	saved_hdr_block_offset = hdr_block_offset;
 	while (eblob_disk_control_sort(sorted, dc) == 0) {
 		if (callback(sorted, dc)) {
 			found = sorted;
@@ -433,6 +435,9 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 			read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 			if (read_err < 0) {
 				err = read_err;
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+					  eblob_dump_id(dc->key.id),
+					  bctl->sort.fd, hdr_block_offset, hdr_block_size, bctl->sort.size, num, strerror(-err), err);
 				break;
 			}
 		}
@@ -447,6 +452,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	/* Do the same thing as in previous loop, only switching to backward linear search */
 	hdr_block_offset = saved_hdr_block_offset + hdr_block_size;
+	/* set invalid value to 'sorted' var to force initial reading of hdr_block at saved_hdr_block_offset */
 	sorted = hdr_block - 1;
 	while (1) {
 	    if (sorted >= hdr_block) {
@@ -476,11 +482,14 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		read_err = __eblob_read_ll(bctl->sort.fd, hdr_block, hdr_block_size, hdr_block_offset);
 		if (read_err < 0) {
 			err = read_err;
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+				  eblob_dump_id(dc->key.id),
+				  bctl->sort.fd, hdr_block_offset, hdr_block_size, bctl->sort.size, num, strerror(-err), err);
 			break;
 		}
 
 		/*
-		 * if it is first and initial block read then start searching record starting
+		 * if it is first and initial block read, then begin searching record starting
 		 * from record preceded to founded by bsearch record (sorted_orig),
 		 * otherwise starting from last block record
 		 */
