@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.19
+Version:	0.22.20
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Mar 27 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.20
+- index sort: skip iterating over just sorted index if cache is empty, since there is nothing to flush anyway
+- removed unused sha384 functions and unification with elliptics cryptolib
+- use interruption-safe read_ll in eblob_find_on_disk
+- mmap elimination - mmap() replaced with pread(). Corrupted filesystem may return -EIO for some reads, while
+- 	trying to access that data via mmap ends up with SIGBUS signal, which kills whole eblob user.
+
 * Wed Mar 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.19
 - eblob: more debug in eblob_write_prepare() path
 
