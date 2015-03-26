@@ -494,6 +494,7 @@ int eblob_cache_remove(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key);
 int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *ctl);
+int eblob_cache_empty(struct eblob_backend *b);
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl);
 

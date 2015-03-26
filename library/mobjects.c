@@ -748,6 +748,20 @@ err_out_exit:
 	return err;
 }
 
+int eblob_cache_empty(struct eblob_backend *b) {
+	int ret = 0;
+
+	pthread_rwlock_rdlock(&b->hash.root_lock);
+	if (b->cfg.blob_flags & EBLOB_L2HASH) {
+		ret = eblob_l2hash_empty(&b->l2hash);
+	} else {
+		ret = eblob_hash_empty(&b->hash);
+	}
+	pthread_rwlock_unlock(&b->hash.root_lock);
+
+	return ret;
+}
+
 static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_control *ctl,
 		void *data __attribute_unused__, void *priv,
 		void *thread_priv __attribute_unused__)

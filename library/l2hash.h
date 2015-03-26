@@ -97,6 +97,7 @@ int eblob_l2hash_remove(struct eblob_l2hash *l2h, const struct eblob_key *key);
 int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, const struct eblob_ram_control *rctl);
 int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key,
 		const struct eblob_ram_control *rctl, int *replaced);
+int eblob_l2hash_empty(struct eblob_l2hash *l2h);
 
 static inline int eblob_l2hash_empty(struct eblob_l2hash *l2h)
 {

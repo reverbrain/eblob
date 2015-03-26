@@ -209,3 +209,7 @@ int eblob_hash_lookup(struct eblob_hash *h, struct eblob_key *key, void *data)
 	pthread_rwlock_unlock(&h->root_lock);
 	return err;
 }
+
+int eblob_hash_empty(struct eblob_hash *h) {
+	return (h == NULL) || (rb_first(&h->root) == NULL);
+}
