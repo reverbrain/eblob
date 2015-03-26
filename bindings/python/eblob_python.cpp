@@ -14,6 +14,7 @@
  */
 
 
+#include <memory>
 #include <boost/python.hpp>
 #include <boost/python/list.hpp>
 
@@ -72,13 +73,18 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	}
 
 	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc __attribute__((unused)),
-			void *data, void *priv, void *thread_priv __attribute__((unused)))
+			    int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute__((unused)))
 	{
+		std::auto_ptr<char> p(new char[dc->data_size]);
+
+		::ssize_t bytes = pread(fd, p.get(), dc->data_size, data_offset);
+		if (bytes != static_cast< ::ssize_t>(dc->data_size))
+			return 0;
+
 		struct eblob_id id(dc->key);
-		std::string d((const char*)data, dc->data_size);
+		std::string d(p.get(), dc->data_size);
 
 		struct eblob_py_iterator *it = (struct eblob_py_iterator *)priv;
-		
 
 		it->process(id, d);
 		return 0;

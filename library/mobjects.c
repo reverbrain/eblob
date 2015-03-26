@@ -83,19 +83,6 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	}
 
 	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) || force) {
-		if (ctl->data_size && ctl->data)
-			munmap(ctl->data, ctl->data_size);
-
-		if (st.st_size)
-			ctl->data = mmap(NULL, st.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, ctl->data_fd, 0);
-		else
-			ctl->data = NULL;
-
-		if (ctl->data == MAP_FAILED) {
-			err = -errno;
-			goto err_out_exit;
-		}
-
 		ctl->data_size = st.st_size;
 	}
 
@@ -113,9 +100,6 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 		return -EINVAL;
 
 	eblob_index_blocks_destroy(ctl);
-
-	munmap(ctl->data, ctl->data_size);
-	eblob_data_unmap(&ctl->sort);
 
 	ctl->data_size = ctl->data_offset = 0;
 	ctl->index_size = 0;
@@ -176,10 +160,6 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 			err = -EBADF;
 			goto err_out_close;
 		}
-
-		err = eblob_data_map(&bctl->sort);
-		if (err)
-			goto err_out_close;
 
 		bctl->index_size = st.st_size;
 	} else {
@@ -263,7 +243,7 @@ again:
 		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
 		if (ctl->index_fd == -1) {
 			err = -errno;
-			goto err_out_unmap;
+			goto err_out_close_data;
 		}
 
 		err = fstat(ctl->index_fd, &st);
@@ -323,7 +303,6 @@ again:
 					ctl->index, full,
 					ctl->sort.size, st.st_size);
 
-			eblob_data_unmap(&ctl->sort);
 			close(ctl->sort.fd);
 
 			sprintf(full, "%s/%s.index.sorted", dir_base, name);
@@ -360,11 +339,8 @@ err_out_close_index:
 	close(ctl->index_fd);
 err_out_close_sort_fd:
 	if (ctl->sort.fd >= 0) {
-		eblob_data_unmap(&ctl->sort);
 		close(ctl->sort.fd);
 	}
-err_out_unmap:
-	munmap(ctl->data, ctl->data_size);
 err_out_close_data:
 	close(ctl->data_fd);
 	if (created != NULL) {
@@ -749,7 +725,7 @@ err_out_exit:
 }
 
 static int eblob_blob_iter(struct eblob_disk_control *dc, struct eblob_ram_control *ctl,
-		void *data __attribute_unused__, void *priv,
+        int fd __attribute_unused__, uint64_t data_offset __attribute_unused__, void *priv,
 		void *thread_priv __attribute_unused__)
 {
 	struct eblob_backend *b = priv;

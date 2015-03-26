@@ -401,7 +401,7 @@ struct eblob_iterate_callbacks {
 	 */
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
-						void *data, void *priv, void *thread_priv);
+						int fd, uint64_t data_offset, void *priv, void *thread_priv);
 
 	/* Initialization callback. This function is called in main thread before iterations.
 	 * Main purpose of this callback is @thread_priv initialization.

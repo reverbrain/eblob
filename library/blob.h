@@ -89,15 +89,7 @@ static const size_t EBLOB_L2HASH_ENTRY_SIZE = sizeof(struct eblob_l2hash_entry);
 struct eblob_map_fd {
 	int			fd;
 	uint64_t		offset, size;
-
-	void			*data;
-
-	uint64_t		mapped_size;
-	void			*mapped_data;
 };
-
-int eblob_data_map(struct eblob_map_fd *map);
-void eblob_data_unmap(struct eblob_map_fd *map);
 
 #define EBLOB_INDEX_DEFAULT_BLOCK_SIZE			40
 /*
@@ -141,7 +133,6 @@ struct eblob_base_ctl {
 	int			data_fd, index_fd;
 	off_t			data_offset;
 
-	void			*data;
 	unsigned long long	data_size;
 	unsigned long long	index_size;
 
@@ -551,6 +542,7 @@ int eblob_key_sort(const void *key1, const void *key2);
 int eblob_disk_control_sort(const void *d1, const void *d2);
 int eblob_disk_control_sort_with_flags(const void *d1, const void *d2);
 
+int eblob_copy_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
 int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, ssize_t len);
 
 int eblob_preallocate(int fd, off_t offset, off_t size);

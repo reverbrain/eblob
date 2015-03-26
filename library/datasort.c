@@ -425,7 +425,7 @@ static void datasort_destroy_chunks(struct datasort_cfg *dcfg, struct list_head 
  */
 static int datasort_split_iterator(struct eblob_disk_control *dc,
 		struct eblob_ram_control *rctl __attribute_unused__,
-		void *data, void *priv, void *thread_priv)
+        int fd, uint64_t data_offset, void *priv, void *thread_priv)
 {
 	ssize_t err;
 	struct datasort_cfg *dcfg = priv;
@@ -436,7 +436,6 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	assert(dc != NULL);
 	assert(dcfg != NULL);
 	assert(local != NULL);
-	assert(data != NULL);
 
 	/* Sanity check */
 	if (dc->disk_size < (uint64_t)hdr_size)
@@ -497,10 +496,13 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	}
 	c->offset += hdr_size;
 
-	/* Write data */
-	err = __eblob_write_ll(c->fd, data, dc->disk_size - hdr_size, c->offset);
+	/* Copy data */
+	if (fd != c->fd)
+		err = eblob_splice_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
+	else
+		err = eblob_copy_data(fd, data_offset, c->fd, c->offset, dc->disk_size - hdr_size);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: __eblob_write_ll-data");
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: copy-data");
 		goto err;
 	}
 
@@ -1031,22 +1033,20 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		goto err_free_base;
 	}
 
-	/* mmap index */
+	/* write index */
 	if (index.size > 0) {
-		err = eblob_data_map(&index);
+		err = __eblob_write_ll(index.fd, dcfg->result->index, index.size, 0);
 		if (err) {
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"defrag: eblob_data_map: fd: %d, size: %" PRIu64, index.fd, index.size);
+					"defrag: eblob_write: fd: %d, size: %" PRIu64, index.fd, index.size);
 			goto err_free_base;
 		}
 
-		/* Save index on disk */
-		memcpy(index.data, dcfg->result->index, index.size);
-		if ((err = msync(index.data, index.size, MS_SYNC)) == -1) {
+		if ((err = fsync(index.fd)) == -1) {
 			err = -errno;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"defrag: msync: %p, size: %" PRIu64, index.data, index.size);
-			goto err_unmap;
+					"defrag: fsync: fd: %d, size: %" PRIu64, index.fd, index.size);
+			goto err_free_base;
 		}
 	} else {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_NOTICE, "defrag: index size is zero: %s", tmp_index_path);
@@ -1062,7 +1062,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/* Setup new base */
 	if ((err = eblob_base_setup_data(sorted_bctl, 1)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: eblob_base_setup_data: FAILED");
-		goto err_unmap;
+		goto err_free_base;
 	}
 	assert(sorted_bctl->data_size == dcfg->result->offset);
 	assert(sorted_bctl->index_size == index.size);
@@ -1072,14 +1072,14 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/* Populate sorted index blocks */
 	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: eblob_index_blocks_fill: FAILED");
-		goto err_unmap;
+		goto err_free_base;
 	}
 
 	/* Protect l2hash/hash from accessing stale fds */
 	if ((err = pthread_rwlock_wrlock(&dcfg->b->hash.root_lock)) != 0) {
 		err = -err;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: pthread_mutex_lock");
-		goto err_unmap;
+		goto err_free_base;
 	}
 
 	/*
@@ -1130,8 +1130,6 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "defrag: %s: finished", __func__);
 	return 0;
 
-err_unmap:
-	eblob_data_unmap(&index);
 err_free_base:
 	eblob_base_ctl_cleanup(sorted_bctl);
 	free(sorted_bctl);
