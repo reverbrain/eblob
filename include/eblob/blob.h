@@ -278,6 +278,11 @@ static inline void eblob_convert_disk_control(struct eblob_disk_control *ctl)
  */
 #define EBLOB_AUTO_INDEXSORT			(1<<11)
 
+/*
+ * Do data-sort for heavy-fragmented blobs only
+ */
+#define EBLOB_DEFRAG_ONLY_FRAGMENTED		(1<<12)
+
 struct eblob_config {
 	/* blob flags above */
 	unsigned int		blob_flags;
@@ -622,7 +627,8 @@ void eblob_remove_blobs(struct eblob_backend *b);
 enum eblob_defrag_state {
 	EBLOB_DEFRAG_STATE_NOT_STARTED,	/* no defrag is in progress */
 	EBLOB_DEFRAG_STATE_DATA_SORT,	/* data-sort is in progress */
-	EBLOB_DEFRAG_STATE_INDEX_SORT	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_INDEX_SORT,	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_DATA_COMPACT,/* data-sort of heavy-fragmented blobs is in progress */
 };
 
 /*
