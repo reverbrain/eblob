@@ -817,7 +817,7 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 	/* If automatic data-sort is enabled - start it */
 	if (b->cfg.blob_flags & EBLOB_AUTO_DATASORT
 			&& ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
-		eblob_start_defrag(b);
+		eblob_start_defrag(b, EBLOB_DEFRAG_STATE_DATA_SORT);
 
 	return 0;
 
