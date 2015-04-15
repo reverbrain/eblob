@@ -233,7 +233,7 @@ void eblob::truncate_hashed(const std::string &key, const uint64_t size, const u
 void eblob::start_defrag()
 {
 	int err;
-	err = eblob_start_defrag(eblob_, EBLOB_DEFRAG_STATE_DATA_SORT);
+	err = eblob_start_defrag(eblob_);
 	if (err) {
 		std::ostringstream str;
 		str << "EBLOB: failed to start defragmentation, err: " << strerror(-err);

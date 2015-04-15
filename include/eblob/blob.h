@@ -630,7 +630,17 @@ enum eblob_defrag_state {
  * eblob_start_defrag() - forces defragmentation thread to run defrag
  * regardless of timer.
  */
-int eblob_start_defrag(struct eblob_backend *b, enum eblob_defrag_state level);
+int eblob_start_defrag(struct eblob_backend *b);
+
+/*
+ * eblob_start_defrag_level() - overloaded version of eblob_start_defrag with defrag-level param
+ */
+int eblob_start_defrag_level(struct eblob_backend *b, enum eblob_defrag_state level);
+
+/*
+ * eblob_start_index_sort() - forces defragmentation thread to sort index regardless of timer
+ */
+int eblob_start_index_sort(struct eblob_backend *b);
 
 /*
  * eblob_defrag_status() - return current state of defragmentation thread

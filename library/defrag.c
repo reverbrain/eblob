@@ -353,7 +353,7 @@ void *eblob_defrag_thread(void *data)
 	return NULL;
 }
 
-int eblob_start_defrag(struct eblob_backend *b, enum eblob_defrag_state level)
+int eblob_start_defrag_level(struct eblob_backend *b, enum eblob_defrag_state level)
 {
 	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
 		return -EINVAL;
@@ -367,6 +367,16 @@ int eblob_start_defrag(struct eblob_backend *b, enum eblob_defrag_state level)
 
 	b->want_defrag = level;
 	return 0;
+}
+
+int eblob_start_defrag(struct eblob_backend *b)
+{
+	return eblob_start_defrag_level(b, EBLOB_DEFRAG_STATE_DATA_SORT);
+}
+
+int eblob_start_index_sort(struct eblob_backend *b)
+{
+	return eblob_start_defrag_level(b, EBLOB_DEFRAG_STATE_INDEX_SORT);
 }
 
 int eblob_defrag_status(struct eblob_backend *b)
