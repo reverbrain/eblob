@@ -622,7 +622,8 @@ void eblob_remove_blobs(struct eblob_backend *b);
 enum eblob_defrag_state {
 	EBLOB_DEFRAG_STATE_NOT_STARTED,	/* no defrag is in progress */
 	EBLOB_DEFRAG_STATE_DATA_SORT,	/* data-sort is in progress */
-	EBLOB_DEFRAG_STATE_INDEX_SORT	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_INDEX_SORT,	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_DATA_COMPACT	/* data-sort of heavy-fragmented blobs is in progress */
 };
 
 /*
@@ -630,6 +631,11 @@ enum eblob_defrag_state {
  * regardless of timer.
  */
 int eblob_start_defrag(struct eblob_backend *b);
+
+/*
+ * eblob_start_defrag_level() - overloaded version of eblob_start_defrag with defrag-level param
+ */
+int eblob_start_defrag_level(struct eblob_backend *b, enum eblob_defrag_state level);
 
 /*
  * eblob_start_index_sort() - forces defragmentation thread to sort index regardless of timer

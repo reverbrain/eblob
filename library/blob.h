@@ -445,9 +445,8 @@ struct eblob_backend {
 
 	/*
 	 * Set when defrag/data-sort are explicitly requested
-	 * 2:	index-sort is explicitly requested via eblob_start_index_sort()
-	 * 1:	data-sort is explicitly requested via eblob_start_defrag()
-	 * 0:	data-sort should be preformed according to defrag_timeout
+	 * 0:		data-sort should be preformed according to defrag_timeout
+	 * otherwise:	defragmentation explicitly requested via eblob_start_defrag() with appropriate defrag level set in parameter
 	 */
 	volatile int		want_defrag;
 	/* Cached vfs stats */
