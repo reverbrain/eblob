@@ -1,3 +1,10 @@
+eblob (0.22.21) unstable; urgency=low
+
+  * Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet
+  * Added eblob_start_defrag_level()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 17 Apr 2015 23:47:44 +0400
+
 eblob (0.22.20) unstable; urgency=low
 
   * index sort: skip iterating over just sorted index if cache is empty, since there is nothing to flush anyway

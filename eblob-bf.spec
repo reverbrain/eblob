@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.20
+Version:	0.22.21
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Apr 17 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.21
+- Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet
+- Added eblob_start_defrag_level()
+
 * Fri Mar 27 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.20
 - index sort: skip iterating over just sorted index if cache is empty, since there is nothing to flush anyway
 - removed unused sha384 functions and unification with elliptics cryptolib
