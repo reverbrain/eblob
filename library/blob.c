@@ -1612,7 +1612,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	 * crashed (or even blob is closed), but index entry was not yet
 	 * written, since we only reserved space.
 	 */
-	err = eblob_commit_disk(b, key, wc, 1);
+	err = eblob_commit_disk(b, key, wc, 0);
 	if (err)
 		goto err_out_rollback;
 
@@ -1829,6 +1829,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		wc.flags = flags;
 		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 			wc.flags |= BLOB_DISK_CTL_NOCSUM;
+		wc.flags |= BLOB_DISK_CTL_UNCOMMITTED;
 		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
 			goto err_out_exit;
@@ -2519,6 +2520,11 @@ static int eblob_read_ll(struct eblob_backend *b, struct eblob_key *key, int *fd
 	err = _eblob_read_ll(b, key, csum, &wc);
 	if (err < 0)
 		goto err;
+
+	if (wc.flags & BLOB_DISK_CTL_UNCOMMITTED) {
+		err = -ENOENT;
+		goto err;
+	}
 
 	*fd = wc.data_fd;
 	*size = wc.size;
