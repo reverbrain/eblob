@@ -851,10 +851,11 @@ err_out_check:
 
 				bctl->data_offset = idc.position + data_dc.disk_size;
 
-				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: truncating eblob to: data_fd: %d, index_fd: %d, "
+				eblob_log(ctl->log, EBLOB_LOG_ERROR, "blob: i%d: truncating eblob to: data_fd: %d, index_fd: %d, "
 						"data_size(was): %llu, data_offset: %" PRIu64 ", "
 						"data_position: %" PRIu64 ", disk_size: %" PRIu64 ", index_offset: %llu\n",
-						bctl->data_fd, index_fd, ctl->data_size, bctl->data_offset, idc.position, idc.disk_size,
+						bctl->index, bctl->data_fd, index_fd, ctl->data_size,
+						bctl->data_offset, idc.position, idc.disk_size,
 						ctl->index_offset);
 
 				err = ftruncate(index_fd, ctl->index_offset);
