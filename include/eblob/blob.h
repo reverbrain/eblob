@@ -652,6 +652,12 @@ int eblob_start_index_sort(struct eblob_backend *b);
  */
 int eblob_defrag_status(struct eblob_backend *b);
 
+/*
+ * eblob_stop_defrag() - interrupts defragmentation of all blobs after completion
+ * of defragmentation of a single blob
+ */
+int eblob_stop_defrag(struct eblob_backend *b);
+
 /* Per backend stats */
 enum eblob_stat_global_flavour {
 	EBLOB_GST_MIN,
