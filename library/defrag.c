@@ -346,6 +346,9 @@ void *eblob_defrag_thread(void *data)
 			continue;
 		}
 
+		if (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED)
+			b->want_defrag = EBLOB_DEFRAG_STATE_DATA_COMPACT;
+
 		eblob_defrag(b);
 		b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
 		sleep_time = datasort_next_defrag(b);
