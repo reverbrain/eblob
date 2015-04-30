@@ -1815,12 +1815,12 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	/*
-	 * For eblob_write_prepare() this can not fail with -E2BIG, since
-	 * size/offset are zero.
+	 * For eblob_write_prepare() this can fail with -E2BIG if we try to overwrite
+	 * record without footer by record with footer.
 	 */
 	defrag_generation = b->defrag_generation;
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, &old);
-	if (err && err != -ENOENT)
+	if (err && err != -ENOENT && err != -E2BIG)
 		goto err_out_exit;
 
 	if (err == 0 && (wc.total_size >= eblob_calculate_size(b, 0, size))) {
