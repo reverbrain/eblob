@@ -236,7 +236,8 @@ int eblob_defrag(struct eblob_backend *b)
 	uint64_t total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
 	uint64_t records = 0; // number of records in current blob
 	uint64_t size = 0; // size of current blob
-	while (eblob_event_get(&b->exit_event) == 0) {
+	while (eblob_event_get(&b->exit_event) == 0 &&
+	       b->want_defrag != EBLOB_DEFRAG_STATE_NOT_STARTED) {
 		/*
 		 * For every but last base check for merge possibility
 		 * NB! Last base always triggers sort of accumulated bases.
@@ -345,6 +346,9 @@ void *eblob_defrag_thread(void *data)
 			continue;
 		}
 
+		if (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED)
+			b->want_defrag = EBLOB_DEFRAG_STATE_DATA_COMPACT;
+
 		eblob_defrag(b);
 		b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
 		sleep_time = datasort_next_defrag(b);
@@ -386,4 +390,20 @@ int eblob_defrag_status(struct eblob_backend *b)
 	}
 
 	return b->want_defrag;
+}
+
+int eblob_stop_defrag(struct eblob_backend *b)
+{
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
+		return -EINVAL;
+	}
+
+	if (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: defragmentation is not started.\n");
+		return -EALREADY;
+	}
+
+	b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
+	return 0;
 }
