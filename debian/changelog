@@ -1,3 +1,12 @@
+eblob (0.22.22) unstable; urgency=low
+
+  * core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
+  * defrag: fixed auto-defrag on timed and/or scheduled datasort
+  * defrag: stop
+  * logs: added index of truncating blob to log
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 06 May 2015 00:44:25 +0400
+
 eblob (0.22.21) unstable; urgency=low
 
   * Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet

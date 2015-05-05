@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.21
+Version:	0.22.22
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed May 06 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.22
+- core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
+- defrag: fixed auto-defrag on timed and/or scheduled datasort
+- defrag: stop
+- logs: added index of truncating blob to log
+
 * Fri Apr 17 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.21
 - Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet
 - Added eblob_start_defrag_level()
