@@ -952,7 +952,20 @@ int eblob_mark_index_removed(int fd, uint64_t offset)
 }
 
 /**
- * eblob_dump_wc() - pretty-print write control structure
+ * eblob_dump_wc_raw() - pretty-print write control structure
+ */
+static void eblob_dump_wc_raw(struct eblob_backend *b, int log_level, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err) {
+	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
+			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: %s, "
+			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
+			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
+			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
+			wc->offset, wc->size, eblob_dump_dctl_flags(wc->flags), wc->total_data_size, wc->total_size,
+			wc->data_fd, wc->index_fd, wc->bctl, err);
+}
+
+/**
+ * eblob_dump_wc() - pretty-print write control structure with smart logging level selection
  */
 static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
 {
@@ -961,13 +974,7 @@ static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct
 	if (err < 0)
 		log_level = EBLOB_LOG_ERROR;
 
-	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
-			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: %s, "
-			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
-			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
-			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
-			wc->offset, wc->size, eblob_dump_dctl_flags(wc->flags), wc->total_data_size, wc->total_size,
-			wc->data_fd, wc->index_fd, wc->bctl, err);
+	eblob_dump_wc_raw(b, log_level, key, wc, str, err);
 }
 
 /**
@@ -1460,11 +1467,11 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	if (for_write && (dc.disk_size < eblob_calculate_size(b, wc->offset, wc->size))) {
 		err = -E2BIG;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 			"%s: %s: size check failed: disk-size: %llu, calculated: %llu\n",
 			__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
 			(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
-		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-size-check", err);
+		eblob_dump_wc_raw(b, EBLOB_LOG_NOTICE, key, wc, "eblob_fill_write_control_from_ram: ERROR-size-check", err);
 		goto err_out_exit;
 	}
 
