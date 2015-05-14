@@ -64,6 +64,18 @@ appending records one after another.
 This package contains libraries, header files and developer documentation
 needed for developing software which uses the eblob library.
 
+%package python
+Summary: Python bindings for %{name}
+Group: Development/Libraries
+Requires: %{name} = %{version}-%{release}
+
+%description python
+libeblob is a low-level IO library which stores data in huge blob files
+appending records one after another.
+
+This package contains python bindings needed for developing software which uses the eblob library with python.
+
+
 %prep
 %setup -q
 
@@ -77,15 +89,18 @@ CXXFLAGS="-pthread -I/usr/include/boost%{boost_ver}" LDFLAGS="-L/usr/lib64/boost
 %else
 %{cmake} .
 %endif
-%if 0%{?rhel} <= 5
-%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
-%{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
+%if 0%{?rhel} && 0%{?rhel} <= 6
+%{!?__python2: %global __python2 /usr/bin/python2}
+%{!?python2_sitelib: %global python2_sitelib %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python2_sitearch: %global python2_sitearch %(%{__python2} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 %endif
 make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
 make install DESTDIR="%{buildroot}"
+mkdir -p %{buildroot}/%{python2_sitelib}
+mv %{buildroot}%{_libdir}/*python* %{buildroot}/%{python2_sitelib}
 rm -f %{buildroot}%{_libdir}/*.a
 rm -f %{buildroot}%{_libdir}/*.la
 
@@ -106,6 +121,9 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{_includedir}/*
 %{_libdir}/lib*.so
+
+%files python
+%{python2_sitelib}
 
 %changelog
 * Wed May 06 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.22
