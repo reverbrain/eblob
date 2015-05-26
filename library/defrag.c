@@ -193,10 +193,12 @@ int eblob_defrag(struct eblob_backend *b)
 			continue;
 		}
 
-		/* skips sorted bases if defrag for them is not needed. Always defrag unsorted bases and
-		 * bases that could be merged or defraged.
-		 **/
-		if (want == EBLOB_DEFRAG_NOT_NEEDED && datasort_base_is_sorted(bctl) == 1)
+		/*
+		 * Skips sorted bases if defrag for them is not needed. Defrag unsorted bases in
+		 * case when defragmentation level is compact.
+		 */
+		if (want == EBLOB_DEFRAG_NOT_NEEDED &&
+		    (b->want_defrag == EBLOB_DEFRAG_STATE_DATA_COMPACT || datasort_base_is_sorted(bctl) == 1))
 			continue;
 
 		/* skips bases with sorted index if defrag thread was started only for index sort*/
@@ -234,13 +236,15 @@ int eblob_defrag(struct eblob_backend *b)
 	uint64_t total_size = eblob_stat_get(bctls[previous]->stat, EBLOB_LST_BASE_SIZE);
 	uint64_t records = 0; // number of records in current blob
 	uint64_t size = 0; // size of current blob
-	while (eblob_event_get(&b->exit_event) == 0) {
+	while (eblob_event_get(&b->exit_event) == 0 &&
+	       b->want_defrag != EBLOB_DEFRAG_STATE_NOT_STARTED) {
 		/*
 		 * For every but last base check for merge possibility
 		 * NB! Last base always triggers sort of accumulated bases.
 		 * index sort process doesn't merge blobs, so skip this.
 		 */
-		if (current < bctl_cnt && b->want_defrag == EBLOB_DEFRAG_STATE_DATA_SORT) {
+		if (current < bctl_cnt && (b->want_defrag == EBLOB_DEFRAG_STATE_DATA_SORT ||
+					   b->want_defrag == EBLOB_DEFRAG_STATE_DATA_COMPACT)) {
 			/* Shortcuts */
 			struct eblob_base_ctl * const bctl = bctls[current];
 			records = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL)
@@ -274,7 +278,8 @@ int eblob_defrag(struct eblob_backend *b)
 				}
 				break;
 			}
-			case EBLOB_DEFRAG_STATE_DATA_SORT: {
+			case EBLOB_DEFRAG_STATE_DATA_SORT:
+			case EBLOB_DEFRAG_STATE_DATA_COMPACT: {
 				struct datasort_cfg dcfg = {
 					.b = b,
 					.bctl = bctls + previous,
@@ -341,6 +346,9 @@ void *eblob_defrag_thread(void *data)
 			continue;
 		}
 
+		if (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED)
+			b->want_defrag = EBLOB_DEFRAG_STATE_DATA_COMPACT;
+
 		eblob_defrag(b);
 		b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
 		sleep_time = datasort_next_defrag(b);
@@ -349,7 +357,7 @@ void *eblob_defrag_thread(void *data)
 	return NULL;
 }
 
-int eblob_start_defrag(struct eblob_backend *b)
+int eblob_start_defrag_level(struct eblob_backend *b, enum eblob_defrag_state level)
 {
 	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
 		return -EINVAL;
@@ -361,22 +369,18 @@ int eblob_start_defrag(struct eblob_backend *b)
 		return -EALREADY;
 	}
 
-	b->want_defrag = EBLOB_DEFRAG_STATE_DATA_SORT;
+	b->want_defrag = level;
 	return 0;
 }
 
-int eblob_start_index_sort(struct eblob_backend *b) {
-	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS)
-		return -EINVAL;
+int eblob_start_defrag(struct eblob_backend *b)
+{
+	return eblob_start_defrag_level(b, EBLOB_DEFRAG_STATE_DATA_SORT);
+}
 
-	if (b->want_defrag) {
-		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
-		          "index_sort: defragmentation is in progress.\n");
-		return -EALREADY;
-	}
-
-	b->want_defrag = EBLOB_DEFRAG_STATE_INDEX_SORT;
-	return 0;
+int eblob_start_index_sort(struct eblob_backend *b)
+{
+	return eblob_start_defrag_level(b, EBLOB_DEFRAG_STATE_INDEX_SORT);
 }
 
 int eblob_defrag_status(struct eblob_backend *b)
@@ -386,4 +390,20 @@ int eblob_defrag_status(struct eblob_backend *b)
 	}
 
 	return b->want_defrag;
+}
+
+int eblob_stop_defrag(struct eblob_backend *b)
+{
+	if (b->cfg.blob_flags & EBLOB_DISABLE_THREADS) {
+		return -EINVAL;
+	}
+
+	if (b->want_defrag == EBLOB_DEFRAG_STATE_NOT_STARTED) {
+		eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				"defrag: defragmentation is not started.\n");
+		return -EALREADY;
+	}
+
+	b->want_defrag = EBLOB_DEFRAG_STATE_NOT_STARTED;
+	return 0;
 }

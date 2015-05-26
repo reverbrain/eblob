@@ -1,3 +1,29 @@
+eblob (0.22.22) unstable; urgency=low
+
+  * core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
+  * defrag: fixed auto-defrag on timed and/or scheduled datasort
+  * defrag: stop
+  * logs: added index of truncating blob to log
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 06 May 2015 00:44:25 +0400
+
+eblob (0.22.21) unstable; urgency=low
+
+  * Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet
+  * Added eblob_start_defrag_level()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 17 Apr 2015 23:47:44 +0400
+
+eblob (0.22.20) unstable; urgency=low
+
+  * index sort: skip iterating over just sorted index if cache is empty, since there is nothing to flush anyway
+  * removed unused sha384 functions and unification with elliptics cryptolib
+  * use interruption-safe read_ll in eblob_find_on_disk
+  * mmap elimination - mmap() replaced with pread(). Corrupted filesystem may return -EIO for some reads, while
+  * 	trying to access that data via mmap ends up with SIGBUS signal, which kills whole eblob user.
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 27 Mar 2015 00:17:23 +0400
+
 eblob (0.22.19) unstable; urgency=low
 
   * eblob: more debug in eblob_write_prepare() path

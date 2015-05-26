@@ -98,4 +98,9 @@ int eblob_l2hash_update(struct eblob_l2hash *l2h, const struct eblob_key *key, c
 int eblob_l2hash_upsert(struct eblob_l2hash *l2h, const struct eblob_key *key,
 		const struct eblob_ram_control *rctl, int *replaced);
 
+static inline int eblob_l2hash_empty(struct eblob_l2hash *l2h)
+{
+	return (l2h == NULL) || (rb_first(&l2h->root) == NULL);
+}
+
 #endif /* __EBLOB_L2HASH_H */

@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.19
+Version:	0.22.22
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,23 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed May 06 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.22
+- core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
+- defrag: fixed auto-defrag on timed and/or scheduled datasort
+- defrag: stop
+- logs: added index of truncating blob to log
+
+* Fri Apr 17 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.21
+- Added BLOB_DISK_CTL_UNCOMMITTED flag which is set for uncommitted records that were prepared but haven't been commmitted yet
+- Added eblob_start_defrag_level()
+
+* Fri Mar 27 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.20
+- index sort: skip iterating over just sorted index if cache is empty, since there is nothing to flush anyway
+- removed unused sha384 functions and unification with elliptics cryptolib
+- use interruption-safe read_ll in eblob_find_on_disk
+- mmap elimination - mmap() replaced with pread(). Corrupted filesystem may return -EIO for some reads, while
+- 	trying to access that data via mmap ends up with SIGBUS signal, which kills whole eblob user.
+
 * Wed Mar 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.19
 - eblob: more debug in eblob_write_prepare() path
 

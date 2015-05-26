@@ -183,18 +183,23 @@ enum eblob_read_flavour {
 	EBLOB_READ_CSUM,
 };
 
-#define BLOB_DISK_CTL_REMOVE	(1<<0)
-#define BLOB_DISK_CTL_NOCSUM	(1<<1)
-#define BLOB_DISK_CTL_COMPRESS	(1<<2)  /* DEPRECATED */
+#define BLOB_DISK_CTL_REMOVE		(1<<0)
+#define BLOB_DISK_CTL_NOCSUM		(1<<1)
+#define BLOB_DISK_CTL_COMPRESS		(1<<2) /* DEPRECATED */
 #define BLOB_DISK_CTL_WRITE_RETURN	(1<<3) /* DEPRECATED */
-#define BLOB_DISK_CTL_APPEND	(1<<4)
-#define BLOB_DISK_CTL_OVERWRITE	(1<<5) /* DEPRECATED */
+#define BLOB_DISK_CTL_APPEND		(1<<4)
+#define BLOB_DISK_CTL_OVERWRITE		(1<<5) /* DEPRECATED */
 /*
  * This flag is set for records that are written in so-called extended format -
  * records that have additional header before data - it's somewhat obscure and
  * changes blob behaviour in various ways. Only user of this flag is elliptics.
  */
-#define BLOB_DISK_CTL_EXTHDR	(1<<6)
+#define BLOB_DISK_CTL_EXTHDR		(1<<6)
+/*
+ * This flag is set for records that were prepared but haven't been commmitted yet.
+ * Such records doesn't available for read but can be committed even after restart.
+ */
+#define BLOB_DISK_CTL_UNCOMMITTED	(1<<7)
 
 struct eblob_disk_control {
 	/* key data */
@@ -401,7 +406,7 @@ struct eblob_iterate_callbacks {
 	 */
 	int				(* iterator)(struct eblob_disk_control *dc,
 						struct eblob_ram_control *ctl,
-						void *data, void *priv, void *thread_priv);
+						int fd, uint64_t data_offset, void *priv, void *thread_priv);
 
 	/* Initialization callback. This function is called in main thread before iterations.
 	 * Main purpose of this callback is @thread_priv initialization.
@@ -622,7 +627,8 @@ void eblob_remove_blobs(struct eblob_backend *b);
 enum eblob_defrag_state {
 	EBLOB_DEFRAG_STATE_NOT_STARTED,	/* no defrag is in progress */
 	EBLOB_DEFRAG_STATE_DATA_SORT,	/* data-sort is in progress */
-	EBLOB_DEFRAG_STATE_INDEX_SORT	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_INDEX_SORT,	/* index-sort is in progress */
+	EBLOB_DEFRAG_STATE_DATA_COMPACT	/* data-sort of heavy-fragmented blobs is in progress */
 };
 
 /*
@@ -630,6 +636,11 @@ enum eblob_defrag_state {
  * regardless of timer.
  */
 int eblob_start_defrag(struct eblob_backend *b);
+
+/*
+ * eblob_start_defrag_level() - overloaded version of eblob_start_defrag with defrag-level param
+ */
+int eblob_start_defrag_level(struct eblob_backend *b, enum eblob_defrag_state level);
 
 /*
  * eblob_start_index_sort() - forces defragmentation thread to sort index regardless of timer
@@ -640,6 +651,12 @@ int eblob_start_index_sort(struct eblob_backend *b);
  * eblob_defrag_status() - return current state of defragmentation thread
  */
 int eblob_defrag_status(struct eblob_backend *b);
+
+/*
+ * eblob_stop_defrag() - interrupts defragmentation of all blobs after completion
+ * of defragmentation of a single blob
+ */
+int eblob_stop_defrag(struct eblob_backend *b);
 
 /* Per backend stats */
 enum eblob_stat_global_flavour {
@@ -725,13 +742,14 @@ static inline void eblob_dump_flags_raw(char *buffer, size_t buffer_size, uint64
 static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 	static __thread char buffer[256];
 	static struct eblob_flag_info infos[] = {
-		{ BLOB_DISK_CTL_REMOVE, "remove"},
-		{ BLOB_DISK_CTL_NOCSUM, "nocsum"},
-		{ BLOB_DISK_CTL_COMPRESS, "compress"},
-		{ BLOB_DISK_CTL_WRITE_RETURN, "write_return"},
-		{ BLOB_DISK_CTL_APPEND, "append"},
-		{ BLOB_DISK_CTL_OVERWRITE, "overwrite"},
-		{ BLOB_DISK_CTL_EXTHDR, "exthdr"}
+		{ BLOB_DISK_CTL_REMOVE,		"remove"},
+		{ BLOB_DISK_CTL_NOCSUM,		"nocsum"},
+		{ BLOB_DISK_CTL_COMPRESS,	"compress"},
+		{ BLOB_DISK_CTL_WRITE_RETURN,	"write_return"},
+		{ BLOB_DISK_CTL_APPEND,		"append"},
+		{ BLOB_DISK_CTL_OVERWRITE,	"overwrite"},
+		{ BLOB_DISK_CTL_EXTHDR,		"exthdr"},
+		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"}
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
@@ -741,17 +759,17 @@ static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 static inline const char *eblob_dump_blob_flags(unsigned int flags) {
 	static __thread char buffer[256];
 	static struct eblob_flag_info infos[] = {
-		{ EBLOB_RESERVE_10_PERCENTS, "reserve_10_percents"},
-		{ EBLOB_OVERWRITE_COMMITS, "overwrite_commits"},
-		{ EBLOB_TRY_OVERWRITE, "try_overwrite"},
-		{ EBLOB_NO_FOOTER, "no_footer"},
-		{ EBLOB_NO_FREE_SPACE_CHECK, "no_free_space_check"},
-		{ EBLOB_L2HASH, "l2hash"},
-		{ EBLOB_AUTO_DATASORT, "auto_datasort"},
-		{ EBLOB_TIMED_DATASORT, "timed_datasort"},
-		{ EBLOB_SCHEDULED_DATASORT, "scheduled_datasort"},
-		{ EBLOB_DISABLE_THREADS, "disabled_threads"},
-		{ EBLOB_AUTO_INDEXSORT, "auto_indexsort"},
+		{ EBLOB_RESERVE_10_PERCENTS,		"reserve_10_percents"},
+		{ EBLOB_OVERWRITE_COMMITS,		"overwrite_commits"},
+		{ EBLOB_TRY_OVERWRITE,			"try_overwrite"},
+		{ EBLOB_NO_FOOTER,			"no_footer"},
+		{ EBLOB_NO_FREE_SPACE_CHECK,		"no_free_space_check"},
+		{ EBLOB_L2HASH,				"l2hash"},
+		{ EBLOB_AUTO_DATASORT,			"auto_datasort"},
+		{ EBLOB_TIMED_DATASORT,			"timed_datasort"},
+		{ EBLOB_SCHEDULED_DATASORT,		"scheduled_datasort"},
+		{ EBLOB_DISABLE_THREADS,		"disabled_threads"},
+		{ EBLOB_AUTO_INDEXSORT,			"auto_indexsort"},
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
