@@ -30,12 +30,13 @@ inline bool check_record(const struct eblob_disk_control &dc, uint64_t offset, s
 	static const uint64_t hdr_size = sizeof(struct eblob_disk_control);
 	if (dc.disk_size < dc.data_size + hdr_size) {
 		std::cerr << "malformed entry: disk_size is less than data_size + hdr_size: "
-			"offset: " << offset << '\n' <<
-			"key: " << eblob_dump_id(dc.key.id) << std::endl;
+			"offset: " << offset <<
+			", key: " << eblob_dump_id(dc.key.id);
 
 		if (dc.disk_size == 0 && dc.data_size == 0) {
-			std::cerr << "... and it is zero-sized entry" << std::endl;
+			std::cerr << " and it is zero-sized entry";
 		}
+		std::cerr << std::endl;
 		return false;
 	}
 
@@ -90,7 +91,7 @@ int main(int argc, char *argv[])
 		if (!blob.is_open())
 			throw std::runtime_error("Blob is not opened");
 
-		std::ofstream index(index_file.c_str(), std::ofstream::out | std::ofstream::binary);
+		std::ofstream index(index_file.c_str(), std::ofstream::out | std::ofstream::binary | std::ofstream::trunc);
 
 		if (!index.is_open())
 			throw std::runtime_error("Index is not opened");
@@ -98,8 +99,6 @@ int main(int argc, char *argv[])
 		while (!blob.eof()) {
 			blob.seekg(offset);
 			blob.read(reinterpret_cast<char *>(&dc), sizeof(dc));
-
-			eblob_convert_disk_control(&dc);
 
 			if (blob.gcount() == 0)
 				break;
@@ -109,6 +108,8 @@ int main(int argc, char *argv[])
 				throw std::runtime_error("Index read failed");
 			}
 
+			eblob_convert_disk_control(&dc);
+
 			if (!check_record(dc, offset, blob_length))
 				throw std::runtime_error("Found malformed entry");
 
@@ -116,6 +117,7 @@ int main(int argc, char *argv[])
 			if (dc.flags & BLOB_DISK_CTL_REMOVE)
 				++removed;
 
+			eblob_convert_disk_control(&dc);
 			index.write(reinterpret_cast<char *>(&dc), sizeof(dc));
 			offset += dc.disk_size;
 		}
