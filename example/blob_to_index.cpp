@@ -29,20 +29,16 @@ inline bool check_record(const struct eblob_disk_control &dc, uint64_t offset, s
 {
 	static const uint64_t hdr_size = sizeof(struct eblob_disk_control);
 	if (dc.disk_size < dc.data_size + hdr_size) {
-		std::cerr << "malformed entry: disk_size is less than data_size + hdr_size: "
-			"offset: " << offset <<
-			", key: " << eblob_dump_id(dc.key.id);
-
-		if (dc.disk_size == 0 && dc.data_size == 0) {
-			std::cerr << " and it is zero-sized entry";
-		}
-		std::cerr << std::endl;
+		std::cerr << "dump " << ioremap::eblob::eblob_dump_control(&dc, offset, 1, 0) <<
+			": malformed entry: disk_size (" << dc.disk_size << ")"
+			" < data_size + hdr_size (" << dc.data_size + hdr_size << ')' << std::endl;
 		return false;
 	}
 
 	if (blob_length < offset + dc.disk_size) {
-		std::cerr << "malformed entry: offset + disk_size is outside of blob: "
-			"offset: " << offset << std::endl;
+		std::cerr << "dump " << ioremap::eblob::eblob_dump_control(&dc, offset, 1, 0) <<
+			": malformed entry: blob_length (" << blob_length << ")"
+			" < offset + disk_size (" << offset + dc.disk_size << ')' << std::endl;
 		return false;
 	}
 
