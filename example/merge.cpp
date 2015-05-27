@@ -111,7 +111,7 @@ struct em_ctl {
 
 struct em_compare {
 		bool operator () (const em_ctl &s1, const em_ctl &s2) const {
-			return memcmp(s1.dc.key.id, s2.dc.key.id, EBLOB_ID_SIZE);
+			return memcmp(s1.dc.key.id, s2.dc.key.id, EBLOB_ID_SIZE) < 0;
 		}
 };
 
