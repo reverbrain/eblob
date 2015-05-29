@@ -2415,6 +2415,12 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 	off_t off;
 	int err = 0;
 
+	/* if record is uncommitted, its checksum hasn't been calculated, so
+	 * this check should be skipped
+	 */
+	if (wc->flags & BLOB_DISK_CTL_UNCOMMITTED)
+		return 0;
+
 	if (wc->total_size < sizeof(struct eblob_disk_footer)
 			|| wc->total_size < sizeof(struct eblob_disk_control)
 			|| wc->total_data_size > wc->total_size) {
@@ -2435,9 +2441,6 @@ static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc
 		goto err_out_exit;
 
 	memset(csum, 0, sizeof(csum));
-	/* zero-filled csum is ok csum */
-	if (!memcmp(csum, f.csum, sizeof(f.csum)))
-		goto err_out_exit;
 
 	off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	err = eblob_file_hash(b, csum, sizeof(csum), wc->data_fd, off, wc->total_data_size);
