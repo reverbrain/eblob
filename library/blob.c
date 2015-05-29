@@ -2205,7 +2205,7 @@ err_out_unlock:
 			eblob_dump_id(key->id), __func__, wc.data_fd, wc.size,
 			wc.data_offset + wc.offset, err);
 	if (err) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.plain.errors", b->cfg.stat_id), 1);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.plain.errors.%zd", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2364,7 +2364,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
 	if (err) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.errors", b->cfg.stat_id), 1);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2399,7 +2399,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.remove.errors", b->cfg.stat_id), 1);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.remove.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2508,7 +2508,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read.errors", b->cfg.stat_id), 1);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2615,7 +2615,7 @@ err_out_free:
 	free(data);
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read_data.errors", b->cfg.stat_id), 1);
+		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read_data.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2711,7 +2711,7 @@ int eblob_periodic(struct eblob_backend *b)
 		if (err != 0) {
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 				"eblob_stat_commit: FAILED");
-			FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.stat_commit.errors", b->cfg.stat_id), 1);
+			FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.stat_commit.errors.%d", b->cfg.stat_id, -err), 1);
 		}
 
 		b->stat_file_time = t;
