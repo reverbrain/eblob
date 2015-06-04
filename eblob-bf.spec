@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.22
+Version:	0.22.23
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,18 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jun 04 2015 Kirill Smorodinnikov <shaitkir@gmail.com> - 0.22.23
+- stats: split handystats 'errors' metrics by error code
+- csum: removed skipping zero-filled csum - all records without csum should have flag BLOB_DISK_CTL_NOCSUM.
+- eblob_merge: fixed bug with incorrect dc comparator
+- eblob_to_index: changed error message
+- eblob_to_index: removed new lines, added trunc flag, use eblob_convert_disk_control() before writing to index
+- eblob_to_index tool: create index from blob file
+- log: decreased log level of 'size check failed' message at eblob_fill_write_control_from_ram.
+-     The original message is about noncritical E2BIG error which says that 'I can't overwrite old data by new one because new data is bigger.
+-     I will write new at the end of last blob.'. So, this message should appear on NOTICE log level.
+-
+
 * Wed May 06 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.22
 - core: fixed failing write_prepare with -7 if it tries to overwrite record without footer by record with footer
 - defrag: fixed auto-defrag on timed and/or scheduled datasort
