@@ -790,13 +790,11 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	bctl->sort.fd = fd;
 	bctl->sort.offset = 0;
 	bctl->sort.size = index_size;
-	b->defrag_generation += 1;
 
 	err = eblob_index_blocks_fill(bctl);
 	if (err) {
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: eblob_index_blocks_fill: index: %d: FAILED",
 				bctl->index);
-		pthread_mutex_unlock(&bctl->lock);
 		goto err_unlock_hash;
 	}
 
@@ -809,6 +807,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 				bctl->index);
 		goto err_unlock_hash;
 	}
+
+	b->defrag_generation += 1;
 
 	/* Unlock */
 	pthread_rwlock_unlock(&b->hash.root_lock);
@@ -836,6 +836,7 @@ err_out_free_index:
 	free(sorted_index);
 err_out_close:
 	close(fd);
+	bctl->sort.fd = -1;
 err_out_free_dst_file:
 	free(dst_file);
 err_out_free_file:
