@@ -328,7 +328,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		int (* callback)(struct eblob_disk_control *sorted, struct eblob_disk_control *dc),
 		struct eblob_disk_search_stat *st)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.lookup.one", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.lookup.one", b->cfg.stat_id));
 
 	struct eblob_disk_control *sorted, *end, *sorted_orig, *found = NULL;
 	struct eblob_disk_control *hdr_block, *search_start, *search_end;
@@ -862,7 +862,7 @@ static char *eblob_dump_search_stat(const struct eblob_disk_search_stat *st, int
 int eblob_disk_index_lookup(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_ram_control *rctl)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.lookup", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.lookup", b->cfg.stat_id));
 
 	struct eblob_base_ctl *bctl;
 	struct eblob_disk_control dc = { .key = *key, };

@@ -328,7 +328,7 @@ void eblob_bctl_release(struct eblob_base_ctl *bctl)
 static int eblob_writev_raw(struct eblob_key *key, struct eblob_write_control *wc,
 		const struct eblob_iovec *iov, uint16_t iovcnt)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.raw", wc->bctl->back->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.raw", wc->bctl->back->cfg.stat_id));
 	const uint64_t offset_min = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	const uint64_t offset_max = wc->ctl_data_offset + wc->total_size;
 	const struct eblob_iovec *tmp;
@@ -1113,7 +1113,7 @@ static void eblob_wc_to_dc(const struct eblob_key *key, const struct eblob_write
 static int eblob_commit_disk(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int remove)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.commit.ll", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.commit.ll", b->cfg.stat_id));
 
 	struct eblob_disk_control dc;
 	int err;
@@ -1412,7 +1412,7 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int for_write, struct eblob_ram_control *old)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.lookup", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.lookup", b->cfg.stat_id));
 
 	struct eblob_ram_control ctl;
 	struct eblob_disk_control dc;
@@ -1535,7 +1535,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		enum eblob_copy_flavour copy, uint64_t copy_offset,
 		struct eblob_ram_control *old)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare.disk.ll", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.prepare.disk.ll", b->cfg.stat_id));
 
 	struct eblob_base_ctl *ctl = NULL;
 	ssize_t err = 0;
@@ -1697,7 +1697,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		else
 			err = eblob_copy_data(old->bctl->data_fd, off_in, wc->data_fd, off_out, size);
 
-		FORMATTED(HANDY_GAUGE_SET, ("eblob.%u.disk.write.move.size", b->cfg.stat_id), size);
+		HANDY_GAUGE_SET(("eblob.%u.disk.write.move.size", b->cfg.stat_id), size);
 
 		if (err == 0)
 			eblob_stat_inc(b->stat, EBLOB_GST_READ_COPY_UPDATE);
@@ -1757,7 +1757,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old,
 		size_t defrag_generation)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare.disk", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.prepare.disk", b->cfg.stat_id));
 
 	ssize_t err = 0;
 	uint64_t size;
@@ -1805,7 +1805,7 @@ err_out_exit:
 int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.prepare", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.prepare", b->cfg.stat_id));
 	struct eblob_write_control wc = { .offset = 0 };
 	struct eblob_ram_control old;
 	int err;
@@ -1857,7 +1857,7 @@ err_out_exit:
 int eblob_hash(struct eblob_backend *b, void *dst,
 		unsigned int dsize __attribute_unused__, const void *src, uint64_t size)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.hash", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.hash", b->cfg.stat_id));
 	sha512_buffer(src, size, dst);
 	return 0;
 }
@@ -1868,7 +1868,7 @@ int eblob_hash(struct eblob_backend *b, void *dst,
 static int eblob_file_hash(struct eblob_backend *b __attribute_unused__, void *dst,
         unsigned int dsize __attribute_unused__, int fd, off_t offset, uint64_t size)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.file_hash", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.file_hash", b->cfg.stat_id));
 	int err = sha512_file(fd, offset, size, dst);
 	return err;
 }
@@ -1883,7 +1883,7 @@ static int eblob_file_hash(struct eblob_backend *b __attribute_unused__, void *d
 static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 		struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.csum", b->cfg.stat_id));
 	off_t off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	int err = eblob_file_hash(b, dst, dsize, wc->data_fd, off, wc->total_data_size);
 	return err;
@@ -1896,7 +1896,7 @@ static int eblob_csum(struct eblob_backend *b, void *dst, unsigned int dsize,
 static int eblob_write_commit_footer(struct eblob_backend *b, struct eblob_key *key,
                                      struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.footer", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.footer", b->cfg.stat_id));
 	off_t offset = wc->ctl_data_offset + wc->total_size - sizeof(struct eblob_disk_footer);
 	struct eblob_disk_footer f;
 	int err = 0;
@@ -1949,7 +1949,7 @@ err_out_exit:
 static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.commit", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write.commit", b->cfg.stat_id));
 
 	int err;
 
@@ -2205,7 +2205,7 @@ err_out_unlock:
 			eblob_dump_id(key->id), __func__, wc.data_fd, wc.size,
 			wc.data_offset + wc.offset, err);
 	if (err) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.plain.errors.%zd", b->cfg.stat_id, -err), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.write.plain.errors.%zd", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2278,7 +2278,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
 		struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.write", b->cfg.stat_id));
 
 	struct eblob_iovec_bounds bounds;
 	struct eblob_ram_control old;
@@ -2306,7 +2306,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 	err = eblob_try_overwritev(b, key, iov, iovcnt, wc, &old, &defrag_generation);
 	if (err == 0) {
 		/* We have overwritten old data - bail out */
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.rewrites", b->cfg.stat_id), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.write.rewrites", b->cfg.stat_id), 1);
 		goto err_out_exit;
 	} else if (!(err == -E2BIG || err == -ENOENT || err == -EROFS)) {
 		/* Unknown error occurred during rewrite */
@@ -2364,7 +2364,7 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
 	if (err) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.write.errors.%d", b->cfg.stat_id, -err), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.write.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2374,7 +2374,7 @@ err_out_exit:
  */
 int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.remove", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.remove", b->cfg.stat_id));
 	struct eblob_ram_control ctl;
 	int err, disk;
 
@@ -2399,7 +2399,7 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.remove.errors.%d", b->cfg.stat_id, -err), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.remove.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2409,7 +2409,7 @@ err_out_exit:
  */
 static int eblob_csum_ok(struct eblob_backend *b, struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.csum.ok", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.csum.ok", b->cfg.stat_id));
 	struct eblob_disk_footer f;
 	unsigned char csum[EBLOB_ID_SIZE];
 	off_t off;
@@ -2463,7 +2463,7 @@ err_out_exit:
 static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 		enum eblob_read_flavour csum, struct eblob_write_control *wc)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.read", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.read", b->cfg.stat_id));
 	int err;
 	struct timeval start, end;
 	long csum_time;
@@ -2511,7 +2511,7 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read.errors.%d", b->cfg.stat_id, -err), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.read.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2576,7 +2576,7 @@ int eblob_read_return(struct eblob_backend *b, struct eblob_key *key,
 static int eblob_read_data_ll(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size, enum eblob_read_flavour csum)
 {
-	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.read_data", b->cfg.stat_id));
+	HANDY_TIMER_SCOPE(("eblob.%u.disk.read_data", b->cfg.stat_id));
 	int err, fd;
 	void *data;
 	uint64_t record_offset, record_size;
@@ -2618,7 +2618,7 @@ err_out_free:
 	free(data);
 err_out_exit:
 	if (err && err != -ENOENT) {
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.read_data.errors.%d", b->cfg.stat_id, -err), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.disk.read_data.errors.%d", b->cfg.stat_id, -err), 1);
 	}
 	return err;
 }
@@ -2714,7 +2714,7 @@ int eblob_periodic(struct eblob_backend *b)
 		if (err != 0) {
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
 				"eblob_stat_commit: FAILED");
-			FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.stat_commit.errors.%d", b->cfg.stat_id, -err), 1);
+			HANDY_COUNTER_INCREMENT(("eblob.%u.disk.stat_commit.errors.%d", b->cfg.stat_id, -err), 1);
 		}
 
 		b->stat_file_time = t;

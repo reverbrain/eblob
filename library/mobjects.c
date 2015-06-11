@@ -653,7 +653,7 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 	/* Bump counters only if entry was added and not replaced */
 	if (err == 0 && replaced == 0) {
 		eblob_stat_add(b->stat, EBLOB_GST_CACHED, entry_size);
-		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.cache.size", b->cfg.stat_id), 1);
+		HANDY_COUNTER_INCREMENT(("eblob.%u.cache.size", b->cfg.stat_id), 1);
 	}
 
 err_out_exit:
@@ -677,7 +677,7 @@ int eblob_cache_remove_nolock(struct eblob_backend *b, struct eblob_key *key)
 
 	if (err == 0) {
 		eblob_stat_sub(b->stat, EBLOB_GST_CACHED, entry_size);
-		FORMATTED(HANDY_COUNTER_DECREMENT, ("eblob.%u.cache.size", b->cfg.stat_id), 1);
+		HANDY_COUNTER_DECREMENT(("eblob.%u.cache.size", b->cfg.stat_id), 1);
 	}
 
 	return err;
@@ -698,7 +698,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 {
 	int err = 1, disk = 0;
 
-	FORMATTED(HANDY_TIMER_START, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
+	HANDY_TIMER_START(("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
 	pthread_rwlock_rdlock(&b->hash.root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		/* If l2hash is enabled - look in it */
@@ -708,7 +708,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		err = eblob_hash_lookup_nolock(&b->hash, key, res);
 	}
 	pthread_rwlock_unlock(&b->hash.root_lock);
-	FORMATTED(HANDY_TIMER_STOP, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
+	HANDY_TIMER_STOP(("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
 
 	if (err == -ENOENT) {
 		/* Look on disk */
