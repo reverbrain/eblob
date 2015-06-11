@@ -12,7 +12,7 @@
     #define __HANDY_NAME_SET(...) char __HANDY_NAME_USE[255]; snprintf(__HANDY_NAME_USE, (sizeof(__HANDY_NAME_USE) - 1), __VA_ARGS__)
     #define FORMATTED(MACRO, NAME_ARGS, ...) __HANDY_NAME_SET NAME_ARGS; MACRO(__HANDY_NAME_USE, ##__VA_ARGS__)
 #else
-    #include "monitor/handystats/stubs.h"
+    #include "handystats/stubs.h"
 #endif
 
 #endif /* __MEASURE_POINTS_H */
