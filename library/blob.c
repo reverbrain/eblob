@@ -1817,6 +1817,11 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_exit;
 	}
 
+	/*
+	 * eblob_write_prepare_disk_nolock(), eblob_commit_ram()
+	 * must be executed as a single transaction, because simultaneously running defragmentation
+	 * may change bctl, which is used in wc
+	 */
 	pthread_mutex_lock(&b->lock);
 
 	/*
@@ -2345,6 +2350,11 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 			wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	}
 
+	/*
+	 * eblob_write_prepare_disk_nolock(), eblob_writev_raw(), eblob_write_commit_nolock()
+	 * must be executed as a single transaction, because simultaneously running defragmentation
+	 * may change bctl, which is used in wc
+	 */
 	pthread_mutex_lock(&b->lock);
 
 	err = eblob_write_prepare_disk_nolock(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
