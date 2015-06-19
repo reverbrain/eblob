@@ -1527,7 +1527,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 }
 
 /*!
- * Low-level counterpart for \fn eblob_write_prepare_disk()
+ * Low-level counterpart for \fn eblob_write_prepare_disk_nolock()
  * NB! Caller should hold "backend" lock.
  */
 static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key *key,
@@ -1748,11 +1748,10 @@ err_out_exit:
 
 
 /**
- * eblob_write_prepare_disk() - allocates space for new record
- * It locks backend, allocates new bases, commits headers and
- * manages overwrites/appends.
+ * eblob_write_prepare_disk_nolock() - allocates space for new record
+ * It allocates new bases, commits headers and manages overwrites/appends.
  */
-static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *key,
+static int eblob_write_prepare_disk_nolock(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, uint64_t prepare_disk_size,
 		enum eblob_copy_flavour copy, uint64_t copy_offset, struct eblob_ram_control *old,
 		size_t defrag_generation)
@@ -1764,11 +1763,9 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	struct eblob_ram_control upd_old;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
-			"blob: %s: eblob_write_prepare_disk: start: "
+			"blob: %s: eblob_write_prepare_disk_nolock: start: "
 			"size: %" PRIu64 ", offset: %" PRIu64 ", prepare: %" PRIu64 "\n",
 			eblob_dump_id(key->id), wc->size, wc->offset, prepare_disk_size);
-
-	pthread_mutex_lock(&b->lock);
 
 	if (defrag_generation != b->defrag_generation) {
 		int disk;
@@ -1794,8 +1791,7 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 			copy_offset, old);
 
 err_out_exit:
-	pthread_mutex_unlock(&b->lock);
-	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk", err);
+	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_nolock", err);
 	return err;
 }
 
@@ -1822,30 +1818,39 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	}
 
 	/*
+	 * eblob_write_prepare_disk_nolock(), eblob_commit_ram()
+	 * must be executed as a single transaction, because simultaneously running defragmentation
+	 * may change bctl, which is used in wc
+	 */
+	pthread_mutex_lock(&b->lock);
+
+	/*
 	 * For eblob_write_prepare() this can fail with -E2BIG if we try to overwrite
 	 * record without footer by record with footer.
 	 */
 	defrag_generation = b->defrag_generation;
 	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, &old);
 	if (err && err != -ENOENT && err != -E2BIG)
-		goto err_out_exit;
+		goto err_out_unlock;
 
 	if (err == 0 && (wc.total_size >= eblob_calculate_size(b, 0, size))) {
 		eblob_stat_inc(b->stat, EBLOB_GST_PREPARE_REUSED);
-		goto err_out_exit;
+		goto err_out_unlock;
 	} else {
 		wc.flags = flags;
 		if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 			wc.flags |= BLOB_DISK_CTL_NOCSUM;
 		wc.flags |= BLOB_DISK_CTL_UNCOMMITTED;
-		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
+		err = eblob_write_prepare_disk_nolock(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
-			goto err_out_exit;
+			goto err_out_unlock;
 		err = eblob_commit_ram(b, key, &wc);
 		if (err)
-			goto err_out_exit;
+			goto err_out_unlock;
 	}
 
+err_out_unlock:
+	pthread_mutex_unlock(&b->lock);
 err_out_exit:
 	eblob_dump_wc(b, key, &wc, "eblob_write_prepare: finished", err);
 	return err;
@@ -2345,22 +2350,31 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 			wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	}
 
-	err = eblob_write_prepare_disk(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
+	/*
+	 * eblob_write_prepare_disk_nolock(), eblob_writev_raw(), eblob_write_commit_nolock()
+	 * must be executed as a single transaction, because simultaneously running defragmentation
+	 * may change bctl, which is used in wc
+	 */
+	pthread_mutex_lock(&b->lock);
+
+	err = eblob_write_prepare_disk_nolock(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
 	if (err)
-		goto err_out_exit;
+		goto err_out_unlock;
 
 	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_writev_raw: FAILED", err);
-		goto err_out_exit;
+		goto err_out_unlock;
 	}
 
 	err = eblob_write_commit_nolock(b, key, wc);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_nolock: FAILED", err);
-		goto err_out_exit;
+		goto err_out_unlock;
 	}
 
+err_out_unlock:
+	pthread_mutex_unlock(&b->lock);
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
 	if (err) {
