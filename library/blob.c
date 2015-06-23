@@ -401,17 +401,17 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 	 */
 	if (dc->disk_size < dc->data_size + hdr_size) {
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-				"blob: malformed entry: disk_size is less than data_size + hdr_size: "
+				"blob i%d: %s: malformed entry: disk_size is less than data_size + hdr_size: "
 				"pos: %" PRIu64 ", data_size: %" PRIu64 ", disk_size: %" PRIu64 "\n",
-				dc->position, dc->data_size, dc->disk_size);
+				bctl->index, eblob_dump_id(dc->key.id), dc->position, dc->data_size, dc->disk_size);
 		/* Hack for blob versions that leaved zero-filled "holes" in index. */
 		if (dc->disk_size == 0 && dc->data_size == 0) {
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-					"blob: zero-sized entry: key: %s, pos: %" PRIu64 "\n",
-					eblob_dump_id(dc->key.id), dc->position);
+					"blob i%d: %s: zero-sized entry: key: %s, pos: %" PRIu64 "\n",
+					bctl->index, eblob_dump_id(dc->key.id), eblob_dump_id(dc->key.id), dc->position);
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-					"blob: running `eblob_merge` on '%s' should help\n",
-					bctl->name);
+					"blob i%d: %s: running `eblob_merge` on '%s' should help\n",
+					bctl->index, eblob_dump_id(dc->key.id), bctl->name);
 		} else {
 			return -ESPIPE;
 		}
@@ -422,9 +422,9 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 	 */
 	if (dc->position + dc->disk_size > bctl_size) {
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-				"blob: malformed entry: position + data_size is outside of blob: "
+				"blob i%d: %s: malformed entry: position + disk_size is outside of blob: "
 				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", bctl_size: %llu\n",
-				dc->position, dc->disk_size, bctl_size);
+				bctl->index, eblob_dump_id(dc->key.id), dc->position, dc->disk_size, bctl_size);
 		return -ESPIPE;
 	}
 
