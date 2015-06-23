@@ -1819,8 +1819,9 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 
 	/*
 	 * eblob_write_prepare_disk_nolock(), eblob_commit_ram()
-	 * must be executed as a single transaction, because simultaneously running defragmentation
-	 * may change bctl, which is used in wc
+	 * must be executed as a single transaction, otherwise
+	 * datasort can release bctl between eblob_write_prepare_disk_nolock()
+	 * and eblob_commit_ram()
 	 */
 	pthread_mutex_lock(&b->lock);
 
@@ -1844,6 +1845,7 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		err = eblob_write_prepare_disk_nolock(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
 			goto err_out_unlock;
+
 		err = eblob_commit_ram(b, key, &wc);
 		if (err)
 			goto err_out_unlock;
@@ -2350,31 +2352,33 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 			wc->flags |= BLOB_DISK_CTL_NOCSUM;
 	}
 
-	/*
-	 * eblob_write_prepare_disk_nolock(), eblob_writev_raw(), eblob_write_commit_nolock()
-	 * must be executed as a single transaction, because simultaneously running defragmentation
-	 * may change bctl, which is used in wc
-	 */
 	pthread_mutex_lock(&b->lock);
 
 	err = eblob_write_prepare_disk_nolock(b, key, wc, 0, copy, copy_offset, err == -ENOENT ? NULL : &old, defrag_generation);
-	if (err)
-		goto err_out_unlock;
+	if (err) {
+		pthread_mutex_unlock(&b->lock);
+		goto err_out_exit;
+	}
+
+	/* Protect against datasort: bctl will be used in eblob_writev_raw()/eblob_write_commit_nolock() */
+	eblob_bctl_hold(wc->bctl);
+
+	pthread_mutex_unlock(&b->lock);
 
 	err = eblob_writev_raw(key, wc, iov, iovcnt);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_writev_raw: FAILED", err);
-		goto err_out_unlock;
+		goto err_out_release_bctl;
 	}
 
 	err = eblob_write_commit_nolock(b, key, wc);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_nolock: FAILED", err);
-		goto err_out_unlock;
+		goto err_out_release_bctl;
 	}
 
-err_out_unlock:
-	pthread_mutex_unlock(&b->lock);
+err_out_release_bctl:
+	eblob_bctl_release(wc->bctl);
 err_out_exit:
 	eblob_dump_wc(b, key, wc, "eblob_writev: finished", err);
 	if (err) {
