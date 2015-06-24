@@ -158,7 +158,7 @@ int eblob_write_data(struct eblob_backend *b, unsigned char *key, unsigned int k
  * @offset specifies position where client is allowed to write to no more than @size bytes.
  *
  * @ctl_offset is start of the control data on disk for given entry.
- * @total_size is equal to aligned sum of user specified @size and sizes of header/footer 
+ * @total_size is equal to aligned sum of user specified @size and sizes of header/footer
  * structures.
  */
 struct eblob_write_control {

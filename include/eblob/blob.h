@@ -201,6 +201,11 @@ enum eblob_read_flavour {
  */
 #define BLOB_DISK_CTL_UNCOMMITTED	(1<<7)
 
+/*
+ * This flags is set for records that were checksummed by chunks
+ */
+#define BLOB_DISK_CTL_CHUNKED_CRC32	(1<<8)
+
 struct eblob_disk_control {
 	/* key data */
 	struct eblob_key	key;
@@ -514,6 +519,14 @@ int eblob_read_data(struct eblob_backend *b, struct eblob_key *key,
 int eblob_read_data_nocsum(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t offset, char **dst, uint64_t *size);
 
+
+/*
+ * eblob_verify_checksum() - verifies checksum of entry pointed by @wc.
+ *
+ * Returns negative error value or zero on success.
+ */
+int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc);
+
 /*
  * Sync write: we will put data into some blob and index it by provided @key.
  * @flags can specify whether entry is removed and whether library will perform
@@ -591,16 +604,6 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags);
 int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags);
-
-struct eblob_disk_footer {
-	unsigned char			csum[EBLOB_ID_SIZE];
-	uint64_t			offset;
-} __attribute__ ((packed));
-
-static inline void eblob_convert_disk_footer(struct eblob_disk_footer *f)
-{
-	f->offset = eblob_bswap64(f->offset);
-}
 
 struct eblob_range_request {
 	unsigned char			start[EBLOB_ID_SIZE];
@@ -749,7 +752,8 @@ static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 		{ BLOB_DISK_CTL_APPEND,		"append"},
 		{ BLOB_DISK_CTL_OVERWRITE,	"overwrite"},
 		{ BLOB_DISK_CTL_EXTHDR,		"exthdr"},
-		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"}
+		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"},
+		{ BLOB_DISK_CTL_CHUNKED_CRC32,	"chunked_crc32"}
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));
