@@ -1,0 +1,39 @@
+\section introduction Introduction
+
+Eblob is an append-only low-level IO library that stores data in blob files. Each blob is accompanied by index file.
+Blob file has name "{config.file}-0.{blob number}" where {config.file} is the path specified at eblob config and
+{blob number} is an incremental index of the blob. Blob file stores entries with user datas.
+Index file has name "{config.file}-0.{blob_number}.index" and stores only headers of entries from corresponding blob.
+Index sort process adds new sorted index file with name "{config.file}-0.{blob_number}.index.sorted".
+Data sort process sorts blob and index file, saves sorted index into "{config.file}-0.{blob_number}.index.sorted" file,
+makes "{config.file}-0.{blob_number}.index" hardlink to sorted index file and creates empty "{config.file}-0.{blob_number}.data_is_sorted" file.
+If blob has sorted and unsorted index files eblob will use sorted one.
+
+\section index_file_format Index file format
+
+Index file stores headers of entries from corresponding blob. All headers have fixed size and follow each other without any separators.
+Each header is an object of eblob_disk_control structure and contains information about the entry: key, position, size, flags etc.
+When eblob writes data into blob, it appends data with header and footer into blob file and appends header into index file.
+
+\section blob_file_format Blob file format
+
+Blob file stores entries. Each entry consists of:
+* header - the same as header from index file
+* user data
+* footer - checksums that is used for data verification
+All entries are follow each other without any separators.
+
+\section data_verificatoin Data verification
+
+Eblob checksumms data by chunked CRC32 method that includes:
+* splitting data into chunks by size (1M bytes)
+* calculating checksum (CRC32) of each chunk
+* calculating final checksum (CRC32) of all checksums calculated in the previous step
+* writing checksums of all chunk and final checksum into footer
+When eblob verifies data it computes checksums of chunks that are requested and compares them with checksums from the footer.
+
+Records that were written by eblob version <= 0.22.23 are checksummed by sha512 method - their footer stores sha512 of data.
+In compatibility purpose, eblob supports verification such records but all new records will be checksummed by chunked CRC32 method.
+To determine how record was checksummed, all records checksummed by chunked CRC32 method have BLOB_DISK_CTL_CHUNKED_CRC32 flag.
+All records without such flag are verified by sha512.
+If blob is configured with EBLOB_NO_FOOTER flag or the record has BLOB_DISK_CTL_NOCSUM flag, verification of this record will be skipped.

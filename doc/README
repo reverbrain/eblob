@@ -9,17 +9,17 @@ Following features are supported:
     * ability to lock in-memory lookup index (hash table) to eliminate memory swap
     * readahead games with data and index blobs for maximum performance
     * multiple blob files support (tested with blob-file-as-block-device too)
-    * optional sha256 on-disk checksumming
+    * optional chunked crc32 on-disk checksumming
     * 2-stage write: prepare (which reserves the space) and commit
-    	(which calculates checksum and update in-memory and on-disk indexes).
-	    One can (re)write data using pwrite() in between without locks
+        (which calculates checksum and update in-memory and on-disk indexes).
+        One can (re)write data using pwrite() in between without locks
     * usual 1-stage write interface
     * flexible configuration of hash table size, flags, alignment
     * defragmentation tool: entries to be deleted are only marked as removed,
-    	eblob_check tool can actually remove those blocks from blob files
-	    by creating a copy and optionally rename it to original file
+        eblob_check tool can actually remove those blocks from blob files
+        by creating a copy and optionally rename it to original file
     * off-line blob consistency checker: we put a checksum into data blob,
-    	eblob_check can verify if data matches
+        eblob_check can verify if data matches
     * run-time sync support - library can sync files in background on timed base
 
 All exported functions can be found in include/eblob/blob.h header file,
