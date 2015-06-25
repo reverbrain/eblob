@@ -59,11 +59,22 @@ static inline int crc32_file(int fd, off_t offset, size_t count, uint32_t &resul
  */
 static inline uint64_t eblob_get_footer_offset(struct eblob_write_control *wc) {
 	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CRC32) {
+		/* size of one checksum */
 		static const size_t f_size = sizeof(uint32_t);
 		/* size of whole record without header and final checksum */
 		const uint64_t size = wc->total_size - sizeof(struct eblob_disk_control) - f_size;
-		/* number of chunks */
+		/*
+		 * @size includes only size of chunks and size of checksums of these chunks,
+		 * therefore number of chunks can be calculated via division @size by
+		 * size of chunk plus size of checksum with rounding up.
+		 * It requires rounding up because last chunk can be less than EBLOB_CSUM_CHUNK_SIZE.
+		 */
 		const uint64_t chunks_count = ((size  - 1) / (EBLOB_CSUM_CHUNK_SIZE + f_size)) + 1;
+		/*
+		 * checksums are placed at the end of the entry,
+		 * so it's offset within entry is calculated as
+		 * total_size of the entry minus size of all checksums
+		 */
 		return wc->total_size - (chunks_count + 1) * f_size;
 	} else {
 		return wc->total_size - sizeof(struct eblob_disk_footer);
