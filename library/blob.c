@@ -324,7 +324,7 @@ void eblob_bctl_release(struct eblob_base_ctl *bctl)
 }
 
 /*
- * eblob_validate_ctl_flags() - validates ctl flags and adds common based on eblob config.
+ * eblob_validate_ctl_flags() - validates ctl flags and adds new flags based on eblob config.
  */
 inline static uint64_t eblob_validate_ctl_flags(struct eblob_backend *b, uint64_t flags) {
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
