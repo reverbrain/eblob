@@ -136,6 +136,11 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	unsigned char csum[EBLOB_ID_SIZE];
 	int err = 0;
 	uint64_t off = wc->ctl_data_offset + wc->total_size - sizeof(f);
+	static const auto hdr_size = sizeof(struct eblob_disk_control);
+
+	/* sanity check that entry has valid total_size and total_data_size */
+	if (wc->total_size < wc->total_data_size + sizeof(hdr_size) + sizeof(f))
+		return -EINVAL;
 
 	err = __eblob_read_ll(wc->data_fd, &f, sizeof(f), off);
 	if (err) {
@@ -147,7 +152,7 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 
 	memset(csum, 0, sizeof(csum));
 
-	off = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
+	off = wc->ctl_data_offset + hdr_size;
 	err = sha512_file(wc->data_fd, off, wc->total_data_size, csum);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: sha512_file failed: err: %d\n",
@@ -218,7 +223,7 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 	    wc->flags & BLOB_DISK_CTL_NOCSUM)
 		return 0;
 
-	if (wc->total_size < wc->total_data_size)
+	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control))
 		return -EINVAL;
 
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.verify_checksum", b->cfg.stat_id));
