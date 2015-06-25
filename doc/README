@@ -15,11 +15,9 @@ Following features are supported:
         One can (re)write data using pwrite() in between without locks
     * usual 1-stage write interface
     * flexible configuration of hash table size, flags, alignment
-    * defragmentation tool: entries to be deleted are only marked as removed,
-        eblob_check tool can actually remove those blocks from blob files
-        by creating a copy and optionally rename it to original file
-    * off-line blob consistency checker: we put a checksum into data blob,
-        eblob_check can verify if data matches
+    * internal defragmentation procedure that sorts blobs and removes entries marked as removed
+    * off-line blob consistency checker: we put a checksum into data blob and
+        optionally verifies it on read
     * run-time sync support - library can sync files in background on timed base
 
 All exported functions can be found in include/eblob/blob.h header file,
