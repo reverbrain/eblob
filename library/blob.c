@@ -1646,16 +1646,25 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		goto err_out_rollback;
 
 	/*
-	 * Allocates space for the record. It should be done because if commit phase will be skipped
-	 * or eblob will be restarted before commit phase, the iterator will consider the record broken
-	 * because offset + size may be outside of blob. So extend blob manually.
+	 * zero prepare_disk_size means client asked eblob to write data and
+	 * eblob is allocating space for the entry that will be written immediately.
+	 *
+	 * nonzero prepare_disk_size means client asks eblob to prepare space for the data
+	 * that will be written in the future.
 	 */
-	err = eblob_preallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
-	eblob_log(b->cfg.log, err == 0 ? EBLOB_LOG_DEBUG : EBLOB_LOG_ERROR,
-	          "blob i%d: %s: eblob_preallocate: fd: %d, size: %" PRIu64 ", err: %zu\n",
-	          wc->bctl->index, eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
-	if (err != 0)
-		goto err_out_rollback;
+	if (prepare_disk_size) {
+		/*
+		 * Allocates space for the entry. It should be done because if commit phase will be skipped
+		 * or eblob will be restarted before commit phase, the iterator will consider the entry broken
+		 * because offset + size may be outside of blob. So extend blob manually.
+		 */
+		err = eblob_preallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
+		eblob_log(b->cfg.log, err == 0 ? EBLOB_LOG_DEBUG : EBLOB_LOG_ERROR,
+		          "blob i%d: %s: eblob_preallocate: fd: %d, size: %" PRIu64 ", err: %zu\n",
+		          wc->bctl->index, eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
+		if (err != 0)
+			goto err_out_rollback;
+	}
 
 	/*
 	 * We should copy old entry only in case there is old entry, it has
