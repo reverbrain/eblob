@@ -1731,12 +1731,10 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 	}
 
 	if (old != NULL) {
-		pthread_mutex_lock(&old->bctl->lock);
-		err = eblob_mark_entry_removed(b, key, old);
-		pthread_mutex_unlock(&old->bctl->lock);
+		err = eblob_mark_entry_removed_purge(b, key, old);
 		if (err != 0) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"%s: %s: eblob_mark_entry_removed: %zd\n",
+					"%s: %s: eblob_mark_entry_removed_purge: %zd\n",
 					__func__, eblob_dump_id(key->id), -err);
 			/*
 			 * NB! If previous entry removal failed than it's left
