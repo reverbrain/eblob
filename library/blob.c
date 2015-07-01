@@ -1408,6 +1408,9 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
  * eblob_fill_write_control_from_ram() - looks for data/index fds and offsets
  * in cache and fills write control with them.
  * @for_write:		specifies if this request is intended for future write
+ *
+ * NB! If this function succeeded, then @wc must be released using
+ *  eblob_write_control_cleanup().
  */
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int for_write, struct eblob_ram_control *old)
@@ -1488,6 +1491,10 @@ err_out_exit:
 	return err;
 }
 
+/**
+ * eblob_write_control_cleanup() - cleanups @wc that is returned by
+ *  eblob_fill_write_control_from_ram() on success.
+ */
 static void eblob_write_control_cleanup(struct eblob_write_control *wc) {
 	assert(wc != NULL);
 
@@ -1543,7 +1550,7 @@ static int eblob_check_free_space(struct eblob_backend *b, uint64_t size)
 }
 
 /*!
- * Low-level counterpart for \fn eblob_write_prepare_disk_nolock()
+ * Low-level counterpart for \fn eblob_write_prepare_disk()
  * NB! Caller should hold "backend" lock.
  */
 static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key *key,
