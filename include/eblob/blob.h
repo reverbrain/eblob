@@ -204,7 +204,7 @@ enum eblob_read_flavour {
 /*
  * This flags is set for records that were checksummed by chunks
  */
-#define BLOB_DISK_CTL_CHUNKED_CRC32	(1<<8)
+#define BLOB_DISK_CTL_CHUNKED_CSUM	(1<<8)
 
 struct eblob_disk_control {
 	/* key data */
@@ -753,7 +753,7 @@ static inline const char *eblob_dump_dctl_flags(uint64_t flags) {
 		{ BLOB_DISK_CTL_OVERWRITE,	"overwrite"},
 		{ BLOB_DISK_CTL_EXTHDR,		"exthdr"},
 		{ BLOB_DISK_CTL_UNCOMMITTED,	"uncommitted"},
-		{ BLOB_DISK_CTL_CHUNKED_CRC32,	"chunked_crc32"}
+		{ BLOB_DISK_CTL_CHUNKED_CSUM,	"chunked_csum"}
 	};
 
 	eblob_dump_flags_raw(buffer, sizeof(buffer), flags, infos, sizeof(infos) / sizeof(infos[0]));

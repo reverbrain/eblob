@@ -1,3 +1,23 @@
+/*
+ * 2015+ Copyright (c) Kirill Smorodinnikov <shaitkir@gmail.com>
+ * All rights reserved.
+ *
+ * This file is part of Eblob.
+ *
+ * Eblob is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Eblob is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Eblob.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "footer.h"
 
 #define __STDC_FORMAT_MACROS
@@ -5,7 +25,7 @@
 
 #include "blob.h"
 #include "crypto/sha512.h"
-#include "crc32.h"
+#include "murmurhash.h"
 
 #include "measure_points.h"
 
@@ -23,14 +43,14 @@ struct eblob_disk_footer {
 } __attribute__ ((packed));
 
 /*
- * crc32_file() - computes crc32 of bytes range read from @fd with @offset and @count.
+ * mmhash_file() - computes MurmurHash64A of bytes range read from @fd with @offset and @count.
  *
  * Results:
  * Returns negative error value or zero on success.
- * @result - computed crc32.
+ * @result - computed MurmurHash64A.
  */
-static inline int crc32_file(int fd, off_t offset, size_t count, uint32_t &result) {
-	static const size_t buffer_size = 1024;
+static inline int mmhash_file(int fd, off_t offset, size_t count, uint64_t &result) {
+	static const size_t buffer_size = 4096;
 	char buffer[buffer_size];
 	size_t read_size = buffer_size;
 	int err = 0;
@@ -44,7 +64,7 @@ static inline int crc32_file(int fd, off_t offset, size_t count, uint32_t &resul
 		if (err)
 			break;
 
-		result = crc32_buffer(buffer, read_size, result);
+		result = MurmurHash64A(buffer, read_size, result);
 		count -= read_size;
 		offset += read_size;
 	}
@@ -53,13 +73,13 @@ static inline int crc32_file(int fd, off_t offset, size_t count, uint32_t &resul
 }
 
 /*
- * crc32_footer_offset() - calculates CRC32 footer offset within record pointed by @wc.
+ * chunked_footer_offset() - calculates chunked footer offset within record pointed by @wc.
  *
  * Returns footer offset within record.
  */
-static inline uint64_t crc32_footer_offset(struct eblob_write_control *wc) {
+static inline uint64_t chunked_footer_offset(struct eblob_write_control *wc) {
 	/* size of one checksum */
-	static const size_t f_size = sizeof(uint32_t);
+	static const size_t f_size = sizeof(uint64_t);
 	/* size of whole record without header and final checksum */
 	const uint64_t size = wc->total_size - sizeof(struct eblob_disk_control) - f_size;
 	/*
@@ -78,24 +98,24 @@ static inline uint64_t crc32_footer_offset(struct eblob_write_control *wc) {
 }
 
 /*
- * eblob_chunked_crc32() - calculate chunked crc32 of record pointed by @key, @wc, @offset and @size.
- * It calculates crc32 of only chunks that intersect record's part specified by @offset and @size.
+ * eblob_chunked_mmhash() - calculate chunked MurmurHash64A of record pointed by @key, @wc, @offset and @size.
+ * It calculates MurmurHash64A of only chunks that intersect record's part specified by @offset and @size.
  *
  * Results:
  * Returns negative error value or zero on success
- * @footers - calculated crc32 of chunks
+ * @footers - calculated MurmurHash64A of chunks
  * @footers_offset - offset of record's footer with corresponding checksums.
  * @footers_offset can be used for reading and verifying on-disk checksums or for writing calculated checksums
  */
-static int eblob_chunked_crc32(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
+static int eblob_chunked_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
                                const uint64_t offset, const uint64_t size,
-                               std::vector<uint32_t> &checksums, uint64_t &checksums_offset) {
+                               std::vector<uint64_t> &checksums, uint64_t &checksums_offset) {
 	int err = 0;
 	uint64_t first_chunk = offset / EBLOB_CSUM_CHUNK_SIZE;
 	uint64_t last_chunk = (offset + size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1;
 	const uint64_t offset_max = wc->ctl_data_offset + wc->total_data_size + sizeof(struct eblob_disk_control);
 	const uint64_t data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
-	checksums_offset = wc->ctl_data_offset + crc32_footer_offset(wc) + first_chunk * sizeof(uint32_t);
+	checksums_offset = wc->ctl_data_offset + chunked_footer_offset(wc) + first_chunk * sizeof(uint64_t);
 
 	try {
 		checksums.resize(last_chunk - first_chunk, 0);
@@ -114,9 +134,9 @@ static int eblob_chunked_crc32(struct eblob_backend *b, struct eblob_key *key, s
 	for (auto it = checksums.begin(); it != checksums.end() ; ++it, chunk_offset += chunk_size) {
 		chunk_size = EBLOB_MIN(chunk_size, (offset_max - chunk_offset));
 
-		err = crc32_file(wc->data_fd, chunk_offset, chunk_size, *it);
+		err = mmhash_file(wc->data_fd, chunk_offset, chunk_size, *it);
 		if (err) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: crc32_file failed: "
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: mmhash_file failed: "
 			          "fd: %d, chunk_offset: %" PRIu64 ", chunk_size: %" PRIu64 ", err: %d\n",
 			          wc->bctl->index, eblob_dump_id(key->id), wc->data_fd, chunk_offset, chunk_size, err);
 			break;
@@ -134,7 +154,7 @@ uint64_t eblob_calculate_footer_size(struct eblob_backend *b, uint64_t data_size
 		return 0;
 
 	const uint64_t footers_count = (data_size - 1) / EBLOB_CSUM_CHUNK_SIZE + 2;
-	return footers_count * sizeof(uint32_t);
+	return footers_count * sizeof(uint64_t);
 }
 
 /*
@@ -185,21 +205,21 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 
 
 /*
- * eblob_verify_crc32() - verifies checksum of entry pointed by @wc by comparing crc32 of record's data chunks with footer.
+ * eblob_verify_mmhash() - verifies checksum of entry pointed by @wc by comparing MurmurHash64A of record's data chunks with footer.
  * It will checks only chunks that intersect @wc->offset and @wc->size.
  *
  * Returns negative error value or zero on success.
  */
-static int eblob_verify_crc32(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
+static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc) {
 	int err = 0;
 	uint64_t footers_offset = 0,
 	         footers_size = 0;
 
-	std::vector<uint32_t> calc_footers, check_footers;
+	std::vector<uint64_t> calc_footers, check_footers;
 
-	err = eblob_chunked_crc32(b, key, wc, wc->offset, wc->size, calc_footers, footers_offset);
+	err = eblob_chunked_mmhash(b, key, wc, wc->offset, wc->size, calc_footers, footers_offset);
 	if (err) {
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: eblob_chunked_crc32: failed: fd: %d, size: %"PRIu64
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: eblob_chunked_mmhash: failed: fd: %d, size: %"PRIu64
 		          ", offset: %" PRIu64 "\n",
 		          wc->bctl->index, eblob_dump_id(key->id), __func__, wc->data_fd, footers_size, footers_offset);
 		return err;
@@ -240,8 +260,8 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.verify_checksum", b->cfg.stat_id));
 
 	int err;
-	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CRC32)
-		err = eblob_verify_crc32(b, key, wc);
+	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CSUM)
+		err = eblob_verify_mmhash(b, key, wc);
 	else
 		err = eblob_verify_sha512(b, key, wc);
 	return err;
@@ -258,21 +278,21 @@ int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct e
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.write.commit.footer", b->cfg.stat_id));
 
 	int err;
-	std::vector<uint32_t> checksums;
+	std::vector<uint64_t> checksums;
 	uint64_t checksums_offset;
 
-	/* calculates chunked crc32 of whole record's data */
-	err = eblob_chunked_crc32(b, key, wc, 0, wc->total_data_size, checksums, checksums_offset);
+	/* calculates chunked MurmurHash64A of whole record's data */
+	err = eblob_chunked_mmhash(b, key, wc, 0, wc->total_data_size, checksums, checksums_offset);
 	if (err)
 		return err;
 
 	/* size of checksums in bytes */
 	const size_t checksums_size = checksums.size() * sizeof(checksums.front());
 
-	/* final crc32 of previously calculated chunked crc32 */
-	const uint32_t final_checksum = crc32_buffer(checksums.data(), checksums_size);
+	/* final MurmurHash64A of previously calculated chunked MurmurHash64A */
+	const uint64_t final_checksum = MurmurHash64A(checksums.data(), checksums_size, 0);
 
-	/* writes chunked crc32 to footer */
+	/* writes chunked MurmurHash64A to footer */
 	err = __eblob_write_ll(wc->data_fd, checksums.data(), checksums_size, checksums_offset);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to write checksums: "
@@ -284,7 +304,7 @@ int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct e
 
 	checksums_offset += checksums_size;
 
-	/* writes final crc32 to footer */
+	/* writes final MurmurHash64A to footer */
 	err = __eblob_write_ll(wc->data_fd, &final_checksum, sizeof(final_checksum), checksums_offset);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to write final checksums: "

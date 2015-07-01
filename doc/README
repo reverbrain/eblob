@@ -9,7 +9,7 @@ Following features are supported:
     * ability to lock in-memory lookup index (hash table) to eliminate memory swap
     * readahead games with data and index blobs for maximum performance
     * multiple blob files support (tested with blob-file-as-block-device too)
-    * optional chunked crc32 on-disk checksumming
+    * optional chunked MurmurHash64A on-disk checksumming
     * 2-stage write: prepare (which reserves the space) and commit
         (which calculates checksum and update in-memory and on-disk indexes).
         One can (re)write data using pwrite() in between without locks

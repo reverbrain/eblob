@@ -13,7 +13,6 @@ set(EBLOB_SRCS
     stat.c
     json_stat.cpp
     footer.cpp
-    crc32.cpp
     )
 
 add_definitions(-D__STDC_LIMIT_MACROS)

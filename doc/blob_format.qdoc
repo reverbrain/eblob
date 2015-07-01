@@ -25,16 +25,16 @@ All entries follow each other without any separators.
 
 \section data_verificatoin Data verification
 
-Eblob checksums data by chunked CRC32, which includes:
+Eblob checksums data by chunked MurmurHash64A, which includes:
 * splitting data into chunks by size (1M bytes)
-* calculating checksum (CRC32) of each chunk
-* calculating final checksum (CRC32) of all checksums calculated in the previous step
+* calculating checksum (MurmurHash64A) of each chunk
+* calculating final checksum (MurmurHash64A) of all checksums calculated in the previous step
 * writing checksums of all chunks and final checksum into the footer
 Eblob calculates and writes checksums only at commit time when whole entry has already been written.
 When eblob verifies data it computes checksums of requested chunks and compares them with checksums from the footer.
 
 Records that were written by eblob version <= 0.22.23 are checksummed by sha512 method - their footer stores sha512 of data.
-For compatibility purposes, eblob supports verification of such records, but all new records will be checksummed by chunked CRC32 method.
-To determine how record was checksummed, all records checksummed by chunked CRC32 method have BLOB_DISK_CTL_CHUNKED_CRC32 flag.
+For compatibility purposes, eblob supports verification of such records, but all new records will be checksummed by chunked MurmurHash64A method.
+To determine how record was checksummed, all records checksummed by chunked MurmurHash64A method have BLOB_DISK_CTL_CHUNKED_CSUM flag.
 All records without such flag are verified by sha512.
 If eblob is configured with EBLOB_NO_FOOTER flag or the record has BLOB_DISK_CTL_NOCSUM flag, verification of this record will be skipped.

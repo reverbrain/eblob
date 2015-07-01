@@ -331,9 +331,9 @@ inline static uint64_t eblob_validate_ctl_flags(struct eblob_backend *b, uint64_
 		flags |= BLOB_DISK_CTL_NOCSUM;
 
 	if (!(flags & BLOB_DISK_CTL_NOCSUM))
-		flags |= BLOB_DISK_CTL_CHUNKED_CRC32;
+		flags |= BLOB_DISK_CTL_CHUNKED_CSUM;
 	else
-		flags &= ~BLOB_DISK_CTL_CHUNKED_CRC32;
+		flags &= ~BLOB_DISK_CTL_CHUNKED_CSUM;
 
 	return flags;
 }
