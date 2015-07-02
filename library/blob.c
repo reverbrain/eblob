@@ -1405,6 +1405,19 @@ int eblob_splice_data(int fd_in, uint64_t off_in, int fd_out, uint64_t off_out, 
 #endif
 
 /**
+ * eblob_write_control_cleanup() - cleanups @wc that is returned by
+ *  eblob_fill_write_control_from_ram() on success.
+ */
+static void eblob_write_control_cleanup(struct eblob_write_control *wc) {
+	assert(wc != NULL);
+
+	if (wc->bctl != NULL) {
+		eblob_bctl_release(wc->bctl);
+		wc->bctl = NULL;
+	}
+}
+
+/**
  * eblob_fill_write_control_from_ram() - looks for data/index fds and offsets
  * in cache and fills write control with them.
  * @for_write:		specifies if this request is intended for future write
@@ -1456,7 +1469,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	err = __eblob_read_ll(wc->index_fd, &dc, sizeof(dc), ctl.index_offset);
 	if (err) {
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
-		goto err_out_release_bctl;
+		goto err_out_cleanup_wc;
 	}
 	eblob_convert_disk_control(&dc);
 
@@ -1477,31 +1490,17 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 			__func__, eblob_dump_id(key->id), (unsigned long long)dc.disk_size,
 			(unsigned long long)eblob_calculate_size(b, wc->offset, wc->size));
 		eblob_dump_wc_raw(b, EBLOB_LOG_NOTICE, key, wc, "eblob_fill_write_control_from_ram: ERROR-size-check", err);
-		goto err_out_release_bctl;
+		goto err_out_cleanup_wc;
 	}
 
 	eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram", err);
 
 	return err;
 
-err_out_release_bctl:
-	eblob_bctl_release(wc->bctl);
-	wc->bctl = NULL;
+err_out_cleanup_wc:
+	eblob_write_control_cleanup(wc);
 err_out_exit:
 	return err;
-}
-
-/**
- * eblob_write_control_cleanup() - cleanups @wc that is returned by
- *  eblob_fill_write_control_from_ram() on success.
- */
-static void eblob_write_control_cleanup(struct eblob_write_control *wc) {
-	assert(wc != NULL);
-
-	if (wc->bctl != NULL) {
-		eblob_bctl_release(wc->bctl);
-		wc->bctl = NULL;
-	}
 }
 
 /**
