@@ -1972,10 +1972,10 @@ err_out_exit:
 }
 
 /**
- * eblob_write_commit_nolock() - commit phase - writes to disk, updates on-disk
+ * eblob_write_commit_perform() - commit phase - writes to disk, updates on-disk
  * index and puts entry to hash.
  */
-static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *key,
+static int eblob_write_commit_perform(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc)
 {
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.disk.write.commit", b->cfg.stat_id));
@@ -1997,7 +1997,7 @@ static int eblob_write_commit_nolock(struct eblob_backend *b, struct eblob_key *
 		goto err_out_exit;
 
 err_out_exit:
-	eblob_dump_wc(b, key, wc, "eblob_write_commit_nolock", err);
+	eblob_dump_wc(b, key, wc, "eblob_write_commit_perform", err);
 	return err;
 }
 
@@ -2075,7 +2075,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		wc.flags |= BLOB_DISK_CTL_NOCSUM;
 
-	err = eblob_write_commit_nolock(b, key, &wc);
+	err = eblob_write_commit_perform(b, key, &wc);
 	if (err != 0)
 		goto err_out_cleanup_wc;
 
@@ -2140,9 +2140,9 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	eblob_stat_inc(b->stat, EBLOB_GST_WRITES_NUMBER);
 	eblob_stat_add(b->stat, EBLOB_GST_WRITES_SIZE, wc->size);
 
-	err = eblob_write_commit_nolock(b, key, wc);
+	err = eblob_write_commit_perform(b, key, wc);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_commit_nolock", err);
+		eblob_dump_wc(b, key, wc, "eblob_try_overwrite: ERROR-eblob_write_commit_perform", err);
 		goto err_out_cleanup_wc;
 	}
 
@@ -2408,9 +2408,9 @@ int eblob_writev_return(struct eblob_backend *b, struct eblob_key *key,
 		goto err_out_cleanup_wc;
 	}
 
-	err = eblob_write_commit_nolock(b, key, wc);
+	err = eblob_write_commit_perform(b, key, wc);
 	if (err) {
-		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_nolock: FAILED", err);
+		eblob_dump_wc(b, key, wc, "eblob_writev: eblob_write_commit_perform: FAILED", err);
 		goto err_out_cleanup_wc;
 	}
 
