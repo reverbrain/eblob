@@ -2001,6 +2001,47 @@ err_out_exit:
 	return err;
 }
 
+static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key *key, uint64_t size,
+				      struct eblob_write_control *wc, struct eblob_ram_control *rctl)
+{
+	int err;
+
+	pthread_mutex_lock(&b->lock);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1, NULL);
+	if (err < 0)
+		goto err_out_unlock;
+
+	/* Sanity - we can't commit more than we've written */
+	if (size > wc->total_size) {
+		err = -ERANGE;
+		goto err_out_cleanup_wc;
+	}
+
+	/*
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
+	 */
+	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
+		uint64_t orig_flags = wc->flags;
+
+		/* Do not set any flags for prepare */
+		wc->flags = 0;
+
+		err = eblob_write_prepare_disk_ll(b, key, wc, size,
+				EBLOB_COPY_RECORD, 0, rctl);
+		if (err != 0)
+			goto err_out_cleanup_wc;
+
+		wc->flags = orig_flags;
+	}
+
+err_out_cleanup_wc:
+	eblob_write_control_cleanup(wc);
+err_out_unlock:
+	pthread_mutex_unlock(&b->lock);
+	return err;
+}
+
 /*!
  * Commits record:
  *	Writes footer, index and data file indexes and updates data in ram.
@@ -2009,6 +2050,7 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		uint64_t size, uint64_t flags)
 {
 	struct eblob_write_control wc = { .offset = 0, };
+	struct eblob_ram_control rctl;
 	int err;
 
 	/* Sanity */
@@ -2021,42 +2063,9 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 			"key: %s, size: %" PRIu64 ", flags: %s",
 			eblob_dump_id(key->id), size, eblob_dump_dctl_flags(flags));
 
-	pthread_mutex_lock(&b->lock);
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, NULL);
-	if (err < 0) {
-		pthread_mutex_unlock(&b->lock);
+	err = eblob_write_commit_prepare(b, key, size, &wc, &rctl);
+	if (err != 0)
 		goto err_out_exit;
-	}
-
-	/* Sanity - we can't commit more than we've written */
-	if (size > wc.total_size) {
-		err = -ERANGE;
-		goto err_out_unlock;
-	}
-
-	/*
-	 * We can only overwrite keys inplace if data-sort is not processing
-	 * this base (so binlog for it is not enabled)
-	 */
-	if (eblob_binlog_enabled(&wc.bctl->binlog)) {
-		struct eblob_ram_control rctl;
-		uint64_t orig_flags = wc.flags;
-
-		err = eblob_cache_lookup(b, key, &rctl, NULL);
-		if (err != 0)
-			goto err_out_unlock;
-
-		/* Do not set any flags for prepare */
-		wc.flags = 0;
-
-		err = eblob_write_prepare_disk_ll(b, key, &wc, size,
-				EBLOB_COPY_RECORD, 0, &rctl);
-		if (err != 0)
-			goto err_out_unlock;
-
-		wc.flags = orig_flags;
-	}
-	pthread_mutex_unlock(&b->lock);
 
 	if (size != ~0ULL)
 		wc.size = wc.total_data_size = size;
@@ -2067,10 +2076,9 @@ int eblob_write_commit(struct eblob_backend *b, struct eblob_key *key,
 		wc.flags |= BLOB_DISK_CTL_NOCSUM;
 
 	err = eblob_write_commit_nolock(b, key, &wc);
-	goto err_out_cleanup_wc;
+	if (err != 0)
+		goto err_out_cleanup_wc;
 
-err_out_unlock:
-	pthread_mutex_unlock(&b->lock);
 err_out_cleanup_wc:
 	eblob_write_control_cleanup(&wc);
 err_out_exit:
@@ -2158,11 +2166,59 @@ int eblob_plain_write(struct eblob_backend *b, struct eblob_key *key,
 	return eblob_plain_writev(b, key, &iov, 1, flags);
 }
 
+static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key *key,
+				      const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags,
+				      struct eblob_write_control *wc, struct eblob_ram_control *rctl,
+				      int *prepared)
+{
+	struct eblob_iovec_bounds bounds;
+	ssize_t err;
+
+	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
+	wc->size = bounds.max;
+
+	pthread_mutex_lock(&b->lock);
+	err = eblob_fill_write_control_from_ram(b, key, wc, 1, rctl);
+	if (err)
+		goto err_out_unlock;
+
+	/*
+	 * We can't use plain write if EXTHDR flag is differ on old and new record.
+	 * TODO: We can preform read-modify-write cycle here but it's too hacky.
+	 */
+	if ((flags & BLOB_DISK_CTL_EXTHDR)
+			&& !(wc->flags & BLOB_DISK_CTL_EXTHDR)) {
+		err = -ENOTSUP;
+		goto err_out_cleanup_wc;
+	}
+
+	/*
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
+	 */
+	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
+		/* FIXME: We are possibly oversubscribing size here */
+		wc->flags = 0;
+		err = eblob_write_prepare_disk_ll(b, key, wc,
+				wc->total_data_size + bounds.max,
+				EBLOB_COPY_RECORD, 0, rctl);
+		if (err != 0)
+			goto err_out_cleanup_wc;
+		*prepared = 1;
+	}
+
+err_out_cleanup_wc:
+	eblob_write_control_cleanup(wc);
+err_out_unlock:
+	pthread_mutex_unlock(&b->lock);
+	return err;
+}
+
 int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 		const struct eblob_iovec *iov, uint16_t iovcnt, uint64_t flags)
 {
 	struct eblob_write_control wc = { .offset = 0 };
-	struct eblob_iovec_bounds bounds;
+	struct eblob_ram_control rctl;
 	ssize_t err;
 	int prepared = 0;
 
@@ -2176,47 +2232,9 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 			"key: %s, iovcnt: %" PRIu16 ", flags: %s",
 			eblob_dump_id(key->id), iovcnt, eblob_dump_dctl_flags(flags));
 
-	eblob_iovec_get_bounds(&bounds, iov, iovcnt);
-	wc.size = bounds.max;
-
-	pthread_mutex_lock(&b->lock);
-	err = eblob_fill_write_control_from_ram(b, key, &wc, 1, NULL);
-	if (err) {
-		pthread_mutex_unlock(&b->lock);
+	err = eblob_plain_writev_prepare(b, key, iov, iovcnt, flags, &wc, &rctl, &prepared);
+	if (err)
 		goto err_out_exit;
-	}
-
-	/*
-	 * We can't use plain write if EXTHDR flag is differ on old and new record.
-	 * TODO: We can preform read-modify-write cycle here but it's too hacky.
-	 */
-	if ((flags & BLOB_DISK_CTL_EXTHDR)
-			&& !(wc.flags & BLOB_DISK_CTL_EXTHDR)) {
-		err = -ENOTSUP;
-		goto err_out_unlock;
-	}
-
-	/*
-	 * We can only overwrite keys inplace if data-sort is not processing
-	 * this base (so binlog for it is not enabled)
-	 */
-	if (eblob_binlog_enabled(&wc.bctl->binlog)) {
-		struct eblob_ram_control rctl;
-
-		err = eblob_cache_lookup(b, key, &rctl, NULL);
-		if (err != 0)
-			goto err_out_unlock;
-
-		/* FIXME: We are possibly oversubscribing size here */
-		wc.flags = 0;
-		err = eblob_write_prepare_disk_ll(b, key, &wc,
-				wc.total_data_size + bounds.max,
-				EBLOB_COPY_RECORD, 0, &rctl);
-		if (err != 0)
-			goto err_out_unlock;
-		prepared = 1;
-	}
-	pthread_mutex_unlock(&b->lock);
 
 	wc.flags = flags;
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
@@ -2232,10 +2250,6 @@ int eblob_plain_writev(struct eblob_backend *b, struct eblob_key *key,
 			goto err_out_cleanup_wc;
 	}
 
-	goto err_out_cleanup_wc;
-
-err_out_unlock:
-	pthread_mutex_unlock(&b->lock);
 err_out_cleanup_wc:
 	eblob_write_control_cleanup(&wc);
 err_out_exit:
