@@ -31,13 +31,9 @@
  *
  * So it's addiotional 10% economy
  */
-#ifdef HASH32
-typedef uint32_t	eblob_l2hash_t;
-#define PRIl2h		PRIu32
-#else
+
 typedef uint64_t	eblob_l2hash_t;
 #define PRIl2h		PRIu64
-#endif
 
 /* Flavours for internal _eblob_l2hash_insert() */
 enum {

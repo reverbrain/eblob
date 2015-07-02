@@ -12,6 +12,7 @@ set(EBLOB_SRCS
     rbtree.c
     stat.c
     json_stat.cpp
+    footer.cpp
     )
 
 add_definitions(-D__STDC_LIMIT_MACROS)
