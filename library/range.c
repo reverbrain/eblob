@@ -118,7 +118,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 	return found;
 }
 
-static int eblob_range_callback(struct eblob_range_request *req, struct eblob_key *key, int data_fd, uint64_t offset, uint64_t size)	
+static int eblob_range_callback(struct eblob_range_request *req, struct eblob_key *key, int data_fd, uint64_t offset, uint64_t size)
 {
 	int err = 0;
 

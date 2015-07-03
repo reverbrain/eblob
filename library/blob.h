@@ -36,6 +36,10 @@
 #include <unistd.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef __attribute_unused__
 #define __attribute_unused__	__attribute__ ((unused))
 #endif
@@ -514,7 +518,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 int eblob_index_blocks_destroy(struct eblob_base_ctl *bctl);
 
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl);
-int __eblob_write_ll(int fd, void *data, size_t size, off_t offset);
+int __eblob_write_ll(int fd, const void *data, size_t size, off_t offset);
 int __eblob_read_ll(int fd, void *data, size_t size, off_t offset);
 
 struct eblob_disk_search_stat {
@@ -587,5 +591,9 @@ static inline const char *eblob_want_defrag_string(int want_defrag)
 
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
 		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __EBLOB_BLOB_H */
