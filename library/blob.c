@@ -2050,9 +2050,21 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	*defrag_generation = b->defrag_generation;
 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1, old);
+	if (err) {
+		pthread_mutex_unlock(&b->lock);
+		goto err_out_exit;
+	}
+
+	/*
+	 * We can only overwrite keys inplace if data-sort is not processing
+	 * this base (so binlog for it is not enabled)
+	 */
+	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
+		err = -EROFS;
+	}
 	pthread_mutex_unlock(&b->lock);
 	if (err)
-		goto err_out_exit;
+		goto err_out_cleanup_wc;
 
 	/*
 	 * We can't overwrite old record with new one if they have different
@@ -2069,16 +2081,6 @@ static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
 	if ((flags & BLOB_DISK_CTL_EXTHDR) && (flags & BLOB_DISK_CTL_APPEND))
 		if (wc->offset == 0)
 			flags &= ~BLOB_DISK_CTL_APPEND;
-
-
-	/*
-	 * We can only overwrite keys inplace if data-sort is not processing
-	 * this base (so binlog for it is not enabled)
-	 */
-	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
-		err = -EROFS;
-		goto err_out_cleanup_wc;
-	}
 
 	wc->flags = flags;
 	wc->size = size;
