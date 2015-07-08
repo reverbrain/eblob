@@ -1,3 +1,14 @@
+eblob (0.22.24) unstable; urgency=low
+
+  * Refactored write control structure - if we have found bctl (blob) to write data to,
+  * 	it is being hold for duration of all write operations.
+  * Added chunked checksumming - it adds one 64-bit murmur csum per 1Mb of data
+  * 	all new writes will use new checksumming, old sha512 per file csum is also supported
+  * log: increased informativity of some logs - added bctl index and key
+  * index sort: fixed double mutex unlock and accurate resource release on errors
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 09 Jul 2015 01:46:30 +0400
+
 eblob (0.22.23) unstable; urgency=low
 
   * stats: split handystats 'errors' metrics by error code
