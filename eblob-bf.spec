@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.22.24
+Version:	0.23.0
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Jul 09 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.0
+- Bump version higher because of substantial changes
+
 * Thu Jul 09 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.22.24
 - Refactored write control structure - if we have found bctl (blob) to write data to,
 - 	it is being hold for duration of all write operations.
