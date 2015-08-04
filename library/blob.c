@@ -1690,7 +1690,7 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		err = eblob_preallocate(wc->data_fd, wc->ctl_data_offset, wc->total_size);
 		eblob_log(b->cfg.log, err == 0 ? EBLOB_LOG_DEBUG : EBLOB_LOG_ERROR,
 		          "blob i%d: %s: eblob_preallocate: fd: %d, size: %" PRIu64 ", err: %zu\n",
-		          wc->bctl->index, eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
+		          wc->index, eblob_dump_id(key->id), wc->data_fd, wc->ctl_data_offset + wc->total_size, err);
 		if (err != 0)
 			goto err_out_rollback;
 	}
