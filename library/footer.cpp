@@ -121,7 +121,7 @@ static int eblob_chunked_mmhash(struct eblob_backend *b, struct eblob_key *key, 
 		checksums.resize(last_chunk - first_chunk, 0);
 	} catch (const std::exception &e) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to allocate checksums: %s\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__, e.what());
+		          wc->index, eblob_dump_id(key->id), __func__, e.what());
 		return -ENOMEM;
 	}
 
@@ -138,7 +138,7 @@ static int eblob_chunked_mmhash(struct eblob_backend *b, struct eblob_key *key, 
 		if (err) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: mmhash_file failed: "
 			          "fd: %d, chunk_offset: %" PRIu64 ", chunk_size: %" PRIu64 ", err: %d\n",
-			          wc->bctl->index, eblob_dump_id(key->id), wc->data_fd, chunk_offset, chunk_size, err);
+			          wc->index, eblob_dump_id(key->id), wc->data_fd, chunk_offset, chunk_size, err);
 			break;
 		}
 	}
@@ -177,7 +177,7 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to read footer: "
 		          "fd: %d, size: %zu, offset: %" PRIu64 " err: %d\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__, wc->data_fd, sizeof(f), off, err);
+		          wc->index, eblob_dump_id(key->id), __func__, wc->data_fd, sizeof(f), off, err);
 		return err;
 	}
 
@@ -187,13 +187,13 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	err = sha512_file(wc->data_fd, off, wc->total_data_size, csum);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: sha512_file failed: err: %d\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__, err);
+		          wc->index, eblob_dump_id(key->id), __func__, err);
 		return err;
 	}
 
 	if (memcmp(csum, f.csum, sizeof(csum))) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: checksum mismatch: err: %d\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__, err);
+		          wc->index, eblob_dump_id(key->id), __func__, err);
 		return -EILSEQ;
 	}
 
@@ -221,7 +221,7 @@ static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, s
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: eblob_chunked_mmhash: failed: fd: %d, size: %" PRIu64
 		          ", offset: %" PRIu64 "\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__, wc->data_fd, footers_size, footers_offset);
+		          wc->index, eblob_dump_id(key->id), __func__, wc->data_fd, footers_size, footers_offset);
 		return err;
 	}
 
@@ -297,7 +297,7 @@ int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct e
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to write checksums: "
 		          "fd: %d, size: %" PRIu64 ", offset: %" PRIu64 ": %d\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__,
+		          wc->index, eblob_dump_id(key->id), __func__,
 		          wc->data_fd, checksums_size, checksums_offset, err);
 		return err;
 	}
@@ -309,13 +309,13 @@ int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct e
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to write final checksums: "
 		          "fd: %d, size: %zu, offset: %" PRIu64 ": %d\n",
-		          wc->bctl->index, eblob_dump_id(key->id), __func__,
+		          wc->index, eblob_dump_id(key->id), __func__,
 		          wc->data_fd, sizeof(final_checksum), checksums_offset, err);
 		return err;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob i%d: %s: %s: checksums have been updated, final checksum: %" PRIx64 "\n",
-	          wc->bctl->index, eblob_dump_id(key->id), __func__, final_checksum);
+	          wc->index, eblob_dump_id(key->id), __func__, final_checksum);
 
 	if (!b->cfg.sync)
 		fsync(wc->data_fd);
