@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.1
+Version:	0.23.2
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Aug 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.2
+- mobjects: remove .index.sorted for newly created blob
+
 * Tue Aug 04 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.1
 - logs: use wc->index instead of wc->bctl->index. Fixed reverbrain/elliptics#639.
 - footer: fixed compilation error and warning on wheezy
