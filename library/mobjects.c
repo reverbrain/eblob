@@ -274,6 +274,24 @@ again:
 	} else {
 		struct stat st;
 
+		if (created) {
+			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
+				  "bctl: index: %d: removing sorted index that should not exist "
+				  "because we have just created a new blob with that name: %s\n",
+				  ctl->index, full);
+
+			if (unlink(full) == -1) {
+				err = -errno;
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
+					  "bctl: index: %d: failed to remove sorted index that should not exist "
+					  "because we have just created a new blob with that name '%s': %s: %d\n",
+					  ctl->index, full, strerror(-err), err);
+				goto err_out_close_data;
+			}
+
+			goto again;
+		}
+
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 				"bctl: index: %d: %s: access succeeded\n", ctl->index, full);
 
