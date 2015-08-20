@@ -1840,8 +1840,8 @@ static int eblob_write_prepare_disk(struct eblob_backend *b, struct eblob_key *k
 	if (err)
 		goto err_out_exit;
 
-	err = eblob_write_prepare_disk_ll(b, key, wc, prepare_disk_size, copy,
-			copy_offset, old);
+	err = eblob_write_prepare_disk_ll(b, key, wc, prepare_disk_size,
+			copy, copy_offset, old);
 
 err_out_exit:
 	pthread_mutex_unlock(&b->lock);
@@ -1969,21 +1969,15 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 	 */
 	if (eblob_binlog_enabled(&wc->bctl->binlog)) {
 		struct eblob_ram_control rctl;
-		uint64_t orig_flags = wc->flags;
 
 		err = eblob_cache_lookup(b, key, &rctl, NULL);
 		if (err != 0)
 			goto err_out_cleanup_wc;
 
-		/* Do not set any flags for prepare */
-		wc->flags = 0;
-
 		err = eblob_write_prepare_disk_ll(b, key, wc, size,
 				EBLOB_COPY_RECORD, 0, &rctl);
 		if (err != 0)
 			goto err_out_cleanup_wc;
-
-		wc->flags = orig_flags;
 	}
 
 	pthread_mutex_unlock(&b->lock);
@@ -2158,7 +2152,6 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 			goto err_out_cleanup_wc;
 
 		/* FIXME: We are possibly oversubscribing size here */
-		wc->flags = 0;
 		err = eblob_write_prepare_disk_ll(b, key, wc,
 				wc->total_data_size + bounds.max,
 				EBLOB_COPY_RECORD, 0, &rctl);
