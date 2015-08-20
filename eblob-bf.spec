@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.2
+Version:	0.23.3
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Aug 20 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.3
+- fixed writing of wc with flags==0 in plain_write() during defrag after blob close
+
 * Tue Aug 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.2
 - mobjects: remove .index.sorted for newly created blob
 
