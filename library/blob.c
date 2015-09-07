@@ -1963,6 +1963,13 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 		goto err_out_cleanup_wc;
 	}
 
+	if (size != ~0ULL)
+		wc->size = wc->total_data_size = size;
+	if (flags != ~0ULL)
+		wc->flags = flags;
+
+	wc->flags = eblob_validate_ctl_flags(b, wc->flags);
+
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
 	 * this base (so binlog for it is not enabled)
@@ -1981,13 +1988,6 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 	}
 
 	pthread_mutex_unlock(&b->lock);
-
-	if (size != ~0ULL)
-		wc->size = wc->total_data_size = size;
-	if (flags != ~0ULL)
-		wc->flags = flags;
-
-	wc->flags = eblob_validate_ctl_flags(b, wc->flags);
 
 	return err;
 
@@ -2140,6 +2140,8 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 		goto err_out_cleanup_wc;
 	}
 
+	wc->flags = eblob_validate_ctl_flags(b, flags);
+
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
 	 * this base (so binlog for it is not enabled)
@@ -2161,8 +2163,6 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 	}
 
 	pthread_mutex_unlock(&b->lock);
-
-	wc->flags = eblob_validate_ctl_flags(b, flags);
 
 	return err;
 
