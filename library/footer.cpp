@@ -77,7 +77,7 @@ static inline int mmhash_file(int fd, off_t offset, size_t count, uint64_t &resu
  *
  * Returns footer offset within record.
  */
-static inline uint64_t chunked_footer_offset(struct eblob_write_control *wc) {
+static inline uint64_t chunked_footer_offset(const struct eblob_write_control *wc) {
 	/* size of one checksum */
 	static const size_t f_size = sizeof(uint64_t);
 	/* size of whole record without header and final checksum */
@@ -155,6 +155,16 @@ uint64_t eblob_calculate_footer_size(struct eblob_backend *b, uint64_t data_size
 
 	const uint64_t footers_count = (data_size - 1) / EBLOB_CSUM_CHUNK_SIZE + 2;
 	return footers_count * sizeof(uint64_t);
+}
+
+uint64_t eblob_get_footer_size(const struct eblob_backend *b, const struct eblob_write_control *wc) {
+	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
+		return 0;
+
+	if (wc->flags & BLOB_DISK_CTL_CHUNKED_CSUM)
+		return wc->total_size - chunked_footer_offset(wc);
+	else
+		return sizeof(struct eblob_disk_footer);
 }
 
 /*
