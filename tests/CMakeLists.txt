@@ -9,4 +9,8 @@ set(EBLOB_CPP_TEST_SRCS cpp/test.cpp)
 add_executable(eblob_cpp_test ${EBLOB_CPP_TEST_SRCS})
 target_link_libraries(eblob_cpp_test ${EBLOB_CPP_LIBRARIES} eblob_cpp eblob)
 
-# vim: set ts=4:sw=4:expandtab:
+# unit tests
+set(TEST_NAME eblob_crypto_test)
+set(EBLOB_UNIT_CRYPTO_SRCS unit/crypto.cpp)
+add_executable(${TEST_NAME} ${EBLOB_UNIT_CRYPTO_SRCS})
+target_link_libraries(${TEST_NAME} eblob -lboost_unit_test_framework)
