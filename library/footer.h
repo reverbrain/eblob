@@ -37,6 +37,8 @@ extern "C" {
  */
 uint64_t eblob_calculate_footer_size(struct eblob_backend *b, uint64_t data_size);
 
+uint64_t eblob_get_footer_size(const struct eblob_backend *b, const struct eblob_write_control *wc);
+
 /*
  * eblob_commit_footer() - computes and writes footer for @key pointed by @wc
  *

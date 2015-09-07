@@ -2151,9 +2151,24 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 		if (err != 0)
 			goto err_out_cleanup_wc;
 
-		/* FIXME: We are possibly oversubscribing size here */
+		/*
+		 * Copy prepare_disk_size bytes of an existing key from old closed blob to a new one.
+		 * prepare_disk_size is calculated as follows: wc->total_size decreased by the size of the header and footer -
+		 * that's because eblob_write_prepare_disk_ll() accepts size of the space allocated for data,
+		 * and it will add header and footer sizes internally.
+		 */
+		const uint64_t hdr_footer_size = sizeof(struct eblob_disk_control) + eblob_get_footer_size(b, wc);
+		if (wc->total_size < hdr_footer_size) {
+			err = -EINVAL;
+			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
+				  "blob i%d: %s: %s: size check failed: total-size: %" PRIu64 ", header-footer-size: %" PRIu64 "\n",
+				  wc->index, eblob_dump_id(key->id), __func__, wc->total_size, hdr_footer_size);
+			eblob_dump_wc(b, key, &wc, "eblob_plain_writev_prepare: ERROR-size-check", err);
+			goto err_out_cleanup_wc;
+		}
+		const uint64_t prepare_disk_size = wc->total_size - hdr_footer_size;
 		err = eblob_write_prepare_disk_ll(b, key, wc,
-				wc->total_data_size + bounds.max,
+				prepare_disk_size,
 				EBLOB_COPY_RECORD, 0, &rctl);
 		if (err != 0)
 			goto err_out_cleanup_wc;
