@@ -11,6 +11,7 @@ Build-Depends:
  libboost-regex-dev,
  libboost-system-dev,
  libboost-thread-dev,
+ libboost-test-dev,
  python-dev,
  python-support,
  handystats (>= 1.10.2)

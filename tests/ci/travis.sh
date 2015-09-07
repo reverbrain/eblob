@@ -15,6 +15,9 @@ $(find . -name test.py)
 # Run cpp bindings test
 $(find . -name eblob_cpp_test)
 
+# Run unit tests
+$(find . -name eblob_crypto_test)
+
 # Big and small stress tests
 $(find . -name eblob_stress) -m0 -f1000 -D0 -I300000 -o20000 -i1000 -l0 -r 1000 -S10 -F87
 $(find . -name eblob_stress) -m0 -f100 -D0 -I30000 -o2000 -i100 -l0 -r 100 -S100 -F14

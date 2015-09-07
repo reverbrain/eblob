@@ -110,6 +110,8 @@ add_definitions(
     -fstrict-aliasing
 )
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -std=gnu++0x")
+
 # GCC's builtin memcmp is slower than libc's
 # See: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43052
 if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
@@ -127,7 +129,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # Check for boost
-find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python)
+find_package(Boost REQUIRED COMPONENTS iostreams thread system regex python unit_test_framework)
 message(STATUS "Boost information:")
 message(STATUS "  Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(STATUS "  Boost_LIBRARY_DIRS: ${Boost_LIBRARY_DIRS}")
