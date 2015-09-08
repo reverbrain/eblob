@@ -1,3 +1,13 @@
+eblob (0.23.4) unstable; urgency=low
+
+  * stat: update total/removed records in realtime
+  * validate wc flags before binlog check
+  * tests: added crypto test of some crypto library functions: sha512_file(), sha512_file_ctx(), sha512_buffer()
+  * plain write: use disk_size instead of wc->total_data_size as prepare_disk_size param on defrag (-7 bugfix)
+  * crypto: fixed invalid processing of data block larger than buffer in sha512_file()/sha512_file_ctx()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Tue, 08 Sep 2015 16:45:27 +0400
+
 eblob (0.23.3) unstable; urgency=low
 
   * fixed writing of wc with flags==0 in plain_write() during defrag after blob close

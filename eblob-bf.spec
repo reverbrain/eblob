@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.3
+Version:	0.23.4
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,13 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Tue Sep 08 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.4
+- stat: update total/removed records in realtime
+- validate wc flags before binlog check
+- tests: added crypto test of some crypto library functions: sha512_file(), sha512_file_ctx(), sha512_buffer()
+- plain write: use disk_size instead of wc->total_data_size as prepare_disk_size param on defrag (-7 bugfix)
+- crypto: fixed invalid processing of data block larger than buffer in sha512_file()/sha512_file_ctx()
+
 * Thu Aug 20 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.3
 - fixed writing of wc with flags==0 in plain_write() during defrag after blob close
 
