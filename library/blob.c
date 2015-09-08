@@ -828,9 +828,9 @@ static int eblob_blob_iterator(struct eblob_iterate_priv *iter_priv)
 
 err_out_check:
 
-	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
-			"data_size: %llu, index_offset: %llu\n",
-			bctl->index, bctl->data_fd, index_fd, ctl->data_size, ctl->index_offset);
+	eblob_log(ctl->log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
+			"data_size: %llu, index_offset: %llu, err: %d\n",
+			bctl->index, bctl->data_fd, index_fd, ctl->data_size, ctl->index_offset, err);
 
 	/*
 	 * On open we are trying to auto-fix broken blobs by truncating them to
