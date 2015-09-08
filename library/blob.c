@@ -514,6 +514,9 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
 		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
 		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
+
+		eblob_stat_inc(ctl->b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
+		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
 	}
 
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
@@ -825,9 +828,9 @@ static int eblob_blob_iterator(struct eblob_iterate_priv *iter_priv)
 
 err_out_check:
 
-	eblob_log(ctl->log, EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
-			"data_size: %llu, index_offset: %llu\n",
-			bctl->index, bctl->data_fd, index_fd, ctl->data_size, ctl->index_offset);
+	eblob_log(ctl->log, err < 0 ? EBLOB_LOG_ERROR : EBLOB_LOG_INFO, "blob-0.%d: iterated: data_fd: %d, index_fd: %d, "
+			"data_size: %llu, index_offset: %llu, err: %d\n",
+			bctl->index, bctl->data_fd, index_fd, ctl->data_size, ctl->index_offset, err);
 
 	/*
 	 * On open we are trying to auto-fix broken blobs by truncating them to
@@ -1052,6 +1055,8 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
 	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, old->size);
+	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
+	eblob_stat_add(b->stat_summary, EBLOB_LST_REMOVED_SIZE, old->size);
 
 	if (!b->cfg.sync) {
 		eblob_fdatasync(old->bctl->data_fd);
@@ -1779,11 +1784,13 @@ static int eblob_write_prepare_disk_ll(struct eblob_backend *b, struct eblob_key
 		}
 	}
 
+	eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	eblob_stat_add(ctl->stat, EBLOB_LST_BASE_SIZE,
 			wc->total_size + sizeof(struct eblob_disk_control));
+
 	eblob_stat_add(b->stat_summary, EBLOB_LST_BASE_SIZE,
 	               wc->total_size + sizeof(struct eblob_disk_control));
-	eblob_stat_inc(ctl->stat, EBLOB_LST_RECORDS_TOTAL);
+	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_TOTAL);
 
 	eblob_dump_wc(b, key, wc, "eblob_write_prepare_disk_ll: complete", 0);
 
