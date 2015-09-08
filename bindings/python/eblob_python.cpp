@@ -75,7 +75,7 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	static int iterator(struct eblob_disk_control *dc, struct eblob_ram_control *rc __attribute__((unused)),
 			    int fd, uint64_t data_offset, void *priv, void *thread_priv __attribute__((unused)))
 	{
-		std::auto_ptr<char> p(new char[dc->data_size]);
+		std::unique_ptr<char> p(new char[dc->data_size]);
 
 		::ssize_t bytes = pread(fd, p.get(), dc->data_size, data_offset);
 		if (bytes != static_cast< ::ssize_t>(dc->data_size))
