@@ -184,6 +184,15 @@ enum eblob_read_flavour {
 };
 
 #define BLOB_DISK_CTL_REMOVE		(1<<0)
+/*
+ * This flag is set for records that are written with unfilled footer,
+ * so its' footer should not be used for data verification.
+ * This flag doesn't mean that footer is missed or not,
+ * it should only be used for unconditional disabling of data verification.
+ *
+ * NB! If eblob is configure with EBLOB_NO_FOOTER, all records will be written without any footer,
+ * so eblob will skip data verification.
+ */
 #define BLOB_DISK_CTL_NOCSUM		(1<<1)
 #define BLOB_DISK_CTL_COMPRESS		(1<<2) /* DEPRECATED */
 #define BLOB_DISK_CTL_WRITE_RETURN	(1<<3) /* DEPRECATED */
@@ -202,7 +211,13 @@ enum eblob_read_flavour {
 #define BLOB_DISK_CTL_UNCOMMITTED	(1<<7)
 
 /*
- * This flags is set for records that were checksummed by chunks
+ * This flag is set for records that have footers purposed to contain chunked checksum.
+ * Records without this flag will be considered as those
+ * whose footers are purposed to contain sha512 checksum.
+ * This flag does not mean that record's footer is filled or unfilled.
+ *
+ * NB! If eblob is configure with EBLOB_NO_FOOTER, all records will be written without any footer,
+ * so eblob will skip data verification.
  */
 #define BLOB_DISK_CTL_CHUNKED_CSUM	(1<<8)
 

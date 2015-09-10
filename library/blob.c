@@ -330,10 +330,12 @@ inline static uint64_t eblob_validate_ctl_flags(struct eblob_backend *b, uint64_
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		flags |= BLOB_DISK_CTL_NOCSUM;
 
-	if (!(flags & BLOB_DISK_CTL_NOCSUM))
-		flags |= BLOB_DISK_CTL_CHUNKED_CSUM;
-	else
-		flags &= ~BLOB_DISK_CTL_CHUNKED_CSUM;
+	/*
+	 * We have to add BLOB_DISK_CTL_CHUNKED_CSUM because it shows
+	 * that footer was prepared with specific size, even if the record
+	 * has BLOB_DISK_CTL_NOCSUM flag.
+	 */
+	flags |= BLOB_DISK_CTL_CHUNKED_CSUM;
 
 	return flags;
 }
