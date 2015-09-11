@@ -397,11 +397,16 @@ struct eblob_config {
 	 */
 	uint32_t	stat_id;
 
+	/*
+	 * Directory, where chunks will be stored during datasort.
+	 */
+	char			*chunks_dir;
+
 	/* for future use */
 	uint64_t		__pad_64[8];
 	int			__pad_int[5];
 	char			__pad_char[8];
-	void			*__pad_voidp[8];
+	void			*__pad_voidp[7];
 };
 
 /*

@@ -2738,6 +2738,7 @@ void eblob_cleanup(struct eblob_backend *b)
 
 	free(b->base_dir);
 	free(b->cfg.file);
+	free(b->cfg.chunks_dir);
 
 	eblob_stat_destroy(b->stat);
 	eblob_stat_destroy(b->stat_summary);
@@ -2841,6 +2842,14 @@ struct eblob_backend *eblob_init(struct eblob_config *c)
 	if (!b->cfg.file) {
 		errno = -ENOMEM;
 		goto err_out_stat_free_local;
+	}
+
+	if (c->chunks_dir) {
+		b->cfg.chunks_dir = strdup(c->chunks_dir);
+		if (!b->cfg.chunks_dir) {
+			errno = -ENOMEM;
+			goto err_out_free_file;
+		}
 	}
 
 	b->base_dir = strdup(c->file);
@@ -2963,6 +2972,7 @@ err_out_free_base_dir:
 	free(b->base_dir);
 err_out_free_file:
 	free(b->cfg.file);
+	free(b->cfg.chunks_dir);
 err_out_stat_free_local:
 	eblob_stat_destroy(b->stat_summary);
 err_out_stat_free:
