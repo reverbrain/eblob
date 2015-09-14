@@ -330,10 +330,12 @@ inline static uint64_t eblob_validate_ctl_flags(struct eblob_backend *b, uint64_
 	if (b->cfg.blob_flags & EBLOB_NO_FOOTER)
 		flags |= BLOB_DISK_CTL_NOCSUM;
 
-	if (!(flags & BLOB_DISK_CTL_NOCSUM))
-		flags |= BLOB_DISK_CTL_CHUNKED_CSUM;
-	else
-		flags &= ~BLOB_DISK_CTL_CHUNKED_CSUM;
+	/*
+	 * We have to add BLOB_DISK_CTL_CHUNKED_CSUM because it shows
+	 * that footer was prepared with specific size, even if the record
+	 * has BLOB_DISK_CTL_NOCSUM flag.
+	 */
+	flags |= BLOB_DISK_CTL_CHUNKED_CSUM;
 
 	return flags;
 }
@@ -2172,7 +2174,7 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 			eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 				  "blob i%d: %s: %s: size check failed: total-size: %" PRIu64 ", header-footer-size: %" PRIu64 "\n",
 				  wc->index, eblob_dump_id(key->id), __func__, wc->total_size, hdr_footer_size);
-			eblob_dump_wc(b, key, &wc, "eblob_plain_writev_prepare: ERROR-size-check", err);
+			eblob_dump_wc(b, key, wc, "eblob_plain_writev_prepare: ERROR-size-check", err);
 			goto err_out_cleanup_wc;
 		}
 		const uint64_t prepare_disk_size = wc->total_size - hdr_footer_size;
