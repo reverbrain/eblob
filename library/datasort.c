@@ -470,8 +470,7 @@ static int datasort_split_iterator(struct eblob_disk_control *dc,
 	if (c == NULL || (dcfg->chunk_size > 0 && c->offset + dc->disk_size >= dcfg->chunk_size)
 			|| (dcfg->chunk_limit > 0 && c->count >= dcfg->chunk_limit)) {
 		/* TODO: here we can plug sort for speedup */
-		const char *chunks_dir = dcfg->chunks_dir ? dcfg->chunks_dir : dcfg->datasort_dir;
-		c = datasort_add_chunk(dcfg, chunks_dir);
+		c = datasort_add_chunk(dcfg, dcfg->chunks_dir);
 		if (c == NULL) {
 			err = -EIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_add_chunk: FAILED");
@@ -682,8 +681,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 			unsorted_chunk->fd, unsorted_chunk->count, unsorted_chunk->offset);
 
 	/* Create new sorted chunk */
-	const char *chunks_dir = dcfg->chunks_dir ? dcfg->chunks_dir : dcfg->datasort_dir;
-	sorted_chunk = datasort_add_chunk(dcfg, chunks_dir);
+	sorted_chunk = datasort_add_chunk(dcfg, dcfg->chunks_dir);
 	if (sorted_chunk == NULL) {
 		EBLOB_WARNX(dcfg->log, EBLOB_LOG_ERROR, "defrag: datasort_add_chunk: FAILED");
 		goto err;
@@ -1290,7 +1288,8 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
 	if (rmdir(dcfg->datasort_dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->datasort_dir);
 
-	if (dcfg->chunks_dir && rmdir(dcfg->chunks_dir) == -1)
+	if (strcmp(dcfg->chunks_dir, dcfg->datasort_dir) && /* if chunks_dir != dcfg->datasort_dir */
+	    rmdir(dcfg->chunks_dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->chunks_dir);
 
 	/* Free resulting chunk and dcfg */
@@ -1380,12 +1379,18 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 		goto err_stop;
 	}
 
-	/* Create tmp directory for chunks */
 	if (dcfg->b->cfg.chunks_dir != NULL) {
+		/* Create tmp directory for chunks */
 		dcfg->chunks_dir = datasort_mkdtemp(dcfg, 1);
 		if (dcfg->chunks_dir == NULL) {
 			err = -EIO;
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_mkdtemp for chunks");
+			goto err_rmdir;
+		}
+	} else {
+		dcfg->chunks_dir = strdup(dcfg->datasort_dir);
+		if (!dcfg->chunks_dir) {
+			err = -ENOMEM;
 			goto err_rmdir;
 		}
 	}
