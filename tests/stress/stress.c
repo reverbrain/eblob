@@ -823,6 +823,8 @@ main(int argc, char **argv)
 	bcfg.defrag_time = DEFAULT_BLOB_DEFRAG_TIME;
 	bcfg.defrag_splay = DEFAULT_BLOB_DEFRAG_SPLAY;
 	bcfg.file = blob_path;
+	if (cfg.use_datasort_dir)
+		bcfg.chunks_dir = cfg.test_path;
 	bcfg.log = &logger;
 	bcfg.records_in_blob = cfg.blob_records;
 	bcfg.sync = cfg.blob_sync;

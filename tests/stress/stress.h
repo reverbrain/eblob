@@ -82,6 +82,7 @@ struct test_cfg {
 	long		test_milestone;		/* Print message each
 						   "milestone" iterations */
 	char		*test_path;		/* Path to test directory */
+	long		use_datasort_dir;	/* If non-zero then used specific dir for chunks on datasort */
 	long long	test_reopen;		/* Reopen blob each `reopen`
 						   iterations */
 	long long	test_rnd_seed;		/* Random seed for reproducible

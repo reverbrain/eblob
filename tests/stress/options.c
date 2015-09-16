@@ -49,7 +49,7 @@ options_usage(char *progname, int eval, FILE *stream)
 	fprintf(stream, "[-i test_items] [-I iterations] [-b block size] ");
 	fprintf(stream, "[-l log_level] [-m milestone] [-o reopen] [-p path] [-r blob_records] ");
 	fprintf(stream, "[-R random_seed] [-s blob_size] [-S item_size] [-t iterator_threads] ");
-	fprintf(stream, "[-T test_threads] [-y sync_time] ");
+	fprintf(stream, "[-T test_threads] [-y sync_time] [-P use_datasort_dir]");
 	fprintf(stream, "\n");
 
 	exit(eval);
@@ -99,6 +99,7 @@ options_set_defaults(void)
 	cfg.test_reopen = DEFAULT_TEST_REOPEN;
 	cfg.test_rnd_seed = (long long)time(NULL);
 	cfg.test_threads = DEFAULT_TEST_THREADS;
+	cfg.use_datasort_dir = 0;
 
 	if ((cfg.test_path = strdup(DEFAULT_TEST_PATH)) == NULL)
 		err(EX_OSERR, "malloc");
@@ -129,12 +130,13 @@ options_get(int argc, char **argv)
 		{ "test-path",		required_argument,	NULL,		'p' },
 		{ "test-reopen",	required_argument,	NULL,		'o' },
 		{ "test-rnd-seed",	required_argument,	NULL,		'R' },
+		{ "use-datasort-dir",	required_argument,	NULL,		'P' },
 		{ "version",		no_argument,		NULL,		'v' },
 		{ NULL,			0,			NULL,		0 }
 	};
 
 	opterr = 0;
-	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:r:R:s:S:t:T:vy:", longopts, NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, "d:D:f:F:hi:I:l:m:o:p:P:r:R:s:S:t:T:vy:", longopts, NULL)) != -1) {
 		switch(ch) {
 		case 'd':
 			options_get_l(&cfg.blob_defrag, optarg);
@@ -169,6 +171,9 @@ options_get(int argc, char **argv)
 			free(cfg.test_path);
 			if ((cfg.test_path = strdup(optarg)) == NULL)
 				err(EX_OSERR, "strdup");
+			break;
+		case 'P':
+		        options_get_l(&cfg.use_datasort_dir, optarg);
 			break;
 		case 'r':
 			options_get_ll(&cfg.blob_records, optarg);
@@ -222,5 +227,6 @@ options_dump(void)
 	printf("Random seed: %lld\n", cfg.test_rnd_seed);
 	printf("Test threads num: %ld\n", cfg.test_threads);
 	printf("Test path: %s\n", cfg.test_path);
+	printf("Use datasort dir: %ld\n", cfg.use_datasort_dir);
 	printf("\n");
 }
