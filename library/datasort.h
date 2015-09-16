@@ -81,9 +81,9 @@ struct datasort_cfg {
 	struct list_head		sorted_chunks;
 	/* Result of mergesort */
 	struct datasort_chunk		*result;
-	/* Datasort directory - chunks are merged into single sorted blob here */
-	char				*datasort_dir;
-	/* Chunks directory - if not defined, then chunks are stored in datasort_dir */
+	/* Chunks are merged into single sorted blob here */
+	char				*dir;
+	/* Chunks directory - if not defined, then chunks are stored in dir */
 	char				*chunks_dir;
 	/* Pointer to backend */
 	struct eblob_backend		*b;

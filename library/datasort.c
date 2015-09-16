@@ -332,7 +332,7 @@ err:
 /*
  * Creates new chunk on disk
  */
-static struct datasort_chunk *datasort_add_chunk(struct datasort_cfg *dcfg, const char *datasort_dir)
+static struct datasort_chunk *datasort_add_chunk(struct datasort_cfg *dcfg, const char *dir)
 {
 	int fd;
 	char *path;
@@ -340,7 +340,7 @@ static struct datasort_chunk *datasort_add_chunk(struct datasort_cfg *dcfg, cons
 	static const char tpl_suffix[] = "chunk.XXXXXX";
 
 	assert(dcfg);
-	assert(datasort_dir);
+	assert(dir);
 
 	path = malloc(PATH_MAX);
 	if (path == NULL) {
@@ -348,7 +348,7 @@ static struct datasort_chunk *datasort_add_chunk(struct datasort_cfg *dcfg, cons
 		goto err;
 	}
 
-	snprintf(path, PATH_MAX, "%s/%s", datasort_dir, tpl_suffix);
+	snprintf(path, PATH_MAX, "%s/%s", dir, tpl_suffix);
 	fd = mkstemp(path);
 	if (fd == -1) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: mkstemp: %s", path);
@@ -672,7 +672,7 @@ static struct datasort_chunk *datasort_sort_chunk(struct datasort_cfg *dcfg,
 	const ssize_t hdr_size = sizeof(struct eblob_disk_control);
 
 	assert(dcfg != NULL);
-	assert(dcfg->datasort_dir != NULL);
+	assert(dcfg->dir != NULL);
 	assert(unsorted_chunk != NULL);
 	assert(unsorted_chunk->fd >= 0);
 
@@ -861,7 +861,7 @@ static struct datasort_chunk *datasort_merge(struct datasort_cfg *dcfg)
 	EBLOB_WARNX(dcfg->log, EBLOB_LOG_INFO, "defrag: merge: start");
 
 	/* Create resulting chunk */
-	merged_chunk = datasort_add_chunk(dcfg, dcfg->datasort_dir);
+	merged_chunk = datasort_add_chunk(dcfg, dcfg->dir);
 	if (merged_chunk == NULL)
 		goto err;
 
@@ -921,7 +921,7 @@ err:
 static void datasort_destroy(struct datasort_cfg *dcfg)
 {
 	pthread_mutex_destroy(&dcfg->lock);
-	free(dcfg->datasort_dir);
+	free(dcfg->dir);
 	free(dcfg->chunks_dir);
 };
 
@@ -1285,10 +1285,10 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
 	}
 
 	/* Remove temporary directories */
-	if (rmdir(dcfg->datasort_dir) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->datasort_dir);
+	if (rmdir(dcfg->dir) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->dir);
 
-	if (strcmp(dcfg->chunks_dir, dcfg->datasort_dir) && /* if chunks_dir != dcfg->datasort_dir */
+	if (strcmp(dcfg->chunks_dir, dcfg->dir) &&
 	    rmdir(dcfg->chunks_dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->chunks_dir);
 
@@ -1372,8 +1372,8 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	pthread_mutex_unlock(&dcfg->b->lock);
 
 	/* Create tmp directory */
-	dcfg->datasort_dir = datasort_mkdtemp(dcfg, 0);
-	if (dcfg->datasort_dir == NULL) {
+	dcfg->dir = datasort_mkdtemp(dcfg, 0);
+	if (dcfg->dir == NULL) {
 		err = -EIO;
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_mkdtemp");
 		goto err_stop;
@@ -1388,7 +1388,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 			goto err_rmdir;
 		}
 	} else {
-		dcfg->chunks_dir = strdup(dcfg->datasort_dir);
+		dcfg->chunks_dir = strdup(dcfg->dir);
 		if (!dcfg->chunks_dir) {
 			err = -ENOMEM;
 			goto err_rmdir;
@@ -1400,7 +1400,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 */
 	err = datasort_split(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_split: %s", dcfg->datasort_dir);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_split: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -1419,7 +1419,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	 */
 	err = datasort_sort(dcfg);
 	if (err) {
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_sort: %s", dcfg->datasort_dir);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_sort: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -1427,7 +1427,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	dcfg->result = datasort_merge(dcfg);
 	if (dcfg->result == NULL) {
 		err = -EIO;
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_merge: %s", dcfg->datasort_dir);
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: datasort_merge: %s", dcfg->dir);
 		goto err_rmdir;
 	}
 
@@ -1448,7 +1448,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	err = datasort_swap_memory(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"defrag: datasort_swap_memory: FAILED: %s", dcfg->datasort_dir);
+				"defrag: datasort_swap_memory: FAILED: %s", dcfg->dir);
 		goto err_unlock_bctl;
 	}
 
@@ -1456,7 +1456,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	err = datasort_swap_disk(dcfg);
 	if (err) {
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-				"defrag: datasort_swap_disk: FAILED: %s", dcfg->datasort_dir);
+				"defrag: datasort_swap_disk: FAILED: %s", dcfg->dir);
 		abort();
 	}
 
@@ -1495,8 +1495,8 @@ err_unlock_bctl:
 	pthread_mutex_unlock(&dcfg->b->lock);
 	datasort_destroy_chunk(dcfg, dcfg->result);
 err_rmdir:
-	if (rmdir(dcfg->datasort_dir) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->datasort_dir);
+	if (rmdir(dcfg->dir) == -1)
+		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->dir);
 	if (dcfg->chunks_dir && rmdir(dcfg->chunks_dir) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rmdir: %s", dcfg->chunks_dir);
 err_stop:

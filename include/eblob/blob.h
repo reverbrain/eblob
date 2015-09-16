@@ -399,6 +399,18 @@ struct eblob_config {
 
 	/*
 	 * Directory, where chunks will be stored during datasort.
+	 * Blob is being split into smaller chunks during datasort,
+	 * every chunk is sorted by key and finally all chunks merged into
+	 * single sorted blob. This heavily affects IO performance of the backend.
+	 *
+	 * If chunks_dir is specified, then chunks will be stored and sorted in this directory.
+	 * This moves major set of IO operations into specified directory, it is recommended to
+	 * put it on a different drive, thus reducing IO influence to client's operations.
+	 *
+	 * Comparison of defragmentation on dedicated device vs backend's device (per key):
+	 * a) dedicated device: 1 read and 1 write at the backend's device and 3 read and
+	 * 3 write at the dedicated device.
+	 * b) backend's device: 3 read, 3 write and 1 move at the backend's device.
 	 */
 	char			*chunks_dir;
 
