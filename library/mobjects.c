@@ -322,6 +322,7 @@ again:
 					ctl->sort.size, st.st_size);
 
 			close(ctl->sort.fd);
+			ctl->sort.fd = -1;
 
 			sprintf(full, "%s/%s.index.sorted", dir_base, name);
 			unlink(full);
