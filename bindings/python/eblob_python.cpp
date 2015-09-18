@@ -77,8 +77,8 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	{
 		std::string p(dc->data_size, 0);
 
-		::ssize_t bytes = pread(fd, const_cast<char *>(p.data()), dc->data_size, data_offset);
-		if (bytes != static_cast<::ssize_t>(dc->data_size))
+		ssize_t bytes = pread(fd, const_cast<char *>(p.data()), dc->data_size, data_offset);
+		if (bytes != static_cast<ssize_t>(dc->data_size))
 			return 0;
 
 		struct eblob_id id(dc->key);
