@@ -20,21 +20,21 @@
 
 #include <eblob/eblob.hpp>
 
-using namespace boost::python;
 using namespace ioremap::eblob;
+namespace bp = boost::python;
 
 struct eblob_id {
 	eblob_id() {}
-	eblob_id(list id_) : id(id_) {}
+	eblob_id(bp::list id_) : id(id_) {}
 	eblob_id(struct eblob_key &key) {
 		for (unsigned int i = 0; i < sizeof(key.id); ++i)
 			id.append(key.id[i]);
 	}
 
-	list id;
+	bp::list id;
 };
 
-static void eblob_extract_arr(const list &l, unsigned char *dst, int *dlen)
+static void eblob_extract_arr(const bp::list &l, unsigned char *dst, int *dlen)
 {
 	int length = len(l);
 
@@ -43,7 +43,7 @@ static void eblob_extract_arr(const list &l, unsigned char *dst, int *dlen)
 
 	memset(dst, 0, *dlen);
 	for (int i = 0; i < length; ++i)
-		dst[i] = extract<unsigned char>(l[i]);
+		dst[i] = bp::extract<unsigned char>(l[i]);
 }
 
 static void eblob_extract_id(const struct eblob_id &e, struct eblob_key &id)
@@ -64,8 +64,8 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 		PyGILState_STATE gstate = PyGILState_Ensure();
 
 		try {
-			call<void>(this->get_override("process").ptr(), id, data);
-		} catch (const error_already_set) {
+			bp::call<void>(this->get_override("process").ptr(), id, data);
+		} catch (const bp::error_already_set) {
 			PyErr_Print();
 		}
 
@@ -77,8 +77,8 @@ struct eblob_py_iterator : eblob_iterate_control, boost::python::wrapper<eblob_i
 	{
 		std::string p(dc->data_size, 0);
 
-		::ssize_t bytes = pread(fd, const_cast<char *>(p.data()), dc->data_size, data_offset);
-		if (bytes != static_cast<::ssize_t>(dc->data_size))
+		ssize_t bytes = pread(fd, const_cast<char *>(p.data()), dc->data_size, data_offset);
+		if (bytes != static_cast<ssize_t>(dc->data_size))
 			return 0;
 
 		struct eblob_id id(dc->key);
@@ -137,16 +137,16 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 
 	PyEval_InitThreads();
 
-	class_<eblob_id>("eblob_id", init<>())
-		.def(init<list>())
+	bp::class_<eblob_id>("eblob_id", bp::init<>())
+		.def(bp::init<bp::list>())
 		.def_readwrite("id", &eblob_id::id)
 	;
 
-	class_<eblob_py_iterator>("eblob_iterator", init<>())
-		.def("process", pure_virtual(&eblob_py_iterator::process))
+	bp::class_<eblob_py_iterator>("eblob_iterator", bp::init<>())
+		.def("process", bp::pure_virtual(&eblob_py_iterator::process))
 	;
 
-	class_<eblob_config>("eblob_config", init<>())
+	bp::class_<eblob_config>("eblob_config", bp::init<>())
 		.def_readwrite("blob_flags", &eblob_config::blob_flags)
 		.def_readwrite("sync", &eblob_config::sync)
 		.def_readwrite("file", &eblob_config::file)
@@ -154,8 +154,8 @@ BOOST_PYTHON_MODULE(libeblob_python) {
 		.def_readwrite("records_in_blob", &eblob_config::records_in_blob)
 	;
 
-	class_<eblob_python>("eblob", init<const char *, const uint32_t, const std::string>())
-		.def(init<const char *, const uint32_t, struct eblob_config>())
+	bp::class_<eblob_python>("eblob", bp::init<const char *, const uint32_t, const std::string>())
+		.def(bp::init<const char *, const uint32_t, struct eblob_config>())
 		.def("write", &eblob_python::write_by_id)
 		.def("write_hashed", &eblob_python::write_hashed)
 		.def("read", &eblob_python::read_by_id)
