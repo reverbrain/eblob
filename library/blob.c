@@ -1998,6 +1998,15 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 
 	pthread_mutex_unlock(&b->lock);
 
+	/*
+	 * We are committing the record,
+	 * so `BLOB_DISK_CTL_UNCOMMITTED` should be removed from record's flags.
+	 * This flag is removed after a possible call of `eblob_write_prepare_disk_ll`
+	 * because `eblob_write_prepare_disk_ll` copies data from locked blob to open one
+	 * and it should be copied with original flags.
+	 */
+	wc->flags &= ~BLOB_DISK_CTL_UNCOMMITTED;
+
 	return err;
 
 err_out_cleanup_wc:
