@@ -1,3 +1,16 @@
+eblob (0.23.5) unstable; urgency=low
+
+  * build: fixed build: removed useless scope resolution
+  * blob: added removing `BLOB_DISK_CTL_UNCOMMITTED` from record's flags in `eblob_write_commit_prepare`
+  * small fix: prevent potential double close in eblob_base_ctl_open()
+  * datasort: use optional 'datasort_dir' for creating tmp directory for chunks
+  * doc: put extra comments on BLOB_DISK_CTL_NOCSUM and BLOB_DISK_CTL_CHUNKED_CSUM flags
+  * plain write: fixed bug with incorrect footer size computing
+  * make test: run tests/run_tests.sh
+  * fixed extra pointer referencing in eblob_plain_writev_prepare: used &wc in eblob_dump_wc()
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 18 Sep 2015 20:36:50 +0400
+
 eblob (0.23.4) unstable; urgency=low
 
   * stat: update total/removed records in realtime

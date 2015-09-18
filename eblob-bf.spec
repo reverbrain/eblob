@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.4
+Version:	0.23.5
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Sep 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.5
+- build: fixed build: removed useless scope resolution
+- blob: added removing `BLOB_DISK_CTL_UNCOMMITTED` from record's flags in `eblob_write_commit_prepare`
+- small fix: prevent potential double close in eblob_base_ctl_open()
+- datasort: use optional 'datasort_dir' for creating tmp directory for chunks
+- doc: put extra comments on BLOB_DISK_CTL_NOCSUM and BLOB_DISK_CTL_CHUNKED_CSUM flags
+- plain write: fixed bug with incorrect footer size computing
+- make test: run tests/run_tests.sh
+- fixed extra pointer referencing in eblob_plain_writev_prepare: used &wc in eblob_dump_wc()
+
 * Tue Sep 08 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.4
 - stat: update total/removed records in realtime
 - validate wc flags before binlog check
