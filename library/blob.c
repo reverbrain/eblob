@@ -2052,7 +2052,8 @@ err_out_exit:
 }
 
 static int eblob_try_overwritev(struct eblob_backend *b, struct eblob_key *key,
-		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc, struct eblob_ram_control *old, size_t *defrag_generation)
+		const struct eblob_iovec *iov, uint16_t iovcnt, struct eblob_write_control *wc,
+		struct eblob_ram_control *old, size_t *defrag_generation)
 {
 	ssize_t err;
 	uint64_t flags = wc->flags;
@@ -2151,11 +2152,25 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 	/*
 	 * We can't use plain write if EXTHDR flag is differ on old and new record.
 	 * TODO: We can preform read-modify-write cycle here but it's too hacky.
+	 *
+	 * We allow whole object overwrite, return error only if we are trying to update object
+	 * with non contiguous regions.
 	 */
 	if ((flags & BLOB_DISK_CTL_EXTHDR)
 			&& !(wc->flags & BLOB_DISK_CTL_EXTHDR)) {
-		err = -ENOTSUP;
-		goto err_out_cleanup_wc;
+		uint64_t start = 0;
+		int idx;
+
+		for (idx = 0; idx < iovcnt; ++idx) {
+			const struct eblob_iovec *tmp = &iov[idx];
+
+			if (tmp->offset != start) {
+				err = -ENOTSUP;
+				goto err_out_cleanup_wc;
+			}
+
+			start += tmp->size;
+		}
 	}
 
 	wc->flags = eblob_validate_ctl_flags(b, flags);
