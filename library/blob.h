@@ -90,8 +90,9 @@ static const size_t EBLOB_HASH_ENTRY_SIZE = sizeof(struct eblob_ram_control)
 /* Approx. size of l2hash entry (considering there wasn't a collision) */
 static const size_t EBLOB_L2HASH_ENTRY_SIZE = sizeof(struct eblob_l2hash_entry);
 
-struct eblob_map_fd {
+struct eblob_file_ctl {
 	int			fd;
+	int			sorted;
 	uint64_t		offset, size;
 };
 
@@ -134,13 +135,12 @@ struct eblob_base_ctl {
 
 	pthread_mutex_t		lock;
 	pthread_cond_t		critness_wait;
-	int			data_fd, index_fd;
+	int			data_fd;
 	off_t			data_offset;
 
 	unsigned long long	data_size;
-	unsigned long long	index_size;
 
-	struct eblob_map_fd	sort;
+	struct eblob_file_ctl	index_ctl;
 
 	/*
 	 * Bloom
@@ -552,7 +552,6 @@ int eblob_preallocate(int fd, off_t offset, off_t size);
 int eblob_pagecache_hint(int fd, uint64_t flag);
 
 int eblob_mark_index_removed(int fd, uint64_t offset);
-int eblob_get_index_fd(struct eblob_base_ctl *bctl);
 void eblob_base_wait(struct eblob_base_ctl *bctl);
 void eblob_base_wait_locked(struct eblob_base_ctl *bctl);
 

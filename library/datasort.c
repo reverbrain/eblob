@@ -997,7 +997,7 @@ err_out_exit:
 static int datasort_swap_memory(struct datasort_cfg *dcfg)
 {
 	struct eblob_base_ctl *sorted_bctl, *unsorted_bctl;
-	struct eblob_map_fd index;
+	struct eblob_file_ctl index;
 	char tmp_index_path[PATH_MAX], data_path[PATH_MAX];
 	uint64_t i, offset;
 	int err, n;
@@ -1035,6 +1035,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	 * FIXME: Copy permissions from original fd
 	 */
 	memset(&index, 0, sizeof(index));
+	index.sorted = 1;
 	index.size = dcfg->result->count * sizeof(struct eblob_disk_control);
 	index.fd = open(tmp_index_path, O_RDWR | O_CLOEXEC | O_TRUNC | O_CREAT, 0644);
 	if (index.fd == -1) {
@@ -1074,8 +1075,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	 * Setup sorted base
 	 */
 	sorted_bctl->data_fd = dcfg->result->fd;
-	sorted_bctl->index_fd = index.fd;
-	sorted_bctl->sort = index;
+	sorted_bctl->index_ctl = index;
 
 	/* Setup new base */
 	if ((err = eblob_base_setup_data(sorted_bctl, 1)) != 0) {
@@ -1125,7 +1125,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 
 	/* Account for new size */
 	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_BASE_SIZE,
-			sorted_bctl->index_size + sorted_bctl->data_size);
+			sorted_bctl->index_ctl.size + sorted_bctl->data_size);
 	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_RECORDS_TOTAL, dcfg->result->count);
 
 	/*
@@ -1161,7 +1161,7 @@ err:
 static int datasort_swap_disk(struct datasort_cfg *dcfg)
 {
 	struct eblob_base_ctl *sorted_bctl, *unsorted_bctl;
-	char tmp_index_path[PATH_MAX], index_path[PATH_MAX];
+	char tmp_index_path[PATH_MAX];
 	char sorted_index_path[PATH_MAX], data_path[PATH_MAX];
 	char mark_path[PATH_MAX];
 	int err, n;
@@ -1186,8 +1186,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 			dcfg->result->path, data_path);
 
 	snprintf(mark_path, PATH_MAX, "%s" EBLOB_DATASORT_SORTED_MARK_SUFFIX, data_path);
-	snprintf(index_path, PATH_MAX, "%s.index", data_path);
-	snprintf(sorted_index_path, PATH_MAX, "%s.sorted", index_path);
+	snprintf(sorted_index_path, PATH_MAX, "%s.index.sorted", data_path);
 	snprintf(tmp_index_path, PATH_MAX, "%s.tmp", sorted_index_path);
 
 	/*
@@ -1220,12 +1219,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 				dcfg->result->path, data_path);
 	if (rename(tmp_index_path, sorted_index_path) == -1)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: rename: %s -> %s",
-				tmp_index_path, index_path);
-
-	/* Hardlink sorted index to unsorted one */
-	if (link(sorted_index_path, index_path) == -1)
-		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, errno, "defrag: link: %s -> %s",
-				sorted_index_path, index_path);
+				tmp_index_path, sorted_index_path);
 
 	/* Leave mark that data file is sorted */
 	if ((err = open(mark_path, O_TRUNC | O_CREAT | O_CLOEXEC, 0644)) != -1) {
@@ -1240,8 +1234,8 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 			"data_fd: %d -> %d, index_fd: %d -> %d",
 			dcfg->result->path, data_path,
 			sorted_bctl->data_fd, unsorted_bctl->data_fd,
-			eblob_get_index_fd(sorted_bctl),
-			eblob_get_index_fd(unsorted_bctl));
+			sorted_bctl->index_ctl.fd,
+			unsorted_bctl->index_ctl.fd);
 	return 0;
 
 err:
@@ -1268,10 +1262,10 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
 		if (err)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
 					"defrag: eblob_pagecache_hint: data: %d", bctl->data_fd);
-		err = eblob_pagecache_hint(bctl->index_fd, EBLOB_FLAGS_HINT_DONTNEED);
+		err = eblob_pagecache_hint(bctl->index_ctl.fd, EBLOB_FLAGS_HINT_DONTNEED);
 		if (err)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"defrag: eblob_pagecache_hint: index: %d", bctl->index_fd);
+					"defrag: eblob_pagecache_hint: index: %d", bctl->index_ctl.fd);
 
 		/*
 		 * Cleanup unsorted base
