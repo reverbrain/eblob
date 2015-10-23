@@ -78,14 +78,14 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 		ctl->index_ctl.size = st.st_size;
 	}
 
-	err = fstat(ctl->data_fd, &st);
+	err = fstat(ctl->data_ctl.fd, &st);
 	if (err) {
 		err = -errno;
 		goto err_out_exit;
 	}
 
-	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) || force) {
-		ctl->data_size = st.st_size;
+	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_ctl.size)) || force) {
+		ctl->data_ctl.size = st.st_size;
 	}
 
 err_out_exit:
@@ -103,13 +103,13 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	eblob_index_blocks_destroy(ctl);
 
-	ctl->data_size = ctl->data_offset = 0;
+	ctl->data_ctl.size = ctl->data_ctl.offset = 0;
 	ctl->index_ctl.size = 0;
 
 	close(ctl->index_ctl.fd);
-	close(ctl->data_fd);
+	close(ctl->data_ctl.fd);
 
-	ctl->index_ctl.fd = ctl->data_fd = -1;
+	ctl->index_ctl.fd = ctl->data_ctl.fd = -1;
 
 	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE, 0);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL, 0);
@@ -206,8 +206,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 	 * Try opening blob, it it fails - create one.
 	 * This code is a bit redunant but it's cleaner this way.
 	 */
-	ctl->data_fd = open(full, oflags);
-	if (ctl->data_fd == -1) {
+	ctl->data_ctl.fd = open(full, oflags);
+	if (ctl->data_ctl.fd == -1) {
 		if (errno == ENOENT) {
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "creating base: %s", full);
 			created = strdup(full);
@@ -215,8 +215,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 				err = -errno;
 				goto err_out_free;
 			}
-			ctl->data_fd = open(created, oflags | O_CREAT, mode);
-			if (ctl->data_fd == -1) {
+			ctl->data_ctl.fd = open(created, oflags | O_CREAT, mode);
+			if (ctl->data_ctl.fd == -1) {
 				err = -errno;
 				goto err_out_free;
 			}
@@ -258,7 +258,7 @@ again:
 
 		/* Sort index only if base is not empty and exceeds thresholds */
 		if (ctl->index_ctl.size &&
-				((ctl->data_size >= b->cfg.blob_size) ||
+				((ctl->data_ctl.size >= b->cfg.blob_size) ||
 				(ctl->index_ctl.size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
 			err = eblob_generate_sorted_index(b, ctl);
 			if (err) {
@@ -272,7 +272,7 @@ again:
 					ctl->index, b->max_index,
 					(unsigned long long)ctl->index_ctl.size,
 					(unsigned long long)ctl->index_ctl.size / sizeof(struct eblob_disk_control),
-					ctl->data_size, (unsigned long long)b->cfg.blob_size);
+					(unsigned long long)ctl->data_ctl.size, (unsigned long long)b->cfg.blob_size);
 		}
 	} else {
 		if (created) {
@@ -314,7 +314,7 @@ again:
 	}
 
 	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE,
-			ctl->data_size + ctl->index_ctl.size);
+			ctl->data_ctl.size + ctl->index_ctl.size);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
 			ctl->index_ctl.size / sizeof(struct eblob_disk_control));
 	eblob_pagecache_hint(ctl->index_ctl.fd, EBLOB_FLAGS_HINT_WILLNEED);
@@ -330,7 +330,7 @@ err_out_close_index:
 		close(ctl->index_ctl.fd);
 	}
 err_out_close_data:
-	close(ctl->data_fd);
+	close(ctl->data_ctl.fd);
 	if (created != NULL) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
 		if (unlink(created) == -1)
@@ -778,8 +778,8 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 					eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: removing: index: %d, data_fd: %d, index_fd: %d, "
 							"data_size: %llu, data_offset: %llu, have_sort: %d\n",
-							bctl->index, bctl->data_fd, bctl->index_ctl.fd,
-							bctl->data_size, (unsigned long long)bctl->data_offset,
+							bctl->index, bctl->data_ctl.fd, bctl->index_ctl.fd,
+							(unsigned long long)bctl->data_ctl.size, (unsigned long long)bctl->data_ctl.offset,
 							bctl->index_ctl.sorted);
 
 
@@ -791,8 +791,8 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: index: %d, data_fd: %d, index_fd: %d, "
 					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
-					bctl->index, bctl->data_fd, bctl->index_ctl.fd,
-					bctl->data_size, (unsigned long long)bctl->data_offset,
+					bctl->index, bctl->data_ctl.fd, bctl->index_ctl.fd,
+					(unsigned long long)bctl->data_ctl.size, (unsigned long long)bctl->data_ctl.offset,
 					bctl->index_ctl.sorted, err);
 			if (err)
 				goto err_out_exit;

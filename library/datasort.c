@@ -209,9 +209,9 @@ int datasort_base_is_sorted(struct eblob_base_ctl *bctl)
 	b = bctl->back;
 
 	/* Check in memory */
-	if (bctl->sorted == 1)
+	if (bctl->data_ctl.sorted == 1)
 		return 1;
-	else if (bctl->sorted == -1)
+	else if (bctl->data_ctl.sorted == -1)
 		return 0;
 
 	/* Check filesystem */
@@ -225,12 +225,12 @@ int datasort_base_is_sorted(struct eblob_base_ctl *bctl)
 	if (stat(mark, &st) == -1) {
 		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_INFO, errno,
 				"mark not found: %s, assuming unsorted data", mark);
-		bctl->sorted = -1;
+		bctl->data_ctl.sorted = -1;
 		return 0;
 	}
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
 			"mark is found: %s, assuming sorted data", mark);
-	bctl->sorted = 1;
+	bctl->data_ctl.sorted = 1;
 	return 1;
 }
 
@@ -1074,7 +1074,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 	/*
 	 * Setup sorted base
 	 */
-	sorted_bctl->data_fd = dcfg->result->fd;
+	sorted_bctl->data_ctl.fd = dcfg->result->fd;
 	sorted_bctl->index_ctl = index;
 
 	/* Setup new base */
@@ -1082,10 +1082,10 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 		EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: eblob_base_setup_data: FAILED");
 		goto err_free_base;
 	}
-	assert(sorted_bctl->data_size == dcfg->result->offset);
-	assert(sorted_bctl->index_size == index.size);
+	assert(sorted_bctl->data_ctl.size == dcfg->result->offset);
+	assert(sorted_bctl->index_ctl.size == index.size);
 
-	sorted_bctl->data_offset = sorted_bctl->data_size;
+	sorted_bctl->data_ctl.offset = sorted_bctl->data_ctl.size;
 
 	/* Populate sorted index blocks */
 	if ((err = eblob_index_blocks_fill(sorted_bctl)) != 0) {
@@ -1125,7 +1125,7 @@ static int datasort_swap_memory(struct datasort_cfg *dcfg)
 
 	/* Account for new size */
 	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_BASE_SIZE,
-			sorted_bctl->index_ctl.size + sorted_bctl->data_size);
+			sorted_bctl->index_ctl.size + sorted_bctl->data_ctl.size);
 	eblob_stat_set(sorted_bctl->stat, EBLOB_LST_RECORDS_TOTAL, dcfg->result->count);
 
 	/*
@@ -1233,7 +1233,7 @@ static int datasort_swap_disk(struct datasort_cfg *dcfg)
 			"defrag: swapped: data: %s -> %s, "
 			"data_fd: %d -> %d, index_fd: %d -> %d",
 			dcfg->result->path, data_path,
-			sorted_bctl->data_fd, unsorted_bctl->data_fd,
+			sorted_bctl->data_ctl.fd, unsorted_bctl->data_ctl.fd,
 			sorted_bctl->index_ctl.fd,
 			unsorted_bctl->index_ctl.fd);
 	return 0;
@@ -1258,10 +1258,10 @@ static void datasort_cleanup(struct datasort_cfg *dcfg)
 		/* Sanity */
 		assert(bctl != NULL);
 
-		err = eblob_pagecache_hint(bctl->data_fd, EBLOB_FLAGS_HINT_DONTNEED);
+		err = eblob_pagecache_hint(bctl->data_ctl.fd, EBLOB_FLAGS_HINT_DONTNEED);
 		if (err)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
-					"defrag: eblob_pagecache_hint: data: %d", bctl->data_fd);
+					"defrag: eblob_pagecache_hint: data: %d", bctl->data_ctl.fd);
 		err = eblob_pagecache_hint(bctl->index_ctl.fd, EBLOB_FLAGS_HINT_DONTNEED);
 		if (err)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err,
@@ -1342,7 +1342,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 
 	/* Soon we'll be using it */
 	for (n = 0; n < dcfg->bctl_cnt; ++n) {
-		err = eblob_pagecache_hint(dcfg->bctl[n]->data_fd, EBLOB_FLAGS_HINT_WILLNEED);
+		err = eblob_pagecache_hint(dcfg->bctl[n]->data_ctl.fd, EBLOB_FLAGS_HINT_WILLNEED);
 		if (err)
 			EBLOB_WARNC(dcfg->log, EBLOB_LOG_ERROR, -err, "defrag: eblob_pagecache_hint: %s",
 					dcfg->bctl[n]->name);
@@ -1469,7 +1469,7 @@ int eblob_generate_sorted_data(struct datasort_cfg *dcfg)
 	datasort_cleanup(dcfg);
 
 	/* Mark base as sorted */
-	dcfg->sorted_bctl->sorted = 1;
+	dcfg->sorted_bctl->data_ctl.sorted = 1;
 
 	/* Increase defrag_generation in order to interrupted operation could relookup keys.
 	 */

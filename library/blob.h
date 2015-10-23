@@ -135,11 +135,14 @@ struct eblob_base_ctl {
 
 	pthread_mutex_t		lock;
 	pthread_cond_t		critness_wait;
-	int			data_fd;
-	off_t			data_offset;
 
-	unsigned long long	data_size;
-
+	/*
+	 * Domain of data_ctl.sorted: is data in blob sorted?
+	 * 1 if sorted
+	 * 0 if unknown
+	 * -1 if not sorted
+	 */
+	struct eblob_file_ctl	data_ctl;
 	struct eblob_file_ctl	index_ctl;
 
 	/*
@@ -160,13 +163,6 @@ struct eblob_base_ctl {
 	/* Binary log rudiment: if enabled stores key removals in list */
 	struct eblob_binlog_cfg	binlog;
 
-	/*
-	 * Is data in blob sorted?
-	 * 1 if sorted
-	 * 0 if unknown
-	 * -1 if not sorted
-	 */
-	int			sorted;
 	/* Per bctl aka "local" stats */
 	struct eblob_stat	*stat;
 	char			name[];

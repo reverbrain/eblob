@@ -112,7 +112,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_bsearch_fuzzy: start: %s, end: %s, found: %s, "
 				"pos: %zd, num: %zu, index: %d, fd: %d\n",
-				eblob_dump_id(start->id), eblob_dump_id(end->id), found_id, found, num, bctl->index, bctl->data_fd);
+				eblob_dump_id(start->id), eblob_dump_id(end->id), found_id, found, num, bctl->index, bctl->data_ctl.fd);
 	}
 
 	return found;
@@ -192,7 +192,7 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 				break;
 
 			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
-				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+				err = eblob_range_callback(req, &dc.key, bctl->data_ctl.fd,
 						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
 				if (err)
 					goto err_out_exit;
@@ -207,7 +207,7 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 				break;
 
 			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
-				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+				err = eblob_range_callback(req, &dc.key, bctl->data_ctl.fd,
 						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
 				if (err)
 					goto err_out_exit;
@@ -305,7 +305,7 @@ int eblob_read_range(struct eblob_range_request *req)
 						continue;
 				}
 
-				err = eblob_range_callback(req, &e->key, ctl->bctl->data_fd,
+				err = eblob_range_callback(req, &e->key, ctl->bctl->data_ctl.fd,
 						ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
 				if (err > 0)
 					goto err_out_unlock;

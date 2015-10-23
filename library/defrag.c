@@ -72,7 +72,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 
 	/* Sanity: Do not remove seem-to-be empty blob if offsets are non-zero */
 	if (((removed == 0) && (total == 0)) &&
-	    ((bctl->data_offset != 0) || (bctl->index_ctl.size != 0)))
+	    ((bctl->data_ctl.offset != 0) || (bctl->index_ctl.size != 0)))
 		return -EINVAL;
 
 	if (total < removed)
@@ -102,7 +102,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: FAILED: trying to remove non empty blob: "
 					"removed: %" PRIu64 ", total: %" PRIu64
-					"index_size: %llu, removed_index_size: %" PRIu64 "\n",
+					"index_size: %" PRIu64 ", removed_index_size: %" PRIu64 "\n",
 					__func__, removed, total,
 					bctl->index_ctl.size, removed_index_size);
 			err = EBLOB_DEFRAG_NEEDED;

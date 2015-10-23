@@ -576,12 +576,12 @@ static int indexsort_binlog_apply(struct eblob_base_ctl *bctl, void *sorted_inde
 			dc->flags |= BLOB_DISK_CTL_REMOVE;
 
 			EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "%s: indexsort: removing: fd: %d, offset: %" PRIu64,
-			            eblob_dump_id(it->key.id), bctl->data_fd, dc->position);
-			err = eblob_mark_index_removed(bctl->data_fd, dc->position);
+			            eblob_dump_id(it->key.id), bctl->data_ctl.fd, dc->position);
+			err = eblob_mark_index_removed(bctl->data_ctl.fd, dc->position);
 			if (err != 0) {
 				EBLOB_WARNX(bctl->back->cfg.log, EBLOB_LOG_ERROR,
 						"%s: indexsort: eblob_mark_index_removed: FAILED: data, fd: %d, err: %d",
-						eblob_dump_id(it->key.id), bctl->data_fd, err);
+						eblob_dump_id(it->key.id), bctl->data_ctl.fd, err);
 				goto err_out_exit;
 			}
 			dc += 1;
@@ -823,8 +823,8 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	unlink(file);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: indexsort: generated sorted: index: %d, "
-			"index-size: %llu, data-size: %llu, file: %s\n",
-			bctl->index, (unsigned long long)index_size, (unsigned long long)bctl->data_offset, dst_file);
+			"index-size: %llu, data-size: %" PRIu64 ", file: %s\n",
+			bctl->index, (unsigned long long)index_size, bctl->data_ctl.offset, dst_file);
 
 	free(sorted_index);
 	free(file);
