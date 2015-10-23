@@ -639,7 +639,7 @@ static int indexsort_flush_cache(struct eblob_backend *b, void *sorted_index, ui
 }
 
 int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *bctl) {
-	int fd, err, len;
+	int fd, old_fd, err, len;
 	char *file, *dst_file;
 	ssize_t index_size;
 	void *sorted_index;
@@ -730,6 +730,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	pthread_mutex_lock(&b->lock);
 	/* Wait for pending writes to finish and lock bctl(s) */
 	eblob_base_wait_locked(bctl);
+
+	old_fd = bctl->index_ctl.fd;
+
 	/* Lock hash - prevent using old offsets with new sorted index */
 	if ((err = pthread_rwlock_wrlock(&b->hash.root_lock)) != 0) {
 		err = -err;
@@ -773,12 +776,9 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_unlock_hash;
 	}
 
-	close(bctl->index_ctl.fd);
-
 	bctl->index_ctl.fd = fd;
 	bctl->index_ctl.offset = 0;
 	bctl->index_ctl.size = index_size;
-	bctl->index_ctl.sorted = 1;
 
 	err = eblob_index_blocks_fill(bctl);
 	if (err) {
@@ -797,6 +797,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 		goto err_unlock_hash;
 	}
 
+	bctl->index_ctl.sorted = 1;
 	b->defrag_generation += 1;
 
 	/* Unlock */
@@ -807,6 +808,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	/* Remove unsorted index. It will not be used anymore. */
 	snprintf(file, len, "%s-0.%d.index", b->cfg.file, bctl->index);
 	unlink(file);
+	close(old_fd);
 
 	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "defrag: indexsort: generated sorted: index: %d, "
 			"index-size: %llu, data-size: %" PRIu64 ", file: %s\n",
@@ -821,6 +823,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 err_unlock_hash:
 	pthread_rwlock_unlock(&b->hash.root_lock);
 err_unlock_bctl:
+	bctl->index_ctl.fd = old_fd;
 	pthread_mutex_unlock(&bctl->lock);
 	pthread_mutex_unlock(&b->lock);
 err_out_stop_binlog:
