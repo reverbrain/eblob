@@ -726,20 +726,6 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	qsort(sorted_index, index_size / sizeof(struct eblob_disk_control), sizeof(struct eblob_disk_control),
 			eblob_disk_control_sort_with_flags);
 
-	err = __eblob_write_ll(fd, sorted_index, index_size, 0);
-	if (err) {
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: write: index: %d, size: %llu: %s",
-			bctl->index, (unsigned long long)index_size, file);
-		goto err_out_free_index;
-	}
-
-	if ((err = fsync(fd)) == -1) {
-		err = -errno;
-		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: fsync: index: %d, size: %llu: %s",
-			bctl->index, (unsigned long long)index_size, file);
-		goto err_out_free_index;
-	}
-
 	/* Lock backend */
 	pthread_mutex_lock(&b->lock);
 	/* Wait for pending writes to finish and lock bctl(s) */
