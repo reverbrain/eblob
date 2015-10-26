@@ -45,8 +45,8 @@
 #include <unistd.h>
 
 /**
- * eblob_want_defrag() - runs iterator that counts number of non-removed
- * entries (aka good ones) and compares it with total.
+ * eblob_want_defrag() - gets number of removed records/non-removed records
+ * and compares it with total.
  * If percentage >= defrag_percentage then defrag should proceed.
  */
 int eblob_want_defrag(struct eblob_base_ctl *bctl)
@@ -63,7 +63,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 	if (list_is_last(&bctl->base_entry, &bctl->back->bases))
 		return EBLOB_DEFRAG_NOT_NEEDED;
 
-	eblob_base_wait_locked(bctl);
+	pthread_mutex_lock(&bctl->lock);
 	total = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_TOTAL);
 	removed = eblob_stat_get(bctl->stat, EBLOB_LST_RECORDS_REMOVED);
 	removed_size = eblob_stat_get(bctl->stat, EBLOB_LST_REMOVED_SIZE);
