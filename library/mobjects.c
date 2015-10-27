@@ -69,14 +69,12 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	struct stat st;
 	int err;
 
-	if (ctl->index_ctl.fd >= 0) {
-		err = fstat(ctl->index_ctl.fd, &st);
-		if (err) {
-			err = -errno;
-			goto err_out_exit;
-		}
-		ctl->index_ctl.size = st.st_size;
+	err = fstat(ctl->index_ctl.fd, &st);
+	if (err) {
+		err = -errno;
+		goto err_out_exit;
 	}
+	ctl->index_ctl.size = st.st_size;
 
 	err = fstat(ctl->data_ctl.fd, &st);
 	if (err) {
@@ -146,32 +144,25 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 	sprintf(full, "%s/%s.index.sorted", dir_base, name);
 
 	bctl->index_ctl.fd = open(full, O_RDWR | O_CLOEXEC);
-	if (bctl->index_ctl.fd >= 0) {
-		struct stat st;
-
-		err = fstat(bctl->index_ctl.fd, &st);
-		if (err) {
-			err = -errno;
-			goto err_out_close;
-		}
-
-		bctl->index_ctl.size = st.st_size;
-		if (bctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
-			err = -EBADF;
-			goto err_out_close;
-		}
-
-		bctl->index_ctl.size = st.st_size;
-		bctl->index_ctl.sorted = 1;
-	} else {
+	if (bctl->index_ctl.fd < 0) {
 		err = -errno;
 		goto err_out_free;
+	}
+
+	err = eblob_base_setup_data(bctl, 0);
+	if (err)
+		goto err_out_close;
+
+	if (bctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
+		err = -EBADF;
+		goto err_out_close;
 	}
 
 	err = eblob_index_blocks_fill(bctl);
 	if (err)
 		goto err_out_close;
 
+	bctl->index_ctl.sorted = 1;
 	free(full);
 	return 0;
 
@@ -227,16 +218,10 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 	}
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "base opened: %s", full);
 
-	err = eblob_base_setup_data(ctl, 0);
-	if (err)
-		goto err_out_close_data;
-
 again:
 	sprintf(full, "%s/%s.index.sorted", dir_base, name);
 	err = access(full, R_OK);
 	if (err) {
-		struct stat st;
-
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 				"bctl: index: %d: %s: access failed: %d\n",
 				ctl->index, full, errno);
@@ -248,13 +233,9 @@ again:
 			goto err_out_close_data;
 		}
 
-		err = fstat(ctl->index_ctl.fd, &st);
-		if (err == -1) {
-			err = -errno;
+		err = eblob_base_setup_data(ctl, 0);
+		if (err)
 			goto err_out_close_index;
-		}
-
-		ctl->index_ctl.size = st.st_size;
 
 		/* Sort index only if base is not empty and exceeds thresholds */
 		if (ctl->index_ctl.size &&
