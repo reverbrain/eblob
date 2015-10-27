@@ -76,6 +76,11 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	}
 	ctl->index_ctl.size = st.st_size;
 
+	if (ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
+		err = -EBADF;
+		goto err_out_exit;
+	}
+
 	err = fstat(ctl->data_ctl.fd, &st);
 	if (err) {
 		err = -errno;
@@ -152,11 +157,6 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 	err = eblob_base_setup_data(bctl, 0);
 	if (err)
 		goto err_out_close;
-
-	if (bctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
-		err = -EBADF;
-		goto err_out_close;
-	}
 
 	err = eblob_index_blocks_fill(bctl);
 	if (err)
