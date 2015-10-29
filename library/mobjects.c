@@ -69,21 +69,26 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	struct stat st;
 	int err;
 
-	err = fstat(ctl->index_fd, &st);
+	err = fstat(ctl->index_ctl.fd, &st);
 	if (err) {
 		err = -errno;
 		goto err_out_exit;
 	}
-	ctl->index_size = st.st_size;
+	ctl->index_ctl.size = st.st_size;
 
-	err = fstat(ctl->data_fd, &st);
+	if (ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
+		err = -EBADF;
+		goto err_out_exit;
+	}
+
+	err = fstat(ctl->data_ctl.fd, &st);
 	if (err) {
 		err = -errno;
 		goto err_out_exit;
 	}
 
-	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_size)) || force) {
-		ctl->data_size = st.st_size;
+	if ((st.st_size && ((unsigned long long)st.st_size != ctl->data_ctl.size)) || force) {
+		ctl->data_ctl.size = st.st_size;
 	}
 
 err_out_exit:
@@ -101,15 +106,13 @@ int _eblob_base_ctl_cleanup(struct eblob_base_ctl *ctl)
 
 	eblob_index_blocks_destroy(ctl);
 
-	ctl->data_size = ctl->data_offset = 0;
-	ctl->index_size = 0;
+	ctl->data_ctl.size = ctl->data_ctl.offset = 0;
+	ctl->index_ctl.size = 0;
 
-	if (ctl->sort.fd >= 0)
-		close(ctl->sort.fd);
-	close(ctl->data_fd);
-	close(ctl->index_fd);
+	close(ctl->index_ctl.fd);
+	close(ctl->data_ctl.fd);
 
-	ctl->sort.fd = ctl->data_fd = ctl->index_fd = -1;
+	ctl->index_ctl.fd = ctl->data_ctl.fd = -1;
 
 	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE, 0);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL, 0);
@@ -136,7 +139,7 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 	if (bctl->back->cfg.blob_flags & __EBLOB_NO_STARTUP_DATA_POPULATE)
 		return 0;
 
-	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index") + sizeof(".sorted"); /* including / and null-byte */
+	full_len = strlen(dir_base) + name_len + 3 + sizeof(".index.sorted"); /* including / and null-byte */
 	full = malloc(full_len);
 	if (!full) {
 		err = -ENOMEM;
@@ -145,37 +148,27 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 
 	sprintf(full, "%s/%s.index.sorted", dir_base, name);
 
-	bctl->sort.fd = open(full, O_RDWR | O_CLOEXEC);
-	if (bctl->sort.fd >= 0) {
-		struct stat st;
-
-		err = fstat(bctl->sort.fd, &st);
-		if (err) {
-			err = -errno;
-			goto err_out_close;
-		}
-
-		bctl->sort.size = st.st_size;
-		if (bctl->sort.size % sizeof(struct eblob_disk_control)) {
-			err = -EBADF;
-			goto err_out_close;
-		}
-
-		bctl->index_size = st.st_size;
-	} else {
+	bctl->index_ctl.fd = open(full, O_RDWR | O_CLOEXEC);
+	if (bctl->index_ctl.fd < 0) {
 		err = -errno;
 		goto err_out_free;
 	}
 
+	err = eblob_base_setup_data(bctl, 0);
+	if (err)
+		goto err_out_close;
+
 	err = eblob_index_blocks_fill(bctl);
 	if (err)
-		goto err_out_free;
+		goto err_out_close;
 
+	bctl->index_ctl.sorted = 1;
 	free(full);
 	return 0;
 
 err_out_close:
-	close(bctl->sort.fd);
+	close(bctl->index_ctl.fd);
+	bctl->index_ctl.fd = -1;
 err_out_free:
 	free(full);
 err_out_exit:
@@ -204,8 +197,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 	 * Try opening blob, it it fails - create one.
 	 * This code is a bit redunant but it's cleaner this way.
 	 */
-	ctl->data_fd = open(full, oflags);
-	if (ctl->data_fd == -1) {
+	ctl->data_ctl.fd = open(full, oflags);
+	if (ctl->data_ctl.fd == -1) {
 		if (errno == ENOENT) {
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "creating base: %s", full);
 			created = strdup(full);
@@ -213,8 +206,8 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 				err = -errno;
 				goto err_out_free;
 			}
-			ctl->data_fd = open(created, oflags | O_CREAT, mode);
-			if (ctl->data_fd == -1) {
+			ctl->data_ctl.fd = open(created, oflags | O_CREAT, mode);
+			if (ctl->data_ctl.fd == -1) {
 				err = -errno;
 				goto err_out_free;
 			}
@@ -225,39 +218,29 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 	}
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_NOTICE, "base opened: %s", full);
 
-	err = eblob_base_setup_data(ctl, 0);
-	if (err)
-		goto err_out_close_data;
-
 again:
 	sprintf(full, "%s/%s.index.sorted", dir_base, name);
 	err = access(full, R_OK);
 	if (err) {
-		struct stat st;
-
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
 				"bctl: index: %d: %s: access failed: %d\n",
 				ctl->index, full, errno);
 
 		sprintf(full, "%s/%s.index", dir_base, name);
-		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-		if (ctl->index_fd == -1) {
+		ctl->index_ctl.fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
+		if (ctl->index_ctl.fd == -1) {
 			err = -errno;
 			goto err_out_close_data;
 		}
 
-		err = fstat(ctl->index_fd, &st);
-		if (err == -1) {
-			err = -errno;
+		err = eblob_base_setup_data(ctl, 0);
+		if (err)
 			goto err_out_close_index;
-		}
-
-		ctl->index_size = st.st_size;
 
 		/* Sort index only if base is not empty and exceeds thresholds */
-		if (ctl->index_size &&
-				((ctl->data_size >= b->cfg.blob_size) ||
-				(ctl->index_size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
+		if (ctl->index_ctl.size &&
+				((ctl->data_ctl.size >= b->cfg.blob_size) ||
+				(ctl->index_ctl.size / sizeof(struct eblob_disk_control) >= b->cfg.records_in_blob))) {
 			err = eblob_generate_sorted_index(b, ctl);
 			if (err) {
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
@@ -268,12 +251,11 @@ again:
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d/%d, using unsorted index: size: %llu, num: %llu, "
 					"data: size: %llu, max blob size: %llu\n",
 					ctl->index, b->max_index,
-					ctl->index_size, ctl->index_size / sizeof(struct eblob_disk_control),
-					ctl->data_size, (unsigned long long)b->cfg.blob_size);
+					(unsigned long long)ctl->index_ctl.size,
+					(unsigned long long)ctl->index_ctl.size / sizeof(struct eblob_disk_control),
+					(unsigned long long)ctl->data_ctl.size, (unsigned long long)b->cfg.blob_size);
 		}
 	} else {
-		struct stat st;
-
 		if (created) {
 			eblob_log(b->cfg.log, EBLOB_LOG_INFO,
 				  "bctl: index: %d: removing sorted index that should not exist "
@@ -300,53 +282,23 @@ again:
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"bctl: eblob_base_open_sorted: FAILED: index: %d: %s: %d\n",
 					ctl->index, strerror(-err), err);
-			goto err_out_close_sort_fd;
+			goto err_out_close_index;
 		}
 
 		sprintf(full, "%s/%s.index", dir_base, name);
-		err = stat(full, &st);
-		if (err) {
-			err = -errno;
-
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"bctl: index: %d: can not stat unsorted index '%s': %s %d\n",
-					ctl->index, full, strerror(-err), err);
-			goto err_out_close_sort_fd;
-		}
-
-		if ((uint64_t)st.st_size != ctl->sort.size) {
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
-					"bctl: index: %d: unsorted index size mismatch for '%s': "
-					"sorted: %" PRIu64 ", unsorted: %" PRIu64 ": removing regenerating sorted index\n",
-					ctl->index, full,
-					ctl->sort.size, st.st_size);
-
-			close(ctl->sort.fd);
-			ctl->sort.fd = -1;
-
-			sprintf(full, "%s/%s.index.sorted", dir_base, name);
-			unlink(full);
-
-			goto again;
-		}
-
-		ctl->index_fd = open(full, O_RDWR | O_CREAT | O_CLOEXEC, 0644);
-		if (ctl->index_fd < 0) {
-			err = -errno;
-			goto err_out_close_sort_fd;
-		}
+		unlink(full);
 
 		eblob_log(b->cfg.log, EBLOB_LOG_INFO, "bctl: index: %d: "
 				"using existing sorted index: size: %" PRIu64 ", num: %" PRIu64 "\n",
-				ctl->index, ctl->sort.size,
-				ctl->sort.size / sizeof(struct eblob_disk_control));
+				ctl->index, ctl->index_ctl.size,
+				ctl->index_ctl.size / sizeof(struct eblob_disk_control));
 	}
 
 	eblob_stat_set(ctl->stat, EBLOB_LST_BASE_SIZE,
-			ctl->data_size + ctl->index_size);
+			ctl->data_ctl.size + ctl->index_ctl.size);
 	eblob_stat_set(ctl->stat, EBLOB_LST_RECORDS_TOTAL,
-			ctl->index_size / sizeof(struct eblob_disk_control));
-	eblob_pagecache_hint(eblob_get_index_fd(ctl), EBLOB_FLAGS_HINT_WILLNEED);
+			ctl->index_ctl.size / sizeof(struct eblob_disk_control));
+	eblob_pagecache_hint(ctl->index_ctl.fd, EBLOB_FLAGS_HINT_WILLNEED);
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: %s: finished: %s\n", __func__, full);
 
 	free(created);
@@ -355,13 +307,11 @@ again:
 	return 0;
 
 err_out_close_index:
-	close(ctl->index_fd);
-err_out_close_sort_fd:
-	if (ctl->sort.fd >= 0) {
-		close(ctl->sort.fd);
+	if (ctl->index_ctl.fd >= 0) {
+		close(ctl->index_ctl.fd);
 	}
 err_out_close_data:
-	close(ctl->data_fd);
+	close(ctl->data_ctl.fd);
 	if (created != NULL) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
 		if (unlink(created) == -1)
@@ -389,7 +339,7 @@ struct eblob_base_ctl *eblob_base_ctl_new(struct eblob_backend *b, int index,
 
 	ctl->back = b;
 	ctl->index = index;
-	ctl->sort.fd = -1;
+	ctl->index_ctl.fd = -1;
 
 	memcpy(ctl->name, name, name_len);
 	ctl->name[name_len] = '\0';
@@ -620,8 +570,7 @@ static int eblob_scan_base(struct eblob_backend *b)
 			break;
 
 		/* Sort only nonempty and unsorted indexes */
-		if (bctl->index_size &&
-		    bctl->sort.fd < 0) {
+		if (bctl->index_ctl.size && !bctl->index_ctl.sorted) {
 			eblob_generate_sorted_index(b, bctl);
 		}
 	}
@@ -656,7 +605,7 @@ int eblob_cache_insert(struct eblob_backend *b, struct eblob_key *key,
 	pthread_rwlock_wrlock(&b->hash.root_lock);
 
 	/* Do not accept bctls invalidated by data-sort */
-	if (ctl->bctl->index_fd < 0) {
+	if (ctl->bctl->index_ctl.fd < 0) {
 		err = -EAGAIN;
 		goto err_out_exit;
 	}
@@ -788,7 +737,7 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 			ctl->base = bctl;
 
 			err = 0;
-			if (bctl->sort.fd < 0 || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
+			if (!bctl->index_ctl.sorted || (ctl->flags & EBLOB_ITERATE_FLAGS_ALL)) {
 				err = eblob_blob_iterate(ctl);
 			}
 
@@ -810,9 +759,9 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 					eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: removing: index: %d, data_fd: %d, index_fd: %d, "
 							"data_size: %llu, data_offset: %llu, have_sort: %d\n",
-							bctl->index, bctl->data_fd, bctl->index_fd,
-							bctl->data_size, (unsigned long long)bctl->data_offset,
-							bctl->sort.fd >= 0);
+							bctl->index, bctl->data_ctl.fd, bctl->index_ctl.fd,
+							(unsigned long long)bctl->data_ctl.size, (unsigned long long)bctl->data_ctl.offset,
+							bctl->index_ctl.sorted);
 
 
 					eblob_base_ctl_cleanup(bctl);
@@ -823,9 +772,9 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 
 			eblob_log(ctl->log, EBLOB_LOG_INFO, "blob: bctl: index: %d, data_fd: %d, index_fd: %d, "
 					"data_size: %llu, data_offset: %llu, have_sort: %d, err: %d\n",
-					bctl->index, bctl->data_fd, bctl->index_fd,
-					bctl->data_size, (unsigned long long)bctl->data_offset,
-					bctl->sort.fd >= 0, err);
+					bctl->index, bctl->data_ctl.fd, bctl->index_ctl.fd,
+					(unsigned long long)bctl->data_ctl.size, (unsigned long long)bctl->data_ctl.offset,
+					bctl->index_ctl.sorted, err);
 			if (err)
 				goto err_out_exit;
 		}

@@ -72,7 +72,7 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 
 	/* Sanity: Do not remove seem-to-be empty blob if offsets are non-zero */
 	if (((removed == 0) && (total == 0)) &&
-	    ((bctl->data_offset != 0) || (bctl->index_size != 0)))
+	    ((bctl->data_ctl.offset != 0) || (bctl->index_ctl.size != 0)))
 		return -EINVAL;
 
 	if (total < removed)
@@ -98,13 +98,13 @@ int eblob_want_defrag(struct eblob_base_ctl *bctl)
 		 * size of removed entries
 		 */
 		uint64_t removed_index_size = removed * sizeof(struct eblob_disk_control);
-		if (bctl->index_size != removed_index_size) {
+		if (bctl->index_ctl.size != removed_index_size) {
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 					"%s: FAILED: trying to remove non empty blob: "
 					"removed: %" PRIu64 ", total: %" PRIu64
-					"index_size: %llu, removed_index_size: %" PRIu64 "\n",
+					"index_size: %" PRIu64 ", removed_index_size: %" PRIu64 "\n",
 					__func__, removed, total,
-					bctl->index_size, removed_index_size);
+					bctl->index_ctl.size, removed_index_size);
 			err = EBLOB_DEFRAG_NEEDED;
 		} else {
 			err = EBLOB_REMOVE_NEEDED;
@@ -201,8 +201,8 @@ int eblob_defrag(struct eblob_backend *b)
 		    (b->want_defrag == EBLOB_DEFRAG_STATE_DATA_COMPACT || datasort_base_is_sorted(bctl) == 1))
 			continue;
 
-		/* skips bases with sorted index if defrag thread was started only for index sort*/
-		if (b->want_defrag == EBLOB_DEFRAG_STATE_INDEX_SORT && bctl->sort.fd >= 0)
+		/* skips bases with sorted index if defrag thread was started only for index sort */
+		if (b->want_defrag == EBLOB_DEFRAG_STATE_INDEX_SORT && bctl->index_ctl.sorted)
 			continue;
 
 		/*
@@ -270,7 +270,7 @@ int eblob_defrag(struct eblob_backend *b)
 			case EBLOB_DEFRAG_STATE_INDEX_SORT: {
 				struct eblob_base_ctl * const bctl = bctls[previous];
 				/* If defrag started only for index sort - check that blob's index is unsorted. */
-				if (bctl->sort.fd < 0) {
+				if (!bctl->index_ctl.sorted) {
 					err = eblob_generate_sorted_index(b, bctl);
 					if (err) {
 						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: FAILED");

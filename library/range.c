@@ -61,7 +61,7 @@ static int eblob_id_in_range(const unsigned char *id, const unsigned char *start
 static int eblob_disk_control_in_range(struct eblob_base_ctl *bctl, struct eblob_disk_control *dc,
 		ssize_t pos, struct eblob_key *start, struct eblob_key *end)
 {
-	int err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(struct eblob_disk_control), pos * sizeof(struct eblob_disk_control));
+	int err = __eblob_read_ll(bctl->index_ctl.fd, &dc, sizeof(struct eblob_disk_control), pos * sizeof(struct eblob_disk_control));
 	if (err)
 		return 0;
 	eblob_convert_disk_control(dc);
@@ -72,7 +72,7 @@ static int eblob_disk_control_in_range(struct eblob_base_ctl *bctl, struct eblob
 static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ctl *bctl,
 		struct eblob_key *start, struct eblob_key *end)
 {
-	ssize_t num = bctl->sort.size / sizeof(struct eblob_disk_control);
+	ssize_t num = bctl->index_ctl.size / sizeof(struct eblob_disk_control);
 	ssize_t low, high, i, found = -1;
 	struct eblob_disk_control dc;
 	int cmp;
@@ -81,7 +81,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 	for (low = -1, high = num; high - low > 1; ) {
 		i = low + (high - low)/2;
 
-		err = __eblob_read_ll(bctl->sort.fd, &dc, sizeof(dc), i * sizeof(dc));
+		err = __eblob_read_ll(bctl->index_ctl.fd, &dc, sizeof(dc), i * sizeof(dc));
 		if (err)
 			break;
 
@@ -112,7 +112,7 @@ static ssize_t eblob_bsearch_fuzzy(struct eblob_backend *b, struct eblob_base_ct
 
 		eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: eblob_bsearch_fuzzy: start: %s, end: %s, found: %s, "
 				"pos: %zd, num: %zu, index: %d, fd: %d\n",
-				eblob_dump_id(start->id), eblob_dump_id(end->id), found_id, found, num, bctl->index, bctl->data_fd);
+				eblob_dump_id(start->id), eblob_dump_id(end->id), found_id, found, num, bctl->index, bctl->data_ctl.fd);
 	}
 
 	return found;
@@ -179,7 +179,7 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 	memcpy(end.id, req->end, sizeof(req->end));
 
 	list_for_each_entry(bctl, &b->bases, base_entry) {
-		if (bctl->sort.fd < 0)
+		if (!bctl->index_ctl.sorted)
 			continue;
 
 		pos = eblob_bsearch_fuzzy(b, bctl, &start, &end);
@@ -192,7 +192,7 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 				break;
 
 			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
-				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+				err = eblob_range_callback(req, &dc.key, bctl->data_ctl.fd,
 						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
 				if (err)
 					goto err_out_exit;
@@ -200,14 +200,14 @@ static int eblob_read_range_on_disk(struct eblob_range_request *req)
 			--i;
 		}
 
-		num = bctl->sort.size / sizeof(struct eblob_disk_control);
+		num = bctl->index_ctl.size / sizeof(struct eblob_disk_control);
 		i = pos + 1;
 		while (i < num) {
 			if (!eblob_disk_control_in_range(bctl, &dc, i, &start, &end))
 				break;
 
 			if (!(dc.flags & BLOB_DISK_CTL_REMOVE)) {
-				err = eblob_range_callback(req, &dc.key, bctl->data_fd,
+				err = eblob_range_callback(req, &dc.key, bctl->data_ctl.fd,
 						dc.position + sizeof(struct eblob_disk_control), dc.data_size);
 				if (err)
 					goto err_out_exit;
@@ -294,7 +294,7 @@ int eblob_read_range(struct eblob_range_request *req)
 
 					list_for_each_entry(bctl, &b->bases, base_entry) {
 						if (bctl->index == ctl->bctl->index) {
-							if (bctl->sort.fd >= 0) {
+							if (bctl->index_ctl.sorted) {
 								have_sorted_fd = 1;
 								break;
 							}
@@ -305,7 +305,7 @@ int eblob_read_range(struct eblob_range_request *req)
 						continue;
 				}
 
-				err = eblob_range_callback(req, &e->key, ctl->bctl->data_fd,
+				err = eblob_range_callback(req, &e->key, ctl->bctl->data_ctl.fd,
 						ctl->data_offset + sizeof(struct eblob_disk_control), ctl->size);
 				if (err > 0)
 					goto err_out_unlock;
