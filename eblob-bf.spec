@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.5
+Version:	0.23.6
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,12 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Oct 29 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.6
+- prepare: prepare must fix on-disk and in-memory flags, if it is going to reuse existing key
+- remove .index files after index sort
+- defrag: eblob_want_defrag() should not long-lock the whole blob
+- quigon build fix: don't use /dev/stdout from forked processes
+
 * Fri Sep 18 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.5
 - build: fixed build: removed useless scope resolution
 - blob: added removing `BLOB_DISK_CTL_UNCOMMITTED` from record's flags in `eblob_write_commit_prepare`
