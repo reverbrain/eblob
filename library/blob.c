@@ -1892,13 +1892,42 @@ int eblob_write_prepare(struct eblob_backend *b, struct eblob_key *key,
 	if (err && err != -ENOENT && err != -E2BIG)
 		goto err_out_exit;
 
-	/* Skip preparing if key was found and it can be reused */
 	if (err == 0 && (wc.total_size >= eblob_calculate_size(b, key, 0, size))) {
+		uint64_t new_flags;
+
+		/*
+		 * We've found a key which will be overwritten,
+		 * make sure it has valid flags.
+		 *
+		 * We overwrite flags to what user has provided
+		 * dropping all existing on-disk flags since
+		 * given key will be fully overwritten and
+		 * we do not care about its old content anymore.
+		 *
+		 * The same logic is performed in @eblob_write_prepare_disk(),
+		 * but it also allocates new space.
+		 */
+		new_flags = eblob_validate_ctl_flags(b, flags);
+		new_flags |= BLOB_DISK_CTL_UNCOMMITTED;
+
+		if (wc.flags != new_flags) {
+			wc.flags = new_flags;
+
+			err = eblob_commit_disk(b, key, &wc, 0);
+			if (err)
+				goto err_out_cleanup_wc;
+
+			err = eblob_commit_ram(b, key, &wc);
+			if (err)
+				goto err_out_cleanup_wc;
+		}
+
 		eblob_stat_inc(b->stat, EBLOB_GST_PREPARE_REUSED);
 		goto err_out_cleanup_wc;
 	} else {
 		wc.flags = eblob_validate_ctl_flags(b, flags);
 		wc.flags |= BLOB_DISK_CTL_UNCOMMITTED;
+
 		err = eblob_write_prepare_disk(b, key, &wc, size, EBLOB_COPY_RECORD, 0, err == -ENOENT ? NULL : &old, defrag_generation);
 		if (err)
 			goto err_out_cleanup_wc;
