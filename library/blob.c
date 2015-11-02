@@ -1034,6 +1034,15 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		goto err;
 	}
 
+	/* Sanity: Check that on-disk and in-memory keys are the same */
+	if (memcmp(&old_dc.key, key, sizeof(key)) != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "keys mismatch: in-memory: %s, on-disk: %s",
+				eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
+				eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE));
+		err = -EINVAL;
+		goto err;
+	}
+
 	eblob_convert_disk_control(&old_dc);
 	/* size of the place occupied by the record in the index and the blob */
 	record_size = old_dc.disk_size + sizeof(struct eblob_disk_control);
