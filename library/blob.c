@@ -1978,6 +1978,14 @@ static int eblob_write_commit_prepare(struct eblob_backend *b, struct eblob_key 
 	if (err < 0)
 		goto err_out_unlock;
 
+	/*
+	 * write commit is allowed only for uncommitted records
+	 */
+	if (!(wc->flags & BLOB_DISK_CTL_UNCOMMITTED)) {
+		err = -EPERM;
+		goto err_out_cleanup_wc;
+	}
+
 	/* Sanity - we can't commit more than we've written */
 	if (size > wc->total_size) {
 		err = -ERANGE;
@@ -2159,6 +2167,14 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 	err = eblob_fill_write_control_from_ram(b, key, wc, 1, NULL);
 	if (err)
 		goto err_out_unlock;
+
+	/*
+	 * plain write is allowed only for uncommitted records
+	 */
+	if (!(wc->flags & BLOB_DISK_CTL_UNCOMMITTED)) {
+		err = -EPERM;
+		goto err_out_cleanup_wc;
+	}
 
 	/*
 	 * We can't use plain write if EXTHDR flag is differ on old and new record.
