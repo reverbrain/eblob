@@ -498,11 +498,14 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
+		/* size of the place occupied by the record in the index and the blob */
+		const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
+
 		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
+		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, record_size);
 
 		eblob_stat_inc(ctl->b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
+		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, record_size);
 	}
 
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
@@ -994,6 +997,8 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_ram_control *old)
 {
 	int err;
+	struct eblob_disk_control old_dc;
+	int64_t record_size = 0;
 
 	/* Add entry to list of removed entries */
 	if (eblob_binlog_enabled(&old->bctl->binlog)) {
@@ -1022,6 +1027,17 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 			eblob_dump_id(key->id), old->index_offset, old->bctl->index_ctl.fd,
 			old->data_offset, old->bctl->data_ctl.fd);
 
+	err = __eblob_read_ll(old->bctl->index_ctl.fd, &old_dc, sizeof(old_dc), old->index_offset);
+	if (err) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: __eblob_read_ll: FAILED: index, fd: %d, err: %d",
+				eblob_dump_id(key->id), old->bctl->index_ctl.fd, err);
+		goto err;
+	}
+
+	eblob_convert_disk_control(&old_dc);
+	/* size of the place occupied by the record in the index and the blob */
+	record_size = old_dc.disk_size + sizeof(struct eblob_disk_control);
+
 	err = eblob_mark_index_removed(old->bctl->index_ctl.fd, old->index_offset);
 	if (err != 0) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
@@ -1039,9 +1055,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 	}
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
-	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, old->size);
+	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, record_size);
 	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
-	eblob_stat_add(b->stat_summary, EBLOB_LST_REMOVED_SIZE, old->size);
+	eblob_stat_add(b->stat_summary, EBLOB_LST_REMOVED_SIZE, record_size);
 
 	if (!b->cfg.sync) {
 		eblob_fdatasync(old->bctl->data_ctl.fd);
