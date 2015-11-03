@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.6
+Version:	0.23.7
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,11 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Nov 04 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.7
+- blob: total_size being equal to total_data_size+sizeof(struct eblob_disk_control) is perfectly valid
+- blob: blob setup has to fail if index file is invalid
+- Added check to `write_commit` and `plain_write` that updating object is uncommitted
+
 * Thu Oct 29 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.6
 - prepare: prepare must fix on-disk and in-memory flags, if it is going to reuse existing key
 - remove .index files after index sort

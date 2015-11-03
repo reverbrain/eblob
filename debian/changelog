@@ -1,3 +1,11 @@
+eblob (0.23.7) unstable; urgency=low
+
+  * blob: total_size being equal to total_data_size+sizeof(struct eblob_disk_control) is perfectly valid
+  * blob: blob setup has to fail if index file is invalid
+  * Added check to `write_commit` and `plain_write` that updating object is uncommitted
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 04 Nov 2015 01:55:18 +0400
+
 eblob (0.23.6) unstable; urgency=low
 
   * prepare: prepare must fix on-disk and in-memory flags, if it is going to reuse existing key
