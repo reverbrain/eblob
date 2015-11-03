@@ -89,13 +89,13 @@ Json of eblob internal statistics has follow schema:
 			"description": "total number of removed records in all blobs",
 			"type": "integer" },
 		"records_removed_size": {
-			"description": "total size of all removed records in all blobs",
+			"description": "total size occupied by all removed records in all blobs and index files",
 			"type": "integer" },
 		"records_corrupted": {
 			"description": "total number of corrupted records in all blobs",
 			"type": "integer" },
 		"base_size": {
-			"description": "total size of all blobs",
+			"description": "total size of all blobs and index files",
 			"type": "integer" },
 		"memory_bloom_filter": {
 			"description": "total size of all in-memory bloom filter for all blobs",
@@ -122,13 +122,13 @@ Json of eblob internal statistics has follow schema:
 				"description": "number of removed records in the blob",
 				"type": "number" },
 			"records_removed_size": {
-				"description": "size of all removed records in the blob",
+				"description": "size occupied by all removed records in the blob and the index file",
 				"type": "number" },
 			"records_corrupted": {
 				"description": "number of corrupted records in the blob",
 				"type": "number" },
 			"base_size": {
-				"description": "size of the blob",
+				"description": "size of the blob and the index",
 				"type": "number" },
 			"memory_bloom_filter": {
 				"description": "size of in-memory bloom filter for the blob",
@@ -371,8 +371,8 @@ The stat file has follow structure:
 `
 GLOBAL:					// Global eblob instance statistics
 datasort_start_time: 0			// Unix timestamp of the last defragmentation start
-read_copy_updates: 0			// number of successed data copying from old place to new
-prepare_reused: 0			// number of prepares which was succeded by using current place
+read_copy_updates: 0			// number of succeeded data copying from old place to new
+prepare_reused: 0			// number of prepares which was succeeded by using current place
 memory_index_tree: 34344		// size of in-memory index tree
 lookup_reads_number: 0			// number of lookups for @fd, @offset and @size by key
 data_reads_number: 0			// number of data reads made by eblob
@@ -381,25 +381,25 @@ reads_size: 0				// total size of read data made by eblob
 writes_size: 0				// total size of written data
 index_files_reads_number: 0		// number of index files that was processed by eblob while looking up records "on-disk".
 datasort_completion_time: 0		// end timestamp of the last defragmentation
-datasort_completion_status: 0		// status of last deframentation
+datasort_completion_status: 0		// status of last defragmentation
 
 SUMMARY:				// summary statistics for all blobs
 records_total: 989			// total number of records in all blobs both real and removed
 records_removed: 0			// total number of removed records in all blobs
-records_removed_size: 0			// total size of all removed records in all blobs
+records_removed_size: 0			// total size occupied by all removed records in all blobs and index files
 records_corrupted: 0			// total number of corrupted records in all blobs
-base_size: 103075342808			// total size of all blobs
+base_size: 103075342808			// total size of all blobs and index files
 memory_bloom_filter: 8320		// total size of all in-memory bloom filter for all blobs
 memory_index_blocks: 1872		// total size of all in-memory index blocks for all blobs
-want_defrag: 0				// summ of "want_defrag" of all blobs
+want_defrag: 0				// sum of "want_defrag" of all blobs
 is_sorted: 1				// number of sorted blobs
 
 BASE: data-0.[0-9]*			// one blob statistics
 records_total: 512			// number of records in the blob
 records_removed: 0			// number of removed records in the blob
-records_removed_size: 0			// size of all removed records in the blob
+records_removed_size: 0			// size occupied by all removed records in the blob and in the index file
 records_corrupted: 0			// number of corrupted records in the blob
-base_size: 53687250944			// size of the blob
+base_size: 53687250944			// size of the blob and the index file
 memory_bloom_filter: 8320		// size of in-memory bloom filter for the blob
 memory_index_blocks: 1872		// size of all in-memory index block for the blob
 want_defrag: 0				// the blob defragmentation status possible statuses can be found in \a eblob_defrag_type from blob.h
