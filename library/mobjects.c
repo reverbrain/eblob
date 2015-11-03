@@ -76,7 +76,7 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	}
 	ctl->index_ctl.size = st.st_size;
 
-	if (ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
+	if (ctl->index_ctl.size == 0 || ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
 		err = -EBADF;
 		goto err_out_exit;
 	}
