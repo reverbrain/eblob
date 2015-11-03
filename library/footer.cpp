@@ -264,7 +264,7 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 	    wc->flags & BLOB_DISK_CTL_NOCSUM)
 		return 0;
 
-	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control))
+	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_control))
 		return -EINVAL;
 
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.verify_checksum", b->cfg.stat_id));
