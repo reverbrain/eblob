@@ -76,7 +76,7 @@ int eblob_base_setup_data(struct eblob_base_ctl *ctl, int force)
 	}
 	ctl->index_ctl.size = st.st_size;
 
-	if (ctl->index_ctl.size == 0 || ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
+	if (ctl->index_ctl.size % sizeof(struct eblob_disk_control)) {
 		err = -EBADF;
 		goto err_out_exit;
 	}
@@ -157,6 +157,14 @@ static int eblob_base_open_sorted(struct eblob_base_ctl *bctl, const char *dir_b
 	err = eblob_base_setup_data(bctl, 0);
 	if (err)
 		goto err_out_close;
+
+	if (bctl->index_ctl.size == 0) {
+		err = -EBADF;
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+			  "bctl: index: %d: zero-sized index '%s': %s: %d\n",
+			  bctl->index, full, strerror(-err), err);
+		goto err_out_close;
+	}
 
 	err = eblob_index_blocks_fill(bctl);
 	if (err)
@@ -313,9 +321,13 @@ err_out_close_index:
 err_out_close_data:
 	close(ctl->data_ctl.fd);
 	if (created != NULL) {
-		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base and index: %s", created);
 		if (unlink(created) == -1)
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink: %s", created);
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink base: %s", created);
+
+		sprintf(full, "%s/%s.index", dir_base, name);
+		if (unlink(full) == -1)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink index: %s", created);
 	}
 err_out_free:
 	free(created);
