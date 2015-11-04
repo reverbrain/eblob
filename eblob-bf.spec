@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.7
+Version:	0.23.8
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Nov 04 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.8
+- bctl: when removing just created base, remove its index too
+- bctl: base can have zero-sized index when it is just created, it is forbidden to have it when we open existing base
+
 * Wed Nov 04 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.7
 - blob: total_size being equal to total_data_size+sizeof(struct eblob_disk_control) is perfectly valid
 - blob: blob setup has to fail if index file is invalid

@@ -1,3 +1,10 @@
+eblob (0.23.8) unstable; urgency=low
+
+  * bctl: when removing just created base, remove its index too
+  * bctl: base can have zero-sized index when it is just created, it is forbidden to have it when we open existing base
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 04 Nov 2015 14:52:02 +0400
+
 eblob (0.23.7) unstable; urgency=low
 
   * blob: total_size being equal to total_data_size+sizeof(struct eblob_disk_control) is perfectly valid
