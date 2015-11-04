@@ -321,9 +321,13 @@ err_out_close_index:
 err_out_close_data:
 	close(ctl->data_ctl.fd);
 	if (created != NULL) {
-		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base: %s", created);
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "removing created base and index: %s", created);
 		if (unlink(created) == -1)
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink: %s", created);
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink base: %s", created);
+
+		sprintf(full, "%s/%s.index", dir_base, name);
+		if (unlink(full) == -1)
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink index: %s", created);
 	}
 err_out_free:
 	free(created);
