@@ -180,8 +180,13 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	static const auto hdr_size = sizeof(struct eblob_disk_control);
 
 	/* sanity check that entry has valid total_size and total_data_size */
-	if (wc->total_size < wc->total_data_size + sizeof(hdr_size) + sizeof(f))
+	if (wc->total_size < wc->total_data_size + sizeof(hdr_size) + sizeof(f)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %i: %s: %s: record doesn't have valid footer: "
+		          "total_size: %" PRIu64 ", total_data_size + eblob_disk_control + footer: %" PRIu64,
+		          wc->index, eblob_dump_id(key->id), __func__,
+		          wc->total_size, wc->total_data_size + sizeof(hdr_size) + sizeof(f));
 		return -EINVAL;
+	}
 
 	err = __eblob_read_ll(wc->data_fd, &f, sizeof(f), off);
 	if (err) {
@@ -225,6 +230,16 @@ static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, s
 	uint64_t footers_offset = 0,
 	         footers_size = 0;
 
+	/* sanity check that footers are located after data */
+	const auto footer_offset = chunked_footer_offset(wc);
+	if (footer_offset < wc->total_data_size + sizeof(struct eblob_disk_control)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %i: %s: %s: record doesn't have valid footer: "
+		          "footer_offset: %" PRIu64 ", total_data_size + eblob_disk_control: %" PRIu64,
+		          wc->index, eblob_dump_id(key->id), __func__,
+		          footer_offset, wc->total_data_size + sizeof(struct eblob_disk_control));
+		return -EINVAL;
+	}
+
 	std::vector<uint64_t> calc_footers, check_footers;
 
 	err = eblob_chunked_mmhash(b, key, wc, wc->offset, wc->size, calc_footers, footers_offset);
@@ -264,8 +279,13 @@ int eblob_verify_checksum(struct eblob_backend *b, struct eblob_key *key, struct
 	    wc->flags & BLOB_DISK_CTL_NOCSUM)
 		return 0;
 
-	if (wc->total_size < wc->total_data_size + sizeof(struct eblob_disk_control))
+	if (wc->total_size <= wc->total_data_size + sizeof(struct eblob_disk_control)) {
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %i: %s: %s: record doesn't have valid footer: "
+		          "total_size: %" PRIu64 ", total_data_size + eblob_disk_control: %" PRIu64,
+		          wc->index, eblob_dump_id(key->id), __func__,
+		          wc->total_size, wc->total_data_size + sizeof(struct eblob_disk_control));
 		return -EINVAL;
+	}
 
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.verify_checksum", b->cfg.stat_id));
 

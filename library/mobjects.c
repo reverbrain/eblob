@@ -203,7 +203,7 @@ static int eblob_base_ctl_open(struct eblob_backend *b, struct eblob_base_ctl *c
 
 	/*
 	 * Try opening blob, it it fails - create one.
-	 * This code is a bit redunant but it's cleaner this way.
+	 * This code is a bit redundant but it's cleaner this way.
 	 */
 	ctl->data_ctl.fd = open(full, oflags);
 	if (ctl->data_ctl.fd == -1) {
@@ -327,7 +327,7 @@ err_out_close_data:
 
 		sprintf(full, "%s/%s.index", dir_base, name);
 		if (unlink(full) == -1)
-			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink index: %s", created);
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, errno, "unlink index: %s", full);
 	}
 err_out_free:
 	free(created);
