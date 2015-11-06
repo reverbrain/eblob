@@ -99,7 +99,7 @@ static int datasort_chunk_get_path(struct eblob_backend *b, struct eblob_base_ct
 	if (b == NULL || bctl == NULL || path == NULL || b->cfg.chunks_dir == NULL)
 		return -EINVAL;
 
-	snprintf(path, path_max, "%s/chunks-%u-0.%d", b->cfg.chunks_dir, b->stat_id, bctl->index);
+	snprintf(path, path_max, "%s/chunks-%u-0.%d", b->cfg.chunks_dir, b->cfg.stat_id, bctl->index);
 	return 0;
 }
 
