@@ -2226,7 +2226,7 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 		goto err_out_cleanup_wc;
 	}
 
-	wc->flags = eblob_validate_ctl_flags(b, flags);
+	wc->flags = eblob_validate_ctl_flags(b, flags) | BLOB_DISK_CTL_UNCOMMITTED;
 
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing
