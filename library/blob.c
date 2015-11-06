@@ -1466,7 +1466,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.lookup", b->cfg.stat_id));
 
 	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc;
+	struct eblob_disk_control dc, data_dc;
 	uint64_t orig_offset = wc->offset;
 	uint64_t calculated_size;
 	int err;
@@ -1507,6 +1507,21 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
 		goto err_out_cleanup_wc;
 	}
+
+	err = __eblob_read_ll(wc->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
+		goto err_out_cleanup_wc;
+	}
+
+	/* mark entry removed if its headers from index and data are different */
+	if (memcmp(&dc, &data_dc, sizeof(dc))) {
+		err = -EINVAL;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: index and data headers mismatch", err);
+		// eblob_mark_entry_removed(b, key, &ctl);
+		goto err_out_cleanup_wc;
+	}
+
 	eblob_convert_disk_control(&dc);
 
 	wc->flags = dc.flags;
