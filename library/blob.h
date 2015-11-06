@@ -468,11 +468,6 @@ struct eblob_backend {
 	 * it is used for determining that blob has been defraged
 	 */
 	size_t		defrag_generation;
-
-	/*
-	 * Id which identifies this eblob instance at handystats.
-	 */
-	uint32_t	stat_id;
 };
 
 int eblob_add_new_base(struct eblob_backend *b);
