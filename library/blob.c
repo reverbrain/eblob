@@ -498,11 +498,14 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 
 	if ((ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD)
 			&& (dc->flags & BLOB_DISK_CTL_REMOVE)) {
+		/* size of the place occupied by the record in the index and the blob */
+		const int64_t record_size = dc->disk_size + sizeof(struct eblob_disk_control);
+
 		eblob_stat_inc(bc->stat, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
+		eblob_stat_add(bc->stat, EBLOB_LST_REMOVED_SIZE, record_size);
 
 		eblob_stat_inc(ctl->b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
-		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, dc->disk_size);
+		eblob_stat_add(ctl->b->stat_summary, EBLOB_LST_REMOVED_SIZE, record_size);
 	}
 
 	if ((dc->flags & BLOB_DISK_CTL_REMOVE) ||
@@ -994,6 +997,8 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 		struct eblob_key *key, struct eblob_ram_control *old)
 {
 	int err;
+	struct eblob_disk_control old_dc;
+	int64_t record_size = 0;
 
 	/* Add entry to list of removed entries */
 	if (eblob_binlog_enabled(&old->bctl->binlog)) {
@@ -1022,6 +1027,26 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 			eblob_dump_id(key->id), old->index_offset, old->bctl->index_ctl.fd,
 			old->data_offset, old->bctl->data_ctl.fd);
 
+	err = __eblob_read_ll(old->bctl->index_ctl.fd, &old_dc, sizeof(old_dc), old->index_offset);
+	if (err) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "%s: __eblob_read_ll: FAILED: index, fd: %d, err: %d",
+				eblob_dump_id(key->id), old->bctl->index_ctl.fd, err);
+		goto err;
+	}
+
+	/* Sanity: Check that on-disk and in-memory keys are the same */
+	if (memcmp(&old_dc.key, key, sizeof(key)) != 0) {
+		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR, "keys mismatch: in-memory: %s, on-disk: %s",
+				eblob_dump_id_len(key->id, EBLOB_ID_SIZE),
+				eblob_dump_id_len(old_dc.key.id, EBLOB_ID_SIZE));
+		err = -EINVAL;
+		goto err;
+	}
+
+	eblob_convert_disk_control(&old_dc);
+	/* size of the place occupied by the record in the index and the blob */
+	record_size = old_dc.disk_size + sizeof(struct eblob_disk_control);
+
 	err = eblob_mark_index_removed(old->bctl->index_ctl.fd, old->index_offset);
 	if (err != 0) {
 		EBLOB_WARNX(b->cfg.log, EBLOB_LOG_ERROR,
@@ -1039,9 +1064,9 @@ static int eblob_mark_entry_removed(struct eblob_backend *b,
 	}
 
 	eblob_stat_inc(old->bctl->stat, EBLOB_LST_RECORDS_REMOVED);
-	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, old->size);
+	eblob_stat_add(old->bctl->stat, EBLOB_LST_REMOVED_SIZE, record_size);
 	eblob_stat_inc(b->stat_summary, EBLOB_LST_RECORDS_REMOVED);
-	eblob_stat_add(b->stat_summary, EBLOB_LST_REMOVED_SIZE, old->size);
+	eblob_stat_add(b->stat_summary, EBLOB_LST_REMOVED_SIZE, record_size);
 
 	if (!b->cfg.sync) {
 		eblob_fdatasync(old->bctl->data_ctl.fd);
@@ -1441,7 +1466,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	FORMATTED(HANDY_TIMER_SCOPE, ("eblob.%u.lookup", b->cfg.stat_id));
 
 	struct eblob_ram_control ctl;
-	struct eblob_disk_control dc;
+	struct eblob_disk_control dc, data_dc;
 	uint64_t orig_offset = wc->offset;
 	uint64_t calculated_size;
 	int err;
@@ -1482,6 +1507,21 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-index", err);
 		goto err_out_cleanup_wc;
 	}
+
+	err = __eblob_read_ll(wc->data_fd, &data_dc, sizeof(data_dc), ctl.data_offset);
+	if (err) {
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: ERROR-pread-data", err);
+		goto err_out_cleanup_wc;
+	}
+
+	/* mark entry removed if its headers from index and data are different */
+	if (memcmp(&dc, &data_dc, sizeof(dc))) {
+		err = -EINVAL;
+		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: index and data headers mismatch", err);
+		// eblob_mark_entry_removed(b, key, &ctl);
+		goto err_out_cleanup_wc;
+	}
+
 	eblob_convert_disk_control(&dc);
 
 	wc->flags = dc.flags;
@@ -2186,7 +2226,7 @@ static int eblob_plain_writev_prepare(struct eblob_backend *b, struct eblob_key 
 		goto err_out_cleanup_wc;
 	}
 
-	wc->flags = eblob_validate_ctl_flags(b, flags);
+	wc->flags = eblob_validate_ctl_flags(b, flags) | BLOB_DISK_CTL_UNCOMMITTED;
 
 	/*
 	 * We can only overwrite keys inplace if data-sort is not processing

@@ -4,10 +4,11 @@ Eblob is an append-only low-level IO library that stores data in blob files. Eac
 Blob file has the name "{config.file}-0.{blob number}" where {config.file} is the path specified in eblob config and
 {blob number} is an incremental index of the blob. Blob file stores entries with user data.
 Index file has the name "{config.file}-0.{blob_number}.index" and stores only headers of entries from corresponding blob.
-Index sort process adds new sorted index file with name "{config.file}-0.{blob_number}.index.sorted".
+Index sort process sorts index file and save it into "{config.file}-0.{blob_number}.index.sorted" file
+and removes original index file.
 Data sort process sorts blob and index files, saves sorted index into "{config.file}-0.{blob_number}.index.sorted" file,
-makes "{config.file}-0.{blob_number}.index" hardlink to the sorted index file and creates empty "{config.file}-0.{blob_number}.data_is_sorted" file.
-If blob has sorted and unsorted index files eblob will use sorted one.
+sorted blob into "{config.file}-0.{blob number}" file and creates empty "{config.file}-0.{blob_number}.data_is_sorted" file.
+If blob has sorted and unsorted index files eblob will use sorted one and will remove unsorted one.
 
 \section index_file_format Index file format
 

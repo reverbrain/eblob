@@ -233,8 +233,9 @@ struct eblob_disk_control {
 	 */
 	uint64_t		data_size;
 
-	/* total size this record occupies on disk.
+	/* total size this record occupies in the blob file.
 	 * It includes alignment and header/footer sizes.
+	 * It doesn't include size of this record's header in the index file.
 	 * This structure is header.
 	 */
 	uint64_t		disk_size;
@@ -466,7 +467,7 @@ struct eblob_iterate_callbacks {
 
 /**
  * Structure which controls which keys should be iterated over.
- * [start, stop] keys are inclusive. 
+ * [start, stop] keys are inclusive.
  */
 
 struct eblob_index_block {
@@ -716,9 +717,11 @@ enum eblob_stat_local_flavour {
 	EBLOB_LST_MIN,
 	EBLOB_LST_RECORDS_TOTAL,
 	EBLOB_LST_RECORDS_REMOVED,
-	EBLOB_LST_REMOVED_SIZE,
+	EBLOB_LST_REMOVED_SIZE,		/* total size occupied by all removed records
+					 * in all blobs and index files
+					 */
 	EBLOB_LST_INDEX_CORRUPTED_ENTRIES,
-	EBLOB_LST_BASE_SIZE,
+	EBLOB_LST_BASE_SIZE,		/* total size of all blobs and index files */
 	EBLOB_LST_BLOOM_SIZE,
 	EBLOB_LST_INDEX_BLOCKS_SIZE,
 	EBLOB_LST_WANT_DEFRAG,
