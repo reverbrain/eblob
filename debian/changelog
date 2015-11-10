@@ -1,3 +1,14 @@
+eblob (0.23.9) unstable; urgency=low
+
+  * fixed dropping `BLOB_DISK_CTL_UNCOMMITTED` in `eblob_plain_writev_prepare`
+  * Added check to `eblob_fill_write_control_from_ram`
+  * 	Now it reads headers from index and data files and if they are differ fails with -EINVAL error.
+  * datasort: properly use cfg->stat_id as backend_id in chunks directory name
+  * logs: fixed filename at 'unlink index:' message
+  * logs: added logs when checkum verification is failed because of incorrect sizes at header
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 11 Nov 2015 02:11:50 +0400
+
 eblob (0.23.8) unstable; urgency=low
 
   * bctl: when removing just created base, remove its index too

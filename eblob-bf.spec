@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.8
+Version:	0.23.9
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,14 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Nov 11 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.9
+- fixed dropping `BLOB_DISK_CTL_UNCOMMITTED` in `eblob_plain_writev_prepare`
+- Added check to `eblob_fill_write_control_from_ram`
+- 	Now it reads headers from index and data files and if they are differ fails with -EINVAL error.
+- datasort: properly use cfg->stat_id as backend_id in chunks directory name
+- logs: fixed filename at 'unlink index:' message
+- logs: added logs when checkum verification is failed because of incorrect sizes at header
+
 * Wed Nov 04 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.8
 - bctl: when removing just created base, remove its index too
 - bctl: base can have zero-sized index when it is just created, it is forbidden to have it when we open existing base
