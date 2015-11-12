@@ -108,11 +108,20 @@ static inline uint64_t chunked_footer_offset(const struct eblob_write_control *w
  * @footers_offset can be used for reading and verifying on-disk checksums or for writing calculated checksums
  */
 static int eblob_chunked_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
-                               const uint64_t offset, const uint64_t size,
-                               std::vector<uint64_t> &checksums, uint64_t &checksums_offset) {
+                                const uint64_t offset, const uint64_t size,
+                                std::vector<uint64_t> &checksums, uint64_t &checksums_offset) {
 	int err = 0;
-	uint64_t first_chunk = offset / EBLOB_CSUM_CHUNK_SIZE;
-	uint64_t last_chunk = (offset + size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1;
+	const uint64_t first_chunk = offset / EBLOB_CSUM_CHUNK_SIZE;
+
+	/* There is nothing to be checksummed if @size is 0, so set @last_chunk equal to @first_chunk
+	 * to make code below correctly clear @checksums.
+	 *
+	 * Zero @size here can be caused by only one of:
+	 * * a client tries to verify 0 bytes from the data;
+	 * * a client updates 0 bytes of the data and now eblob is calculating checksums of updated part;
+	 * in both cases checksums shouldn't be calculated because no data is touched or updated.
+	 */
+	const uint64_t last_chunk = (size == 0) ? first_chunk : ((offset + size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1);
 	const uint64_t offset_max = wc->ctl_data_offset + wc->total_data_size + sizeof(struct eblob_disk_control);
 	const uint64_t data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control);
 	checksums_offset = wc->ctl_data_offset + chunked_footer_offset(wc) + first_chunk * sizeof(uint64_t);
