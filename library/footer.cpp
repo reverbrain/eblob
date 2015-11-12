@@ -108,8 +108,8 @@ static inline uint64_t chunked_footer_offset(const struct eblob_write_control *w
  * @footers_offset can be used for reading and verifying on-disk checksums or for writing calculated checksums
  */
 static int eblob_chunked_mmhash(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc,
-                               const uint64_t offset, const uint64_t size,
-                               std::vector<uint64_t> &checksums, uint64_t &checksums_offset) {
+                                const uint64_t offset, const uint64_t size,
+                                std::vector<uint64_t> &checksums, uint64_t &checksums_offset) {
 	int err = 0;
 	uint64_t first_chunk = offset / EBLOB_CSUM_CHUNK_SIZE;
 	uint64_t last_chunk = (offset + size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1;
