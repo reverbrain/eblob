@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.9
+Version:	0.23.10
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,14 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Fri Nov 13 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.10
+- fixed failing eblob_remove with -9 error
+-  	`eblob_remove` should hold bctl that stores the key to protect bctl from defragmentation
+- 	until it updates record's on-disk headers.
+- fixed failing _eblob_read_ll with -9 error
+- 	`eblob_fill_write_control_from_ram` should only be called when b->lock is locked by a caller thread
+- checksums: fixed checksumming empty data
+
 * Wed Nov 11 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.9
 - fixed dropping `BLOB_DISK_CTL_UNCOMMITTED` in `eblob_plain_writev_prepare`
 - Added check to `eblob_fill_write_control_from_ram`

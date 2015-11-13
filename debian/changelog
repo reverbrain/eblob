@@ -1,3 +1,14 @@
+eblob (0.23.10) unstable; urgency=low
+
+  * fixed failing eblob_remove with -9 error
+  *  	`eblob_remove` should hold bctl that stores the key to protect bctl from defragmentation
+  * 	until it updates record's on-disk headers.
+  * fixed failing _eblob_read_ll with -9 error
+  * 	`eblob_fill_write_control_from_ram` should only be called when b->lock is locked by a caller thread
+  * checksums: fixed checksumming empty data
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Fri, 13 Nov 2015 17:52:25 +0400
+
 eblob (0.23.9) unstable; urgency=low
 
   * fixed dropping `BLOB_DISK_CTL_UNCOMMITTED` in `eblob_plain_writev_prepare`
