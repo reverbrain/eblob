@@ -2486,18 +2486,24 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 	struct eblob_ram_control ctl;
 	int err, disk;
 
+
+	pthread_mutex_lock(&b->lock);
 	err = eblob_cache_lookup(b, key, &ctl, &disk);
 	if (err) {
+		pthread_mutex_unlock(&b->lock);
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob: %s: %s: eblob_cache_lookup: %d.\n",
 				eblob_dump_id(key->id), __func__, err);
 		goto err_out_exit;
 	}
 
+	eblob_bctl_hold(ctl.bctl);
+	pthread_mutex_unlock(&b->lock);
+
 	if ((err = eblob_mark_entry_removed_purge(b, key, &ctl)) != 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"%s: %s: eblob_mark_entry_removed_purge: %d\n",
 				__func__, eblob_dump_id(key->id), -err);
-		goto err_out_exit;
+		goto err_out_bctl_release;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE,
@@ -2505,6 +2511,8 @@ int eblob_remove(struct eblob_backend *b, struct eblob_key *key)
 		", size: %" PRIu64 ".\n",
 		eblob_dump_id(key->id), ctl.data_offset, ctl.size);
 
+err_out_bctl_release:
+	eblob_bctl_release(ctl.bctl);
 err_out_exit:
 	if (err && err != -ENOENT) {
 		FORMATTED(HANDY_COUNTER_INCREMENT, ("eblob.%u.disk.remove.errors.%d", b->cfg.stat_id, -err), 1);
