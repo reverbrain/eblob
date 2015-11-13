@@ -1459,6 +1459,7 @@ static void eblob_write_control_cleanup(struct eblob_write_control *wc) {
  *
  * NB! If this function succeeded, then @wc must be released using
  *  eblob_write_control_cleanup().
+ *  This function should only be called when @b->lock is locked by caller thread.
  */
 static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct eblob_key *key,
 		struct eblob_write_control *wc, int for_write, struct eblob_ram_control *old)
@@ -2530,7 +2531,10 @@ static int _eblob_read_ll(struct eblob_backend *b, struct eblob_key *key,
 	eblob_stat_inc(b->stat, EBLOB_GST_LOOKUP_READS_NUMBER);
 
 	memset(wc, 0, sizeof(struct eblob_write_control));
+
+	pthread_mutex_lock(&b->lock);
 	err = eblob_fill_write_control_from_ram(b, key, wc, 0, NULL);
+	pthread_mutex_unlock(&b->lock);
 	if (err < 0) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR,
 				"blob: %s: %s: eblob_fill_write_control_from_ram: %d.\n",
