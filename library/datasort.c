@@ -181,7 +181,7 @@ uint64_t datasort_next_defrag(const struct eblob_backend *b)
 	next_defrag = EBLOB_MIN(timed_defrag, sched_defrag);
 	next_defrag = EBLOB_MAX(next_defrag, EBLOB_DEFAULT_DEFRAG_MIN_TIMEOUT);
 	EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
-			"defrag: next datasort is sheduled to +%" PRIu64 " seconds.",
+			"defrag: next datasort is scheduled to +%" PRIu64 " seconds.",
 			next_defrag);
 
 	return next_defrag;
