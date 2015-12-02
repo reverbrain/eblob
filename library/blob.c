@@ -383,6 +383,65 @@ err_exit:
 }
 
 /**
+ * eblob_dump_wc_raw() - pretty-print write control structure
+ */
+static void eblob_dump_wc_raw(struct eblob_backend *b, int log_level, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err) {
+	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
+			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: %s, "
+			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
+			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
+			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
+			wc->offset, wc->size, eblob_dump_dctl_flags(wc->flags), wc->total_data_size, wc->total_size,
+			wc->data_fd, wc->index_fd, wc->bctl, err);
+}
+
+/**
+ * eblob_dump_wc() - pretty-print write control structure with smart logging level selection
+ */
+static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
+{
+	int log_level = EBLOB_LOG_NOTICE;
+
+	if (err < 0)
+		log_level = EBLOB_LOG_ERROR;
+
+	eblob_dump_wc_raw(b, log_level, key, wc, str, err);
+}
+
+/**
+ * eblob_rctl_to_wc() - convert ram control to write control
+ */
+static void eblob_rctl_to_wc(const struct eblob_ram_control *rctl, struct eblob_write_control *wc)
+{
+	wc->data_fd = rctl->bctl->data_ctl.fd;
+	wc->index_fd = rctl->bctl->index_ctl.fd;
+
+	wc->index = rctl->bctl->index;
+
+	wc->ctl_index_offset = rctl->index_offset;
+	wc->ctl_data_offset = rctl->data_offset;
+
+	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
+	wc->bctl = rctl->bctl;
+}
+
+/**
+ * eblob_dc_to_wc() - convert disk control control to write control
+ */
+static void eblob_dc_to_wc(const struct eblob_disk_control *dc, struct eblob_write_control *wc)
+{
+	wc->flags = dc->flags;
+	wc->total_size = dc->disk_size;
+	if (dc->data_size < wc->offset + wc->size)
+		wc->total_data_size = wc->offset + wc->size;
+	else
+		wc->total_data_size = dc->data_size;
+
+	if (!wc->size)
+		wc->size = dc->data_size;
+}
+
+/**
  * eblob_check_record() - performs various checks on given record to check it's
  * validity.
  */
@@ -488,6 +547,26 @@ static int eblob_check_disk_one(struct eblob_iterate_local *loc)
 					sizeof(struct eblob_disk_control), loc->index_offset);
 			if (err)
 				goto err_out_exit;
+		}
+	}
+
+	if ((ctl->flags & EBLOB_ITERATE_FLAGS_VERIFY_CHECKSUM) &&
+	    !(dc->flags & BLOB_DISK_CTL_REMOVE) &&
+	    !(dc->flags & BLOB_DISK_CTL_UNCOMMITTED)) {
+		struct eblob_write_control wc;
+		memset(&wc, 0, sizeof(wc));
+		eblob_rctl_to_wc(&rc, &wc);
+		eblob_dc_to_wc(dc, &wc);
+
+		err = eblob_verify_checksum(bc->back, &dc->key, &wc);
+		if (err) {
+			eblob_dump_wc(bc->back, &dc->key, &wc, "eblob_check_disk_one: checksum verification failed", err);
+			/*
+			 * Checksum verification failed - skip the key and continue iteration.
+			 * Set err to 0 to avoid breaking the iteration.
+			 */
+			err = 0;
+			goto err_out_exit;
 		}
 	}
 
@@ -956,32 +1035,6 @@ int eblob_mark_index_removed(int fd, uint64_t offset)
 	uint64_t flags = eblob_bswap64(BLOB_DISK_CTL_REMOVE);
 
 	return __eblob_write_ll(fd, &flags, sizeof(flags), offset + offsetof(struct eblob_disk_control, flags));
-}
-
-/**
- * eblob_dump_wc_raw() - pretty-print write control structure
- */
-static void eblob_dump_wc_raw(struct eblob_backend *b, int log_level, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err) {
-	eblob_log(b->cfg.log, log_level, "blob: %s: i%d: %s: position: %" PRIu64 ", "
-			"offset: %" PRIu64 ", size: %" PRIu64 ", flags: %s, "
-			"total data size: %" PRIu64 ", disk-size: %" PRIu64 ", "
-			"data_fd: %d, index_fd: %d, bctl: %p: %d\n",
-			eblob_dump_id(key->id), wc->index, str, wc->ctl_data_offset,
-			wc->offset, wc->size, eblob_dump_dctl_flags(wc->flags), wc->total_data_size, wc->total_size,
-			wc->data_fd, wc->index_fd, wc->bctl, err);
-}
-
-/**
- * eblob_dump_wc() - pretty-print write control structure with smart logging level selection
- */
-static void eblob_dump_wc(struct eblob_backend *b, struct eblob_key *key, struct eblob_write_control *wc, const char *str, int err)
-{
-	int log_level = EBLOB_LOG_NOTICE;
-
-	if (err < 0)
-		log_level = EBLOB_LOG_ERROR;
-
-	eblob_dump_wc_raw(b, log_level, key, wc, str, err);
 }
 
 /**
@@ -1490,16 +1543,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		wc->offset = orig_offset + ctl.size;
 	}
 
-	wc->data_fd = ctl.bctl->data_ctl.fd;
-	wc->index_fd = ctl.bctl->index_ctl.fd;
-
-	wc->index = ctl.bctl->index;
-
-	wc->ctl_index_offset = ctl.index_offset;
-	wc->ctl_data_offset = ctl.data_offset;
-
-	wc->data_offset = wc->ctl_data_offset + sizeof(struct eblob_disk_control) + wc->offset;
-	wc->bctl = ctl.bctl;
+	eblob_rctl_to_wc(&ctl, wc);
 
 	eblob_bctl_hold(wc->bctl);
 
@@ -1525,15 +1569,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 
 	eblob_convert_disk_control(&dc);
 
-	wc->flags = dc.flags;
-	wc->total_size = dc.disk_size;
-	if (dc.data_size < wc->offset + wc->size)
-		wc->total_data_size = wc->offset + wc->size;
-	else
-		wc->total_data_size = dc.data_size;
-
-	if (!wc->size)
-		wc->size = dc.data_size;
+	eblob_dc_to_wc(&dc, wc);
 
 	calculated_size = eblob_calculate_size(b, key, wc->offset, wc->size);
 	if (for_write && (dc.disk_size < calculated_size)) {
