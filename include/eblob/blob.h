@@ -464,6 +464,7 @@ struct eblob_iterate_callbacks {
 #define EBLOB_ITERATE_FLAGS_ALL			(1<<0)	/* iterate over all blobs, not only the last one */
 #define EBLOB_ITERATE_FLAGS_READONLY		(1<<1)	/* do not modify entries while iterating a blob */
 #define EBLOB_ITERATE_FLAGS_INITIAL_LOAD	(1<<2)	/* set on initial load */
+#define EBLOB_ITERATE_FLAGS_VERIFY_CHECKSUM	(1<<3)	/* verify checksum for entries while iterating a blob */
 
 /**
  * Structure which controls which keys should be iterated over.
