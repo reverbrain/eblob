@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.10
+Version:	0.23.11
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Thu Dec 10 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.11
+- iterate: verify checksum for entries while iterating a blob
+
 * Fri Nov 13 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.10
 - fixed failing eblob_remove with -9 error
 -  	`eblob_remove` should hold bctl that stores the key to protect bctl from defragmentation

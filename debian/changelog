@@ -1,3 +1,9 @@
+eblob (0.23.11) unstable; urgency=low
+
+  * iterate: verify checksum for entries while iterating a blob
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Thu, 10 Dec 2015 17:36:25 +0400
+
 eblob (0.23.10) unstable; urgency=low
 
   * fixed failing eblob_remove with -9 error
