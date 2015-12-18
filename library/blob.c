@@ -446,7 +446,7 @@ static void eblob_dc_to_wc(const struct eblob_disk_control *dc, struct eblob_wri
  */
 static int eblob_index_data_mismatch(const struct eblob_base_ctl *bctl,
 		const struct eblob_disk_control *dc,
-		struct eblob_disk_control *data_dc)
+		const struct eblob_disk_control *data_dc)
 {
 	if (memcmp(&data_dc, dc, sizeof(struct eblob_disk_control))) {
 		char data_str[2 * EBLOB_ID_SIZE + 1];
