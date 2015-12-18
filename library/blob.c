@@ -442,6 +442,44 @@ static void eblob_dc_to_wc(const struct eblob_disk_control *dc, struct eblob_wri
 }
 
 /**
+ * Checks whether index and data disk control structures are the same.
+ */
+static int eblob_index_data_mismatch(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *dc,
+		struct eblob_disk_control *data_dc)
+{
+	if (memcmp(&data_dc, dc, sizeof(struct eblob_disk_control))) {
+		char data_str[2 * EBLOB_ID_SIZE + 1];
+		char data_flags[128];
+
+		eblob_dump_id_len_raw(data_dc->key.id, EBLOB_ID_SIZE, data_str);
+		snprintf(data_flags, sizeof(data_flags), "%s", eblob_dump_dctl_flags(data_dc->flags));
+
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob i%d: eblob_index_data_equal: index/data headers mismatch: "
+			"data header: key: %s, data position: %llu, "
+				"data size: %llu, disk size: %llu, flags: %s, "
+			"index header: %s, data position: %llu, "
+				"data size: %llu, disk size: %llu, flags: %s"
+			" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool"
+			" on '%s'\n",
+			bctl->index,
+			data_str,
+			(unsigned long long)data_dc->position,
+			(unsigned long long)data_dc->data_size, (unsigned long long)data_dc->disk_size,
+			data_flags,
+			eblob_dump_id_len(dc->key.id, EBLOB_ID_SIZE),
+			(unsigned long long)dc->position,
+			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
+			eblob_dump_dctl_flags(dc->flags),
+			bctl->name);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/**
  * eblob_check_record() - performs various checks on given record to check it's
  * validity.
  */
@@ -1583,7 +1621,7 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 	}
 
 	/* mark entry removed if its headers from index and data are different */
-	if (memcmp(&dc, &data_dc, sizeof(dc))) {
+	if (eblob_index_data_mismatch(wc->bctl, &dc, &data_dc)) {
 		err = -EINVAL;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: index and data headers mismatch", err);
 		// eblob_mark_entry_removed(b, key, &ctl);
