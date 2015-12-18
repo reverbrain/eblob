@@ -273,6 +273,17 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 
 			/* Check record for validity */
 			err = eblob_check_record(bctl, &dc);
+
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "blob: eblob_index_blocks_fill: %s: index: %d, "
+				"index position: %llu, data position: %llu, "
+				"data size: %llu, disk size: %llu, flags: %s, check-error: %d\n",
+				eblob_dump_id_len(dc.key.id, EBLOB_ID_SIZE),
+				bctl->index,
+				(unsigned long long)offset, (unsigned long long)dc.position,
+				(unsigned long long)dc.data_size, (unsigned long long)dc.disk_size,
+				eblob_dump_dctl_flags(dc.flags), err);
+
+
 			if (err != 0) {
 				/* Bump stats */
 				eblob_stat_inc(bctl->stat, EBLOB_LST_INDEX_CORRUPTED_ENTRIES);
@@ -389,7 +400,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zu, index_size: %zd, num: %zu\n",
 			eblob_dump_id(dc->key.id),
 			hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num);
 
@@ -927,7 +938,7 @@ again:
 		break;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, 0));
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, err));
 
 
 	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, st.loops);
