@@ -1620,6 +1620,10 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_cleanup_wc;
 	}
 
+	eblob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&data_dc);
+	eblob_dc_to_wc(&dc, wc);
+
 	/* mark entry removed if its headers from index and data are different */
 	if (eblob_index_data_mismatch(wc->bctl, &dc, &data_dc)) {
 		err = -EINVAL;
@@ -1627,10 +1631,6 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		// eblob_mark_entry_removed(b, key, &ctl);
 		goto err_out_cleanup_wc;
 	}
-
-	eblob_convert_disk_control(&dc);
-
-	eblob_dc_to_wc(&dc, wc);
 
 	calculated_size = eblob_calculate_size(b, key, wc->offset, wc->size);
 	if (for_write && (dc.disk_size < calculated_size)) {
