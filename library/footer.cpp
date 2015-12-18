@@ -216,9 +216,10 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	}
 
 	if (memcmp(csum, f.csum, sizeof(csum))) {
+		err = -EILSEQ;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: checksum mismatch: err: %d\n",
 		          wc->index, eblob_dump_id(key->id), __func__, err);
-		return -EILSEQ;
+		return err;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: i%d: %s: %s: checksum verified\n",
