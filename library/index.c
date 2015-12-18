@@ -227,12 +227,13 @@ static uint8_t eblob_bloom_func_num(const struct eblob_base_ctl *bctl)
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
-	struct eblob_disk_control dc;
-	uint64_t block_count, block_id = 0, err_count = 0, offset = 0;
+	struct eblob_disk_control dc, prev;
+	uint64_t block_count, block_id = 0, err_count = 0, offset = 0, prev_offset = 0;
 	int64_t removed = 0;
 	int64_t removed_size = 0;
 	unsigned int i;
 	int err = 0;
+	int prev_filled = 0;
 
 	/* Allocate bloom filter */
 	bctl->bloom_size = eblob_bloom_size(bctl);
@@ -306,6 +307,49 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				offset += sizeof(struct eblob_disk_control);
 				continue;
 			}
+
+			if (prev_filled) {
+				int cmp = eblob_id_cmp(prev.key.id, dc.key.id);
+
+				/*
+				 * Next key is less than previous, this can not happen in sorted index,
+				 * stop iteration process and return error.
+				 */
+				if (cmp > 0) {
+					char prev_str[2 * EBLOB_ID_SIZE + 1];
+					char prev_flags[128];
+
+					eblob_dump_id_len_raw(prev.key.id, EBLOB_ID_SIZE, prev_str);
+					snprintf(prev_flags, sizeof(prev_flags), "%s", eblob_dump_dctl_flags(prev.flags));
+
+					err = -ECHRNG;
+
+					eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_index_blocks_fill: order mismatch: "
+						"index: %d, "
+						"prev key: %s, index position: %llu, data position: %llu, "
+							"data size: %llu, disk size: %llu, flags: %s, "
+						"current key: %s, index position: %llu, data position: %llu, "
+							"data size: %llu, disk size: %llu, flags: %s, check-error: %d: "
+						" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool"
+						" on '%s'\n",
+						bctl->index,
+						prev_str,
+						(unsigned long long)prev_offset, (unsigned long long)prev.position,
+						(unsigned long long)prev.data_size, (unsigned long long)prev.disk_size,
+						prev_flags,
+						eblob_dump_id_len(dc.key.id, EBLOB_ID_SIZE),
+						(unsigned long long)offset, (unsigned long long)dc.position,
+						(unsigned long long)dc.data_size, (unsigned long long)dc.disk_size,
+						eblob_dump_dctl_flags(dc.flags), err,
+						bctl->name);
+
+					goto err_out_drop_tree;
+				}
+			}
+
+			prev = dc;
+			prev_offset = offset;
+			prev_filled = 1;
 
 			if (i == 0)
 				block->start_key = dc.key;
