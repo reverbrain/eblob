@@ -29,19 +29,6 @@
 
 #include "measure_points.h"
 
-static const uint64_t EBLOB_CSUM_CHUNK_SIZE = 1UL<<20;
-
-/*
- * eblob_disk_footer contains csum of data.
- * @csum - sha512 of record's data.
- *
- * eblob_disk_footer are kept at the end of the recods.
- */
-struct eblob_disk_footer {
-	unsigned char	csum[EBLOB_ID_SIZE];
-	uint64_t	offset;
-} __attribute__ ((packed));
-
 /*
  * mmhash_file() - computes MurmurHash64A of bytes range read from @fd with @offset and @count.
  *
