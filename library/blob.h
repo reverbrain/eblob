@@ -582,6 +582,8 @@ static inline const char *eblob_want_defrag_string(int want_defrag)
 #define EBLOB_WARNC(log, severity, err, fmt, ...)	EBLOB_WARNX(log, severity, \
 		"%s (%d); " fmt, strerror(err), (int)err, ## __VA_ARGS__);
 
+char *eblob_dump_dc(const struct eblob_disk_control *dc, char *buffer, size_t size);
+
 #ifdef __cplusplus
 }
 #endif

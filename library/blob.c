@@ -382,6 +382,21 @@ err_exit:
 	return err;
 }
 
+char *eblob_dump_dc(const struct eblob_disk_control *dc, char *buffer, size_t size)
+{
+	char key_str[2 * EBLOB_ID_SIZE + 1];
+
+	eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, key_str);
+
+	snprintf(buffer, size, "key: %s, position: %llu, data size: %llu, disk size: %llu, flags: %s",
+		key_str,
+		(unsigned long long)dc->position,
+		(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
+		eblob_dump_dctl_flags(dc->flags));
+
+	return buffer;
+}
+
 /**
  * eblob_dump_wc_raw() - pretty-print write control structure
  */
@@ -445,32 +460,19 @@ static void eblob_dc_to_wc(const struct eblob_disk_control *dc, struct eblob_wri
  * Checks whether index and data disk control structures are the same.
  */
 static int eblob_index_data_mismatch(const struct eblob_base_ctl *bctl,
-		const struct eblob_disk_control *dc,
+		const struct eblob_disk_control *index_dc,
 		const struct eblob_disk_control *data_dc)
 {
-	if (memcmp(data_dc, dc, sizeof(struct eblob_disk_control))) {
-		char data_str[2 * EBLOB_ID_SIZE + 1];
-		char data_flags[128];
-
-		eblob_dump_id_len_raw(data_dc->key.id, EBLOB_ID_SIZE, data_str);
-		snprintf(data_flags, sizeof(data_flags), "%s", eblob_dump_dctl_flags(data_dc->flags));
+	if (memcmp(data_dc, index_dc, sizeof(struct eblob_disk_control))) {
+		char data_str[512];
+		char index_str[512];
 
 		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob i%d: eblob_index_data_equal: index/data headers mismatch: "
-			"data header: key: %s, data position: %llu, "
-				"data size: %llu, disk size: %llu, flags: %s, "
-			"index header: %s, data position: %llu, "
-				"data size: %llu, disk size: %llu, flags: %s"
-			" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool"
-			" on '%s'\n",
+			"data header: %s, index header: %s"
+			" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool on '%s'\n",
 			bctl->index,
-			data_str,
-			(unsigned long long)data_dc->position,
-			(unsigned long long)data_dc->data_size, (unsigned long long)data_dc->disk_size,
-			data_flags,
-			eblob_dump_id_len(dc->key.id, EBLOB_ID_SIZE),
-			(unsigned long long)dc->position,
-			(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
-			eblob_dump_dctl_flags(dc->flags),
+			eblob_dump_dc(data_dc, data_str, sizeof(data_str)),
+			eblob_dump_dc(index_dc, index_str, sizeof(index_str)),
 			bctl->name);
 
 		return 1;
