@@ -78,8 +78,13 @@ struct em_blob {
 			std::string index_path(path);
 			index_path += ".index";
 			index.open(index_path.c_str(), std::ios_base::in | std::ios_base::binary);
-			if (!index)
-				throw std::runtime_error("index open failed");
+			if (!index) {
+				index_path = std::string(path) + ".index.sorted";
+				index.open(index_path.c_str(), std::ios_base::in | std::ios_base::binary);
+				if (!index) {
+					throw std::runtime_error("index open failed");
+				}
+			}
 		} catch (...) {
 			data.close();
 			index.close();
