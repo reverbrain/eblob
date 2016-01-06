@@ -542,11 +542,12 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 		}
 
 		if (dc->disk_size < dc->data_size + footer_min_size) {
+			char dc_str[128];
+
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
-				"blob i%d: %s: malformed entry: disk_size is too small to fit data+checksum "
-				"and there is no no-checksum bit: "
-				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", data_size: %" PRIu64 ", min-footer-size: %ld\n",
-				bctl->index, eblob_dump_id(dc->key.id), dc->position, dc->disk_size, dc->data_size, footer_min_size);
+				"blob i%d: malformed entry: disk_size is too small to fit data+checksum "
+				"and there is no no-checksum bit: %s, min-footer-size: %ld\n",
+				bctl->index, eblob_dump_dc(dc, dc_str, sizeof(dc_str)), footer_min_size);
 
 			return -ESPIPE;
 		}
