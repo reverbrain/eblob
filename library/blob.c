@@ -542,7 +542,7 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 		}
 
 		if (dc->disk_size < dc->data_size + footer_min_size) {
-			char dc_str[128];
+			char dc_str[256];
 
 			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
 				"blob i%d: malformed entry: disk_size is too small to fit data+checksum "
