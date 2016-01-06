@@ -316,32 +316,20 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				 * stop iteration process and return error.
 				 */
 				if (cmp > 0) {
-					char prev_str[2 * EBLOB_ID_SIZE + 1];
-					char prev_flags[128];
-
-					eblob_dump_id_len_raw(prev.key.id, EBLOB_ID_SIZE, prev_str);
-					snprintf(prev_flags, sizeof(prev_flags), "%s", eblob_dump_dctl_flags(prev.flags));
+					char prev_str[256];
+					char cur_str[256];
 
 					err = -ECHRNG;
 
 					eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_index_blocks_fill: order mismatch: "
 						"index: %d, "
-						"prev key: %s, index position: %llu, data position: %llu, "
-							"data size: %llu, disk size: %llu, flags: %s, "
-						"current key: %s, index position: %llu, data position: %llu, "
-							"data size: %llu, disk size: %llu, flags: %s, check-error: %d: "
-						" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool"
-						" on '%s'\n",
+						"prev: index position: %llu, %s, current index position: %llu, %s, check-error: %d: "
+						"you have to remove sorted index and regenerate it from data using `eblob_to_index` tool "
+						"on '%s'\n",
 						bctl->index,
-						prev_str,
-						(unsigned long long)prev_offset, (unsigned long long)prev.position,
-						(unsigned long long)prev.data_size, (unsigned long long)prev.disk_size,
-						prev_flags,
-						eblob_dump_id_len(dc.key.id, EBLOB_ID_SIZE),
-						(unsigned long long)offset, (unsigned long long)dc.position,
-						(unsigned long long)dc.data_size, (unsigned long long)dc.disk_size,
-						eblob_dump_dctl_flags(dc.flags), err,
-						bctl->name);
+						(unsigned long long)prev_offset, eblob_dump_dc(&prev, prev_str, sizeof(prev_str)),
+						(unsigned long long)offset, eblob_dump_dc(&dc, cur_str, sizeof(cur_str)),
+						err, bctl->name);
 
 					goto err_out_drop_tree;
 				}
