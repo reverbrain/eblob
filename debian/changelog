@@ -1,3 +1,16 @@
+eblob (0.23.12) unstable; urgency=low
+
+  * merge: fixed tool to use sorted index if unsorted is not available
+  * blob: added eblob_dump_dc() function which prints disk control structure into provided buffer
+  * check: use loud comparison function when checking for index/data headers mismatch
+  * check: if there is no no-checksum bit, there must be enough space in the footer for checksum
+  * footer: move common definitions into header
+  * index: added sorted blob sanity check which verifies whether keys are sorted in ascending order
+  * index: extended iterator/bloom filter filling debug
+  * log: set eblob spam log level to debug, otherwise there is no way it can be ever set
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Wed, 06 Jan 2016 19:59:03 +0400
+
 eblob (0.23.11) unstable; urgency=low
 
   * iterate: verify checksum for entries while iterating a blob

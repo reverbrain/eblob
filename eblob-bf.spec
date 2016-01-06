@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.11
+Version:	0.23.12
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,16 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Wed Jan 06 2016 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.12
+- merge: fixed tool to use sorted index if unsorted is not available
+- blob: added eblob_dump_dc() function which prints disk control structure into provided buffer
+- check: use loud comparison function when checking for index/data headers mismatch
+- check: if there is no no-checksum bit, there must be enough space in the footer for checksum
+- footer: move common definitions into header
+- index: added sorted blob sanity check which verifies whether keys are sorted in ascending order
+- index: extended iterator/bloom filter filling debug
+- log: set eblob spam log level to debug, otherwise there is no way it can be ever set
+
 * Thu Dec 10 2015 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.11
 - iterate: verify checksum for entries while iterating a blob
 
