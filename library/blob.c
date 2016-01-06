@@ -382,6 +382,21 @@ err_exit:
 	return err;
 }
 
+char *eblob_dump_dc(const struct eblob_disk_control *dc, char *buffer, size_t size)
+{
+	char key_str[2 * EBLOB_ID_SIZE + 1];
+
+	eblob_dump_id_len_raw(dc->key.id, EBLOB_ID_SIZE, key_str);
+
+	snprintf(buffer, size, "key: %s, position: %llu, data size: %llu, disk size: %llu, flags: %s",
+		key_str,
+		(unsigned long long)dc->position,
+		(unsigned long long)dc->data_size, (unsigned long long)dc->disk_size,
+		eblob_dump_dctl_flags(dc->flags));
+
+	return buffer;
+}
+
 /**
  * eblob_dump_wc_raw() - pretty-print write control structure
  */
@@ -442,6 +457,31 @@ static void eblob_dc_to_wc(const struct eblob_disk_control *dc, struct eblob_wri
 }
 
 /**
+ * Checks whether index and data disk control structures are the same.
+ */
+static int eblob_index_data_mismatch(const struct eblob_base_ctl *bctl,
+		const struct eblob_disk_control *index_dc,
+		const struct eblob_disk_control *data_dc)
+{
+	if (memcmp(data_dc, index_dc, sizeof(struct eblob_disk_control))) {
+		char data_str[512];
+		char index_str[512];
+
+		eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob i%d: eblob_index_data_equal: index/data headers mismatch: "
+			"data header: %s, index header: %s"
+			" you have to remove sorted index and regenerate it from data using `eblob_to_index` tool on '%s'\n",
+			bctl->index,
+			eblob_dump_dc(data_dc, data_str, sizeof(data_str)),
+			eblob_dump_dc(index_dc, index_str, sizeof(index_str)),
+			bctl->name);
+
+		return 1;
+	}
+
+	return 0;
+}
+
+/**
  * eblob_check_record() - performs various checks on given record to check it's
  * validity.
  */
@@ -487,6 +527,30 @@ int eblob_check_record(const struct eblob_base_ctl *bctl,
 				"pos: %" PRIu64 ", disk_size: %" PRIu64 ", bctl_size: %" PRIu64 "\n",
 				bctl->index, eblob_dump_id(dc->key.id), dc->position, dc->disk_size, bctl_size);
 		return -ESPIPE;
+	}
+
+	/*
+	 * If there is no no-checksum bit, there must be enough space in the footer for checksum.
+	 */
+	if (!(dc->flags & BLOB_DISK_CTL_NOCSUM)) {
+		long footer_min_size = sizeof(struct eblob_disk_footer);
+		if (dc->flags & BLOB_DISK_CTL_CHUNKED_CSUM) {
+			footer_min_size = 0;
+
+			if (dc->data_size)
+				footer_min_size = ((dc->data_size - 1) / EBLOB_CSUM_CHUNK_SIZE + 1) * sizeof(uint64_t);
+		}
+
+		if (dc->disk_size < dc->data_size + footer_min_size) {
+			char dc_str[256];
+
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR,
+				"blob i%d: malformed entry: disk_size is too small to fit data+checksum "
+				"and there is no no-checksum bit: %s, min-footer-size: %ld\n",
+				bctl->index, eblob_dump_dc(dc, dc_str, sizeof(dc_str)), footer_min_size);
+
+			return -ESPIPE;
+		}
 	}
 
 	return 0;
@@ -1559,17 +1623,17 @@ static int eblob_fill_write_control_from_ram(struct eblob_backend *b, struct ebl
 		goto err_out_cleanup_wc;
 	}
 
+	eblob_convert_disk_control(&dc);
+	eblob_convert_disk_control(&data_dc);
+	eblob_dc_to_wc(&dc, wc);
+
 	/* mark entry removed if its headers from index and data are different */
-	if (memcmp(&dc, &data_dc, sizeof(dc))) {
+	if (eblob_index_data_mismatch(wc->bctl, &dc, &data_dc)) {
 		err = -EINVAL;
 		eblob_dump_wc(b, key, wc, "eblob_fill_write_control_from_ram: index and data headers mismatch", err);
 		// eblob_mark_entry_removed(b, key, &ctl);
 		goto err_out_cleanup_wc;
 	}
-
-	eblob_convert_disk_control(&dc);
-
-	eblob_dc_to_wc(&dc, wc);
 
 	calculated_size = eblob_calculate_size(b, key, wc->offset, wc->size);
 	if (for_write && (dc.disk_size < calculated_size)) {

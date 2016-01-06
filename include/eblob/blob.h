@@ -86,7 +86,7 @@ enum eblob_log_levels {
 	EBLOB_LOG_INFO,
 	EBLOB_LOG_NOTICE,
 	EBLOB_LOG_DEBUG,
-	EBLOB_LOG_SPAM,
+	EBLOB_LOG_SPAM = EBLOB_LOG_DEBUG,
 };
 
 struct eblob_log {

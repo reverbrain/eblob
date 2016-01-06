@@ -227,12 +227,13 @@ static uint8_t eblob_bloom_func_num(const struct eblob_base_ctl *bctl)
 int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 {
 	struct eblob_index_block *block = NULL;
-	struct eblob_disk_control dc;
-	uint64_t block_count, block_id = 0, err_count = 0, offset = 0;
+	struct eblob_disk_control dc, prev;
+	uint64_t block_count, block_id = 0, err_count = 0, offset = 0, prev_offset = 0;
 	int64_t removed = 0;
 	int64_t removed_size = 0;
 	unsigned int i;
 	int err = 0;
+	int prev_filled = 0;
 
 	/* Allocate bloom filter */
 	bctl->bloom_size = eblob_bloom_size(bctl);
@@ -273,6 +274,17 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 
 			/* Check record for validity */
 			err = eblob_check_record(bctl, &dc);
+
+			eblob_log(bctl->back->cfg.log, EBLOB_LOG_DEBUG, "blob: eblob_index_blocks_fill: %s: index: %d, "
+				"index position: %llu, data position: %llu, "
+				"data size: %llu, disk size: %llu, flags: %s, check-error: %d\n",
+				eblob_dump_id_len(dc.key.id, EBLOB_ID_SIZE),
+				bctl->index,
+				(unsigned long long)offset, (unsigned long long)dc.position,
+				(unsigned long long)dc.data_size, (unsigned long long)dc.disk_size,
+				eblob_dump_dctl_flags(dc.flags), err);
+
+
 			if (err != 0) {
 				/* Bump stats */
 				eblob_stat_inc(bctl->stat, EBLOB_LST_INDEX_CORRUPTED_ENTRIES);
@@ -295,6 +307,37 @@ int eblob_index_blocks_fill(struct eblob_base_ctl *bctl)
 				offset += sizeof(struct eblob_disk_control);
 				continue;
 			}
+
+			if (prev_filled) {
+				int cmp = eblob_id_cmp(prev.key.id, dc.key.id);
+
+				/*
+				 * Next key is less than previous, this can not happen in sorted index,
+				 * stop iteration process and return error.
+				 */
+				if (cmp > 0) {
+					char prev_str[256];
+					char cur_str[256];
+
+					err = -ECHRNG;
+
+					eblob_log(bctl->back->cfg.log, EBLOB_LOG_ERROR, "blob: eblob_index_blocks_fill: order mismatch: "
+						"index: %d, "
+						"prev: index position: %llu, %s, current index position: %llu, %s, check-error: %d: "
+						"you have to remove sorted index and regenerate it from data using `eblob_to_index` tool "
+						"on '%s'\n",
+						bctl->index,
+						(unsigned long long)prev_offset, eblob_dump_dc(&prev, prev_str, sizeof(prev_str)),
+						(unsigned long long)offset, eblob_dump_dc(&dc, cur_str, sizeof(cur_str)),
+						err, bctl->name);
+
+					goto err_out_drop_tree;
+				}
+			}
+
+			prev = dc;
+			prev_offset = offset;
+			prev_filled = 1;
 
 			if (i == 0)
 				block->start_key = dc.key;
@@ -389,7 +432,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zu, index_size: %zd, num: %zu\n",
 			eblob_dump_id(dc->key.id),
 			hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num);
 
@@ -927,7 +970,7 @@ again:
 		break;
 	}
 
-	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, 0));
+	eblob_log(b->cfg.log, EBLOB_LOG_INFO, "blob: %s: stat: %s\n", eblob_dump_id(key->id), eblob_dump_search_stat(&st, err));
 
 
 	eblob_stat_add(b->stat, EBLOB_GST_INDEX_READS, st.loops);

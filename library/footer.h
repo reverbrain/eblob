@@ -28,6 +28,20 @@
 extern "C" {
 #endif
 
+#define EBLOB_CSUM_CHUNK_SIZE	(1UL<<20)
+
+/*
+ * eblob_disk_footer contains csum of data.
+ * @csum - sha512 of record's data.
+ *
+ * eblob_disk_footer are kept at the end of the recods.
+ */
+struct eblob_disk_footer {
+	unsigned char	csum[EBLOB_ID_SIZE];
+	uint64_t	offset;
+} __attribute__ ((packed));
+
+
 /*
  * eblob_calculate_footer_size() - computes and returns size of footer for any data with @data_size
  *

@@ -29,19 +29,6 @@
 
 #include "measure_points.h"
 
-static const uint64_t EBLOB_CSUM_CHUNK_SIZE = 1UL<<20;
-
-/*
- * eblob_disk_footer contains csum of data.
- * @csum - sha512 of record's data.
- *
- * eblob_disk_footer are kept at the end of the recods.
- */
-struct eblob_disk_footer {
-	unsigned char	csum[EBLOB_ID_SIZE];
-	uint64_t	offset;
-} __attribute__ ((packed));
-
 /*
  * mmhash_file() - computes MurmurHash64A of bytes range read from @fd with @offset and @count.
  *
@@ -216,9 +203,10 @@ static int eblob_verify_sha512(struct eblob_backend *b, struct eblob_key *key, s
 	}
 
 	if (memcmp(csum, f.csum, sizeof(csum))) {
+		err = -EILSEQ;
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: checksum mismatch: err: %d\n",
 		          wc->index, eblob_dump_id(key->id), __func__, err);
-		return -EILSEQ;
+		return err;
 	}
 
 	eblob_log(b->cfg.log, EBLOB_LOG_NOTICE, "blob: i%d: %s: %s: checksum verified\n",
