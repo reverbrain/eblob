@@ -59,7 +59,7 @@ static void eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat
 			base_stat.AddMember(eblob_stat_get_name(bctl->stat, i), eblob_stat_get(bctl->stat, i), allocator);
 		}
 		base_stat.AddMember("string_want_defrag", eblob_want_defrag_string(eblob_stat_get(bctl->stat, EBLOB_LST_WANT_DEFRAG)), allocator);
-		stat.AddMember(bctl->name, base_stat, allocator);
+		stat.AddMember(bctl->name, allocator, base_stat, allocator);
 	}
 }
 
