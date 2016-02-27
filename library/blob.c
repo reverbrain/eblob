@@ -892,8 +892,10 @@ static int eblob_blob_iterator(struct eblob_iterate_priv *iter_priv)
 
 						/*
 						 * We have found next range which is beyond or starts with the current index offset, use it.
+						 * The next range may start before current index_offset, so we should get the max of
+						 * next->start_offset and index_offset here to exclude already processed part of the index.
 						 */
-						ctl->index_offset = next->start_offset;
+						ctl->index_offset = EBLOB_MAX(next->start_offset, ctl->index_offset);
 						break;
 					}
 				}
