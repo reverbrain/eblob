@@ -875,6 +875,8 @@ err_out_stop_binlog:
 err_out_free_index:
 	free(sorted_index);
 err_out_close:
+	/* Remove temporary file ("%s-0.%d.index.tmp"). */
+	unlink(file);
 	close(fd);
 err_out_free_dst_file:
 	free(dst_file);
