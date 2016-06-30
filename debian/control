@@ -8,12 +8,10 @@ Build-Depends:
  libboost-dev,
  libboost-iostreams-dev,
  libboost-python-dev,
- libboost-regex-dev,
  libboost-system-dev,
  libboost-thread-dev,
  libboost-test-dev,
  python-dev,
- python-support,
  handystats (>= 1.10.2)
 Standards-Version: 3.8.0
 Homepage: http://www.reverbrain.com/eblob/

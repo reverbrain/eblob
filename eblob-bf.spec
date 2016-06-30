@@ -19,7 +19,7 @@ BuildRequires:	gcc44 gcc44-c++
 %else
 %define boost_ver %{nil}
 %endif
-BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-regex, boost%{boost_ver}-system, boost%{boost_ver}-thread
+BuildRequires:	boost%{boost_ver}-devel, boost%{boost_ver}-filesystem, boost%{boost_ver}-iostreams, boost%{boost_ver}-python, boost%{boost_ver}-system, boost%{boost_ver}-thread
 BuildRequires:	cmake >= 2.6
 BuildRequires:	python-devel
 BuildRequires:	handystats >= 1.10.2
