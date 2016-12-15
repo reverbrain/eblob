@@ -989,7 +989,7 @@ err_out_check:
 
 				/* Last valid dc and it's offset */
 				idc = *loc.last_valid_dc;
-				ctl->index_offset = loc.last_valid_offset;
+				bctl->index_ctl.size = ctl->index_offset = loc.last_valid_offset;
 				eblob_convert_disk_control(&idc);
 
 				err = __eblob_read_ll(bctl->data_ctl.fd, &data_dc, hdr_size, idc.position);
