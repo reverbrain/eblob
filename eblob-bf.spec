@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.12
+Version:	0.23.13
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,14 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sun Dec 18 2016 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.13
+- Fix adding zero-filled space into index file
+- Fix cmake warning
+- package: get rid of unused dependencies
+- Remove temporary file after failed sorted index generation
+- Fix duplicates in iterator responses
+- Copy bctl's name to avoid using deleted memory at serialization point
+
 * Wed Jan 06 2016 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.12
 - merge: fixed tool to use sorted index if unsorted is not available
 - blob: added eblob_dump_dc() function which prints disk control structure into provided buffer

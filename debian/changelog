@@ -1,3 +1,14 @@
+eblob (0.23.13) unstable; urgency=low
+
+  * Fix adding zero-filled space into index file
+  * Fix cmake warning
+  * package: get rid of unused dependencies
+  * Remove temporary file after failed sorted index generation
+  * Fix duplicates in iterator responses
+  * Copy bctl's name to avoid using deleted memory at serialization point
+
+ -- Evgeniy Polyakov <zbr@ioremap.net>  Sun, 18 Dec 2016 17:01:40 +0400
+
 eblob (0.23.12) unstable; urgency=low
 
   * merge: fixed tool to use sorted index if unsorted is not available
