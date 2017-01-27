@@ -435,7 +435,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %" PRIu64 ", index_size: %zd, num: %zu\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zd, index_size: %" PRIu64 ", num: %zu\n",
 			eblob_dump_id(dc->key.id),
 			hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num);
 
@@ -483,7 +483,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 			if (read_err < 0) {
 				err = read_err;
 				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64
-						", block_size: %" PRIu64 ", blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+						", block_size: %zd, blob_size: %" PRIu64 ", num: %zu, FAILED: %s: %d.\n",
 					  eblob_dump_id(dc->key.id),
 					  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size,
 					  bctl->index_ctl.size, num, strerror(-err), err);
@@ -532,7 +532,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		if (read_err < 0) {
 			err = read_err;
 			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64
-					", block_size: %" PRIu64 ", blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+					", block_size: %zd, blob_size: %" PRIu64 ", num: %zu, FAILED: %s: %d.\n",
 				  eblob_dump_id(dc->key.id),
 				  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size,
 				  bctl->index_ctl.size, num, strerror(-err), err);

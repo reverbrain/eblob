@@ -216,7 +216,7 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 	stat.AddMember("favail", s.f_favail, allocator);
 	stat.AddMember("fsid", s.f_fsid, allocator);
 	stat.AddMember("flag", s.f_flag, allocator);
-	stat.AddMember("namemax", s.f_namemax, allocator);
+	stat.AddMember("namemax", (uint64_t)s.f_namemax, allocator);
 }
 
 int eblob_json_stat_init(struct eblob_backend *b) {
@@ -313,8 +313,8 @@ static int eblob_stat_add_timeout_error(struct eblob_backend *b, std::string &js
 		rapidjson::Value error(rapidjson::kObjectType);
 		error.AddMember("code", ETIMEDOUT, allocator);
 		error.AddMember("message", error_message, allocator);
-		error.AddMember("lifetime", lifetime, allocator);
-		error.AddMember("lifetime_limit", get_lifetime_limit(b), allocator);
+		error.AddMember("lifetime", (uint64_t)lifetime, allocator);
+		error.AddMember("lifetime_limit", (uint64_t)get_lifetime_limit(b), allocator);
 		eblob_stat_add_timestamp_raw(error, "current_timestamp", current_tv, allocator);
 		doc.AddMember("error", error, allocator);
 
