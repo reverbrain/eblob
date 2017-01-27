@@ -421,9 +421,12 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 	read_err = __eblob_read_ll(bctl->index_ctl.fd, hdr_block, hdr_block_size, hdr_block_offset);
 	if (read_err < 0) {
 		err = read_err;
-		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64
+				", block_size: %zu, blob_size: %" PRIu64
+				", num: %zu, FAILED: %s: %d.\n",
 			  eblob_dump_id(dc->key.id),
-			  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num, strerror(-err), err);
+			  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size,
+			  bctl->index_ctl.size, num, strerror(-err), err);
 		goto err_out_free_index;
 	}
 
@@ -432,7 +435,7 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 
 	sorted_orig = bsearch(dc, search_start, num, sizeof(struct eblob_disk_control), eblob_disk_control_sort);
 
-	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %zu, index_size: %zd, num: %zu\n",
+	eblob_log(b->cfg.log, EBLOB_LOG_SPAM, "%s: position: %" PRIu64 ", block_size: %" PRIu64 ", index_size: %zd, num: %zu\n",
 			eblob_dump_id(dc->key.id),
 			hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num);
 
@@ -479,9 +482,11 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 			read_err = __eblob_read_ll(bctl->index_ctl.fd, hdr_block, hdr_block_size, hdr_block_offset);
 			if (read_err < 0) {
 				err = read_err;
-				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+				eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64
+						", block_size: %" PRIu64 ", blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
 					  eblob_dump_id(dc->key.id),
-					  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num, strerror(-err), err);
+					  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size,
+					  bctl->index_ctl.size, num, strerror(-err), err);
 				break;
 			}
 		}
@@ -526,9 +531,11 @@ static int eblob_find_on_disk(struct eblob_backend *b,
 		read_err = __eblob_read_ll(bctl->index_ctl.fd, hdr_block, hdr_block_size, hdr_block_offset);
 		if (read_err < 0) {
 			err = read_err;
-			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64 ", block_size: %zu, blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
+			eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "%s: index: %d, position: %" PRIu64
+					", block_size: %" PRIu64 ", blob_size: %zd, num: %zu, FAILED: %s: %d.\n",
 				  eblob_dump_id(dc->key.id),
-				  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size, bctl->index_ctl.size, num, strerror(-err), err);
+				  bctl->index_ctl.fd, hdr_block_offset, hdr_block_size,
+				  bctl->index_ctl.size, num, strerror(-err), err);
 			break;
 		}
 
@@ -871,7 +878,7 @@ err_unlock_bctl:
 	pthread_mutex_unlock(&bctl->lock);
 	pthread_mutex_unlock(&b->lock);
 err_out_stop_binlog:
-	eblob_binlog_stop(&bctl->binlog);
+	(void)eblob_binlog_stop(&bctl->binlog);
 err_out_free_index:
 	free(sorted_index);
 err_out_close:

@@ -678,7 +678,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 {
 	int err = 1, disk = 0;
 
-	FORMATTED(HANDY_TIMER_START, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
+	FORMATTED(HANDY_TIMER_START, ("eblob.%u.cache.lookup", b->cfg.stat_id), (unsigned long)key);
 	pthread_rwlock_rdlock(&b->hash.root_lock);
 	if (b->cfg.blob_flags & EBLOB_L2HASH) {
 		/* If l2hash is enabled - look in it */
@@ -688,7 +688,7 @@ int eblob_cache_lookup(struct eblob_backend *b, struct eblob_key *key,
 		err = eblob_hash_lookup_nolock(&b->hash, key, res);
 	}
 	pthread_rwlock_unlock(&b->hash.root_lock);
-	FORMATTED(HANDY_TIMER_STOP, ("eblob.%u.cache.lookup", b->cfg.stat_id), (uint64_t)key);
+	FORMATTED(HANDY_TIMER_STOP, ("eblob.%u.cache.lookup", b->cfg.stat_id), (unsigned long)key);
 
 	if (err == -ENOENT) {
 		/* Look on disk */

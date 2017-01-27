@@ -260,7 +260,7 @@ static int eblob_verify_mmhash(struct eblob_backend *b, struct eblob_key *key, s
 
 	if (memcmp(calc_footers.data(), check_footers.data(), footers_size)) {
 		eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob i%d: %s: %s: checksum mismatch: footers_size: %" PRIu64
-		          ", footers_count: %" PRIu64"\n",
+		          ", footers_count: %zd\n",
 		          wc->index, eblob_dump_id(key->id), __func__, footers_size, calc_footers.size());
 		return -EILSEQ;
 	}
@@ -323,7 +323,7 @@ int eblob_commit_footer(struct eblob_backend *b, struct eblob_key *key, struct e
 	err = __eblob_write_ll(wc->data_fd, checksums.data(), checksums_size, checksums_offset);
 	if (err) {
 		eblob_log(b->cfg.log, EBLOB_LOG_ERROR, "blob i%d: %s: %s: failed to write checksums: "
-		          "fd: %d, size: %" PRIu64 ", offset: %" PRIu64 ": %d\n",
+		          "fd: %d, size: %zd, offset: %" PRIu64 ": %d\n",
 		          wc->index, eblob_dump_id(key->id), __func__,
 		          wc->data_fd, checksums_size, checksums_offset, err);
 		return err;
