@@ -25,8 +25,8 @@ struct json_stat_cache {
 
 static void eblob_stat_add_timestamp_raw(rapidjson::Value &stat, const char *name, timeval &tv, rapidjson::Document::AllocatorType &allocator) {
 	rapidjson::Value timestamp(rapidjson::kObjectType);
-	timestamp.AddMember("tv_sec", tv.tv_sec, allocator);
-	timestamp.AddMember("tv_usec", tv.tv_usec, allocator);
+	timestamp.AddMember("tv_sec", (uint64_t)tv.tv_sec, allocator);
+	timestamp.AddMember("tv_usec", (uint64_t)tv.tv_usec, allocator);
 	stat.AddMember(name, allocator, timestamp, allocator);
 }
 
@@ -206,17 +206,17 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 		return;
 	}
 
-	stat.AddMember("bsize", s.f_bsize, allocator);
-	stat.AddMember("frsize", s.f_frsize, allocator);
-	stat.AddMember("blocks", s.f_blocks, allocator);
-	stat.AddMember("bfree", s.f_bfree, allocator);
-	stat.AddMember("bavail", s.f_bavail, allocator);
-	stat.AddMember("files", s.f_files, allocator);
-	stat.AddMember("ffree", s.f_ffree, allocator);
-	stat.AddMember("favail", s.f_favail, allocator);
-	stat.AddMember("fsid", s.f_fsid, allocator);
-	stat.AddMember("flag", s.f_flag, allocator);
-	stat.AddMember("namemax", s.f_namemax, allocator);
+	stat.AddMember("bsize", (uint64_t)s.f_bsize, allocator);
+	stat.AddMember("frsize", (uint64_t)s.f_frsize, allocator);
+	stat.AddMember("blocks", (uint64_t)s.f_blocks, allocator);
+	stat.AddMember("bfree", (uint64_t)s.f_bfree, allocator);
+	stat.AddMember("bavail", (uint64_t)s.f_bavail, allocator);
+	stat.AddMember("files", (uint64_t)s.f_files, allocator);
+	stat.AddMember("ffree", (uint64_t)s.f_ffree, allocator);
+	stat.AddMember("favail", (uint64_t)s.f_favail, allocator);
+	stat.AddMember("fsid", (uint64_t)s.f_fsid, allocator);
+	stat.AddMember("flag", (uint64_t)s.f_flag, allocator);
+	stat.AddMember("namemax", (uint64_t)s.f_namemax, allocator);
 }
 
 int eblob_json_stat_init(struct eblob_backend *b) {
@@ -298,7 +298,7 @@ int eblob_json_commit(struct eblob_backend *b) {
 /*
  * calculates lifetime_limit in usecs as doubled periodic timeout
  */
-static uint32_t get_lifetime_limit(struct eblob_backend *b) {
+static long get_lifetime_limit(struct eblob_backend *b) {
 	return b->cfg.periodic_timeout * 2 * 1000000;
 }
 
@@ -313,8 +313,8 @@ static int eblob_stat_add_timeout_error(struct eblob_backend *b, std::string &js
 		rapidjson::Value error(rapidjson::kObjectType);
 		error.AddMember("code", ETIMEDOUT, allocator);
 		error.AddMember("message", error_message, allocator);
-		error.AddMember("lifetime", lifetime, allocator);
-		error.AddMember("lifetime_limit", get_lifetime_limit(b), allocator);
+		error.AddMember("lifetime", (uint64_t)lifetime, allocator);
+		error.AddMember("lifetime_limit", (uint64_t)get_lifetime_limit(b), allocator);
 		eblob_stat_add_timestamp_raw(error, "current_timestamp", current_tv, allocator);
 		doc.AddMember("error", error, allocator);
 
