@@ -207,15 +207,15 @@ static void eblob_stat_vfs(struct eblob_backend *b, rapidjson::Value &stat, rapi
 	}
 
 	stat.AddMember("bsize", (uint64_t)s.f_bsize, allocator);
-	stat.AddMember("frsize", s.f_frsize, allocator);
-	stat.AddMember("blocks", s.f_blocks, allocator);
-	stat.AddMember("bfree", s.f_bfree, allocator);
-	stat.AddMember("bavail", s.f_bavail, allocator);
-	stat.AddMember("files", s.f_files, allocator);
-	stat.AddMember("ffree", s.f_ffree, allocator);
-	stat.AddMember("favail", s.f_favail, allocator);
-	stat.AddMember("fsid", s.f_fsid, allocator);
-	stat.AddMember("flag", s.f_flag, allocator);
+	stat.AddMember("frsize", (uint64_t)s.f_frsize, allocator);
+	stat.AddMember("blocks", (uint64_t)s.f_blocks, allocator);
+	stat.AddMember("bfree", (uint64_t)s.f_bfree, allocator);
+	stat.AddMember("bavail", (uint64_t)s.f_bavail, allocator);
+	stat.AddMember("files", (uint64_t)s.f_files, allocator);
+	stat.AddMember("ffree", (uint64_t)s.f_ffree, allocator);
+	stat.AddMember("favail", (uint64_t)s.f_favail, allocator);
+	stat.AddMember("fsid", (uint64_t)s.f_fsid, allocator);
+	stat.AddMember("flag", (uint64_t)s.f_flag, allocator);
 	stat.AddMember("namemax", (uint64_t)s.f_namemax, allocator);
 }
 
