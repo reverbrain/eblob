@@ -1,6 +1,6 @@
 Summary:	low-level IO library which stores data in huge blob files appending records one after another
 Name:		eblob
-Version:	0.23.13
+Version:	0.23.14
 Release:	1%{?dist}.1
 
 License:	GPLv2+
@@ -108,6 +108,10 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 
 %changelog
+* Sat Jan 28 2017 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.14
+- Fixed i386 compilation warnings and errors
+- python: added library versioning
+
 * Sun Dec 18 2016 Evgeniy Polyakov <zbr@ioremap.net> - 0.23.13
 - Fix adding zero-filled space into index file
 - Fix cmake warning
