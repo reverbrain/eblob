@@ -1356,7 +1356,7 @@ static inline uint64_t eblob_calculate_size(struct eblob_backend *b, struct eblo
 	const uint64_t total_size = hdr_size + data_size + footer_size;
 
 	eblob_log(b->cfg.log, EBLOB_LOG_DEBUG, "blob: %s: %s: offset: %" PRIu64 ", size: %" PRIu64 ", "
-	          "hdr_size: %lu, data_size: %" PRIu64 ", footer_size: %" PRIu64 ", total_size: %" PRIu64 "\n",
+	          "hdr_size: %zd, data_size: %" PRIu64 ", footer_size: %" PRIu64 ", total_size: %" PRIu64 "\n",
 	          eblob_dump_id(key->id), __func__, offset, size, hdr_size, data_size, footer_size, total_size);
 
 	return total_size;
@@ -2880,7 +2880,7 @@ int eblob_periodic(struct eblob_backend *b)
 
 	pthread_mutex_lock(&b->periodic_lock);
 
-	if (t > b->stat_file_time + b->cfg.periodic_timeout) {
+	if (t > b->stat_file_time + (time_t)b->cfg.periodic_timeout) {
 		err = eblob_stat_commit(b);
 		if (err != 0) {
 			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err,
