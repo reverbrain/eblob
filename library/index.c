@@ -815,7 +815,7 @@ int eblob_generate_sorted_index(struct eblob_backend *b, struct eblob_base_ctl *
 	 */
 	err = indexsort_flush_cache(b, sorted_index, index_size);
 	if (err) {
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: indexsort_flush_cache: index: %d: FAILED",
 			    bctl->index);
 		goto err_unlock_hash;
 	}

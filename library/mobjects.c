@@ -756,8 +756,7 @@ static int eblob_iterate_existing(struct eblob_backend *b, struct eblob_iterate_
 			if (ctl->flags & EBLOB_ITERATE_FLAGS_INITIAL_LOAD) {
 				want = eblob_want_defrag(bctl);
 				if (want < 0)
-					EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR,
-							"eblob_want_defrag: FAILED");
+					EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -want, "eblob_want_defrag: FAILED");
 
 				if (want == EBLOB_REMOVE_NEEDED) {
 					/*

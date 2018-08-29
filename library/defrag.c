@@ -147,7 +147,7 @@ int eblob_defrag(struct eblob_backend *b)
 	/* Allocation of zero bytes is undefined check for that */
 	if (bctl_num == 0) {
 		err = -ENOENT;
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: count");
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: count");
 		goto err_out_exit;
 	}
 
@@ -155,7 +155,7 @@ int eblob_defrag(struct eblob_backend *b)
 	bctls = calloc(bctl_num, sizeof(struct eblob_base_ctl *));
 	if (bctls == NULL) {
 		err = -errno;
-		EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: malloc");
+		EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: malloc");
 		goto err_out_exit;
 	}
 
@@ -173,7 +173,7 @@ int eblob_defrag(struct eblob_backend *b)
 		/* Decide what we want to do with this bctl */
 		want = eblob_want_defrag(bctl);
 		if (want < 0)
-			EBLOB_WARNC(b->cfg.log, -want, EBLOB_LOG_ERROR, "defrag: eblob_want_defrag: FAILED");
+			EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -want, "defrag: eblob_want_defrag: FAILED");
 
 		if (want == EBLOB_REMOVE_NEEDED) {
 			EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO, "defrag: empty blob - removing.");
@@ -273,7 +273,7 @@ int eblob_defrag(struct eblob_backend *b)
 				if (!bctl->index_ctl.sorted) {
 					err = eblob_generate_sorted_index(b, bctl);
 					if (err) {
-						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: indexsort: FAILED");
+						EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: indexsort: FAILED");
 					}
 				}
 				break;
@@ -295,7 +295,7 @@ int eblob_defrag(struct eblob_backend *b)
 					EBLOB_WARNX(b->cfg.log, EBLOB_LOG_INFO,
 							"defrag: sorting: %d base(s)", current - previous);
 					if ((err = eblob_generate_sorted_data(&dcfg)) != 0)
-						EBLOB_WARNC(b->cfg.log, -err, EBLOB_LOG_ERROR, "defrag: datasort: FAILED");
+						EBLOB_WARNC(b->cfg.log, EBLOB_LOG_ERROR, -err, "defrag: datasort: FAILED");
 				}
 				break;
 			}
