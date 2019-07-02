@@ -146,6 +146,7 @@ options_get(int argc, char **argv)
 			break;
 		case 'h':
 			options_usage(argv[0], EX_OK, stdout);
+			break;
 		case 'f':
 			options_get_ll(&cfg.test_force_defrag, optarg);
 			break;
