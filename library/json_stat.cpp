@@ -7,6 +7,7 @@ extern "C" {
 #include <iostream>
 #include <mutex>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/time.h>
 
 #include <handystats/rapidjson/document.h>
@@ -27,7 +28,7 @@ static void eblob_stat_add_timestamp_raw(rapidjson::Value &stat, const char *nam
 	rapidjson::Value timestamp(rapidjson::kObjectType);
 	timestamp.AddMember("tv_sec", (uint64_t)tv.tv_sec, allocator);
 	timestamp.AddMember("tv_usec", (uint64_t)tv.tv_usec, allocator);
-	stat.AddMember(name, allocator, timestamp, allocator);
+	stat.AddMember(rapidjson::Value(name, allocator), timestamp, allocator);
 }
 
 static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, rapidjson::Document::AllocatorType &allocator) {
@@ -39,13 +40,13 @@ static void eblob_stat_add_timestamp(rapidjson::Value &stat, const char *name, r
 static void eblob_stat_global_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (uint32_t i = EBLOB_GST_MIN + 1; i < EBLOB_GST_MAX; i++)
-		stat.AddMember(eblob_stat_get_name(b->stat, i), eblob_stat_get(b->stat, i), allocator);
+		stat.AddMember(rapidjson::Value(eblob_stat_get_name(b->stat, i), allocator), rapidjson::Value(eblob_stat_get(b->stat, i)).Move(), allocator);
 }
 
 static void eblob_stat_summary_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
 {
 	for (int i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++)
-		stat.AddMember(eblob_stat_get_name(b->stat_summary, i), eblob_stat_get(b->stat_summary, i), allocator);
+		stat.AddMember(rapidjson::Value(eblob_stat_get_name(b->stat_summary, i), allocator), rapidjson::Value(eblob_stat_get(b->stat_summary, i)).Move(), allocator);
 }
 
 static void eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator)
@@ -56,18 +57,18 @@ static void eblob_stat_base_json(struct eblob_backend *b, rapidjson::Value &stat
 	list_for_each_entry(bctl, &b->bases, base_entry) {
 		rapidjson::Value base_stat(rapidjson::kObjectType);
 		for (i = EBLOB_LST_MIN + 1; i < EBLOB_LST_MAX; i++) {
-			base_stat.AddMember(eblob_stat_get_name(bctl->stat, i), eblob_stat_get(bctl->stat, i), allocator);
+			base_stat.AddMember(rapidjson::Value(eblob_stat_get_name(bctl->stat, i), allocator), rapidjson::Value(eblob_stat_get(bctl->stat, i)).Move(), allocator);
 		}
-		base_stat.AddMember("string_want_defrag", eblob_want_defrag_string(eblob_stat_get(bctl->stat, EBLOB_LST_WANT_DEFRAG)), allocator);
-		stat.AddMember(bctl->name, allocator, base_stat, allocator);
+		base_stat.AddMember("string_want_defrag", rapidjson::Value().SetString(eblob_want_defrag_string(eblob_stat_get(bctl->stat, EBLOB_LST_WANT_DEFRAG)), allocator).Move(), allocator);
+		stat.AddMember(rapidjson::Value(bctl->name, allocator), base_stat.Move(), allocator);
 	}
 }
 
 static void eblob_stat_config_json(struct eblob_backend *b, rapidjson::Value &stat, rapidjson::Document::AllocatorType &allocator) {
 	stat.AddMember("blob_flags", b->cfg.blob_flags, allocator);
-	stat.AddMember("string_blob_flags", eblob_dump_blob_flags(b->cfg.blob_flags), allocator);
+	stat.AddMember("string_blob_flags", rapidjson::Value(eblob_dump_blob_flags(b->cfg.blob_flags), allocator).Move(), allocator);
 	stat.AddMember("sync", b->cfg.sync, allocator);
-	stat.AddMember("data", b->cfg.file, allocator);
+	stat.AddMember("data", rapidjson::Value(b->cfg.file, allocator), allocator);
 	stat.AddMember("blob_size", b->cfg.blob_size, allocator);
 	stat.AddMember("records_in_blob", b->cfg.records_in_blob, allocator);
 	stat.AddMember("defrag_percentage", b->cfg.defrag_percentage, allocator);
